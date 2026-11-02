@@ -87,9 +87,11 @@
     const colNow = HOODS.map(() => [200, 200, 200]), colTo = HOODS.map(() => [200, 200, 200]); let colAnim = false;
     const lblA = HOODS.map(() => 0), subA = {}, lmA = LANDS.map(() => 0), bridgeLblA = [0], waterLblA = [0];
     const markAnim = {}; let me = null, meT0 = 0;
-    const measureCache = new Map();
+    const measureCache = new Map(); let drawnSpots = [];
+    // widths measured before the webfont arrives belong to the fallback face: measure again once it loads
+    if (document.fonts && document.fonts.addEventListener) document.fonts.addEventListener('loadingdone', () => { measureCache.clear(); dirty = true; kick(); });
     // widths scale linearly with size for a given face, so measure once at 20px and scale
-    function measure(text, weight, size) { const key = weight + '|' + text; let w = measureCache.get(key); if (w == null) { ctx.font = `${weight} 20px Figtree, system-ui, sans-serif`; w = ctx.measureText(text).width; measureCache.set(key, w); } return w * size / 20; }
+    function measure(text, weight, size) { const key = weight + '|' + text; let w = measureCache.get(key); if (w == null) { ctx.font = `${weight} 20px Figtree, system-ui, sans-serif`; w = ctx.measureText(text).width; if (!document.fonts || document.fonts.status !== 'loading') measureCache.set(key, w); } return w * size / 20; }
     function haloText(text, x, y, size, color) { if (!lite) { const r = Math.max(1, size * .11); ctx.fillStyle = P.labelHalo; for (let q = 0; q < 6; q++) { const a = q * Math.PI / 3; ctx.fillText(text, x + Math.cos(a) * r, y + Math.sin(a) * r); } } ctx.fillStyle = color; ctx.fillText(text, x, y); }
 
     // ---- camera helpers ----
@@ -201,14 +203,18 @@
       const need = !cache.valid || dirty || colAnim || !inside || drift > 0.25 || (drift > 0.004 && sinceT >= minGap) || (drift > 0.0005 && mode === 'still' && sinceT >= 40);
       const t0 = now();
       if (need) { renderTerrain(k); anim = anim || colAnim; }
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       const s = k / cache.k, bw = tc.width / cache.cd * s, bh = tc.height / cache.cd * s;
+      let ox = (cache.x - cam.x) * k, oy = (cache.y - cam.y) * k, tx = 0, ty = 0;
+      if (s === 1 && cache.cd === dpr) { // a 1:1 blit lands on the device grid, or it resamples soft; the remainder shifts the live strokes with it
+        const sx = Math.round(ox * dpr) / dpr, sy = Math.round(oy * dpr) / dpr; tx = (sx - ox) * dpr; ty = (sy - oy) * dpr; ox = sx; oy = sy;
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       if (s !== 1 || cache.cd !== dpr) { ctx.fillStyle = P.water; ctx.fillRect(0, 0, W, H); }
-      ctx.drawImage(tc, (cache.x - cam.x) * k, (cache.y - cam.y) * k, bw, bh);
+      ctx.drawImage(tc, ox, oy, bw, bh);
       if (need) { const cost = now() - t0; cache.cost = cache.cost * .6 + cost * .4; } // includes the flush of the offscreen raster
       tick('terrain');
       // live strokes: hover and selection
-      ctx.setTransform(k * dpr, 0, 0, k * dpr, -cam.x * k * dpr, -cam.y * k * dpr); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      ctx.setTransform(k * dpr, 0, 0, k * dpr, -cam.x * k * dpr + tx, -cam.y * k * dpr + ty); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
       if (hover >= 0 && hover !== sel && !quiz) { ctx.strokeStyle = P.ink; ctx.lineWidth = 1.4 / k; ctx.stroke(PATH[hover]); }
       if (sel >= 0) {
         ctx.strokeStyle = P.accent; ctx.lineWidth = 2.2 / k; ctx.stroke(PATH[sel]);
@@ -219,7 +225,7 @@
       for (let i = 0; i < HOODS.length; i++) { if (!visible(BB[i], k, 40)) { subF[i] = 0; continue; } vis.push(i); subF[i] = subFactor(i); }
       tick('live');
       // ---- screen space ----
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.setTransform(dpr, 0, 0, dpr, tx, ty);
       ctx.textBaseline = 'middle';
       // water & bridge names
       anim = fade(waterLblA, 0, k < 5.5 && !quiz ? 1 : 0, dt) || anim;
@@ -318,7 +324,7 @@
       });
       ctx.globalAlpha = 1; tick('landmarks');
       // spots
-      const spots = o.spots ? o.spots() : [], pinFont = `500 ${isPhone() ? 10.5 : 11.5}px Figtree, system-ui, sans-serif`;
+      const spots = drawnSpots = o.spots ? o.spots() : [], pinFont = `500 ${isPhone() ? 10.5 : 11.5}px Figtree, system-ui, sans-serif`;
       const pinScale = clamp(k / 12, .75, 1.15);
       for (const sp of spots) {
         const [sx, sy] = toScreen(sp.x, sp.y); if (sx < -20 || sx > W + 20 || sy < -20 || sy > H + 20) { sp._s = null; continue; }
@@ -337,7 +343,7 @@
 
     // ---- hit testing ----
     function hitTest(sx, sy) {
-      const spots = o.spots ? o.spots() : [];
+      const spots = drawnSpots; // the objects draw() positioned, not a fresh list
       for (let q = spots.length - 1; q >= 0; q--) { const sp = spots[q]; if (sp._s && Math.hypot(sp._s[0] - sx, sp._s[1] - sy) < 11 && sp.status !== 'pending') return { type: 'spot', id: sp.id, hood: sp.hood }; }
       for (let j = LANDS.length - 1; j >= 0; j--) { const b = LANDS[j]._box; if (b && lmA[j] > .5 && sx >= b[0] - 3 && sx <= b[2] + 3 && sy >= b[1] - 3 && sy <= b[3] + 3) return { type: 'landmark', landmark: LANDS[j], hood: LANDS[j].hood }; }
       const [mx, my] = toMap(sx, sy), k = kNow();
@@ -411,12 +417,16 @@
       const r = stage.getBoundingClientRect(); const w = Math.max(1, Math.round(r.width)), h = Math.max(1, Math.round(r.height));
       dpr = Math.min(window.devicePixelRatio || 1, 2.5);
       if (w === W && h === H && canvas.width === Math.round(w * dpr)) return;
-      const cx = cam.x + cam.w / 2, cy = cam.y + cam.w * H / W / 2, kOld = W / cam.w;
+      const first = W <= 1, W0 = W, H0 = H;
       W = w; H = h; canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr); dirty = true;
-      if (kOld && isFinite(kOld) && W > 1) { cam.w = W / kOld; cam.x = cx - cam.w / 2; cam.y = cy - cam.w * H / W / 2; clampCam(cam); Object.assign(goal, cam); }
+      if (!first) { // keep scale and centre through the new box; a flight in progress is re-aimed the same way
+        const refit = c => { const cx = c.x + c.w / 2, cy = c.y + c.w * H0 / W0 / 2, k0 = W0 / c.w; c.w = W / k0; c.x = cx - c.w / 2; c.y = cy - c.w * H / W / 2; return clampCam(c); };
+        refit(cam); refit(goal); if (fly) { refit(fly.from); refit(fly.to); }
+      }
       kick();
     }
     new ResizeObserver(resize).observe(stage);
+    (function watchDpr() { try { const mq = matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`); mq.addEventListener('change', () => { resize(); watchDpr(); }, { once: true }); } catch (e) {} })();
     refreshPalette(); resize();
 
     return {

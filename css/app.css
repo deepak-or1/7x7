@@ -295,7 +295,7 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
   .sheet.lifting { transition: none; }
   .grip { display: block; flex: none; height: 18px; position: relative; touch-action: none; }
   .grip::after { content: ""; position: absolute; left: 50%; top: 7px; width: 36px; height: 4px; border-radius: 2px; background: var(--line-2); transform: translateX(-50%); }
-  .head { padding: 0 14px 10px 10px; min-height: 52px; border-bottom-color: transparent; transition: border-color .2s; }
+  .head { padding: 0 14px 10px 10px; min-height: 52px; border-bottom-color: transparent; transition: border-color .2s; touch-action: none; }
   .sheet.scrolled .head { border-bottom-color: var(--line); }
   .head h2 { font-size: 22px; }
   .panel { padding: 6px max(16px, env(safe-area-inset-left, 0px)) calc(32px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }

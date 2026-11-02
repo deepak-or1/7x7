@@ -381,9 +381,9 @@
         stage.classList.remove('dragging'); pinch = null;
         if (drag && drag.moved <= 5 && !drag.pinched && e.type === 'pointerup') {
           const sx = e.clientX - r.left, sy = e.clientY - r.top, t = now();
+          mode = 'still'; // before the callbacks: a tap may start a fly or a zoom
           if (lastTap && t - lastTap.t < 320 && Math.hypot(lastTap.x - sx, lastTap.y - sy) < 28) { lastTap = null; zoomAt(sx, sy, 1 / 1.9); }
           else { lastTap = { t, x: sx, y: sy }; if (o.onTap) o.onTap(hitTest(sx, sy), sx, sy); }
-          mode = 'still';
         } else if (drag && drag.moved > 5) {
           const speed = Math.hypot(vel.x, vel.y); if (speed > 0.08 && now() - drag.t < 80) { mode = 'inertia'; kick(); } else mode = 'still';
         } else mode = 'still';

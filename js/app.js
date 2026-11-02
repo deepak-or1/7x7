@@ -71,7 +71,7 @@
   const recolor = animate => map.setColors(HOODS.map((h, i) => colorFor(i)), animate && !reduceMotion);
 
   // ---------- sheet ----------
-  const sheet = window.Sheet(sheetEl, { grip: $('grip'), head, panel, ctl: $('ctl'), onChange(detent, vis, o) { if (o && o.resize) return; if (isPhone() && detent !== 'full' && !map.userMoved) setTimeout(flyToLoc, 30); } });
+  const sheet = window.Sheet(sheetEl, { grip: $('grip'), head, panel, ctl: $('ctl'), onChange(detent, vis, o) { if (o && (o.resize || o.quiet)) return; if (isPhone() && detent !== 'full' && !map.userMoved) flyToLoc(); } });
 
   // ---------- navigation ----------
   const hoodOfSpot = id => state.spots[id] ? state.spots[id].hood : null;
@@ -86,9 +86,10 @@
   const subByName = (hood, sub) => subs(hood).find(s => s.name === sub) || null;
   const subIndex = (hood, sub) => subs(hood).findIndex(s => s.name === sub);
   const level = l => l.spot ? 4 : l.sub ? 3 : l.hood ? 2 : l.region !== 'all' ? 1 : 0;
-  function hashOf(l) { if (l.spot) return '#spot/' + l.spot; if (l.sub) return '#' + slug(l.hood) + '/' + slug(l.sub); if (l.hood) return '#' + slug(l.hood); if (l.region !== 'all') return '#' + l.region; return ''; }
+  // hashes use only letters, digits and hyphens; a double hyphen separates the levels
+  function hashOf(l) { if (l.spot) return '#spot--' + l.spot; if (l.sub) return '#' + slug(l.hood) + '--' + slug(l.sub); if (l.hood) return '#' + slug(l.hood); if (l.region !== 'all') return '#' + l.region; return ''; }
   function parseHash(h) {
-    const parts = (h || '').replace(/^#/, '').split('/').filter(Boolean); if (!parts.length) return { region: 'all' };
+    const parts = (h || '').replace(/^#/, '').split(/--|\//).filter(Boolean); if (!parts.length) return { region: 'all' };
     if (parts[0] === 'spot') return { spot: parts[1] };
     if (BY_SLUG[parts[0]]) { const hood = BY_SLUG[parts[0]]; const sub = parts[1] ? (subs(hood).find(s => slug(s.name) === parts[1]) || {}).name : null; return { hood, sub }; }
     if (REGIONS[parts[0]]) return { region: parts[0] };
@@ -103,9 +104,10 @@
     map.setState({ region: next.region, sel: next.hood ? IDX[next.hood] : -1, selSub: next.sub ? subIndex(next.hood, next.sub) : -1 });
     if (state.lens === 'done' || state.quiz) recolor(false);
     render();
-    if (opts.fly !== false) flyToLoc(opts.dur);
-    if (isPhone()) { const lv = level(next); if (opts.sheet) sheet.set(opts.sheet); else if (lv >= 2 && (!opts.fromMap || sheet.detent === 'peek')) sheet.set(lv >= 2 && opts.fromMap ? 'half' : sheet.detent === 'peek' ? 'half' : sheet.detent); else if (lv < 2 && opts.fromMap) sheet.set('peek'); }
+    // settle the sheet first so the camera frames the place in the space that is left
+    if (isPhone()) { const lv = level(next); if (opts.sheet) sheet.set(opts.sheet, { quiet: true }); else if (lv >= 2) { if (!opts.fromMap || sheet.detent === 'peek') sheet.set('half', { quiet: true }); } else if (opts.fromMap) sheet.set('peek', { quiet: true }); }
     else panel.scrollTop = 0;
+    if (opts.fly !== false) flyToLoc(opts.dur);
   }
   function up() { const l = state.loc; if (state.view) { go(l, { replace: true, fly: false }); return; } if (l.spot) go({ hood: l.hood, sub: l.sub }); else if (l.sub) go({ hood: l.hood }); else if (l.hood) go({ region: l.region }); else if (l.region !== 'all') go({ region: 'all' }); }
   function flyToLoc(dur) {
@@ -199,7 +201,7 @@
     if (state.query) { renderSearch(); return; }
     if (state.quiz) { renderQuiz(); return; }
     const l = state.loc, v = state.view;
-    if (v === 'log') renderLogForm(); else if (v === 'spots') renderSpots(); else if (l.spot) renderSpot(l.spot); else if (l.sub) renderSub(l.hood, l.sub); else if (l.hood) renderHood(l.hood); else renderHome();
+    if (v === 'log') renderLogForm(); else if (v === 'spots') { renderSpots(); return; } else if (l.spot) renderSpot(l.spot); else if (l.sub) renderSub(l.hood, l.sub); else if (l.hood) renderHood(l.hood); else renderHome();
     wire(panel);
   }
   function wire(root) {
@@ -303,9 +305,12 @@
       ${sp.where ? `<p class="lead">${esc(sp.where)}</p>` : ''}
       <div class="facts">${sp.status === 'want' ? '<span><b>Want to try</b></span>' : `<span><b>Been</b> ${niceDate(sp.at)}</span>${sp.rating ? `<span class="stars">${'★'.repeat(sp.rating)}<span style="color:var(--line-2)">${'★'.repeat(5 - sp.rating)}</span></span>` : ''}`}<span>${esc(sp.hood)}${sp.sub ? ' › ' + esc(sp.sub) : ''}</span></div>
       ${sp.note ? `<h3>Notes</h3><p>${esc(sp.note)}</p>` : ''}
-      <div class="actions" style="margin-top:18px">${sp.status === 'want' ? `<button type="button" class="btn primary" id="been-now">Been here now</button>` : ''}<a class="btn" href="${maps}" target="_blank" rel="noopener">Open in Maps</a><button type="button" class="btn quiet" id="edit">Edit</button><button type="button" class="btn quiet" id="del" style="color:var(--bad)">Delete</button></div>`;
+      <div class="actions" style="margin-top:18px">${sp.status === 'want' ? `<button type="button" class="btn primary" id="been-now">Been here now</button>` : ''}<a class="btn" href="${maps}" target="_blank" rel="noopener">Open in Maps</a><button type="button" class="btn quiet" id="edit">Edit</button><button type="button" class="btn quiet" id="del" style="color:var(--bad)">Delete</button></div>
+      <div class="actions" id="del-confirm" hidden><span style="font-size:13.5px;align-self:center">Remove ${esc(sp.name)} from your log?</span><button type="button" class="btn sm" id="del-yes" style="color:var(--bad);border-color:var(--bad)">Delete</button><button type="button" class="btn sm quiet" id="del-no">Keep</button></div>`;
     panel.querySelector('#edit').addEventListener('click', () => startLog({ hood: sp.hood, sub: sp.sub, edit: id }));
-    panel.querySelector('#del').addEventListener('click', () => { if (confirm(`Delete ${sp.name}?`)) removeSpot(id); });
+    panel.querySelector('#del').addEventListener('click', () => { panel.querySelector('#del-confirm').hidden = false; panel.querySelector('#del').hidden = true; });
+    panel.querySelector('#del-no').addEventListener('click', () => { panel.querySelector('#del-confirm').hidden = true; panel.querySelector('#del').hidden = false; });
+    panel.querySelector('#del-yes').addEventListener('click', () => removeSpot(id));
     const bn = panel.querySelector('#been-now'); if (bn) bn.addEventListener('click', async () => { sp.status = 'been'; sp.at = today(); await persist(); render(); toast(`${sp.name}: been there.`); });
   }
   // ---- all spots ----
@@ -384,9 +389,13 @@
       }, e => console.warn('subscription ended', e));
     } catch (e) { state.store = 'local'; console.warn('store unavailable', e); }
   }
-  function exportLog() {
+  async function exportLog() {
     const payload = { app: 'seven-by-seven', exportedAt: new Date().toISOString(), hoods: state.done, want: state.want, spots: Object.fromEntries(Object.entries(state.spots).map(([id, sp]) => { const { _xy, ...rest } = sp; return [id, rest]; })) };
-    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 1)], { type: 'application/json' })); a.download = `seven-by-seven-${today()}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    const text = JSON.stringify(payload, null, 1), filename = `seven-by-seven-${today()}.json`;
+    if (window.claude && window.claude.use) { // inside claude.ai the page cannot start a download itself; the viewer offers the save
+      try { const dl = await claude.use('downloads'); if (dl) { await dl.save({ filename, data: text }); toast('Exported'); return; } } catch (e) { if (e && e.code !== 'cancelled') toast('Export was not allowed here', 3000); return; }
+    }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' })); a.download = filename; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   }
   async function importLog(file) {
     if (!file) return;
@@ -414,6 +423,7 @@
       <div class="field"><label for="lf-q">${placed ? 'Place' : 'Find the place'}</label><input id="lf-q" placeholder="Search a restaurant, bar, park…" value="${esc(d.name)}" ${placed ? '' : 'autofocus'}>
         ${placed ? `<small style="color:var(--muted);font-size:12.5px">${ICON.pin.replace('<svg', '<svg style="width:12px;height:12px;vertical-align:-1px;fill:none;stroke:currentColor;stroke-width:2"')} ${esc(d.where || '')}${d.where ? ' · ' : ''}${esc(d.sub ? d.sub + ', ' + d.hood : d.hood || 'outside the tracked places')} <button type="button" class="act" id="lf-clear" style="border:0;background:none;color:var(--accent);font-weight:600;padding:0 0 0 6px">change</button></small>` : ''}</div>
       <ul class="suggest" id="lf-sug" hidden></ul>
+      <p class="empty" id="lf-nosearch" style="font-size:12.5px;margin:-4px 0 10px" ${state.searchDown ? '' : 'hidden'}>Live suggestions are not available here. Press Enter to search, or type the name and drop a pin.</p>
       ${placed ? '' : `<div class="actions" style="margin:0 0 14px"><button type="button" class="btn sm" id="lf-pin">${ICON.pin} Drop a pin on the map</button><button type="button" class="btn sm" id="lf-gps">Use my location</button></div>`}
       <div class="field"><label>Kind</label><div class="seg" id="lf-kind">${Object.entries(KINDS).filter(([k]) => k !== 'other').map(([k, v]) => `<button type="button" data-k="${k}" aria-pressed="${d.kind === k}">${v.label}</button>`).join('')}</div></div>
       <div class="field"><label>Status</label><div class="seg" id="lf-status"><button type="button" data-s="been" aria-pressed="${d.status === 'been'}">Been</button><button type="button" data-s="want" aria-pressed="${d.status === 'want'}">Want to try</button></div></div>
@@ -425,7 +435,8 @@
       <div class="actions"><button type="submit" class="btn primary">${d.id ? 'Save changes' : 'Save spot'}</button><button type="button" class="btn" id="lf-cancel">Cancel</button>${d.id ? '' : (!placed ? `<span style="font-size:12.5px;color:var(--muted);align-self:center">Without a pin it lands in the middle of ${esc(d.sub || d.hood || 'the map')}.</span>` : '')}</div>
     </form>`;
     const form = panel.querySelector('#logform'), qi = panel.querySelector('#lf-q'), sug = panel.querySelector('#lf-sug');
-    qi.addEventListener('input', () => { d.name = qi.value; if (placed && d.src === 'search') return; clearTimeout(sugTimer); const v = qi.value.trim(); if (v.length < 2) { sug.hidden = true; return; } sugTimer = setTimeout(() => suggest(v, sug, qi), 280); });
+    qi.addEventListener('input', () => { d.name = qi.value; if (placed && d.src === 'search') return; clearTimeout(sugTimer); const v = qi.value.trim(); if (v.length < 2) { sug.hidden = true; return; } sugTimer = setTimeout(() => suggest(v, sug, qi, false), 280); });
+    qi.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); clearTimeout(sugTimer); const first = sug.querySelector('[data-i]'); if (first && !sug.hidden) first.click(); else if (qi.value.trim().length >= 2 && !(placed && d.src === 'search')) suggest(qi.value.trim(), sug, qi, true); } });
     panel.querySelectorAll('#lf-kind [data-k]').forEach(b => b.addEventListener('click', () => { d.kind = b.dataset.k; panel.querySelectorAll('#lf-kind [data-k]').forEach(x => x.setAttribute('aria-pressed', String(x === b))); }));
     panel.querySelectorAll('#lf-status [data-s]').forEach(b => b.addEventListener('click', () => { d.status = b.dataset.s; panel.querySelectorAll('#lf-status [data-s]').forEach(x => x.setAttribute('aria-pressed', String(x === b))); panel.querySelector('#lf-been').style.display = d.status === 'been' ? 'grid' : 'none'; }));
     panel.querySelectorAll('#lf-rate [data-r]').forEach(b => b.addEventListener('click', () => { d.rating = d.rating === +b.dataset.r ? 0 : +b.dataset.r; panel.querAll = null; panel.querySelectorAll('#lf-rate [data-r]').forEach(x => x.classList.toggle('on', +x.dataset.r <= d.rating)); }));
@@ -437,10 +448,11 @@
     const gps = panel.querySelector('#lf-gps'); if (gps) gps.addEventListener('click', () => locate(pos => { const [x, y] = Geom.proj(pos); const w = locateXY(x, y); Object.assign(d, { lon: pos[0], lat: pos[1], x, y, hood: w.hood || d.hood, sub: w.sub, src: 'gps', where: 'Your location' }); renderLogForm(); }));
     form.addEventListener('submit', e => { e.preventDefault(); saveDraft(); });
   }
-  async function suggest(v, sug, qi) {
+  async function suggest(v, sug, qi, explicit) {
     const my = ++sugCtrl, d = state.draft; let res = [];
     const bias = d.hood ? (() => { const bb = map.hoodBBox(IDX[d.hood]); return Geom.unproj((bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2); })() : null;
-    try { res = await window.Places.search(v, bias); } catch (e) { if (e.name === 'AbortError') return; sug.hidden = true; return; }
+    try { res = await window.Places.search(v, bias, { explicit }); } catch (e) { if (e.name === 'AbortError') return; sug.hidden = true; if (!state.searchDown) { state.searchDown = true; const n = panel.querySelector('#lf-nosearch'); if (n) n.hidden = false; } return; }
+    if (window.Places.search.photonDown && !state.searchDown) { state.searchDown = true; const n = panel.querySelector('#lf-nosearch'); if (n) n.hidden = false; }
     if (my !== sugCtrl || !state.draft || state.view !== 'log') return;
     if (!res.length) { sug.hidden = true; return; }
     sug.hidden = false; sug.innerHTML = res.map((r, i) => `<li><button type="button" data-i="${i}"><span><b>${esc(r.name)}</b><small>${esc(r.where)}</small></span><span class="k">${esc(r.osm)}</span></button></li>`).join('');
@@ -525,9 +537,9 @@
 
   // ---------- boot ----------
   window.HPP = []; window.HP.forEach(h => { window.HPP[IDX[h.name]] = h.polys.map(poly => poly.map(ring => ring.map(Geom.proj))); });
-  function start() {
+  function start(saved) {
     renderLenses(); recolor(false);
-    const fromHash = parseHash(location.hash);
+    const fromHash = (saved && saved.loc) || parseHash(location.hash);
     state.loc = normalize(fromHash);
     sheet.set(isPhone() ? (level(state.loc) >= 2 ? 'half' : 'peek') : 'full', { instant: true });
     map.setState({ region: state.loc.region, sel: state.loc.hood ? IDX[state.loc.hood] : -1, selSub: state.loc.sub ? subIndex(state.loc.hood, state.loc.sub) : -1 });
@@ -539,5 +551,7 @@
   }
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { map.refreshPalette(); recolor(false); });
   window.addEventListener('resize', () => { map.redraw(); });
-  start();
+  window.__sbs = { map, state, go, sheet }; // for tests and the console
+  window.claude?.hot?.snapshot?.(() => ({ loc: state.loc }));
+  window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
 })();

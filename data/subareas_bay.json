@@ -21,7 +21,7 @@
    "name": "Caledonia Street",
    "lon": -122.4855,
    "lat": 37.86,
-   "line": "Sausalito's everyday main street a block inland from Bridgeway, with Dunphy Park on the water below.",
+   "line": "The locals' main street a block inland from Bridgeway, with Dunphy Park on the water below.",
    "known": [
     "Caledonia Street shops",
     "Dunphy Park",
@@ -37,7 +37,7 @@
    "name": "Marinship & Bay Model",
    "lon": -122.4935,
    "lat": 37.8655,
-   "line": "WWII shipyard turned marine-industrial district: the Army Corps' Bay Model, boatyards and Heath Ceramics.",
+   "line": "WWII shipyard turned marine-industrial district: the Bay Model, boatyards and Heath Ceramics.",
    "known": [
     "Bay Model Visitor Center",
     "Heath Ceramics",
@@ -71,7 +71,7 @@
    "name": "Gateway & Donahue Street",
    "lon": -122.5085,
    "lat": 37.8725,
-   "line": "The flats along Donahue Street by the Highway 101 off-ramp, anchored by the Gateway shopping center.",
+   "line": "The flats along Donahue Street by the 101 off-ramp, anchored by the Gateway shopping center.",
    "known": [
     "Gateway Shopping Center",
     "Marin City Library",
@@ -86,7 +86,7 @@
    "name": "Golden Gate Village",
    "lon": -122.513,
    "lat": 37.87,
-   "line": "Aaron Green's 1960 public-housing towers and townhomes on the hillside, with ridge trails above.",
+   "line": "Aaron Green's 1960 public-housing towers and townhomes on the hillside, ridge trails above.",
    "known": [
     "Golden Gate Village",
     "Manzanita Recreation Center",
@@ -104,7 +104,7 @@
    "name": "Downtown & the Depot",
    "lon": -122.545,
    "lat": 37.906,
-   "line": "Lytton Square and the Depot bookstore-cafe, with Old Mill Park and the Dipsea Steps just uphill.",
+   "line": "Lytton Square and the Depot bookstore-cafe, with Old Mill Park and the Dipsea Steps uphill.",
    "known": [
     "The Depot Bookstore & Cafe",
     "Old Mill Park",
@@ -120,7 +120,7 @@
    "name": "Miller Avenue & Tam High",
    "lon": -122.5365,
    "lat": 37.8985,
-   "line": "The long Miller Avenue corridor from downtown toward Tam Junction, past Tamalpais High and the 2AM Club.",
+   "line": "The long Miller Avenue corridor toward Tam Junction, past Tamalpais High and the 2AM Club.",
    "known": [
     "Tamalpais High School",
     "2AM Club",
@@ -135,7 +135,7 @@
    "name": "Alto & East Blithedale",
    "lon": -122.525,
    "lat": 37.902,
-   "line": "East Blithedale Avenue's everyday shopping and the Alto neighborhood at the foot of Camino Alto's hills.",
+   "line": "East Blithedale's everyday shopping and the Alto neighborhood at the foot of Camino Alto.",
    "known": [
     "Camino Alto Open Space",
     "Edna Maguire School",
@@ -150,7 +150,7 @@
    "name": "Bayfront Park",
    "lon": -122.5235,
    "lat": 37.8935,
-   "line": "Richardson Bay marshland with ballfields and the dog run where the Mill Valley-Sausalito Path heads south.",
+   "line": "Richardson Bay marsh, ballfields and a dog run where the bike path to Sausalito begins.",
    "known": [
     "Bayfront Park",
     "Mill Valley-Sausalito Path",
@@ -215,7 +215,7 @@
    "name": "Homestead Valley",
    "lon": -122.542,
    "lat": 37.896,
-   "line": "A wooded hollow of its own between Miller Avenue and the ridge, with Stolte Grove and the Homestead trails.",
+   "line": "A wooded hollow between Miller Avenue and the ridge, with Stolte Grove and its own trails.",
    "known": [
     "Homestead Valley Community Center",
     "Stolte Grove",
@@ -233,7 +233,7 @@
    "name": "Strawberry Village",
    "lon": -122.5135,
    "lat": 37.899,
-   "line": "The Redwood Highway shopping center at the Tiburon Boulevard exit; the Strawberry Rec District pool uphill.",
+   "line": "The Redwood Highway shopping center at the Tiburon Boulevard exit, with the rec pool uphill.",
    "known": [
     "Strawberry Village",
     "Strawberry Recreation Center",
@@ -248,7 +248,7 @@
    "name": "Seminary Drive",
    "lon": -122.5065,
    "lat": 37.8835,
-   "line": "The old Baptist seminary hilltop and Strawberry Point beyond, where the spit ends at the seal haul-out.",
+   "line": "The old seminary hilltop and Strawberry Point beyond, where the spit ends at a seal haul-out.",
    "known": [
     "Strawberry Point",
     "Harbor Point",
@@ -266,7 +266,7 @@
    "name": "Main Street & Ark Row",
    "lon": -122.4565,
    "lat": 37.8735,
-   "line": "Ferry landing, waterfront restaurants and the floating-ark cottages of Ark Row along a one-block Main Street.",
+   "line": "The ferry landing, deck restaurants and the beached-ark cottages of Ark Row on Main Street.",
    "known": [
     "Ark Row",
     "Tiburon Ferry",
@@ -299,7 +299,7 @@
    "name": "Blackie's Pasture",
    "lon": -122.4775,
    "lat": 37.8905,
-   "line": "The swayback horse's statue marks the start of the Old Rail Trail along Richardson Bay toward downtown.",
+   "line": "Blackie the swayback horse's statue, where the Old Rail Trail starts along Richardson Bay.",
    "known": [
     "Blackie's Pasture",
     "Old Rail Trail",
@@ -315,7 +315,7 @@
    "name": "Bel Aire & the Cove",
    "lon": -122.493,
    "lat": 37.9,
-   "line": "The inland neighborhoods off upper Tiburon Boulevard, with the Cove shopping center and Reed School.",
+   "line": "Inland streets off upper Tiburon Boulevard, with the Cove shopping center and Reed School.",
    "known": [
     "The Cove Shopping Center",
     "Reed School",
@@ -332,7 +332,7 @@
    "name": "Belvedere Island",
    "lon": -122.4645,
    "lat": 37.87,
-   "line": "Hilltop mansions and Beach Road's yacht clubs on the island facing Sausalito and the Golden Gate.",
+   "line": "Hilltop mansions and Beach Road's yacht clubs on the island facing Sausalito and the Gate.",
    "known": [
     "San Francisco Yacht Club",
     "Beach Road",
@@ -365,7 +365,7 @@
    "name": "Old Corte Madera",
    "lon": -122.527,
    "lat": 37.9255,
-   "line": "Town Park, the library and Tamalpais Drive's small downtown; Christmas Tree Hill's lanes climb behind.",
+   "line": "Town Park, the library and Tamalpais Drive's few shops, with Christmas Tree Hill behind.",
    "known": [
     "Corte Madera Town Park",
     "Corte Madera Library",
@@ -381,7 +381,7 @@
    "name": "Town Center & The Village",
    "lon": -122.5105,
    "lat": 37.925,
-   "line": "Two open-air malls flanking Highway 101: the Village's Nordstrom and Apple, the Town Center and Book Passage.",
+   "line": "Two open-air malls flanking 101: Nordstrom at the Village, Book Passage at the Town Center.",
    "known": [
     "The Village at Corte Madera",
     "Town Center Corte Madera",
@@ -396,7 +396,7 @@
    "name": "Ring Mountain",
    "lon": -122.5,
    "lat": 37.915,
-   "line": "Serpentine grassland preserve on the Tiburon ridge with petroglyphs and the endemic Tiburon mariposa lily.",
+   "line": "Serpentine grassland preserve with Native petroglyphs and the rare Tiburon mariposa lily.",
    "known": [
     "Ring Mountain Preserve",
     "Phyllis Ellman Trail",
@@ -431,7 +431,7 @@
    "name": "Larkspur Landing",
    "lon": -122.5085,
    "lat": 37.9455,
-   "line": "Golden Gate Ferry terminal, Marin Country Mart and the Richmond bridge approach, with San Quentin next door.",
+   "line": "Ferry terminal and Marin Country Mart at the Richmond bridge approach, San Quentin next door.",
    "known": [
     "Larkspur Ferry Terminal",
     "Marin Country Mart",
@@ -447,7 +447,7 @@
    "name": "Greenbrae & Bon Air",
    "lon": -122.5255,
    "lat": 37.946,
-   "line": "Bon Air shopping center and MarinHealth Medical Center on Sir Francis Drake, with Greenbrae's hillside homes.",
+   "line": "Bon Air shopping center and the MarinHealth hospital, with Greenbrae's hillside homes above.",
    "known": [
     "Bon Air Center",
     "MarinHealth Medical Center",
@@ -481,7 +481,7 @@
    "name": "College of Marin",
    "lon": -122.545,
    "lat": 37.955,
-   "line": "The community college campus and Kentfield's small Sir Francis Drake commercial strip at College Avenue.",
+   "line": "The community college campus and Kentfield's small commercial strip at College Avenue.",
    "known": [
     "College of Marin",
     "Woodlands Market",
@@ -496,7 +496,7 @@
    "name": "Kent Woodlands",
    "lon": -122.557,
    "lat": 37.941,
-   "line": "Large wooded lots climbing toward Mount Tam, with trailheads into Baltimore Canyon and the watershed.",
+   "line": "Large wooded lots climbing toward Mount Tam, with trailheads into Baltimore Canyon.",
    "known": [
     "Kent Woodlands",
     "Crown Road trailhead",
@@ -514,7 +514,7 @@
    "name": "Ross Common",
    "lon": -122.555,
    "lat": 37.9625,
-   "line": "The town green, post office and Marin Art & Garden Center, where Sir Francis Drake bends through Ross.",
+   "line": "The town green, post office and Marin Art & Garden Center, where Sir Francis Drake bends.",
    "known": [
     "Ross Common",
     "Marin Art & Garden Center",
@@ -530,7 +530,7 @@
    "name": "Phoenix Lake Trailhead",
    "lon": -122.572,
    "lat": 37.9645,
-   "line": "Natalie Coffin Greene Park at the end of Lagunitas Road, the gateway to Phoenix Lake and the Tam watershed.",
+   "line": "Natalie Coffin Greene Park at the end of Lagunitas Road, the gateway to Phoenix Lake.",
    "known": [
     "Natalie Coffin Greene Park",
     "Phoenix Lake",
@@ -548,7 +548,7 @@
    "name": "Downtown & The Hub",
    "lon": -122.5615,
    "lat": 37.9742,
-   "line": "San Anselmo Avenue's antique shops and cafes, and the Hub where Sir Francis Drake meets Center Boulevard.",
+   "line": "San Anselmo Avenue's antique shops and cafes, plus the Hub junction at Center Boulevard.",
    "known": [
     "San Anselmo Avenue",
     "Imagination Park",
@@ -564,7 +564,7 @@
    "name": "Seminary & Memorial Park",
    "lon": -122.5705,
    "lat": 37.9775,
-   "line": "Castle-like stone halls of the old San Francisco Theological Seminary above Memorial Park's ballfields.",
+   "line": "Castle-like stone halls of the old Theological Seminary above Memorial Park's ballfields.",
    "known": [
     "San Francisco Theological Seminary",
     "Memorial Park",
@@ -580,7 +580,7 @@
    "name": "Sleepy Hollow",
    "lon": -122.574,
    "lat": 37.99,
-   "line": "A dead-end valley of 1950s ranch houses along Butterfield Road, with the community center at its heart.",
+   "line": "A dead-end valley of 1950s ranch houses along Butterfield Road, with its own clubhouse.",
    "known": [
     "Butterfield Road",
     "Sleepy Hollow Community Center",
@@ -597,7 +597,7 @@
    "name": "Downtown Broadway",
    "lon": -122.589,
    "lat": 37.987,
-   "line": "Broadway and Bolinas Road: Fairfax's hippie-era bars, the Marin Museum of Bicycling and the Fairfax Theatre.",
+   "line": "Broadway and Bolinas Road: hippie-era bars, the bicycling museum and the Fairfax Theatre.",
    "known": [
     "Fairfax Theatre",
     "Marin Museum of Bicycling",
@@ -613,7 +613,7 @@
    "name": "Cascade Canyon & Deer Park",
    "lon": -122.604,
    "lat": 37.9775,
-   "line": "Cascade Drive's creekside cottages run out to the Cascade Canyon preserve; Deer Park's trails start nearby.",
+   "line": "Cascade Drive's creekside cottages run out to the canyon preserve; Deer Park's trails nearby.",
    "known": [
     "Cascade Canyon Preserve",
     "Deer Park",
@@ -630,7 +630,7 @@
    "name": "Fairfax Manor",
    "lon": -122.601,
    "lat": 38.003,
-   "line": "Hillside streets north of downtown, climbing Manor and Scenic Roads toward the Loma Alta preserve.",
+   "line": "Hillside streets north of downtown, climbing Manor and Scenic Roads toward Loma Alta.",
    "known": [
     "Scenic Road",
     "Manor Road",
@@ -648,7 +648,7 @@
    "name": "Downtown & Fourth Street",
    "lon": -122.531,
    "lat": 37.9735,
-   "line": "Fourth Street's restaurants and the Rafael theater, with the 1817 mission and the Transit Center at its edges.",
+   "line": "Fourth Street's restaurants and the Rafael theater, between the 1817 mission and the bus hub.",
    "known": [
     "Smith Rafael Film Center",
     "Mission San Rafael Arcangel",
@@ -665,7 +665,7 @@
    "name": "Canal District",
    "lon": -122.516,
    "lat": 37.964,
-   "line": "Dense, largely Latino neighborhood along the San Rafael Canal, with Pickleweed Park and the Boro Center.",
+   "line": "Dense, largely Latino neighborhood along the San Rafael Canal, with Pickleweed Park.",
    "known": [
     "Pickleweed Park",
     "Albert J. Boro Community Center",
@@ -681,7 +681,7 @@
    "name": "Dominican",
    "lon": -122.5085,
    "lat": 37.979,
-   "line": "Dominican University's wooded campus and the big old houses of the Dominican neighborhood up to Black Canyon.",
+   "line": "Dominican University's wooded campus and the big old houses up to Black Canyon.",
    "known": [
     "Dominican University of California",
     "Angelico Hall",
@@ -697,7 +697,7 @@
    "name": "Marin Civic Center",
    "lon": -122.531,
    "lat": 38.0005,
-   "line": "Frank Lloyd Wright's blue-roofed county center and its lagoon, with the Sunday farmers market in the lot.",
+   "line": "Frank Lloyd Wright's blue-roofed county center and lagoon, with the Sunday farmers market.",
    "known": [
     "Marin County Civic Center",
     "Civic Center Lagoon",
@@ -713,7 +713,7 @@
    "name": "Terra Linda & Northgate",
    "lon": -122.556,
    "lat": 38.01,
-   "line": "Eichler tracts along Freitas Parkway, the Northgate shopping center and ridge trails above Terra Linda.",
+   "line": "Eichler tracts along Freitas Parkway, the Northgate shopping center and ridge trails above.",
    "known": [
     "Terra Linda Eichlers",
     "Northgate",
@@ -729,7 +729,7 @@
    "name": "Peacock Gap",
    "lon": -122.474,
    "lat": 37.99,
-   "line": "Point San Pedro Road's east-end neighborhoods around the golf course, on the way to McNears Beach and China Camp.",
+   "line": "Point San Pedro Road's east end around the golf course, en route to McNears and China Camp.",
    "known": [
     "Peacock Gap Golf Club",
     "McNears Beach County Park",
@@ -747,7 +747,7 @@
    "name": "Marinwood",
    "lon": -122.547,
    "lat": 38.032,
-   "line": "Post-war subdivision along Miller Creek Road off 101, with Marinwood Plaza and the community pool.",
+   "line": "Post-war subdivision along Miller Creek Road off 101, with Marinwood Plaza and the pool.",
    "known": [
     "Marinwood Community Center",
     "Marinwood Plaza",
@@ -762,7 +762,7 @@
    "name": "Lucas Valley Eichlers",
    "lon": -122.575,
    "lat": 38.0365,
-   "line": "Joseph Eichler's largest Marin tract, flat-roofed and glass-walled along Idylberry and Mount Lassen Drive.",
+   "line": "Joseph Eichler's 1960s tract of flat-roofed, glass-walled homes along Mount Lassen Drive.",
    "known": [
     "Mount Lassen Drive",
     "Idylberry Road",
@@ -778,7 +778,7 @@
    "name": "Big Rock",
    "lon": -122.612,
    "lat": 38.047,
-   "line": "Lucas Valley Road's rural stretch west of the houses, past Big Rock toward the Nicasio grade and Skywalker Ranch.",
+   "line": "Lucas Valley Road's rural stretch past Big Rock toward the Nicasio grade and Skywalker Ranch.",
    "known": [
     "Big Rock",
     "Big Rock Ridge Trail",
@@ -797,7 +797,7 @@
    "name": "Old Town & Grant Avenue",
    "lon": -122.57,
    "lat": 38.107,
-   "line": "Grant Avenue's low brick storefronts, the city hall in a former church, and Tuesday-night farmers markets.",
+   "line": "Grant Avenue's low brick storefronts and a city hall in an old church; Tuesday farmers market.",
    "known": [
     "Grant Avenue",
     "Novato City Hall",
@@ -814,7 +814,7 @@
    "name": "Hamilton",
    "lon": -122.515,
    "lat": 38.06,
-   "line": "Spanish Revival hangars and officers' homes of the old Hamilton Air Force Base, now housing, MarinMOCA and wetlands.",
+   "line": "Spanish Revival hangars and officers' homes of the old air base, now housing and MarinMOCA.",
    "known": [
     "Hamilton Field hangars",
     "MarinMOCA",
@@ -831,7 +831,7 @@
    "name": "Ignacio & Indian Valley",
    "lon": -122.56,
    "lat": 38.071,
-   "line": "The Ignacio Boulevard corridor from Highway 101 out to College of Marin's Indian Valley campus and its trails.",
+   "line": "Ignacio Boulevard from Highway 101 out to College of Marin's Indian Valley campus and trails.",
    "known": [
     "College of Marin Indian Valley Campus",
     "Pacheco Plaza",
@@ -846,7 +846,7 @@
    "name": "San Marin & Mount Burdell",
    "lon": -122.594,
    "lat": 38.124,
-   "line": "Novato's northwest neighborhoods under Mount Burdell, whose oak-grassland trails start at San Andreas Drive.",
+   "line": "Northwest Novato under Mount Burdell, whose oak-grassland trails start at San Andreas Drive.",
    "known": [
     "Mount Burdell Preserve",
     "San Andreas Drive trailhead",
@@ -865,7 +865,7 @@
    "name": "Woodacre",
    "lon": -122.644,
    "lat": 38.013,
-   "line": "The valley's biggest village: a tiny post office, Railroad Avenue cottages and the Woodacre Improvement Club pool.",
+   "line": "The valley's biggest village: a tiny post office, cottages and the Improvement Club pool.",
    "known": [
     "Woodacre Post Office",
     "Woodacre Improvement Club",
@@ -880,7 +880,7 @@
    "name": "San Geronimo",
    "lon": -122.665,
    "lat": 38.015,
-   "line": "The former golf course, now open-space commons, beside the Valley Community Center and the Two Bird Cafe.",
+   "line": "The old golf course, now open-space commons, beside the community center and Two Bird Cafe.",
    "known": [
     "San Geronimo Commons",
     "San Geronimo Valley Community Center",
@@ -896,7 +896,7 @@
    "name": "Forest Knolls",
    "lon": -122.69,
    "lat": 38.012,
-   "line": "Hillside cabins among second-growth redwoods, with the Papermill Creek Saloon as the valley's roadhouse.",
+   "line": "Hillside cabins among second-growth redwoods, with the Papermill Creek Saloon as roadhouse.",
    "known": [
     "Papermill Creek Saloon",
     "Montezuma Avenue",
@@ -912,7 +912,7 @@
    "name": "Lagunitas",
    "lon": -122.703,
    "lat": 38.013,
-   "line": "The westernmost village, where Sir Francis Drake enters the redwoods of Samuel P. Taylor State Park.",
+   "line": "The westernmost village, where Sir Francis Drake enters Samuel P. Taylor's redwoods.",
    "known": [
     "Lagunitas Creek",
     "Shafter Bridge",
@@ -930,7 +930,7 @@
    "name": "Stinson Beach & Village",
    "lon": -122.643,
    "lat": 37.8995,
-   "line": "Calle del Mar's handful of shops and cafes, and the three-mile beach behind the Park Service lot.",
+   "line": "Calle del Mar's few shops and cafes, and the three-mile beach behind the Park Service lot.",
    "known": [
     "Stinson Beach (NPS)",
     "Parkside Cafe",
@@ -947,7 +947,7 @@
    "name": "Seadrift",
    "lon": -122.665,
    "lat": 37.906,
-   "line": "Gated spit of beach houses between the ocean and Bolinas Lagoon, with a private lagoon of its own.",
+   "line": "Gated spit of beach houses between the ocean and Bolinas Lagoon, with a private lagoon too.",
    "known": [
     "Seadrift Lagoon",
     "Bolinas Lagoon",
@@ -965,7 +965,7 @@
    "name": "Muir Beach & Pelican Inn",
    "lon": -122.5775,
    "lat": 37.8605,
-   "line": "The sheltered cove at Redwood Creek's mouth, the Tudor-style Pelican Inn and the Green Gulch farm road.",
+   "line": "Sheltered cove at Redwood Creek's mouth, the Tudor-style Pelican Inn and Green Gulch Farm.",
    "known": [
     "Pelican Inn",
     "Muir Beach cove",
@@ -981,7 +981,7 @@
    "name": "Muir Beach Overlook",
    "lon": -122.585,
    "lat": 37.863,
-   "line": "WWII base-end stations on a knife-edge bluff off Highway 1, with the long view north to Bolinas.",
+   "line": "WWII gun-spotting stations on a knife-edge bluff off Highway 1, looking north to Bolinas.",
    "known": [
     "Muir Beach Overlook",
     "Highway 1 bluffs",
@@ -999,7 +999,7 @@
    "name": "Downtown Wharf Road",
    "lon": -122.686,
    "lat": 37.908,
-   "line": "Wharf Road and Brighton Avenue by the lagoon channel: Smiley's Saloon, the People's Store and the beach.",
+   "line": "Wharf Road by the lagoon channel: Smiley's Saloon, the People's Store and Bolinas Beach.",
    "known": [
     "Smiley's Saloon",
     "Bolinas People's Store",
@@ -1016,7 +1016,7 @@
    "name": "Big Mesa",
    "lon": -122.705,
    "lat": 37.918,
-   "line": "The flat-topped mesa above town, a grid of unpaved lanes, horse paddocks and the Commonweal retreat.",
+   "line": "The flat mesa above town: a grid of unpaved lanes, horse paddocks and the Commonweal retreat.",
    "known": [
     "Mesa Road",
     "Overlook Drive",
@@ -1032,7 +1032,7 @@
    "name": "Agate Beach & Duxbury Reef",
    "lon": -122.713,
    "lat": 37.902,
-   "line": "Stairs off Elm Road drop to tidepools on Duxbury Reef, the largest shale reef on the West Coast.",
+   "line": "Stairs off Elm Road drop to tidepools on Duxbury Reef, the West Coast's largest shale reef.",
    "known": [
     "Agate Beach County Park",
     "Duxbury Reef",
@@ -1050,7 +1050,7 @@
    "name": "Rodeo Beach",
    "lon": -122.5345,
    "lat": 37.832,
-   "line": "Pebble beach and lagoon below Fort Cronkhite's barracks, with the Marine Mammal Center on the hill.",
+   "line": "Pebble beach and lagoon below Fort Cronkhite's barracks, with the Marine Mammal Center uphill.",
    "known": [
     "Rodeo Beach",
     "Fort Cronkhite",
@@ -1066,7 +1066,7 @@
    "name": "Point Bonita",
    "lon": -122.5335,
    "lat": 37.8228,
-   "line": "A tunnel and suspension footbridge lead to the 1855 lighthouse; Battery Mendell and Bird Island are above.",
+   "line": "A tunnel and suspension footbridge lead to the 1855 lighthouse; Battery Mendell sits above.",
    "known": [
     "Point Bonita Lighthouse",
     "Battery Mendell",
@@ -1083,7 +1083,7 @@
    "name": "Hawk Hill & Conzelman Rd",
    "lon": -122.499,
    "lat": 37.8255,
-   "line": "Conzelman Road's bridge-and-skyline overlooks, fall raptor counts on Hawk Hill, Battery Spencer below.",
+   "line": "Conzelman Road's bridge overlooks: fall raptor counts on Hawk Hill, Battery Spencer below.",
    "known": [
     "Hawk Hill",
     "Battery Spencer",
@@ -1100,7 +1100,7 @@
    "name": "Fort Baker & Cavallo Point",
    "lon": -122.477,
    "lat": 37.834,
-   "line": "Restored army post under the bridge's north tower: Cavallo Point Lodge, the Discovery Museum, Horseshoe Cove.",
+   "line": "Restored army post under the bridge's north tower: Cavallo Point Lodge, Horseshoe Cove.",
    "known": [
     "Cavallo Point Lodge",
     "Bay Area Discovery Museum",
@@ -1117,7 +1117,7 @@
    "name": "Tennessee Valley",
    "lon": -122.54,
    "lat": 37.8565,
-   "line": "A flat 1.7-mile trail from the stables to a hidden cove, the Headlands' easiest walk to the ocean.",
+   "line": "A flat 1.7-mile trail from the stables to a hidden cove, the easiest walk to the ocean here.",
    "known": [
     "Tennessee Valley Trail",
     "Tennessee Beach",
@@ -1135,7 +1135,7 @@
    "name": "Muir Woods",
    "lon": -122.5715,
    "lat": 37.892,
-   "line": "Old-growth coast redwoods along Redwood Creek; reserve the shuttle or lot, then boardwalk to Cathedral Grove.",
+   "line": "Old-growth coast redwoods along Redwood Creek; reserve the shuttle or lot, then boardwalk in.",
    "known": [
     "Muir Woods National Monument",
     "Cathedral Grove",
@@ -1151,7 +1151,7 @@
    "name": "East Peak",
    "lon": -122.5965,
    "lat": 37.9236,
-   "line": "The 2,571-foot summit with the Gardner fire lookout, the Plank Walk and the old railway's final stop.",
+   "line": "The 2,571-foot summit: Gardner fire lookout, the Plank Walk and the old railway's last stop.",
    "known": [
     "East Peak",
     "Gardner Fire Lookout",
@@ -1167,7 +1167,7 @@
    "name": "Pantoll & Steep Ravine",
    "lon": -122.6045,
    "lat": 37.904,
-   "line": "Ranger station and campground where Panoramic meets Pantoll Road; Steep Ravine's ladder trail drops seaward.",
+   "line": "Ranger station and campground on Panoramic Highway, where Steep Ravine's ladder trail drops.",
    "known": [
     "Pantoll Ranger Station",
     "Steep Ravine Trail",
@@ -1183,7 +1183,7 @@
    "name": "Rock Spring & Mtn Theater",
    "lon": -122.611,
    "lat": 37.911,
-   "line": "Stone amphitheater of the Mountain Play since 1913, with Rock Spring's meadows and West Point Inn trails.",
+   "line": "Stone amphitheater of the Mountain Play since 1913, beside Rock Spring's meadows and trails.",
    "known": [
     "Cushing Memorial Amphitheatre",
     "Rock Spring",
@@ -1200,7 +1200,7 @@
    "name": "Dipsea & Cardiac Hill",
    "lon": -122.623,
    "lat": 37.894,
-   "line": "The Dipsea Trail's high point at Cardiac Hill, then the long descent to Stinson Beach past Lone Tree.",
+   "line": "The Dipsea Trail's high point at Cardiac Hill, then the long drop to Stinson past Lone Tree.",
    "known": [
     "Dipsea Trail",
     "Cardiac Hill",
@@ -1216,7 +1216,7 @@
    "name": "Lake Lagunitas & Bon Tempe",
    "lon": -122.598,
    "lat": 37.946,
-   "line": "MMWD reservoirs on Tam's north side, with a flat loop around Lagunitas and fishing spots at the Bon Tempe dam.",
+   "line": "Water-district lakes on Tam's north side: a flat loop around Lagunitas, fishing at Bon Tempe.",
    "known": [
     "Lake Lagunitas",
     "Bon Tempe Lake",
@@ -1234,7 +1234,7 @@
    "name": "Ayala Cove",
    "lon": -122.435,
    "lat": 37.868,
-   "line": "Ferry landing, visitor center and picnic lawns in the cove facing Tiburon, where the island's loop roads begin.",
+   "line": "Ferry landing, visitor center and picnic lawns in the cove facing Tiburon.",
    "known": [
     "Ayala Cove ferry dock",
     "Angel Island Cafe",
@@ -1250,7 +1250,7 @@
    "name": "Mount Livermore",
    "lon": -122.432,
    "lat": 37.8605,
-   "line": "The 788-foot summit, re-topped in 2002, with a 360-degree view of every bridge and skyline on the bay.",
+   "line": "The 788-foot summit, re-topped in 2002, with a 360-degree view of every bridge on the bay.",
    "known": [
     "Mount Livermore",
     "Sunset Trail",
@@ -1266,7 +1266,7 @@
    "name": "Immigration Station",
    "lon": -122.4255,
    "lat": 37.866,
-   "line": "The 1910-40 detention barracks on the east shore, walls carved with Chinese poems, plus Fort McDowell.",
+   "line": "The 1910-40 detention barracks on the east shore, their walls carved with Chinese poems.",
    "known": [
     "US Immigration Station",
     "Detention Barracks Museum",
@@ -1333,7 +1333,7 @@
    "name": "Lake Merritt & Grand Lake",
    "lon": -122.252,
    "lat": 37.81,
-   "line": "Lake Merritt's 3-mile loop, with Lakeshore and Grand Avenue's shops under the Grand Lake marquee.",
+   "line": "The lake's 3-mile loop, then Lakeshore and Grand Avenue shops under the Grand Lake marquee.",
    "known": [
     "Grand Lake Theatre",
     "Lake Merritt",
@@ -1350,7 +1350,7 @@
    "name": "Jack London Square",
    "lon": -122.278,
    "lat": 37.795,
-   "line": "The estuary waterfront: Heinold's First and Last Chance Saloon, the ferry dock and warehouse lofts.",
+   "line": "The estuary waterfront: Heinold's 1883 saloon, the ferry dock and warehouse lofts.",
    "known": [
     "Heinold's First and Last Chance",
     "Oakland Ferry Terminal",
@@ -1367,7 +1367,7 @@
    "name": "West Oakland",
    "lon": -122.295,
    "lat": 37.811,
-   "line": "Victorian blocks and warehouses between the port and the freeways, around Mandela Parkway and the BART station.",
+   "line": "Victorians and warehouses between the port and the freeways, around Mandela Parkway and BART.",
    "known": [
     "Mandela Parkway",
     "West Oakland BART",
@@ -1399,7 +1399,7 @@
    "name": "Montclair",
    "lon": -122.211,
    "lat": 37.828,
-   "line": "A village of shops on Mountain Boulevard tucked under the hills, with Montclair Park's duck pond.",
+   "line": "A village of shops on Mountain Boulevard under the hills, with Montclair Park's duck pond.",
    "known": [
     "Montclair Village",
     "Montclair Park",
@@ -1417,7 +1417,7 @@
    "name": "Downtown Berkeley",
    "lon": -122.2685,
    "lat": 37.87,
-   "line": "Shattuck Avenue around the BART station: Berkeley Rep, the art museum and the campus's west gate.",
+   "line": "Shattuck Avenue around the BART station: Berkeley Rep, the art museum and campus's west gate.",
    "known": [
     "Berkeley Repertory Theatre",
     "BAMPFA",
@@ -1433,7 +1433,7 @@
    "name": "Telegraph & Southside",
    "lon": -122.259,
    "lat": 37.866,
-   "line": "Telegraph Avenue from Sather Gate past Moe's Books and Amoeba, with People's Park and the student blocks.",
+   "line": "Telegraph from Sather Gate past Moe's Books and Amoeba Music, with People's Park alongside.",
    "known": [
     "Moe's Books",
     "Amoeba Music",
@@ -1450,7 +1450,7 @@
    "name": "Gourmet Ghetto",
    "lon": -122.2695,
    "lat": 37.8795,
-   "line": "North Shattuck's food blocks: Chez Panisse, the Cheese Board and Saul's, with Live Oak Park up the hill.",
+   "line": "North Shattuck's food blocks: Chez Panisse, the Cheese Board and Saul's, with Live Oak Park.",
    "known": [
     "Chez Panisse",
     "Cheese Board Collective",
@@ -1466,7 +1466,7 @@
    "name": "Fourth Street",
    "lon": -122.3,
    "lat": 37.87,
-   "line": "West Berkeley's boutique strip along the tracks, with Bette's Oceanview Diner and Takara Sake nearby.",
+   "line": "West Berkeley's boutique strip by the tracks, with Bette's Oceanview Diner and Takara Sake.",
    "known": [
     "Bette's Oceanview Diner",
     "Fourth Street shops",
@@ -1498,7 +1498,7 @@
    "name": "Berkeley Hills & Tilden",
    "lon": -122.254,
    "lat": 37.887,
-   "line": "Winding streets and stair paths up to Grizzly Peak, with Tilden's steam trains and Indian Rock's boulders.",
+   "line": "Winding streets and stair paths up to Grizzly Peak, Tilden's steam trains and Indian Rock.",
    "known": [
     "Indian Rock Park",
     "Berkeley Rose Garden",
@@ -1515,7 +1515,7 @@
    "name": "Berkeley Marina",
    "lon": -122.315,
    "lat": 37.866,
-   "line": "The pier, Cesar Chavez Park's kite hill and Adventure Playground at the end of University Avenue.",
+   "line": "The pier, Cesar Chavez Park's kite hill and Adventure Playground at the foot of University.",
    "known": [
     "Cesar Chavez Park",
     "Berkeley Pier",
@@ -1533,7 +1533,7 @@
    "name": "Bay Street & Public Market",
    "lon": -122.295,
    "lat": 37.84,
-   "line": "Outdoor mall and the food-hall Public Market around the Shellmound, between the freeway and the IKEA.",
+   "line": "Outdoor mall and the Public Market food hall on the old Shellmound site, beside the freeway.",
    "known": [
     "Bay Street Emeryville",
     "Emeryville Public Market",
@@ -1549,7 +1549,7 @@
    "name": "Emeryville Marina",
    "lon": -122.312,
    "lat": 37.84,
-   "line": "A finger of fill past the Watergate towers, with the marina, Trader Vic's and a bike path to the bridge.",
+   "line": "A finger of fill past the Watergate towers: the marina, Trader Vic's and the Bay Bridge path.",
    "known": [
     "Emeryville Marina",
     "Trader Vic's",
@@ -1565,7 +1565,7 @@
    "name": "Park Avenue District",
    "lon": -122.285,
    "lat": 37.8325,
-   "line": "Brick warehouses and live-work lofts around Pixar's gated campus and the old Emeryville city hall.",
+   "line": "Brick warehouses and live-work lofts around Pixar's gated campus and the old city hall.",
    "known": [
     "Pixar",
     "Old City Hall",
@@ -1583,7 +1583,7 @@
    "name": "Park Street",
    "lon": -122.2415,
    "lat": 37.764,
-   "line": "Alameda's main street: the Alameda Theatre's Art Deco marquee, old storefronts and the bridge to Oakland.",
+   "line": "Alameda's main street: the Alameda Theatre's Deco marquee and old storefronts near the bridge.",
    "known": [
     "Alameda Theatre",
     "Park Street",
@@ -1599,7 +1599,7 @@
    "name": "Webster Street & West End",
    "lon": -122.277,
    "lat": 37.773,
-   "line": "The West End's commercial strip at the Posey Tube, with Vietnamese and Filipino kitchens and Alameda Landing.",
+   "line": "The West End's strip at the Posey Tube, with Vietnamese and Filipino kitchens.",
    "known": [
     "Webster Street",
     "Alameda Landing",
@@ -1615,7 +1615,7 @@
    "name": "Alameda Point",
    "lon": -122.299,
    "lat": 37.784,
-   "line": "The old naval air station: Spirits Alley's distilleries in the hangars, the USS Hornet and the Seaplane Lagoon.",
+   "line": "The old naval air station: Spirits Alley's distilleries in the hangars and the USS Hornet.",
    "known": [
     "USS Hornet Museum",
     "Spirits Alley",
@@ -1648,7 +1648,7 @@
    "name": "Bay Farm & Harbor Bay",
    "lon": -122.245,
    "lat": 37.736,
-   "line": "Flat planned island of lagoons and bike paths, the Harbor Bay ferry and a shoreline facing the Oakland airport.",
+   "line": "Flat planned island of lagoons and bike paths, with the Harbor Bay ferry and airport views.",
    "known": [
     "Harbor Bay Ferry Terminal",
     "Shoreline Park",
@@ -1666,7 +1666,7 @@
    "name": "Highland Avenue",
    "lon": -122.2315,
    "lat": 37.824,
-   "line": "City hall, the Exedra and Piedmont Park's redwood ravine, with Mulberry's Market at the one commercial corner.",
+   "line": "City hall, the Exedra and Piedmont Park's redwood ravine; Mulberry's Market on the corner.",
    "known": [
     "Piedmont Park",
     "The Exedra",
@@ -1682,7 +1682,7 @@
    "name": "Lower Piedmont",
    "lon": -122.2425,
    "lat": 37.824,
-   "line": "Smaller lots and the Grand Avenue edge shared with Oakland, with Dracena Park's quarry bowl and Beach Playfield.",
+   "line": "Smaller lots on the Grand Avenue edge shared with Oakland, with Dracena Park's quarry bowl.",
    "known": [
     "Dracena Park",
     "Beach Playfield",
@@ -1697,7 +1697,7 @@
    "name": "Upper Piedmont",
    "lon": -122.224,
    "lat": 37.822,
-   "line": "Estate-sized homes on the ridge above Hampton Road, with Crocker Park's lawn and views over the bay.",
+   "line": "Estate-sized homes on the ridge above Hampton Road, with Crocker Park's lawn and bay views.",
    "known": [
     "Crocker Park",
     "Hampton Field",
@@ -1715,7 +1715,7 @@
    "name": "Solano Avenue",
    "lon": -122.2925,
    "lat": 37.8913,
-   "line": "Albany's mile of Solano Avenue shops and restaurants, closed to cars each September for the Solano Stroll.",
+   "line": "Albany's mile of Solano Avenue shops and cafes, closed to cars each September for the Stroll.",
    "known": [
     "Solano Avenue",
     "Solano Stroll",
@@ -1731,7 +1731,7 @@
    "name": "Albany Hill",
    "lon": -122.306,
    "lat": 37.893,
-   "line": "A eucalyptus-topped hill at the west edge of town, with Creekside Park and Cerrito Creek along its north base.",
+   "line": "Eucalyptus-topped hill at the west edge of town, with Cerrito Creek and Creekside Park below.",
    "known": [
     "Albany Hill Park",
     "Cerrito Creek",
@@ -1749,7 +1749,7 @@
    "name": "El Cerrito Plaza",
    "lon": -122.299,
    "lat": 37.903,
-   "line": "The Plaza shopping center and BART station at Fairmount Avenue, with the Tuesday and Saturday farmers market.",
+   "line": "The Plaza shopping center and BART station at Fairmount Avenue; twice-weekly farmers market.",
    "known": [
     "El Cerrito Plaza BART",
     "Fairmount Avenue",
@@ -1780,7 +1780,7 @@
    "name": "Del Norte",
    "lon": -122.317,
    "lat": 37.925,
-   "line": "El Cerrito del Norte BART and the north end of San Pablo Avenue, where the Ohlone Greenway runs under the tracks.",
+   "line": "Del Norte BART and the north end of San Pablo Avenue, the Ohlone Greenway under the tracks.",
    "known": [
     "El Cerrito del Norte BART",
     "Ohlone Greenway",
@@ -1795,7 +1795,7 @@
    "name": "El Cerrito Hills",
    "lon": -122.295,
    "lat": 37.915,
-   "line": "Steep streets and the Hillside Natural Area's trails and quarry, with Arlington Park and Golden Gate views.",
+   "line": "Steep streets and the Hillside Natural Area's trails and quarry, with Golden Gate views.",
    "known": [
     "Hillside Natural Area",
     "Arlington Park",
@@ -1814,7 +1814,7 @@
    "name": "Colusa Circle",
    "lon": -122.283,
    "lat": 37.907,
-   "line": "The traffic circle at Colusa and Oak View, with Semifreddi's bakery and a few shops on the Berkeley line.",
+   "line": "The traffic circle at Colusa and Oak View: Semifreddi's bakery and a Sunday farmers market.",
    "known": [
     "Colusa Circle",
     "Semifreddi's",
@@ -1829,7 +1829,7 @@
    "name": "Arlington Avenue",
    "lon": -122.276,
    "lat": 37.912,
-   "line": "Kensington's upper village at Arlington and Amherst, with the library and Blake Garden's hillside estate.",
+   "line": "Kensington's upper village at Arlington and Amherst, with the library and Blake Garden.",
    "known": [
     "Kensington Library",
     "Blake Garden",
@@ -1847,7 +1847,7 @@
    "name": "Point Richmond",
    "lon": -122.387,
    "lat": 37.925,
-   "line": "A pocket of 1900s storefronts around the Hotel Mac, with a tunnel to Keller Beach and Miller/Knox park.",
+   "line": "A pocket of 1900s storefronts around the Hotel Mac, with a tunnel through to Keller Beach.",
    "known": [
     "Hotel Mac",
     "Keller Beach",
@@ -1864,7 +1864,7 @@
    "name": "Marina Bay & Rosie Park",
    "lon": -122.353,
    "lat": 37.912,
-   "line": "Kaiser shipyard grounds turned housing and Bay Trail, with the Rosie the Riveter visitor center and the Craneway.",
+   "line": "Kaiser shipyard grounds turned housing and Bay Trail, with the Rosie the Riveter museum.",
    "known": [
     "Rosie the Riveter Visitor Center",
     "Craneway Pavilion",
@@ -1881,7 +1881,7 @@
    "name": "Downtown & Macdonald Ave",
    "lon": -122.353,
    "lat": 37.936,
-   "line": "Macdonald Avenue from the BART station past city hall, with the 23rd Street Latino shops a few blocks east.",
+   "line": "Macdonald Avenue from the BART station past city hall; 23rd Street's Latino shops just east.",
    "known": [
     "Richmond BART",
     "Richmond Civic Center",
@@ -1897,7 +1897,7 @@
    "name": "Hilltop",
    "lon": -122.33,
    "lat": 37.978,
-   "line": "The 1970s mall and office parks on the hill off I-80, now partly emptied and awaiting redevelopment.",
+   "line": "A 1970s mall and office parks on the hill off I-80, now largely empty and awaiting a new plan.",
    "known": [
     "Hilltop Mall site",
     "Hilltop Lake Park",
@@ -1913,7 +1913,7 @@
    "name": "Point Pinole",
    "lon": -122.36,
    "lat": 38.004,
-   "line": "A huge bayside park on the old Giant Powder dynamite works, with eucalyptus groves and a long fishing pier.",
+   "line": "Big bayside park on the old Giant Powder dynamite works, with eucalyptus and a fishing pier.",
    "known": [
     "Point Pinole Regional Shoreline",
     "Point Pinole pier",
@@ -1930,7 +1930,7 @@
    "name": "Point Isabel",
    "lon": -122.321,
    "lat": 37.9005,
-   "line": "The bay's famous off-leash dog park at the end of Central Avenue, with Mudpuppy's for a wash and a burger.",
+   "line": "The bay's famous off-leash dog park at the end of Central Avenue, with Mudpuppy's dog wash.",
    "known": [
     "Point Isabel Regional Shoreline",
     "Mudpuppy's",
@@ -1964,7 +1964,7 @@
    "name": "San Leandro Marina",
    "lon": -122.188,
    "lat": 37.697,
-   "line": "Marina Park's lawns, the silted-up harbor and golf course at the end of Marina Boulevard, Bay Trail both ways.",
+   "line": "Marina Park's lawns, the silted-up harbor and golf course at the end of Marina Boulevard.",
    "known": [
     "San Leandro Marina Park",
     "Monarch Bay Golf Club",
@@ -1981,7 +1981,7 @@
    "name": "Bayfair",
    "lon": -122.128,
    "lat": 37.698,
-   "line": "Bayfair Center mall and the Bay Fair BART station at Hesperian and East 14th, where San Leandro meets Ashland.",
+   "line": "Bayfair Center mall and Bay Fair BART at Hesperian and East 14th, on the Ashland border.",
    "known": [
     "Bayfair Center",
     "Bay Fair BART",
@@ -1998,7 +1998,7 @@
    "name": "Westlake",
    "lon": -122.487,
    "lat": 37.7,
-   "line": "Henry Doelger's 1950s shopping center and pastel tract houses, the 'ticky-tacky' of the Malvina Reynolds song.",
+   "line": "Henry Doelger's 1950s shopping center and pastel tract houses of 'Little Boxes' fame.",
    "known": [
     "Westlake Shopping Center",
     "Doelger homes",
@@ -2014,7 +2014,7 @@
    "name": "Serramonte",
    "lon": -122.472,
    "lat": 37.671,
-   "line": "The Serramonte Center mall and auto row at I-280, with Gellert Park and the 1960s Serramonte tracts around.",
+   "line": "The Serramonte Center mall and auto row at I-280, with Gellert Park and 1960s tracts around.",
    "known": [
     "Serramonte Center",
     "Gellert Park",
@@ -2029,7 +2029,7 @@
    "name": "Top of the Hill",
    "lon": -122.462,
    "lat": 37.705,
-   "line": "Mission Street where it crests out of San Francisco, with Daly City BART and the Original Daly City blocks.",
+   "line": "Mission Street where it crests out of San Francisco, near Daly City BART and the old town.",
    "known": [
     "Daly City BART",
     "Mission Street",
@@ -2045,7 +2045,7 @@
    "name": "Mussel Rock",
    "lon": -122.4935,
    "lat": 37.674,
-   "line": "Bluff-top park and hang-glider launch where the San Andreas Fault goes out to sea, above the Palisades.",
+   "line": "Bluff-top park and hang-glider launch where the San Andreas Fault goes out to sea.",
    "known": [
     "Mussel Rock Park",
     "Thornton State Beach bluffs",
@@ -2079,7 +2079,7 @@
    "name": "Cemetery Row",
    "lon": -122.453,
    "lat": 37.676,
-   "line": "Seventeen cemeteries along El Camino Real, Holy Cross to Cypress Lawn to Pet's Rest, outnumber the living.",
+   "line": "Seventeen cemeteries along El Camino Real, from Holy Cross to Cypress Lawn to Pet's Rest.",
    "known": [
     "Holy Cross Cemetery",
     "Cypress Lawn",
@@ -2095,7 +2095,7 @@
    "name": "Colma BART & Serramonte",
    "lon": -122.46,
    "lat": 37.683,
-   "line": "Colma's commercial strip of car dealers and Target along Serramonte Boulevard, with the BART station at the edge.",
+   "line": "Car dealers and Target along Serramonte Boulevard, with the BART station at the town's edge.",
    "known": [
     "Colma BART",
     "Serramonte Boulevard auto row",
@@ -2112,7 +2112,7 @@
    "name": "Downtown Brisbane",
    "lon": -122.4,
    "lat": 37.682,
-   "line": "Visitacion Avenue's small-town main street on the flank of San Bruno Mountain, lit with stars each winter.",
+   "line": "Visitacion Avenue's small-town main street under the mountain, hung with stars each winter.",
    "known": [
     "Visitacion Avenue",
     "Brisbane Community Park",
@@ -2128,7 +2128,7 @@
    "name": "Sierra Point & Marina",
    "lon": -122.385,
    "lat": 37.674,
-   "line": "Office parks and the Brisbane Marina on fill east of 101, with the Bay Trail around Sierra Point.",
+   "line": "Office parks and the Brisbane Marina on fill east of 101, with the Bay Trail round the point.",
    "known": [
     "Brisbane Marina",
     "Sierra Point Parkway",
@@ -2146,7 +2146,7 @@
    "name": "Downtown Grand Avenue",
    "lon": -122.4085,
    "lat": 37.6545,
-   "line": "The old Grand Avenue business district under Sign Hill's 'Industrial City' letters, with Caltrain and city hall.",
+   "line": "The old Grand Avenue business district under Sign Hill's 'Industrial City' letters.",
    "known": [
     "Grand Avenue",
     "Sign Hill Park",
@@ -2162,7 +2162,7 @@
    "name": "Oyster Point & East of 101",
    "lon": -122.381,
    "lat": 37.661,
-   "line": "Genentech's campus and the biotech towers east of the freeway, out to Oyster Point's marina and ferry dock.",
+   "line": "Genentech and the biotech towers east of 101, out to Oyster Point's marina and ferry dock.",
    "known": [
     "Genentech",
     "Oyster Point Marina",
@@ -2194,7 +2194,7 @@
    "name": "El Camino & SSF BART",
    "lon": -122.444,
    "lat": 37.664,
-   "line": "The El Camino Real and Mission Road corridor around the BART station, Kaiser and the Centennial Way trail.",
+   "line": "El Camino Real and Mission Road around the BART station, Kaiser and the Centennial Way trail.",
    "known": [
     "South San Francisco BART",
     "Kaiser Permanente SSF",
@@ -2211,7 +2211,7 @@
    "name": "Downtown San Mateo Ave",
    "lon": -122.4115,
    "lat": 37.63,
-   "line": "San Mateo Avenue's Filipino bakeries and old storefronts a block off El Camino, near the Caltrain station.",
+   "line": "San Mateo Avenue's Filipino bakeries and old storefronts a block off El Camino Real.",
    "known": [
     "San Mateo Avenue",
     "Artichoke Joe's",
@@ -2227,7 +2227,7 @@
    "name": "Tanforan & BART",
    "lon": -122.419,
    "lat": 37.6365,
-   "line": "The Shops at Tanforan on the old racetrack and WWII assembly-center site, beside the San Bruno BART station.",
+   "line": "Tanforan's mall on the old racetrack and WWII assembly-center site, beside the BART station.",
    "known": [
     "Shops at Tanforan",
     "San Bruno BART",
@@ -2243,7 +2243,7 @@
    "name": "Golden Gate Cemetery",
    "lon": -122.428,
    "lat": 37.625,
-   "line": "Rows of white headstones across 161 acres of hillside above Sneath Lane; City Park's trails are next door.",
+   "line": "White headstones across 161 hillside acres above Sneath Lane, with City Park next door.",
    "known": [
     "Golden Gate National Cemetery",
     "San Bruno City Park",
@@ -2259,7 +2259,7 @@
    "name": "Crestmoor & Skyline",
    "lon": -122.448,
    "lat": 37.627,
-   "line": "Western hills of ranch houses up Sneath Lane to Skyline College, where the fog pours over Sweeney Ridge.",
+   "line": "Ranch-house hills up Sneath Lane to Skyline College, where the fog pours over Sweeney Ridge.",
    "known": [
     "Skyline College",
     "Crestmoor Canyon",
@@ -2277,7 +2277,7 @@
    "name": "Pacific Manor",
    "lon": -122.488,
    "lat": 37.651,
-   "line": "Pacifica's north end: the Manor shopping center, Fairmont's hillside tracts and Esplanade's cliff-edge flats.",
+   "line": "Pacifica's north end: the Manor shopping center, Fairmont's tracts and the Esplanade bluffs.",
    "known": [
     "Pacific Manor shopping center",
     "Esplanade Avenue bluffs",
@@ -2293,7 +2293,7 @@
    "name": "Sharp Park & the Pier",
    "lon": -122.492,
    "lat": 37.634,
-   "line": "The municipal pier, the 1932 Alister MacKenzie golf course and Pacifica's original town around Palmetto Avenue.",
+   "line": "The municipal pier, the 1932 MacKenzie golf course and the old town along Palmetto Avenue.",
    "known": [
     "Pacifica Pier",
     "Sharp Park Golf Course",
@@ -2310,7 +2310,7 @@
    "name": "Mori Point & Vallemar",
    "lon": -122.4925,
    "lat": 37.6225,
-   "line": "A GGNRA headland with boardwalks over frog ponds and a cliff-top loop, beside the Vallemar valley homes.",
+   "line": "GGNRA headland with boardwalks over frog ponds and a cliff-top loop, beside Vallemar's homes.",
    "known": [
     "Mori Point",
     "Vallemar",
@@ -2343,7 +2343,7 @@
    "name": "Linda Mar",
    "lon": -122.5,
    "lat": 37.5955,
-   "line": "Pacifica's surf beach and the Linda Mar valley behind it, with the famous Taco Bell and San Pedro Valley Park.",
+   "line": "The surf beach and its valley, from the famous beachfront Taco Bell to San Pedro Valley Park.",
    "known": [
     "Pacifica State Beach",
     "Linda Mar Shopping Center",
@@ -2378,7 +2378,7 @@
    "name": "Mills Estate & Green Hills",
    "lon": -122.411,
    "lat": 37.602,
-   "line": "Hillside subdivisions above El Camino, around the Green Hills Country Club and Mills High School.",
+   "line": "Hillside subdivisions above El Camino, around the Green Hills Country Club and Mills High.",
    "known": [
     "Green Hills Country Club",
     "Mills High School",
@@ -2394,7 +2394,7 @@
    "name": "Millbrae Highlands",
    "lon": -122.399,
    "lat": 37.5905,
-   "line": "Quiet streets south of Millbrae Avenue along the Spur Trail, where the old rail spur ran up to the hills.",
+   "line": "Quiet streets south of Millbrae Avenue along the Spur Trail, the old rail spur to the hills.",
    "known": [
     "Spur Trail",
     "Taylor Middle School",
@@ -2411,7 +2411,7 @@
    "name": "Burlingame Avenue",
    "lon": -122.3465,
    "lat": 37.5775,
-   "line": "The Avenue's chain boutiques and sidewalk cafes, the 1894 Caltrain depot and Washington Park's redwoods.",
+   "line": "The Avenue's boutiques and sidewalk cafes, the 1894 Caltrain depot and Washington Park.",
    "known": [
     "Burlingame Avenue",
     "Burlingame Caltrain depot",
@@ -2428,7 +2428,7 @@
    "name": "Broadway",
    "lon": -122.359,
    "lat": 37.588,
-   "line": "Burlingame's second main street, lower-key, with family restaurants and the Broadway Caltrain stop.",
+   "line": "Burlingame's lower-key second main street, family restaurants and its own Caltrain stop.",
    "known": [
     "Broadway Burlingame",
     "Broadway Caltrain",
@@ -2444,7 +2444,7 @@
    "name": "Bayfront",
    "lon": -122.34,
    "lat": 37.5905,
-   "line": "Airport-adjacent hotels along Airport and Bayshore Boulevards, with the Bay Trail and Bayside Park.",
+   "line": "Airport hotels along Airport and Bayshore Boulevards, with the Bay Trail and Bayside Park.",
    "known": [
     "Bay Trail",
     "Bayside Park",
@@ -2477,7 +2477,7 @@
    "name": "Carolands",
    "lon": -122.372,
    "lat": 37.556,
-   "line": "The 98-room Carolands Chateau of 1916 and Crystal Springs Uplands School on the ridge toward 280.",
+   "line": "The 98-room Carolands Chateau of 1916 and Crystal Springs Uplands School on the ridge.",
    "known": [
     "Carolands Chateau",
     "Crystal Springs Uplands School",
@@ -2496,7 +2496,7 @@
    "name": "Downtown & B Street",
    "lon": -122.324,
    "lat": 37.565,
-   "line": "B Street's restaurants and the Caltrain station, with Central Park's Japanese garden a few blocks south.",
+   "line": "B Street's restaurants and the Caltrain station, with Central Park's Japanese garden nearby.",
    "known": [
     "B Street",
     "San Mateo Caltrain",
@@ -2513,7 +2513,7 @@
    "name": "Coyote Point",
    "lon": -122.32,
    "lat": 37.588,
-   "line": "A eucalyptus-topped knob on the bay with the CuriOdyssey science museum, a marina and a windy beach.",
+   "line": "A eucalyptus-topped knob on the bay: CuriOdyssey science museum, a marina and a windy beach.",
    "known": [
     "Coyote Point Recreation Area",
     "CuriOdyssey",
@@ -2529,7 +2529,7 @@
    "name": "Seal Point & Shoreview",
    "lon": -122.296,
    "lat": 37.568,
-   "line": "East of 101: the Shoreview and Mariners Island neighborhoods, Bridgepointe's big-box mall and Seal Point Park.",
+   "line": "East of 101: Shoreview and Mariners Island, Bridgepointe's big-box mall and Seal Point Park.",
    "known": [
     "Seal Point Park",
     "Bridgepointe Shopping Center",
@@ -2545,7 +2545,7 @@
    "name": "Hillsdale & Bay Meadows",
    "lon": -122.3,
    "lat": 37.539,
-   "line": "Hillsdale Shopping Center and the Bay Meadows racetrack site, rebuilt as parks and mid-rise housing.",
+   "line": "Hillsdale Shopping Center and the Bay Meadows racetrack site, rebuilt as parks and housing.",
    "known": [
     "Hillsdale Shopping Center",
     "Bay Meadows Park",
@@ -2560,7 +2560,7 @@
    "name": "25th Avenue & Beresford",
    "lon": -122.32,
    "lat": 37.546,
-   "line": "The 25th Avenue strip's Japanese restaurants and the Beresford neighborhood around Beresford Park.",
+   "line": "The 25th Avenue strip's Japanese restaurants and the Beresford neighborhood around its park.",
    "known": [
     "25th Avenue",
     "Beresford Park",
@@ -2578,7 +2578,7 @@
    "name": "Leo J. Ryan Park",
    "lon": -122.263,
    "lat": 37.553,
-   "line": "The lagoon-side park and amphitheater at Foster City's center, with the city hall and library next door.",
+   "line": "The lagoon-side park and amphitheater at Foster City's center, with city hall and library.",
    "known": [
     "Leo J. Ryan Memorial Park",
     "Foster City Library",
@@ -2594,7 +2594,7 @@
    "name": "The Levee",
    "lon": -122.25,
    "lat": 37.556,
-   "line": "Foster City's bayfront levee path, a flat loop with Sea Cloud Park and views of the San Mateo Bridge.",
+   "line": "The bayfront levee path, a flat loop past Sea Cloud Park with views of the San Mateo Bridge.",
    "known": [
     "Levee Pedway",
     "Sea Cloud Park",
@@ -2613,7 +2613,7 @@
    "name": "Downtown & Twin Pines",
    "lon": -122.279,
    "lat": 37.52,
-   "line": "Ralston Avenue at the Caltrain tracks, with Twin Pines Park's creekside lawn and the Ralston Hall mansion above.",
+   "line": "Ralston Avenue at the Caltrain tracks, with Twin Pines Park's creek and Ralston Hall above.",
    "known": [
     "Belmont Caltrain",
     "Twin Pines Park",
@@ -2629,7 +2629,7 @@
    "name": "Carlmont",
    "lon": -122.2985,
    "lat": 37.518,
-   "line": "Carlmont Village's shopping center and Carlmont High on the Alameda de las Pulgas, at the base of the hills.",
+   "line": "Carlmont Village's shops and Carlmont High on the Alameda de las Pulgas, below the hills.",
    "known": [
     "Carlmont Village Shopping Center",
     "Carlmont High School",
@@ -2644,7 +2644,7 @@
    "name": "Water Dog Lake",
    "lon": -122.305,
    "lat": 37.509,
-   "line": "A small reservoir in a canyon park, ringed by mountain-bike trails under the Belmont hills' ridge homes.",
+   "line": "A small reservoir in a canyon park, ringed by mountain-bike trails under the ridge homes.",
    "known": [
     "Water Dog Lake Park",
     "Lake Road trail",
@@ -2662,7 +2662,7 @@
    "name": "Laurel Street",
    "lon": -122.26,
    "lat": 37.507,
-   "line": "The downtown strip of Laurel Street restaurants, the Caltrain station and Burton Park's ballfields.",
+   "line": "Laurel Street's downtown restaurants, the Caltrain station and Burton Park's ballfields.",
    "known": [
     "Laurel Street",
     "San Carlos Caltrain",
@@ -2678,7 +2678,7 @@
    "name": "San Carlos Airport",
    "lon": -122.2495,
    "lat": 37.5118,
-   "line": "The county airport by the bay, with the Hiller Aviation Museum and the Redwood Shores lagoon trail nearby.",
+   "line": "The county airport by the bay, with the Hiller Aviation Museum and the lagoon trail nearby.",
    "known": [
     "Hiller Aviation Museum",
     "San Carlos Airport",
@@ -2711,7 +2711,7 @@
    "name": "Downtown Redwood City",
    "lon": -122.229,
    "lat": 37.486,
-   "line": "Courthouse Square's 1910 dome, the Fox Theatre and Broadway's bars, with Caltrain and Sequoia Station.",
+   "line": "Courthouse Square's 1910 dome, the Fox Theatre and Broadway's bars, with Caltrain alongside.",
    "known": [
     "Courthouse Square",
     "Fox Theatre",
@@ -2728,7 +2728,7 @@
    "name": "Port & Bair Island",
    "lon": -122.215,
    "lat": 37.506,
-   "line": "The working deep-water port on Redwood Creek and the restored marshes of Bair Island beyond Seaport Boulevard.",
+   "line": "The working deep-water port on Redwood Creek and the restored marshes of Bair Island beyond.",
    "known": [
     "Port of Redwood City",
     "Bair Island",
@@ -2744,7 +2744,7 @@
    "name": "Redwood Shores",
    "lon": -122.252,
    "lat": 37.533,
-   "line": "Lagoon-laced office park and townhomes on fill, with Oracle's glass towers and the Bay Trail levee.",
+   "line": "Lagoon-laced office park and townhomes on fill, with Oracle's towers and the Bay Trail levee.",
    "known": [
     "Oracle headquarters",
     "Marlin Park",
@@ -2760,7 +2760,7 @@
    "name": "Roosevelt & Woodside Rd",
    "lon": -122.24,
    "lat": 37.473,
-   "line": "Woodside Road's shopping strip and the Roosevelt neighborhood's bungalows between El Camino and the hills.",
+   "line": "Woodside Road's shopping strip and the Roosevelt neighborhood's bungalows below the hills.",
    "known": [
     "Woodside Plaza",
     "Roosevelt Avenue",
@@ -2775,7 +2775,7 @@
    "name": "Farm Hill & Canada College",
    "lon": -122.26,
    "lat": 37.458,
-   "line": "Hillside homes up Farm Hill Boulevard to Canada College's ridge campus and the Edgewood Park edge.",
+   "line": "Hillside homes up Farm Hill Boulevard to Canada College's ridge campus near Edgewood Park.",
    "known": [
     "Canada College",
     "Farm Hill Boulevard",
@@ -2809,7 +2809,7 @@
    "name": "Belle Haven & Meta",
    "lon": -122.153,
    "lat": 37.48,
-   "line": "Working-class Belle Haven east of 101, with Meta's Frank Gehry-roofed campus at the Dumbarton approach.",
+   "line": "Belle Haven's modest blocks east of 101, with Meta's Gehry-roofed campus at the Dumbarton.",
    "known": [
     "Meta headquarters (1 Hacker Way)",
     "Belle Haven Community Campus",
@@ -2824,7 +2824,7 @@
    "name": "Sharon Heights",
    "lon": -122.201,
    "lat": 37.427,
-   "line": "Sand Hill Road's venture-capital offices and the Sharon Heights shopping center, near SLAC's gate.",
+   "line": "Sand Hill Road's venture-capital offices and the Sharon Heights shopping center, near SLAC.",
    "known": [
     "Sharon Heights Shopping Center",
     "Sand Hill Road",
@@ -2840,7 +2840,7 @@
    "name": "Bedwell Bayfront Park",
    "lon": -122.172,
    "lat": 37.493,
-   "line": "A capped landfill turned 160-acre hilly bay park, with Bay Trail links to the Ravenswood marshes.",
+   "line": "A capped landfill turned 160-acre hilly bay park, with Bay Trail links to Ravenswood.",
    "known": [
     "Bedwell Bayfront Park",
     "Bay Trail",
@@ -2859,7 +2859,7 @@
    "name": "Main Street",
    "lon": -122.429,
    "lat": 37.4635,
-   "line": "Half Moon Bay's 1870s Main Street of feed stores turned cafes and galleries, with Mac Dutra Plaza at the center.",
+   "line": "An 1870s Main Street of feed stores turned cafes and galleries, centered on Mac Dutra Plaza.",
    "known": [
     "Main Street",
     "Mac Dutra Plaza",
@@ -2875,7 +2875,7 @@
    "name": "Francis & Poplar Beaches",
    "lon": -122.444,
    "lat": 37.466,
-   "line": "The state beach's campground at Francis Beach and Poplar Beach's bluffs, joined by the Coastside Trail.",
+   "line": "Francis Beach's state campground and Poplar Beach's bluffs, joined by the Coastside Trail.",
    "known": [
     "Francis Beach campground",
     "Poplar Beach",
@@ -2891,7 +2891,7 @@
    "name": "Dunes & Venice Beaches",
    "lon": -122.4455,
    "lat": 37.476,
-   "line": "The state beach's northern access points off Highway 1, horse-friendly and emptier than Francis.",
+   "line": "The state beach's northern access points off Highway 1, horse-friendly and emptier.",
    "known": [
     "Dunes Beach",
     "Venice Beach",
@@ -2907,7 +2907,7 @@
    "name": "Ocean Colony & the Ritz",
    "lon": -122.44,
    "lat": 37.436,
-   "line": "Gated golf-course homes and the Ritz-Carlton on the bluffs, with the Cowell-Purisima trail starting south.",
+   "line": "Gated golf-course homes and the Ritz-Carlton on the bluffs above Cowell Ranch Beach.",
    "known": [
     "Ritz-Carlton Half Moon Bay",
     "Half Moon Bay Golf Links",
@@ -2925,7 +2925,7 @@
    "name": "Montara",
    "lon": -122.511,
    "lat": 37.541,
-   "line": "A grid village on the bluffs between Montara State Beach and the Point Montara lighthouse hostel.",
+   "line": "A grid village on the bluffs between Montara State Beach and the Point Montara lighthouse.",
    "known": [
     "Montara State Beach",
     "Point Montara Lighthouse Hostel",
@@ -2958,7 +2958,7 @@
    "name": "Moss Beach & Fitzgerald",
    "lon": -122.513,
    "lat": 37.525,
-   "line": "Tidepools of the Fitzgerald Marine Reserve, Seal Cove's cypress bluffs and the Moss Beach Distillery's ghost.",
+   "line": "Tidepools at the Fitzgerald Marine Reserve, Seal Cove's cypress bluffs and the Distillery.",
    "known": [
     "Fitzgerald Marine Reserve",
     "Moss Beach Distillery",
@@ -2976,7 +2976,7 @@
    "name": "El Granada Village",
    "lon": -122.469,
    "lat": 37.504,
-   "line": "Daniel Burnham's 1907 fan of curving streets around the Burnham Strip park, with shops on Avenue Alhambra.",
+   "line": "Daniel Burnham's 1907 fan of curving streets around the Burnham Strip and Avenue Alhambra.",
    "known": [
     "Burnham Strip",
     "Avenue Alhambra",
@@ -2991,7 +2991,7 @@
    "name": "Pillar Point Harbor",
    "lon": -122.484,
    "lat": 37.5025,
-   "line": "Princeton's fishing harbor: crab off the boats at Johnson Pier, the Brewing Company, and Mavericks just west.",
+   "line": "Princeton's fishing harbor: crab off the boats at Johnson Pier, Mavericks' break just west.",
    "known": [
     "Johnson Pier",
     "Half Moon Bay Brewing Company",
@@ -3026,7 +3026,7 @@
    "name": "Summit & Ridge Trail",
    "lon": -122.4345,
    "lat": 37.6865,
-   "line": "Radio towers on the 1,314-foot summit, reached by Summit Loop Trail, with rare butterflies on the grassy slopes.",
+   "line": "Radio towers top the 1,314-foot summit; the Summit Loop Trail crosses rare butterfly meadows.",
    "known": [
     "Summit Loop Trail",
     "Radio Road",
@@ -3043,7 +3043,7 @@
    "name": "The Saddle & Bog Trail",
    "lon": -122.435,
    "lat": 37.6965,
-   "line": "The main park entrance off Guadalupe Canyon Parkway, with the flat Bog and Saddle loops and Old Guadalupe Trail.",
+   "line": "The main park entrance off Guadalupe Canyon Parkway, with the flat Bog and Saddle loops.",
    "known": [
     "Saddle Loop Trail",
     "Bog Trail",
@@ -3059,7 +3059,7 @@
    "name": "East Ridge",
    "lon": -122.405,
    "lat": 37.672,
-   "line": "The mountain's eastern ridge, dropping to Terrabay and Hillside Boulevard above South San Francisco.",
+   "line": "The mountain's eastern ridge, dropping to Terrabay and Hillside Boulevard above South City.",
    "known": [
     "Ridge Trail east end",
     "Hillside Boulevard",

@@ -128,7 +128,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .ctl button[aria-pressed="true"] { color: var(--accent); }
 .ctl button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .ctl button.busy { opacity: .5; }
-.lenses { position: absolute; right: 48px; bottom: 0; width: 230px; padding: 6px; display: none; }
+.lenses { position: absolute; right: 48px; bottom: 0; width: 258px; padding: 6px; display: none; }
 .lenses.on { display: block; }
 .lenses button { width: 100%; height: auto; display: grid; grid-template-columns: 1fr auto; align-items: center; text-align: left; padding: 9px 10px; border: 0; border-radius: 6px; font-size: 13.5px; font-weight: 500; gap: 10px; }
 .lenses button b { font-weight: 600; display: block; }

@@ -32,6 +32,7 @@ The repo ships a GitHub Pages workflow (`.github/workflows/pages.yml`). Once, in
 | `data/info.js` | editorial text per place |
 | `data/subareas.js` | sections inside each place: a seed point plus a line, drawn as Voronoi cells clipped to the boundary |
 | `data/landmarks.js` | the landmark glyphs |
+| `tools/build.js` | merges `data/subareas_*.json` into `data/subareas.js` and writes `dist/artifact.html`, the single-file page for the Claude artifact |
 
 ## Data
 

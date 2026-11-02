@@ -11,14 +11,36 @@
     books: 'shop', clothes: 'shop', gift: 'shop', mall: 'shop', department_store: 'shop', boutique: 'shop', second_hand: 'shop', music: 'shop', florist: 'shop', hardware: 'shop', convenience: 'shop',
   };
   let ctrl = null;
-  async function search(q, bias) {
+  // Fallback for when Photon is unreachable: Nominatim, whose usage policy rules out per-keystroke
+  // autocomplete, so it is only called for an explicit search (Enter), never while typing.
+  async function nominatim(q, signal) {
+    const u = new URL('https://nominatim.openstreetmap.org/search');
+    u.searchParams.set('q', q.trim()); u.searchParams.set('format', 'jsonv2'); u.searchParams.set('limit', '8'); u.searchParams.set('addressdetails', '1');
+    u.searchParams.set('viewbox', `${LON0},${LAT1},${LON1},${LAT0}`); u.searchParams.set('bounded', '1');
+    const res = await fetch(u, { signal, headers: { Accept: 'application/json' } });
+    if (!res.ok) throw new Error('search failed ' + res.status);
+    const data = await res.json();
+    return (data || []).map(r => {
+      const lon = +r.lon, lat = +r.lat, a = r.address || {}; if (!(lon >= LON0 && lon <= LON1 && lat >= LAT0 && lat <= LAT1)) return null;
+      const name = r.name || (r.display_name || '').split(',')[0]; if (!name) return null;
+      const where = [[a.house_number, a.road].filter(Boolean).join(' '), a.neighbourhood || a.suburb, a.city || a.town || a.village].filter(Boolean).filter((v, i, arr) => arr.indexOf(v) === i).join(' · ');
+      const kind = KIND_BY_OSM[r.type] || (r.category === 'shop' ? 'shop' : r.category === 'leisure' ? 'park' : r.category === 'tourism' ? 'view' : null);
+      return { name, where, lon, lat, kind, osm: (r.type || '').replace(/_/g, ' ') };
+    }).filter(Boolean);
+  }
+  async function search(q, bias, opts = {}) {
     if (!q || q.trim().length < 2) return [];
     if (ctrl) ctrl.abort(); ctrl = new AbortController();
+    if (opts.explicit && search.photonDown) return nominatim(q, ctrl.signal);
+    try { return await photon(q, bias, ctrl.signal); }
+    catch (e) { if (e.name === 'AbortError') throw e; search.photonDown = true; if (opts.explicit) return nominatim(q, ctrl.signal); throw e; }
+  }
+  async function photon(q, bias, signal) {
     const u = new URL('https://photon.komoot.io/api/');
     u.searchParams.set('q', q.trim()); u.searchParams.set('limit', '8'); u.searchParams.set('lang', 'en');
     u.searchParams.set('bbox', `${LON0},${LAT0},${LON1},${LAT1}`);
     if (bias) { u.searchParams.set('lon', bias[0].toFixed(5)); u.searchParams.set('lat', bias[1].toFixed(5)); u.searchParams.set('location_bias_scale', '0.4'); u.searchParams.set('zoom', '14'); }
-    const res = await fetch(u, { signal: ctrl.signal });
+    const res = await fetch(u, { signal });
     if (!res.ok) throw new Error('search failed ' + res.status);
     const data = await res.json();
     return (data.features || []).map(f => {

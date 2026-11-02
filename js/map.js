@@ -231,6 +231,16 @@
       // labels: hoods first (priority order, no overlaps), then sections, then spot names
       const placed = [];
       const clash = b => placed.some(q => b[0] < q[2] && b[2] > q[0] && b[1] < q[3] && b[3] > q[1]);
+      // landmark glyphs cannot move, so their footprints are reserved first (they are drawn later, above the fills)
+      const lmF = quiz ? 0 : smooth(k, 7, 10.5), lmH = clamp(k * 1.7, 16, 44);
+      LANDS.forEach((l, j) => {
+        const hi = IDX[l.hood]; const far = region !== 'all' && hi != null && HOODS[hi].region !== region;
+        const [sx, sy] = toScreen(l.x, l.y); const onScreen = sx > -60 && sx < W + 60 && sy > -60 && sy < H + 60;
+        anim = fade(lmA, j, onScreen && !far ? lmF : 0, dt, 180) || anim;
+        l._s = onScreen ? [sx, sy] : null;
+        l._box = (lmA[j] > 0.01 && onScreen) ? [sx - lmH * (l.w || 1) / 2, sy - lmH, sx + lmH * (l.w || 1) / 2, sy] : null;
+        if (l._box && lmA[j] > 0.3) placed.push([l._box[0] - 2, l._box[1] - 2, l._box[2] + 2, l._box[3] + 2]);
+      });
       const base = Math.round((isPhone() ? 10.5 : 11.5) * clamp(Math.pow(NX / cam.w, 0.22), 1, 1.32) * 4) / 4;
       const marks = o.marks ? o.marks() : [];
       const prio = i => (i === sel ? 1e9 : 0) + (i === hover ? 5e8 : 0) + (marks[i] ? 1e7 : 0) + HOODS[i].cells;
@@ -246,9 +256,11 @@
           size = ghost ? base * 1.55 : hot ? base * 1.15 : base;
           const tw = measure(text, 600, size) + text.length * size * (ghost ? .14 : .05), th = size * 1.2;
           const [cx, cy0] = toScreen(h.cx, h.cy); const cy = cy0 + (marks[i] && !ghost ? size * 1.25 : 0);
-          box = [cx - tw / 2 - 2, cy - th / 2, cx + tw / 2 + 2, cy + th / 2];
+          const at = y => [cx - tw / 2 - 2, y - th / 2, cx + tw / 2 + 2, y + th / 2];
+          box = at(cy);
           const fits = (BB[i][2] - BB[i][0]) * k >= tw * .72 && (BB[i][3] - BB[i][1]) * k >= th;
           const keep = hot || marks[i] || h.cells < 10;
+          if (!ghost && (fits || keep) && clash(box)) { for (const dy of [th * 1.15, -th * 1.15, th * 2.2]) { const alt = at(cy + dy); if (!clash(alt)) { box = alt; break; } } }
           target = ghost ? (fits ? .32 : 0) : (hot || ((fits || keep) && !clash(box))) ? 1 : 0;
           if (target && !ghost) placed.push(box);
         }
@@ -298,17 +310,11 @@
       }
       tick('marks');
       // landmarks
-      const lmF = quiz ? 0 : smooth(k, 7, 10.5), lmH = clamp(k * 1.7, 16, 44);
       LANDS.forEach((l, j) => {
-        const hi = IDX[l.hood]; const far = region !== 'all' && hi != null && HOODS[hi].region !== region;
-        const [sx, sy] = toScreen(l.x, l.y); const onScreen = sx > -60 && sx < W + 60 && sy > -60 && sy < H + 60;
-        anim = fade(lmA, j, onScreen && !far ? lmF : 0, dt, 180) || anim;
-        if (lmA[j] > 0.01 && onScreen) {
-          ctx.globalAlpha = lmA[j];
-          ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.beginPath(); ctx.ellipse(sx, sy + 1, lmH * (l.w || 1) * .42, lmH * .07, 0, 0, Math.PI * 2); ctx.fill();
-          window.drawGlyph(ctx, l, sx, sy, lmH, { ink: P.ink, face: P.face, shade: P.shade, roof: P.roof, accent: P.accent, lw: lmH < 24 ? 1 : 1.25 });
-          l._box = [sx - lmH * (l.w || 1) / 2, sy - lmH, sx + lmH * (l.w || 1) / 2, sy];
-        } else l._box = null;
+        if (!l._box || lmA[j] <= 0.01) return; const [sx, sy] = l._s;
+        ctx.globalAlpha = lmA[j];
+        ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.beginPath(); ctx.ellipse(sx, sy + 1, lmH * (l.w || 1) * .42, lmH * .07, 0, 0, Math.PI * 2); ctx.fill();
+        window.drawGlyph(ctx, l, sx, sy, lmH, { ink: P.ink, face: P.face, shade: P.shade, roof: P.roof, accent: P.accent, lw: lmH < 24 ? 1 : 1.25 });
       });
       ctx.globalAlpha = 1; tick('landmarks');
       // spots

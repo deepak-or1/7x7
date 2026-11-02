@@ -1621,6 +1621,8 @@ window.LANDMARKS = [
     catch (e) { if (e.name === 'AbortError') throw e; search.photonDown = true; if (opts.explicit) return nominatim(q, ctrl.signal); throw e; }
   }
   async function photon(q, bias, signal) {
+    // a hung connection should not hold up the fallback: give Photon four seconds
+    if (typeof AbortSignal !== 'undefined' && AbortSignal.any && AbortSignal.timeout) signal = AbortSignal.any([signal, AbortSignal.timeout(4000)]);
     const u = new URL('https://photon.komoot.io/api/');
     u.searchParams.set('q', q.trim()); u.searchParams.set('limit', '8'); u.searchParams.set('lang', 'en');
     u.searchParams.set('bbox', `${LON0},${LAT0},${LON1},${LAT1}`);

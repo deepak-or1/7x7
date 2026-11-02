@@ -244,8 +244,8 @@
       <details class="more"><summary>Settings</summary>
         <label class="switch"><span>Color every place, walked or not</span><input type="checkbox" id="show-all" ${state.showAll ? 'checked' : ''}></label>
         <div class="field" style="margin-top:12px"><label>Appearance</label><div class="seg">${['system', 'light', 'dark'].map(t => `<button type="button" data-theme-pick="${t}" aria-pressed="${state.theme === t}">${t === 'system' ? 'System' : t[0].toUpperCase() + t.slice(1)}</button>`).join('')}</div></div>
-        <div class="actions" style="margin-top:4px"><button type="button" class="btn sm" id="export">Export log</button><button type="button" class="btn sm" id="import">Import</button><input type="file" id="import-file" accept="application/json" hidden></div>
-        <p class="fine">${state.store === 'db' ? 'Your log, list, spots and notes are saved with this artifact and shared with everyone it is shared with.' : 'Your log is saved in this browser. Export it now and then to keep a copy, or to move it to another device.'} San Francisco boundaries from the SF Planning Department, high points from Mapzen elevation data. Marin, East Bay and Peninsula boundaries from the US Census; their high points are approximate. Place search by Photon, © OpenStreetMap contributors.</p>
+        <div class="actions" style="margin-top:4px"><button type="button" class="btn sm" id="export">Export log</button><button type="button" class="btn sm" id="import">Import</button><input type="file" id="import-file" accept="application/json" hidden>${state.store === 'sync' ? '<button type="button" class="btn sm primary" id="share-log">Share this log</button>' : ''}</div>
+        <p class="fine">${state.store === 'db' ? 'Your log, list, spots and notes are saved with this artifact and shared with everyone it is shared with.' : state.store === 'sync' ? 'This log is shared: everyone who opens your link sees it and adds to it, live. Keep the link private, and bookmark it on each phone.' : 'Your log is saved in this browser. Export it now and then to keep a copy, or to move it to another device.'} San Francisco boundaries from the SF Planning Department, high points from Mapzen elevation data. Marin, East Bay and Peninsula boundaries from the US Census; their high points are approximate. Place search by Photon, © OpenStreetMap contributors.</p>
       </details>`;
     panel.querySelector('#surprise').addEventListener('click', surprise);
     panel.querySelector('#quiz').addEventListener('click', startQuiz);
@@ -257,6 +257,7 @@
     panel.querySelector('#export').addEventListener('click', exportLog);
     panel.querySelector('#import').addEventListener('click', () => panel.querySelector('#import-file').click());
     panel.querySelector('#import-file').addEventListener('change', e => importLog(e.target.files[0]));
+    const sh = panel.querySelector('#share-log'); if (sh) sh.addEventListener('click', shareLog);
   }
 
   // ---- a neighborhood ----
@@ -350,6 +351,7 @@
   function persist() {
     const spots = {}; for (const id in state.spots) { const { _xy, ...rest } = state.spots[id]; spots[id] = rest; }
     const payload = { hoods: state.done, want: state.want, spots, updatedAt: new Date().toISOString() };
+    if (state.store !== 'db') { try { localStorage.setItem('sbs-explored', JSON.stringify(payload)); } catch (e) {} }
     if (docRef) { lastSent = payload.updatedAt; writing = writing.then(() => docRef.set(payload)).then(() => true, e => { if (e && e.code === 'invalid_argument') { state.canWrite = false; render(); } setSaveState('Could not save. Try again in a moment.'); console.warn('save failed', e); return false; }); return writing; }
     try { localStorage.setItem('sbs-explored', JSON.stringify(payload)); } catch (e) {}
     return Promise.resolve();
@@ -377,7 +379,7 @@
   let local = null;
   function loadLocal() { try { local = JSON.parse(localStorage.getItem('sbs-explored') || 'null'); } catch (e) {} if (local && local.hoods) adopt(local); }
   async function connectStore() {
-    if (!window.claude || !window.claude.use) { state.store = 'local'; return; }
+    if (!window.claude || !window.claude.use) { connectSync(); return; }
     try {
       const [d, u] = await Promise.all([claude.use('db'), claude.use('user')]);
       const uid = u ? await u.id() : null;
@@ -403,6 +405,37 @@
         else if (state.loc.spot && !state.spots[state.loc.spot]) go({ hood: state.loc.hood }, { replace: true }); else render();
       }, e => console.warn('subscription ended', e));
     } catch (e) { state.store = 'local'; console.warn('store unavailable', e); }
+  }
+  // ---------- hosted site: one shared logbook per secret link ----------
+  // The key rides in ?log= so a bookmark or a shared link carries it; a link with a key adopts that log on this device.
+  function syncKey() {
+    let k = null; try { k = new URLSearchParams(location.search).get('log'); } catch (e) {}
+    if (k && /^[A-Za-z0-9_-]{16,80}$/.test(k)) { try { localStorage.setItem('sbs-log-key', k); } catch (e) {} return k; }
+    try { k = localStorage.getItem('sbs-log-key'); } catch (e) {}
+    if (!k) { k = (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)).replace(/-/g, ''); try { localStorage.setItem('sbs-log-key', k); } catch (e) {} }
+    try { const u = new URL(location.href); u.searchParams.set('log', k); history.replaceState(history.state, '', u.pathname + u.search + u.hash); } catch (e) {}
+    return k;
+  }
+  function shareLink() { const u = new URL(location.href); u.hash = ''; return u.toString(); }
+  async function shareLog() {
+    const link = shareLink();
+    try { if (navigator.share) { await navigator.share({ title: 'Seven by Seven', text: 'Our logbook', url: link }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+    try { await navigator.clipboard.writeText(link); toast('Link copied'); } catch (e) { prompt('Copy this link', link); }
+  }
+  function connectSync() {
+    if (!window.Sync || !Sync.ready()) { state.store = 'local'; return; }
+    const key = syncKey(); state.store = 'sync';
+    let seeded = false;
+    docRef = Sync.connect(key, data => {
+      if (data && data.updatedAt && data.updatedAt === lastSent) return; // our own write coming back
+      if (data) adopt(data);
+      else if (!seeded) { seeded = true; if (local && local.hoods && Object.keys(local.hoods).length) persist(); }
+      if (state.lens === 'done') recolor(false); map.redraw();
+      const boot = state.bootLoc; state.bootLoc = null;
+      if (boot && state.spots[boot.spot] && !state.loc.spot) go(boot, { replace: true });
+      else if (state.loc.spot && !state.spots[state.loc.spot]) go({ hood: state.loc.hood }, { replace: true }); else render();
+    }, e => { console.warn('sync ended', e); if (e && e.code === 'invalid_argument') { state.canWrite = false; render(); } });
+    render();
   }
   async function exportLog() {
     const payload = { app: 'seven-by-seven', exportedAt: new Date().toISOString(), hoods: state.done, want: state.want, spots: Object.fromEntries(Object.entries(state.spots).map(([id, sp]) => { const { _xy, ...rest } = sp; return [id, rest]; })) };

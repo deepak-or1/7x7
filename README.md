@@ -28,6 +28,7 @@ The repo ships a GitHub Pages workflow (`.github/workflows/pages.yml`). Once, in
 | `js/geom.js` | projection, point-in-polygon, the Voronoi cut that sections a place |
 | `js/glyph.js` | renderer for the 2.5D landmark glyphs |
 | `js/places.js` | place search (Photon, OpenStreetMap data) |
+| `js/sync.js`, `js/sync-config.js` | the shared logbook on the hosted site |
 | `data/geo.js` | boundaries and the projected canvas |
 | `data/info.js` | editorial text per place |
 | `data/subareas.js` | sections inside each place: a seed point plus a line, drawn as Voronoi cells clipped to the boundary |
@@ -36,4 +37,4 @@ The repo ships a GitHub Pages workflow (`.github/workflows/pages.yml`). Once, in
 
 ## Data
 
-Your log lives in the browser (`localStorage`) on the hosted site, with export and import under Settings; inside the Claude artifact it syncs to your account. Boundaries: SF Planning Department (San Francisco) and the US Census (elsewhere). High points: Mapzen elevation data. Place search: Photon, © OpenStreetMap contributors.
+On the hosted site the log is shared: one record per secret key in a Firebase Realtime Database (`js/sync-config.js` holds the database URL, `js/sync.js` talks to it over REST with no SDK), with the key carried in the `?log=` part of the link you bookmark and a copy kept in `localStorage`. Open a link with a key on another phone and that phone joins the same log. The database rules allow reads and writes only below a key, never a listing. Inside the Claude artifact the log is one shared document for everyone the artifact is shared with. Boundaries: SF Planning Department (San Francisco) and the US Census (elsewhere). High points: Mapzen elevation data. Place search: Photon, © OpenStreetMap contributors.

@@ -1907,7 +1907,7 @@ window.LANDMARKS = [
         <label class="switch"><span>Color every place, walked or not</span><input type="checkbox" id="show-all" ${state.showAll ? 'checked' : ''}></label>
         <div class="field" style="margin-top:12px"><label>Appearance</label><div class="seg">${['system', 'light', 'dark'].map(t => `<button type="button" data-theme-pick="${t}" aria-pressed="${state.theme === t}">${t === 'system' ? 'System' : t[0].toUpperCase() + t.slice(1)}</button>`).join('')}</div></div>
         <div class="actions" style="margin-top:4px"><button type="button" class="btn sm" id="export">Export log</button><button type="button" class="btn sm" id="import">Import</button><input type="file" id="import-file" accept="application/json" hidden></div>
-        <p class="fine">${state.store === 'db' ? 'Your log, list, spots and notes are saved to your account; only you can see them.' : 'Your log is saved in this browser. Export it now and then to keep a copy, or to move it to another device.'} San Francisco boundaries from the SF Planning Department, high points from Mapzen elevation data. Marin, East Bay and Peninsula boundaries from the US Census; their high points are approximate. Place search by Photon, © OpenStreetMap contributors.</p>
+        <p class="fine">${state.store === 'db' ? 'Your log, list, spots and notes are saved with this artifact and shared with everyone it is shared with.' : 'Your log is saved in this browser. Export it now and then to keep a copy, or to move it to another device.'} San Francisco boundaries from the SF Planning Department, high points from Mapzen elevation data. Marin, East Bay and Peninsula boundaries from the US Census; their high points are approximate. Place search by Photon, © OpenStreetMap contributors.</p>
       </details>`;
     panel.querySelector('#surprise').addEventListener('click', surprise);
     panel.querySelector('#quiz').addEventListener('click', startQuiz);
@@ -2044,12 +2044,21 @@ window.LANDMARKS = [
       const [d, u] = await Promise.all([claude.use('db'), claude.use('user')]);
       const uid = u ? await u.id() : null;
       if (!d || !uid) { state.store = 'local'; return; }
-      docRef = d.doc('data/users/' + uid + '/explored'); state.store = 'db';
-      docRef.onSnapshot(snap => {
+      // One logbook for everyone the artifact is shared with (last write wins). Logs kept under the older
+      // per-person path are copied into it the first time the shared one is found empty.
+      docRef = d.doc('logbook/shared'); state.store = 'db';
+      const mine = d.doc('data/users/' + uid + '/explored');
+      let seeded = false;
+      docRef.onSnapshot(async snap => {
         const data = snap.exists ? (snap.data() || {}) : null;
         if (data && ((data.updatedAt && data.updatedAt === lastSent) || (snap.metadata && snap.metadata.hasPendingWrites))) return; // our own write coming back: nothing new, and a re-render would take the focus off the note
         if (data) adopt(data);
-        else if (local && local.hoods && Object.keys(local.hoods).length) persist();
+        else if (!seeded && !(snap.metadata && snap.metadata.fromCache)) {
+          seeded = true;
+          let old = null; try { const m = await mine.get(); if (m.exists) old = m.data(); } catch (e) {}
+          if (old && old.hoods) { adopt(old); persist(); }
+          else if (local && local.hoods && Object.keys(local.hoods).length) persist();
+        }
         if (state.lens === 'done') recolor(false); map.redraw();
         const boot = state.bootLoc; state.bootLoc = null;
         if (boot && state.spots[boot.spot] && !state.loc.spot) go(boot, { replace: true }); // a spot link whose spot has only now arrived

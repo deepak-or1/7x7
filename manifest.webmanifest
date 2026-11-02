@@ -2,8 +2,6 @@
   "name": "Seven by Seven",
   "short_name": "Seven by Seven",
   "description": "A map of the Bay Area to mark where you have been.",
-  "start_url": "./",
-  "scope": "./",
   "display": "standalone",
   "background_color": "#eef2f6",
   "theme_color": "#182230",

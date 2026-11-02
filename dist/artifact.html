@@ -98,6 +98,7 @@ html, body { height: 100%; }
 body { margin: 0; background: var(--water); color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased; overflow: hidden; overscroll-behavior: none; }
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; } /* the attribute wins over display:flex/grid rules (.actions, .lf-been) */
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .app { position: fixed; inset: 0; overflow: hidden; }
 
@@ -259,6 +260,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .field input, .field select, .field textarea, textarea.note { width: 100%; border: 1px solid var(--line-2); border-radius: var(--r-sm); padding: 8px 10px; background: var(--paper); line-height: 1.4; font-size: 14px; }
 .field input:focus, .field select:focus, .field textarea:focus, textarea.note:focus { outline: none; border-color: var(--ink); }
 .field .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.lf-been { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
 textarea.note { min-height: 64px; resize: vertical; margin-top: 10px; }
 .seg { display: flex; border: 1px solid var(--line-2); border-radius: var(--r-sm); overflow: hidden; }
 .seg button { flex: 1; border: 0; border-left: 1px solid var(--line-2); background: var(--paper); height: 34px; font-weight: 500; font-size: 13.5px; color: var(--muted); }
@@ -294,34 +296,101 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
 @media (max-width: 880px) {
   :root { --side: 0px; }
   .top { left: max(10px, env(safe-area-inset-left, 0px)); right: max(10px, env(safe-area-inset-right, 0px)); top: max(10px, env(safe-area-inset-top, 0px)); width: auto; max-width: none; }
-  .brandrow { padding: 6px 8px 6px 12px; gap: 8px; min-height: 46px; }
+  /* top card: one 44-48px row. Landing shows the brand + search; deeper screens swap the brand for the trail
+     (search button on the right). The only back control is the sheet's, in thumb reach. Search takes the row when active. */
+  .brandrow { padding: 2px 2px 2px 12px; gap: 8px; min-height: 48px; }
   .brand h1 { font-size: 17px; } .brand p { display: none; }
-  .search input { width: 36px; padding-left: 29px; color: transparent; border-color: transparent; background: transparent; }
-  .search input:focus, .search input.has { width: 150px; color: var(--ink); background: var(--paper); border-color: var(--line); }
+  .search input { width: 44px; height: 44px; padding: 0 10px 0 40px; font-size: 16px; color: transparent; border-color: transparent; background: transparent; }
+  .search svg { left: 13px; width: 18px; height: 18px; stroke: var(--ink); } .search input:not(:focus):not(.has) { padding: 0; }
+  .search input:focus, .search input.has { width: 100%; color: var(--ink); background: var(--paper); border-color: var(--line); }
   .search input::placeholder { color: transparent; } .search input:focus::placeholder { color: var(--muted); }
-  .trail { padding: 6px 8px 7px 6px; font-size: 12.5px; }
-  .trail button { font-size: 12.5px; padding: 4px 5px; }
-  .trail.deep .back { display: grid; place-items: center; width: 28px; height: 26px; padding: 0; margin-right: 2px; color: var(--ink); }
+  .brandrow:is(:focus-within, :has(input.has)) .brand { display: none; } .brandrow:is(:focus-within, :has(input.has)) .search { flex: 1; }
+  .trail { padding: 0 4px 0 8px; font-size: 14px; border-top: 0; }
+  .trail button { font-size: 14px; padding: 0 6px; min-height: 44px; }
+  .trail:not(.deep) { display: none; }
+  .top:has(.trail.deep) { flex-direction: row-reverse; align-items: center; }
+  .top:has(.trail.deep) .brand { display: none; }
+  .top:has(.trail.deep) .brandrow { padding: 0 2px; min-height: 44px; flex: none; }
+  .top:has(.trail.deep) .trail { flex: 1; min-width: 0; }
+  .top:has(.trail.deep):is(:focus-within, :has(input.has)) .trail { display: none; }
+  .top:has(.trail.deep):is(:focus-within, :has(input.has)) .brandrow { flex: 1; }
   .trail .back svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-  .legend { display: none; }
+  .legend { display: flex; flex-wrap: wrap; left: max(10px, env(safe-area-inset-left, 0px)); right: auto; max-width: calc(100% - 90px); bottom: calc(var(--sheet-vis) + 12px); padding: 6px 10px; gap: 4px 10px; font-size: 11.5px; transition: bottom .42s var(--ease), opacity .2s; }
+  .legend.lifting { transition: none; } .legend .hint { display: none; } .sheet-full .legend { opacity: 0; }
+  .ctl .stack button { width: 44px; height: 44px; }
+  .lenses { right: 0; bottom: calc(100% + 8px); width: min(340px, calc(100vw - 20px)); padding: 6px; }
+  .lenses button { min-height: 52px; padding: 10px 12px; font-size: 15px; } .lenses button small { font-size: 13px; } .lenses .sw i { width: 11px; height: 11px; }
   .ctl { right: max(10px, env(safe-area-inset-right, 0px)); bottom: calc(var(--sheet-vis) + 12px); transition: bottom .42s var(--ease), opacity .2s; }
   .ctl.lifting { transition: none; }
   #zoom-in, #zoom-out { display: none; }
   .sheet-full .ctl, .sheet-full .top { opacity: 0; pointer-events: none; transition: opacity .2s; }
-  .sheet { left: 0; right: 0; top: auto; bottom: 0; width: auto; border-radius: 18px 18px 0 0; transform: translateY(var(--sheet-y)); will-change: transform; transition: transform .42s var(--ease); border-left: 0; border-right: 0; border-bottom: 0; background: var(--paper); -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: 0 -8px 30px -12px rgba(0,0,0,.35); }
+  .searching.sheet-full .top { opacity: 1; pointer-events: auto; } .searching .ctl { opacity: 0; pointer-events: none; } /* search: card pinned, sheet full under it */
+  .sheet { left: 0; right: 0; top: auto; bottom: 0; width: auto; border-radius: 18px 18px 0 0; transform: translateY(var(--sheet-y)); will-change: transform; transition: transform .42s var(--ease); border-left: 0; border-right: 0; border-bottom: 0; background: var(--sheet-bg, var(--paper)); -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: 0 -8px 30px -12px rgba(0,0,0,.35), inset 0 1px 0 var(--edge); }
   .sheet.lifting { transition: none; }
   .grip { display: block; flex: none; height: 18px; position: relative; touch-action: none; }
   .grip::after { content: ""; position: absolute; left: 50%; top: 7px; width: 36px; height: 4px; border-radius: 2px; background: var(--line-2); transform: translateX(-50%); }
-  .head { padding: 0 14px 10px 10px; min-height: 52px; border-bottom-color: transparent; transition: border-color .2s; touch-action: none; }
+  /* head: chevron on the eyebrow row, the title on its own row at the panel's 16px edge */
+  .head { display: grid; grid-template-columns: auto 1fr auto; gap: 0; align-items: center; padding: 0 8px 10px max(16px, env(safe-area-inset-left, 0px)); min-height: 52px; border-bottom-color: transparent; transition: border-color .2s; touch-action: none; }
+  .head .ttl { display: contents; }
+  .head .up { grid-area: 1/1/2/2; margin: -10px 2px -10px -14px; } .head .up[hidden] { display: none; }
+  .head .eyebrow { grid-area: 1/2/2/3; }
+  .head .tools { grid-area: 1/3/3/4; align-self: start; margin: -6px -4px 0 0; }
   .sheet.scrolled .head { border-bottom-color: var(--line); }
-  .head h2 { font-size: 22px; }
-  .panel { padding: 6px max(16px, env(safe-area-inset-left, 0px)) calc(32px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+  .head h2 { grid-area: 2/1/3/3; margin-top: 2px; font-size: 26px; line-height: 1.05; }
+  .panel { padding: 6px max(16px, env(safe-area-inset-left, 0px)) calc(32px + var(--kb, 0px) + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
   .sheet:not(.full) .panel { overflow: hidden; }
   .toast { top: auto; bottom: calc(var(--sheet-vis) + 60px); transform: translateX(-50%) translateY(8px); transition: opacity .25s, transform .25s var(--ease), bottom .42s var(--ease); }
-  .sheet-full .toast { bottom: auto; top: 60px; }
+  .sheet-full .toast { bottom: calc(24px + env(safe-area-inset-bottom, 0px)); top: auto; }
   .tip { display: none; }
   .cols2 { columns: 1; }
+  /* touch: 44pt targets, press states, 2-line row subtitles, 16px fields (no iOS focus zoom) */
+  .head .up, .head .tools button { width: 44px; height: 44px; } .head .up svg { width: 22px; height: 22px; } .head .tools button svg { width: 20px; height: 20px; }
+  .row { padding: 10px 0; min-height: 48px; } .row .nm { font-size: 15.5px; }
+  .row .nm small { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.35; font-size: 13px; margin-top: 2px; }
+  .panel h3 .act { padding: 12px 0 12px 12px; margin: -12px 0 -12px auto; font-size: 14px; }
+  .textlinks { gap: 0 18px; }
+  .textlinks button, .textlinks a { min-height: 44px; display: inline-flex; align-items: center; padding: 0 2px; border-bottom: 0; text-decoration: underline; text-decoration-color: var(--line-2); text-decoration-thickness: 1px; text-underline-offset: 5px; }
+  .textlinks .done { text-decoration-color: var(--accent-soft); } .textlinks .want { text-decoration-color: var(--want-soft); }
+  .textlinks button[aria-pressed="true"] { text-decoration-color: var(--accent); text-decoration-thickness: 2px; }
+  .seg button { height: 44px; font-size: 15px; } .btn { height: 44px; font-size: 15px; } .btn.sm { height: 40px; padding: 0 14px; font-size: 14px; }
+  .lf-been { grid-template-columns: minmax(0, 1fr); gap: 14px; } .lf-been .rate { display: flex; justify-content: space-between; width: 100%; max-width: 280px; } /* 44pt stars need the full width: rating, then date */
+  .rate { gap: 0; } .rate button { width: 44px; height: 44px; font-size: 28px; padding: 0; color: var(--muted); opacity: .55; } .rate button.on { color: var(--accent); opacity: 1; }
+  .field input, .field select, .field textarea, textarea.note { font-size: 16px; padding: 11px 12px; min-height: 44px; }
+  textarea.note, .field textarea { resize: none; min-height: 88px; }
+  .grip { height: 22px; } .grip::after { top: 8px; width: 40px; height: 5px; border-radius: 3px; background: var(--muted); opacity: .5; }
+  .progress small .act { border: 0; background: transparent; font: inherit; font-weight: 600; color: var(--accent); cursor: pointer; padding: 10px 0; margin: -10px 0; }
+  .lenses button { justify-items: stretch; } .lenses .sw { justify-self: end; } /* labels share one left edge */
+  .panel h3 { justify-content: flex-start; } .panel h3 .n { margin-left: auto; } .panel h3 .n:has(+ .act) { margin-left: 0; } .panel h3 .act { margin-left: auto; } /* count beside the label, action at the right */
+  /* the legend is for the overview: hidden at place/section/spot depth and while dropping a pin */
+  .loc-deep .legend, .app:has(.stage.placing) .legend { display: none; }
+  .app:has(.stage.placing) #lf-actions { display: none; } /* while dropping a pin the peek sheet shows 'Tap the map', not Save */
+  /* half detent: one-line row subtitles and tighter spacing so the list starts above the fold (two lines at full) */
+  .sheet:not(.full) .row .nm small { -webkit-line-clamp: 1; }
+  .sheet:not(.full) .panel h3 { margin-top: 14px; } .sheet:not(.full) .panel .lead { margin-bottom: 10px; }
+  .sheet:not(.full) .marks + .savestate:empty + .facts, .sheet:not(.full) .marks + .facts { margin-top: 10px; }
+  /* log form at half (after a pin): the bar sits on the visible sheet edge, not the off-screen panel bottom */
+  .sheet:not(.full) #lf-actions { position: fixed; left: 0; right: 0; bottom: auto; top: calc(var(--sheet-vis) - 69px - env(safe-area-inset-bottom, 0px)); margin: 0; }
+  .sheet:not(.full) #logform { padding-bottom: 80px; }
+  .row:active, .mark:not([disabled]):active, .textlinks button:active, .head .up:active, .head .tools button:active, .trail button:active, .suggest button:active { background: var(--paper-2); }
+  .savestate:empty { display: none; } .marks + .savestate:empty + .facts, .marks + .facts { margin-top: 14px; }
+  /* surfaces: tokens resolve to today's values in light; dark gets an elevated sheet (below) */
+  .seg button[aria-pressed="true"] { background: var(--seg-on, var(--ink)); color: var(--seg-on-ink, var(--paper)); }
+  .btn.primary { background: var(--primary, var(--ink)); color: var(--primary-ink, var(--paper)); border-color: var(--primary, var(--ink)); }
+  .sheet .mark, .sheet .btn:not(.primary):not(.accent):not(.quiet), .sheet .seg button:not([aria-pressed="true"]), .sheet .field input, .sheet .field select, .sheet .field textarea, .sheet textarea.note, .sheet .suggest button { background: var(--sheet-bg, var(--paper)); }
+  .stage::after { content: ""; position: absolute; inset: 0; background: rgba(0,0,0,0); pointer-events: none; transition: background .3s var(--ease); }
+  .sheet-full .stage::after { background: rgba(0,0,0,.45); }
+  /* log form: Save/Cancel pinned to the sheet bottom (the negative offsets cancel the panel's bottom padding so it sits flush;
+     with the keyboard up, --kb keeps it just above the keyboard) */
+  #logform { display: flex; flex-direction: column; min-height: 100%; } #logform > * { flex: none; } /* short form: the bar still ends at the sheet bottom */
+  #lf-actions { position: sticky; bottom: calc(-32px - env(safe-area-inset-bottom, 0px)); margin: auto -16px calc(-32px - var(--kb, 0px) - env(safe-area-inset-bottom, 0px)); padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px)); background: var(--sheet-bg, var(--paper)); border-top: 1px solid var(--line); display: grid; grid-template-columns: 1fr 2fr; gap: 10px; z-index: 1; }
+  #lf-actions .btn { height: 48px; font-size: 16px; border-radius: 12px; } #lf-actions .primary { order: 2; }
+  /* spots filters: one sideways-scrolling row of pills per group */
+  .chips { flex-wrap: nowrap; overflow-x: auto; gap: 8px; margin: 0 -16px 8px; padding: 2px 16px; scrollbar-width: none; -webkit-overflow-scrolling: touch; } .chips::-webkit-scrollbar { display: none; }
+  .chips button { flex: none; min-height: 36px; height: 36px; padding: 0 14px; border: 1px solid var(--line-2); border-radius: 999px; white-space: nowrap; text-decoration: none; }
+  .chips button[aria-pressed="true"] { background: var(--seg-on, var(--ink)); color: var(--seg-on-ink, var(--paper)); border-color: var(--seg-on, var(--ink)); text-decoration: none; }
 }
+@media (max-width: 880px) and (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --sheet-bg: #1b242d; --seg-on: #3a4652; --seg-on-ink: #eaeff3; --primary: var(--accent); --primary-ink: var(--accent-ink); } }
+@media (max-width: 880px) { :root[data-theme="dark"] { --sheet-bg: #1b242d; --seg-on: #3a4652; --seg-on-ink: #eaeff3; --primary: var(--accent); --primary-ink: var(--accent-ink); } }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 
 </style>
@@ -1246,7 +1315,7 @@ window.LANDMARKS = [
     const tc = document.createElement('canvas'), tctx = tc.getContext('2d', { alpha: false });
     const cache = { valid: false, k: 0, x: 0, y: 0, mw: 0, mh: 0, t: 0, cost: 4 };
     let dirty = true; // something other than the camera changed (colors, selection, region, filters)
-    function subFactor(i) { if (quiz) return 0; const px = hoodPx(i); let f = smooth(px, 300, 560); if (i === sel) f = Math.max(f, px > 150 ? 1 : 0); return subsOf(i) ? f : 0; }
+    function subFactor(i) { if (quiz) return 0; const px = hoodPx(i); let f = smooth(px, 300, 560); if (i === sel) f = Math.max(f, px > (isPhone() ? 110 : 150) ? 1 : 0); return subsOf(i) ? f : 0; }
     function renderTerrain(k) {
       // slow devices get a lower-resolution terrain bitmap (labels stay crisp: they are drawn live)
       const cd = cache.cost > 60 ? Math.min(dpr, 1) : cache.cost > 28 ? Math.min(dpr, 1.5) : dpr;
@@ -1303,8 +1372,10 @@ window.LANDMARKS = [
       ctx.setTransform(k * dpr, 0, 0, k * dpr, -cam.x * k * dpr + tx, -cam.y * k * dpr + ty); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
       if (hover >= 0 && hover !== sel && !quiz) { ctx.strokeStyle = P.ink; ctx.lineWidth = 1.4 / k; ctx.stroke(PATH[hover]); }
       if (sel >= 0) {
-        ctx.strokeStyle = P.accent; ctx.lineWidth = 2.2 / k; ctx.stroke(PATH[sel]);
-        if (selSub >= 0 && subsOf(sel)) { ctx.lineWidth = 1.8 / k; ctx.stroke(subsOf(sel)[selSub].path); }
+        const cells = subsOf(sel), sp = selSub >= 0 && cells ? cells[selSub] : null, ph = isPhone();
+        if (sp && ph) { ctx.globalAlpha = .16; ctx.fillStyle = P.accent; ctx.fill(sp.path); ctx.globalAlpha = 1; } // phone: the selected section is tinted and outlined harder than its place
+        ctx.strokeStyle = P.accent; ctx.lineWidth = (sp && ph ? 1.4 : 2.2) / k; ctx.stroke(PATH[sel]);
+        if (sp) { ctx.lineWidth = (ph ? 2.8 : 1.8) / k; ctx.stroke(sp.path); }
         if (hoverSub >= 0 && hoverSub !== selSub && hover === sel && subsOf(sel)) { ctx.strokeStyle = P.ink; ctx.lineWidth = 1.2 / k; ctx.stroke(subsOf(sel)[hoverSub].path); }
       }
       const vis = [], subF = [];
@@ -1315,14 +1386,18 @@ window.LANDMARKS = [
       ctx.textBaseline = 'middle';
       // water & bridge names
       anim = fade(waterLblA, 0, k < 5.5 && !quiz ? 1 : 0, dt) || anim;
-      if (waterLblA[0] > 0.01) { ctx.globalAlpha = waterLblA[0]; ctx.fillStyle = P.wlbl; ctx.textAlign = 'center'; const fs = isPhone() ? 9.5 : 10.5; ctx.font = `500 ${fs}px Figtree, system-ui, sans-serif`; if (supportsLS) ctx.letterSpacing = '0.3em'; for (const wl of WATER_LBL) { const [sx, sy] = toScreen(wl.p[0], wl.p[1]); if (sx > -200 && sx < W + 200 && sy > -40 && sy < H + 40) ctx.fillText(wl.t, sx, sy); } if (supportsLS) ctx.letterSpacing = '0px'; ctx.globalAlpha = 1; }
+      const waterBoxes = []; // phone: place labels avoid the water names
+      if (waterLblA[0] > 0.01) { ctx.globalAlpha = waterLblA[0]; ctx.fillStyle = P.wlbl; ctx.textAlign = 'center'; const fs = isPhone() ? 9.5 : 10.5; ctx.font = `500 ${fs}px Figtree, system-ui, sans-serif`; if (supportsLS) ctx.letterSpacing = '0.3em'; for (const wl of WATER_LBL) { const [sx, sy] = toScreen(wl.p[0], wl.p[1]); if (sx > -200 && sx < W + 200 && sy > -40 && sy < H + 40) { ctx.fillText(wl.t, sx, sy); if (isPhone() && waterLblA[0] > .3) { const ww = (measure(wl.t, 500, fs) + wl.t.length * fs * .3) / 2; waterBoxes.push([sx - ww, sy - fs * .7, sx + ww, sy + fs * .7]); } } } if (supportsLS) ctx.letterSpacing = '0px'; ctx.globalAlpha = 1; }
       anim = fade(bridgeLblA, 0, k > 3.2 && k < 40 && !quiz ? 1 : 0, dt) || anim;
-      if (bridgeLblA[0] > 0.01) { ctx.globalAlpha = bridgeLblA[0]; ctx.textAlign = 'center'; ctx.font = `500 ${isPhone() ? 9.5 : 10.5}px Figtree, system-ui, sans-serif`; for (const b of BRIDGES) if (b.lbl) { const [sx, sy] = toScreen(b.lbl.p[0], b.lbl.p[1]); if (sx > -100 && sx < W + 100 && sy > -20 && sy < H + 20) { ctx.fillStyle = P.water; for (let q = 0; q < 6; q++) { const a = q * Math.PI / 3; ctx.fillText(b.lbl.text, sx + Math.cos(a) * 1.2, sy + Math.sin(a) * 1.2); } ctx.fillStyle = P.muted; ctx.fillText(b.lbl.text, sx, sy); } } ctx.globalAlpha = 1; }
+      if (bridgeLblA[0] > 0.01) { ctx.globalAlpha = bridgeLblA[0]; ctx.textAlign = 'center'; ctx.font = `500 ${isPhone() ? 9.5 : 10.5}px Figtree, system-ui, sans-serif`; for (const b of BRIDGES) if (b.lbl) { const [sx, sy] = toScreen(b.lbl.p[0], b.lbl.p[1]); if (sx > -100 && sx < W + 100 && sy > -20 && sy < H + 20 && (!isPhone() || Math.abs(sx - W / 2) + measure(b.lbl.text, 500, 9.5) / 2 < W / 2 - 2)) { ctx.fillStyle = P.water; for (let q = 0; q < 6; q++) { const a = q * Math.PI / 3; ctx.fillText(b.lbl.text, sx + Math.cos(a) * 1.2, sy + Math.sin(a) * 1.2); } ctx.fillStyle = P.muted; ctx.fillText(b.lbl.text, sx, sy); } } ctx.globalAlpha = 1; }
 
       tick('waterlbl');
       // labels: hoods first (priority order, no overlaps), then sections, then spot names
       const placed = [];
-      const clash = b => placed.some(q => b[0] < q[2] && b[2] > q[0] && b[1] < q[3] && b[3] > q[1]);
+      const clash = (b, self) => placed.some(q => (q.own == null || q.own !== self) && b[0] < q[2] && b[2] > q[0] && b[1] < q[3] && b[3] > q[1]);
+      if (o.occluders) for (const b of o.occluders()) placed.push(b); // floating chrome over the canvas (phone)
+      for (const b of waterBoxes) placed.push(b);
+      const marks = o.marks ? o.marks() : [];
       // landmark glyphs cannot move, so their footprints are reserved first (they are drawn later, above the fills)
       const lmF = quiz ? 0 : smooth(k, 7, 10.5), lmH = clamp(k * 1.7, 16, 44);
       LANDS.forEach((l, j) => {
@@ -1333,8 +1408,9 @@ window.LANDMARKS = [
         l._box = (lmA[j] > 0.01 && onScreen) ? [sx - lmH * (l.w || 1) / 2, sy - lmH, sx + lmH * (l.w || 1) / 2, sy] : null;
         if (l._box && lmA[j] > 0.3) placed.push([l._box[0] - 2, l._box[1] - 2, l._box[2] + 2, l._box[3] + 2]);
       });
+      // flags and stars are fixed too: reserve their footprints so neighbouring labels move or hide
+      if (!quiz && isPhone()) for (const i of vis) if (marks[i]) { const [sx, sy] = toScreen(HOODS[i].cx, HOODS[i].cy); const b = marks[i] === 'flag' ? [sx - 4, sy - 19, sx + 14, sy + 3] : [sx - 9, sy - 9, sx + 9, sy + 9]; b.own = i; placed.push(b); } // a place's own label sits below its mark
       const base = Math.round((isPhone() ? 10.5 : 11.5) * clamp(Math.pow(NX / cam.w, 0.22), 1, 1.32) * 4) / 4;
-      const marks = o.marks ? o.marks() : [];
       const prio = i => (i === sel ? 1e9 : 0) + (i === hover ? 5e8 : 0) + (marks[i] ? 1e7 : 0) + HOODS[i].cells;
       const order = vis.slice().sort((a, b) => prio(b) - prio(a));
       const labelFont = s => `600 ${s.toFixed(1)}px Figtree, system-ui, sans-serif`;
@@ -1344,48 +1420,61 @@ window.LANDMARKS = [
         let target = 0, box = null, size = base, ghost = false;
         if (!quiz && !far) {
           const hot = i === sel || i === hover, text = (window.SHORT[h.name] || h.name).toUpperCase();
-          ghost = subF[i] > 0.6 && !hot;
+          ghost = subF[i] > 0.6 && (isPhone() ? i === sel : !hot); // phone: only the selected place becomes a watermark (its sections get the room); neighbours keep normal labels
           size = ghost ? base * 1.55 : hot ? base * 1.15 : base;
           const tw = measure(text, 600, size) + text.length * size * (ghost ? .14 : .05), th = size * 1.2;
           const [cx, cy0] = toScreen(h.cx, h.cy); const cy = cy0 + (marks[i] && !ghost ? size * 1.25 : 0);
-          const at = y => [cx - tw / 2 - 2, y - th / 2, cx + tw / 2 + 2, y + th / 2];
+          const gx = isPhone() ? 4 : 2, gy = isPhone() ? 1 : 0; // phone labels keep wider clearance
+          const at = y => [cx - tw / 2 - gx, y - th / 2 - gy, cx + tw / 2 + gx, y + th / 2 + gy];
           box = at(cy);
           const fits = (BB[i][2] - BB[i][0]) * k >= tw * .72 && (BB[i][3] - BB[i][1]) * k >= th;
           const keep = hot || marks[i] || h.cells < 10;
-          if (!ghost && (fits || keep) && clash(box)) { for (const dy of [th * 1.15, -th * 1.15, th * 2.2]) { const alt = at(cy + dy); if (!clash(alt)) { box = alt; break; } } }
-          target = ghost ? (fits ? .32 : 0) : (hot || ((fits || keep) && !clash(box))) ? 1 : 0;
+          const onOwn = b => { if (!isPhone()) return true; const [x0, y0] = toScreen(BB[i][0], BB[i][1]), [x1, y1] = toScreen(BB[i][2], BB[i][3]), my = (b[1] + b[3]) / 2; return my >= Math.min(y0, y1) - th * .6 && my <= Math.max(y0, y1) + th * .6; }; // phone: never move a label off its own place; hide it instead
+          if (!ghost && (fits || keep) && clash(box, i)) { for (const dy of [th * 1.15, -th * 1.15, th * 2.2]) { const alt = at(cy + dy); if (onOwn(alt) && !clash(alt, i)) { box = alt; break; } } }
+          const inView = b => !isPhone() || hot || (b[0] >= 2 && b[2] <= W - 2 && b[1] >= 0 && b[3] <= H); // phone: no labels sliced by the screen edge
+          target = ghost ? (i === sel ? .5 : (fits ? .32 : 0)) : (hot || ((fits || keep) && !clash(box, i) && inView(box))) ? 1 : 0;
           if (target && !ghost) placed.push(box);
         }
         anim = fade(lblA, i, target, dt, 160) || anim;
         if (lblA[i] > 0.01 && box) show.push({ i, box, size, ghost, hot: i === sel || i === hover });
       }
+      let wm = null; // phone: the selected place's watermark is placed after its section labels, in a clear spot
       for (const s of show) {
+        if (s.ghost && s.i === sel && isPhone()) { wm = s; continue; }
         const h = HOODS[s.i], text = (window.SHORT[h.name] || h.name).toUpperCase(), cx = (s.box[0] + s.box[2]) / 2, cy = (s.box[1] + s.box[3]) / 2;
         ctx.globalAlpha = lblA[s.i]; ctx.textAlign = 'center'; ctx.font = labelFont(s.size);
         if (supportsLS) ctx.letterSpacing = s.ghost ? '0.14em' : '0.05em';
-        if (s.ghost) { ctx.fillStyle = P.label; ctx.fillText(text, cx, cy); } else haloText(text, cx, cy, s.size, s.hot ? P.accent : P.label);
+        if (s.ghost) { ctx.fillStyle = s.i === sel ? P.accent : P.label; ctx.fillText(text, cx, cy); } else haloText(text, cx, cy, s.size, s.hot ? P.accent : P.label);
       }
       if (supportsLS) ctx.letterSpacing = '0px';
       ctx.globalAlpha = 1; tick('hoodlbl');
       // section labels
-      const subSize = isPhone() ? 10.5 : 11.5, subFont = `500 ${subSize}px Figtree, system-ui, sans-serif`;
+      const subSize = isPhone() ? 10.5 : 11.5, subFont = `500 ${subSize}px Figtree, system-ui, sans-serif`, sgx = 2;
+      const hotSize = subSize * 1.25, hotFont = `600 ${hotSize}px Figtree, system-ui, sans-serif`; // phone: the selected section's name leads
       for (const i of vis) {
         const cells = subsOf(i); if (!cells) continue;
         cells.forEach((c, j) => {
           const key = i + ':' + j; let target = 0, box = null;
           if (subF[i] > 0.01) {
-            const tw = measure(c.name, 500, subSize), th = subSize * 1.2, [cx, cy] = toScreen(c.c[0], c.c[1]);
-            box = [cx - tw / 2 - 2, cy - th / 2, cx + tw / 2 + 2, cy + th / 2];
+            const hot = i === sel && j === selSub, big = hot && isPhone(), ss = big ? hotSize : subSize;
+            const tw = measure(c.name, big ? 600 : 500, ss), th = ss * 1.2, [cx, cy] = toScreen(c.c[0], c.c[1]);
+            box = [cx - tw / 2 - sgx, cy - th / 2, cx + tw / 2 + sgx, cy + th / 2];
             const fits = (c.bbox[2] - c.bbox[0]) * k >= tw * .8 && (c.bbox[3] - c.bbox[1]) * k >= th * 1.1;
-            const hot = i === sel && j === selSub;
-            if ((fits || hot) && !clash(box)) { target = subF[i]; placed.push(box); }
+            if ((fits || hot) && !clash(box) && (hot || !isPhone() || (box[0] >= 2 && box[2] <= W - 2 && box[1] >= 0 && box[3] <= H))) { target = subF[i]; placed.push(box); }
           }
           anim = fade(subA, key, target, dt, 160) || anim;
           if (subA[key] > 0.01 && box) {
-            ctx.globalAlpha = subA[key]; ctx.textAlign = 'center'; ctx.font = subFont;
-            haloText(c.name, (box[0] + box[2]) / 2, (box[1] + box[3]) / 2, subSize, (i === sel && j === selSub) ? P.accent : P.label);
+            const big = i === sel && j === selSub && isPhone();
+            ctx.globalAlpha = subA[key]; ctx.textAlign = 'center'; ctx.font = big ? hotFont : subFont;
+            haloText(c.name, (box[0] + box[2]) / 2, (box[1] + box[3]) / 2, big ? hotSize : subSize, (i === sel && j === selSub) ? P.accent : P.label);
           }
         });
+      }
+      if (wm) {
+        const text = (window.SHORT[HOODS[wm.i].name] || HOODS[wm.i].name).toUpperCase(), th = wm.size * 1.2, b = wm.box;
+        const hit = q => placed.some(p => q[0] < p[2] && q[2] > p[0] && q[1] < p[3] && q[3] > p[1]);
+        const dy = [0, th * 1.4, -th * 1.4, th * 2.8, -th * 2.8, th * 4.2, -th * 4.2].find(d => !hit([b[0], b[1] + d, b[2], b[3] + d]));
+        if (dy != null) { ctx.globalAlpha = lblA[wm.i]; ctx.textAlign = 'center'; ctx.font = labelFont(wm.size); if (supportsLS) ctx.letterSpacing = '0.14em'; ctx.fillStyle = P.accent; ctx.fillText(text, (b[0] + b[2]) / 2, (b[1] + b[3]) / 2 + dy); if (supportsLS) ctx.letterSpacing = '0px'; }
       }
       ctx.globalAlpha = 1; tick('sublbl');
 
@@ -1417,7 +1506,8 @@ window.LANDMARKS = [
         sp._s = [sx, sy];
         const hot = sp.id === hoverSpot || sp.id === o.selectedSpot?.(); const r = (hot ? 6.5 : 5) * pinScale;
         ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI * 2);
-        if (sp.status === 'pending') { ctx.fillStyle = P.paper; ctx.fill(); ctx.setLineDash([2, 1.5]); ctx.strokeStyle = P.accent; ctx.lineWidth = 1.5; ctx.stroke(); ctx.setLineDash([]); }
+        if (sp.status === 'pending' && isPhone()) { ctx.beginPath(); ctx.arc(sx, sy, r * 1.5, 0, Math.PI * 2); ctx.globalAlpha = .22; ctx.fillStyle = P.accent; ctx.fill(); ctx.globalAlpha = 1; ctx.setLineDash([3, 2]); ctx.strokeStyle = P.accent; ctx.lineWidth = 2; ctx.stroke(); ctx.setLineDash([]); ctx.beginPath(); ctx.arc(sx, sy, r * .45, 0, Math.PI * 2); ctx.fillStyle = P.accent; ctx.fill(); } // phone: a dashed accent ring that reads in both themes
+        else if (sp.status === 'pending') { ctx.fillStyle = P.paper; ctx.fill(); ctx.setLineDash([2, 1.5]); ctx.strokeStyle = P.accent; ctx.lineWidth = 1.5; ctx.stroke(); ctx.setLineDash([]); }
         else { ctx.fillStyle = P.paper; ctx.fill(); ctx.strokeStyle = hot ? P.ink : 'rgba(0,0,0,.25)'; ctx.lineWidth = hot ? 1.5 : 1; ctx.stroke(); ctx.beginPath(); ctx.arc(sx, sy, r * .55, 0, Math.PI * 2); const c = cssColor(sp.c); if (sp.status === 'want') { ctx.strokeStyle = c; ctx.lineWidth = 1.6; ctx.stroke(); } else { ctx.fillStyle = c; ctx.fill(); } }
         if (k > 16 && sp.name && !quiz) { const ps = isPhone() ? 10.5 : 11.5, tw = measure(sp.name, 500, ps), box = [sx + r + 3, sy - 7, sx + r + 3 + tw + 4, sy + 7]; if (!clash(box) || hot) { placed.push(box); ctx.textAlign = 'left'; ctx.font = pinFont; haloText(sp.name, sx + r + 5, sy, ps, P.label); } }
       }
@@ -1546,15 +1636,22 @@ window.LANDMARKS = [
     const grip = opt.grip, head = opt.head, panel = opt.panel, root = document.documentElement;
     let detent = 'peek', fullPx = 0, vis = 0, dragging = null;
     const isPhone = () => window.innerWidth <= 880;
-    const safeTop = () => { const v = parseFloat(getComputedStyle(root).getPropertyValue('--sat')) || 0; return v; };
+    // safe-area insets: env() only resolves inside CSS, so a hidden probe carries them as padding we can read
+    const probe = document.createElement('div'); probe.id = 'sa-probe';
+    probe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;visibility:hidden;pointer-events:none;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)';
+    document.body.appendChild(probe);
+    const insets = () => { const cs = getComputedStyle(probe); return { t: parseFloat(cs.paddingTop) || 0, b: parseFloat(cs.paddingBottom) || 0 }; };
     function heights() {
-      const H = window.innerHeight, top = Math.max(10, safeTop() + 8);
-      const full = H - top, peek = Math.min(full, (grip.offsetHeight || 18) + (head.offsetHeight || 54) + 2), half = clamp(Math.round(H * 0.46), peek + 60, full - 40);
+      // full clears the Dynamic Island (or, while searching, the pinned top card); peek adds the home-indicator inset as paper under the title
+      const H = window.innerHeight, i = insets(), topEl = document.querySelector('.top');
+      const pin = root.classList.contains('searching') && topEl ? topEl.getBoundingClientRect().bottom + 8 : 0;
+      const top = Math.max(10, i.t + 6, pin), full = H - top;
+      const peek = Math.min(full, (grip.offsetHeight || 18) + (head.offsetHeight || 54) + 2 + i.b), half = clamp(Math.round(H * 0.46), peek + 60, full - 40);
       return { peek, half, full, H };
     }
     function apply(v, animate) {
       vis = v; const y = fullPx - v;
-      el.classList.toggle('lifting', !animate); opt.ctl && opt.ctl.classList.toggle('lifting', !animate);
+      el.classList.toggle('lifting', !animate); opt.ctl && opt.ctl.classList.toggle('lifting', !animate); opt.legend && opt.legend.classList.toggle('lifting', !animate);
       root.style.setProperty('--sheet-y', y.toFixed(1) + 'px'); root.style.setProperty('--sheet-vis', v.toFixed(1) + 'px');
     }
     function set(d, o = {}) {
@@ -1592,6 +1689,9 @@ window.LANDMARKS = [
     panel.addEventListener('touchend', endTouch); panel.addEventListener('touchcancel', endTouch);
     panel.addEventListener('click', e => { if (isPhone() && detent === 'peek' && !e.target.closest('button, a, input, select, textarea, label, summary')) set('half'); });
     panel.addEventListener('scroll', () => el.classList.toggle('scrolled', panel.scrollTop > 2), { passive: true });
+    // keyboard: a field opens the sheet to full (half does not scroll) and scrolls into view; --kb pads the panel above the keyboard
+    panel.addEventListener('focusin', e => { if (!isPhone() || !e.target.matches('input:not([type=checkbox]):not([type=file]), textarea, select')) return; if (detent !== 'full') set('full'); setTimeout(() => { try { e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (err) {} }, 450); });
+    if (window.visualViewport) { const kb = () => root.style.setProperty('--kb', Math.max(0, window.innerHeight - visualViewport.height - visualViewport.offsetTop).toFixed(0) + 'px'); visualViewport.addEventListener('resize', kb); visualViewport.addEventListener('scroll', kb); kb(); }
     window.addEventListener('resize', () => set(detent, { instant: true, resize: true }));
     return { set, get detent() { return detent; }, get visible() { return isPhone() ? vis : 0; }, heights, isPhone };
   };
@@ -1759,10 +1859,12 @@ window.Sync = (() => {
   const marksFor = () => HOODS.map((h, i) => isDone(i) ? 'flag' : isWant(i) ? 'star' : null);
   const matches = i => { if (!inRegion(i)) return false; const info = INFO[HOODS[i].name]; for (const t of state.filters) if (!info.tags.includes(t)) return false; return true; };
   const map = window.MapView(canvas, {
-    insets() { const top = document.querySelector('.top').getBoundingClientRect().bottom; return { top: (isPhone() && sheet && sheet.detent === 'full') ? 0 : top + 10, right: isPhone() ? 0 : 400 + 32, bottom: (isPhone() ? (sheet ? sheet.visible : 0) : 0) + 12, left: 0 }; },
+    insets() { const top = document.querySelector('.top').getBoundingClientRect().bottom, lg = isPhone() ? $('legend').offsetHeight : 0; return { top: (isPhone() && sheet && sheet.detent === 'full') ? 0 : top + 10, right: isPhone() ? 0 : 400 + 32, bottom: (isPhone() ? (sheet ? sheet.visible : 0) + (lg ? lg + 12 : 0) : 0) + 12, left: 0 }; }, // phone: frame above the legend too
     spots: spotList, marks: marksFor, selectedSpot: () => state.loc.spot,
     alphaFor(i) { if (state.quiz) return 1; const filtered = state.filters.size > 0 && !matches(i) ? .25 : 1; const veil = !state.showAll && state.lens !== 'done' && !isDone(i) ? .35 : 1; return filtered * veil; },
     onTap, onHover, onGestureStart() { closeLenses(); },
+    // phone: the floating chrome (top card, control stack, legend) reserves its footprint so map labels avoid it
+    occluders() { if (!isPhone() || document.documentElement.classList.contains('sheet-full')) return []; return ['.top', '#ctl .stack', '#legend'].map(s => document.querySelector(s)).filter(el => el && el.offsetParent !== null && getComputedStyle(el).opacity !== '0').map(el => el.getBoundingClientRect()).filter(b => b.height > 0).map(b => [b.left - 4, b.top - 4, b.right + 4, b.bottom + 4]); },
   });
 
   function colorFor(i) {
@@ -1776,7 +1878,7 @@ window.Sync = (() => {
   const recolor = animate => map.setColors(HOODS.map((h, i) => colorFor(i)), animate && !reduceMotion);
 
   // ---------- sheet ----------
-  const sheet = window.Sheet(sheetEl, { grip: $('grip'), head, panel, ctl: $('ctl'), onChange(detent, vis, o) { if (o && (o.resize || o.quiet)) return; if (isPhone() && detent !== 'full' && !map.userMoved) flyToLoc(); } });
+  const sheet = window.Sheet(sheetEl, { grip: $('grip'), head, panel, ctl: $('ctl'), legend: $('legend'), onChange(detent, vis, o) { if (o && (o.resize || o.quiet)) return; if (isPhone() && detent !== 'full' && document.documentElement.classList.contains('searching')) { q.blur(); endSearch(); } if (isPhone() && detent !== 'full' && !map.userMoved) flyToLoc(); } }); // dragging the sheet down leaves search mode so the controls come back
 
   // ---------- navigation ----------
   const hoodOfSpot = id => state.spots[id] ? state.spots[id].hood : null;
@@ -1810,7 +1912,7 @@ window.Sync = (() => {
     if (state.lens === 'done' || state.quiz) recolor(false);
     render();
     // settle the sheet first so the camera frames the place in the space that is left
-    if (isPhone()) { const lv = level(next); if (opts.sheet) sheet.set(opts.sheet, { quiet: true }); else if (lv >= 2) { if (!opts.fromMap || sheet.detent === 'peek') sheet.set('half', { quiet: true }); } else if (opts.fromMap) sheet.set('peek', { quiet: true }); }
+    if (isPhone()) { const lv = level(next); if (opts.sheet) sheet.set(opts.sheet, { quiet: true }); else if (lv >= 2) { if (!opts.fromMap || sheet.detent === 'peek') sheet.set('half', { quiet: true }); } else if (opts.fromMap || lv < level(prev)) sheet.set('peek', { quiet: true }); } // up to a region or the whole map: back to map-first
     else panel.scrollTop = 0;
     if (opts.fly !== false) flyToLoc(opts.dur);
   }
@@ -1818,8 +1920,8 @@ window.Sync = (() => {
   function flyToLoc(dur) {
     const l = state.loc;
     if (l.spot && state.spots[l.spot]) { const sp = state.spots[l.spot], [x, y] = sp._xy || Geom.proj([sp.lon, sp.lat]); map.flyTo([x - .01, y - .01, x + .01, y + .01], 1, NX * 0.028, dur); return; }
-    if (l.sub) { const s = subByName(l.hood, l.sub); if (s) { map.flyTo(s.bbox, 1.5, NX * 0.03, dur); return; } }
-    if (l.hood) { map.flyTo(map.hoodBBox(IDX[l.hood]), 1.75, NX * 0.08, dur); return; }
+    if (l.sub) { const s = subByName(l.hood, l.sub); if (s) { map.flyTo(s.bbox, isPhone() ? 1.3 : 1.5, NX * 0.03, dur); return; } }
+    if (l.hood) { const ph = isPhone(); map.flyTo(map.hoodBBox(IDX[l.hood]), ph ? 1.25 : 1.75, NX * (ph ? 0.06 : 0.08), dur); return; }
     map.flyTo(map.regionBBox(l.region), l.region === 'all' ? 1.03 : 1.06, 0, dur);
   }
   window.addEventListener('popstate', e => { const l = (e.state && e.state.loc) || parseHash(location.hash); go(l, { push: false }); });
@@ -1833,6 +1935,8 @@ window.Sync = (() => {
     if (hit.type === 'spot') { go({ spot: hit.id }, { fromMap: true }); return; }
     if (hit.type === 'landmark') { toast(hit.landmark.name + ' · ' + hit.landmark.hood, 2600); if (l.hood !== hit.hood) go({ hood: hit.hood }, { fromMap: true, fly: false }); return; }
     if (hit.type === 'hood') {
+      // phone, zoomed out: a place too small to aim at opens its region first
+      if (isPhone() && !l.hood && map.hoodPx(hit.i) < 44 && l.region !== HOODS[hit.i].region) { go({ region: HOODS[hit.i].region }, { fromMap: true }); return; }
       const name = hit.hood, subName = hit.sub >= 0 ? subs(name)[hit.sub].name : null;
       if (l.hood === name) { if (subName && subName !== l.sub) go({ hood: name, sub: subName }, { fromMap: true }); else if (!subName && l.sub) go({ hood: name }, { fromMap: true }); else if (l.spot) go({ hood: name, sub: l.sub }, { fromMap: true }); else flyToLoc(); return; }
       go(subName && map.hoodPx(hit.i) > 420 ? { hood: name, sub: subName } : { hood: name }, { fromMap: true }); return;
@@ -1870,6 +1974,13 @@ window.Sync = (() => {
     trailEl.querySelector('.back').addEventListener('click', up);
     trailEl.querySelectorAll('[data-crumb]').forEach(b => b.addEventListener('click', () => { const c = crumbs[+b.dataset.crumb]; if (+b.dataset.crumb === crumbs.length - 1) flyToLoc(); else go(c.loc); }));
     trailEl.scrollLeft = 1e6;
+    document.documentElement.classList.toggle('loc-deep', crumbs.length > 2); // phone: the legend is for the overview (landing, region)
+    // phone: when the trail does not fit, fold its leading crumbs into a '…' crumb instead of clipping a word
+    if (isPhone() && crumbs.length > 2) {
+      const bs = [...trailEl.querySelectorAll('[data-crumb]')];
+      for (let h = 1; trailEl.scrollWidth > trailEl.clientWidth + 1 && h <= bs.length - 2; h++) bs.forEach((b, j) => { const sep = b.nextElementSibling; if (j < h - 1) { b.hidden = true; if (sep) sep.hidden = true; } else if (j === h - 1) { b.textContent = '…'; b.setAttribute('aria-label', crumbs[j].label); } });
+      trailEl.scrollLeft = 1e6;
+    }
   }
   const lensesEl = $('lenses'), lensBtn = $('lens-btn');
   function swatches(lens) { if (lens === 'vibe') return Object.values(VIBES).map(v => `<i style="--c:var(--${v.cls})"></i>`).join(''); if (lens === 'fog') return [1, 2, 3, 4, 5].map(n => `<i style="--c:var(--fog${n})"></i>`).join(''); if (lens === 'elev') return [1, 2, 3, 4, 5].map(n => `<i style="--c:var(--hill${n})"></i>`).join(''); return `<i style="--c:var(--accent)"></i><i style="--c:var(--grey-fill)"></i>`; }
@@ -1893,7 +2004,10 @@ window.Sync = (() => {
   const q = $('q');
   q.addEventListener('input', () => { state.query = q.value.trim().toLowerCase(); q.classList.toggle('has', !!q.value); if (state.query) renderSearch(); else render(); });
   q.addEventListener('keydown', e => { if (e.key === 'Enter') { const first = panel.querySelector('[data-first]'); if (first) first.click(); } });
-  q.addEventListener('focus', () => { if (isPhone() && sheet.detent === 'peek') sheet.set('half'); if (state.query) renderSearch(); });
+  // phone search mode: the card stays pinned and the sheet opens to full right under it, so results sit above the keyboard
+  function endSearch(d) { document.documentElement.classList.remove('searching'); if (isPhone() && d) sheet.set(d, { quiet: true }); renderTrail(); } // the trail was display:none while searching, so fold it again now
+  q.addEventListener('focus', () => { if (isPhone()) { document.documentElement.classList.add('searching'); sheet.set('full', { quiet: true }); } if (state.query) renderSearch(); });
+  q.addEventListener('blur', () => { if (isPhone() && !q.value) endSearch('peek'); });
 
   // ---------- head + panel ----------
   function setHead(o) {
@@ -1933,13 +2047,14 @@ window.Sync = (() => {
     const places = r === 'all'
       ? ['sf', 'marin', 'east', 'penin'].map(k => `<li><button type="button" class="row" data-go='${attr({ region: k })}'><span class="ic ${doneCount(k) === REGION_N[k] ? 'flag' : doneCount(k) ? 'sq' : 'none'}" style="--c:var(--accent)"></span><span class="nm">${REGIONS[k].label}</span><span class="rt">${doneCount(k)} of ${REGION_N[k]}<span class="chev"></span></span></button></li>`).join('')
       : NAMES.filter(x => inRegion(IDX[x])).map(x => `<li><button type="button" class="row" data-go='${attr({ hood: x })}'><span class="ic ${isDone(IDX[x]) ? 'flag' : isWant(IDX[x]) ? 'star' : 'none'}"></span><span class="nm">${esc(x)}</span><span class="rt">${ft(HOODS[IDX[x]].max).toLocaleString()} ft</span></button></li>`).join('');
-    panel.innerHTML = `
-      <div class="progress"><div class="bar"><i style="width:${(n / total * 100).toFixed(1)}%"></i></div><small>${n === 0 ? (state.store === 'sync' && !Object.keys(state.spots).length ? 'Nothing walked yet · <button type="button" class="act" id="join-log-hint">Already have a log? Join it</button>' : 'Nothing walked yet') : `<b>${n}</b> of ${total} walked · ${Math.round(areaPct() * 100)}% by area · ${climbedFt().toLocaleString()} ft climbed`}</small></div>
-      <p class="lead">${n === 0 ? 'Tap a place on the map, or pick one below. When you have set foot in it, log it and it gets a flag.' : n === total ? `All ${total}. You have walked ${REGIONS[r].the}.` : `${total - n} to go.${next ? ' Next stamp: ' + next.label + '.' : ''}`}</p>
-      <div class="textlinks"><button type="button" id="surprise">Suggest a place</button><button type="button" id="quiz">Quiz me</button><button type="button" data-mood-toggle>Find by mood${active ? ' (' + state.filters.size + ')' : ''}</button></div>
+    // the phone puts the tappable list right under the progress bar, so the half sheet shows rows, not instructions
+    const progress = `<div class="progress"><div class="bar"><i style="width:${(n / total * 100).toFixed(1)}%"></i></div><small>${n === 0 ? (state.store === 'sync' && !Object.keys(state.spots).length ? 'Nothing walked yet · <button type="button" class="act" id="join-log-hint">Already have a log? Join it</button>' : 'Nothing walked yet') : `<b>${n}</b> of ${total} walked · ${Math.round(areaPct() * 100)}% by area · ${climbedFt().toLocaleString()} ft climbed`}</small></div>`;
+    const lead = `<p class="lead">${n === 0 ? `Tap a place on the map, or pick one ${isPhone() ? 'above' : 'below'}. When you have set foot in it, log it and it gets a flag.` : n === total ? `All ${total}. You have walked ${REGIONS[r].the}.` : `${total - n} to go.${next ? ' Next stamp: ' + next.label + '.' : ''}`}</p>`;
+    const links = `<div class="textlinks"><button type="button" id="surprise">Suggest a place</button><button type="button" id="quiz">Quiz me</button><button type="button" data-mood-toggle>Find by mood${active ? ' (' + state.filters.size + ')' : ''}</button></div>
       <div id="moods" ${active ? '' : 'hidden'}><h3>Mood</h3><div class="textlinks">${MOODS.map(t => `<button type="button" data-mood="${t}" aria-pressed="${state.filters.has(t)}">${t}</button>`).join('')}</div>
-        ${active ? `<h3>${hits.length ? hits.length + ' match' + (hits.length === 1 ? '' : 'es') : 'No matches'}</h3><div class="textlinks">${hits.map(a => `<button type="button" class="${isDone(IDX[a]) ? 'done' : isWant(IDX[a]) ? 'want' : ''}" data-go='${attr({ hood: a })}'>${esc(a)}</button>`).join('')}</div>` : ''}</div>
-      <h3>${r === 'all' ? 'Regions' : 'Places'} <span class="n">${r === 'all' ? '' : total}</span></h3><ul class="rows ${r === 'all' ? '' : 'cols2'}">${places}</ul>
+        ${active ? `<h3>${hits.length ? hits.length + ' match' + (hits.length === 1 ? '' : 'es') : 'No matches'}</h3><div class="textlinks">${hits.map(a => `<button type="button" class="${isDone(IDX[a]) ? 'done' : isWant(IDX[a]) ? 'want' : ''}" data-go='${attr({ hood: a })}'>${esc(a)}</button>`).join('')}</div>` : ''}</div>`;
+    const list = `<h3>${r === 'all' ? 'Regions' : 'Places'} <span class="n">${r === 'all' ? '' : total}</span></h3><ul class="rows ${r === 'all' ? '' : 'cols2'}">${places}</ul>`;
+    panel.innerHTML = progress + (isPhone() ? list + lead + links : lead + links + list) + `
       ${entries.length ? `<h3>Walked <span class="n">${entries.length}</span></h3><ul class="rows">${entries.map(x => `<li><button type="button" class="row" data-go='${attr({ hood: x })}'><span class="ic flag"></span><span class="nm">${esc(x)}${state.done[slug(x)].note ? `<small>${esc(state.done[slug(x)].note)}</small>` : ''}</span><span class="rt">${niceDate(state.done[slug(x)].at)}</span></button></li>`).join('')}</ul>` : ''}
       ${wantList.length ? `<h3>Want to go <span class="n">${wantList.length}</span></h3><div class="textlinks">${wantList.map(a => `<button type="button" class="want" data-go='${attr({ hood: a })}'>${esc(a)}</button>`).join('')}</div>` : ''}
       <h3>Spots <span class="n">${recent.length || ''}</span>${recent.length > 6 ? `<button type="button" class="act" data-view="spots">All ${recent.length}</button>` : `<button type="button" class="act" id="log-home">+ Log a place</button>`}</h3>
@@ -2027,8 +2142,8 @@ window.Sync = (() => {
     if (f.kind) ids = ids.filter(id => state.spots[id].kind === f.kind); if (f.status) ids = ids.filter(id => (state.spots[id].status || 'been') === f.status);
     ids.sort((a, b) => (state.spots[a].at < state.spots[b].at ? 1 : -1));
     setHead({ eyebrow: 'Logbook', title: 'Spots', onBack: () => go(state.loc, { replace: true, fly: false }), tools: [logTool(null, null)] });
-    panel.innerHTML = `<div class="textlinks" style="margin-bottom:6px"><button type="button" data-sf="status:" aria-pressed="${!f.status}">All</button><button type="button" data-sf="status:been" aria-pressed="${f.status === 'been'}">Been</button><button type="button" data-sf="status:want" aria-pressed="${f.status === 'want'}">Want to try</button></div>
-      <div class="textlinks"><button type="button" data-sf="kind:" aria-pressed="${!f.kind}">Any kind</button>${Object.entries(KINDS).map(([k, v]) => `<button type="button" data-sf="kind:${k}" aria-pressed="${f.kind === k}">${v.label}</button>`).join('')}</div>
+    panel.innerHTML = `<div class="textlinks chips"><button type="button" data-sf="status:" aria-pressed="${!f.status}">All</button><button type="button" data-sf="status:been" aria-pressed="${f.status === 'been'}">Been</button><button type="button" data-sf="status:want" aria-pressed="${f.status === 'want'}">Want to try</button></div>
+      <div class="textlinks chips"><button type="button" data-sf="kind:" aria-pressed="${!f.kind}">Any kind</button>${Object.entries(KINDS).map(([k, v]) => `<button type="button" data-sf="kind:${k}" aria-pressed="${f.kind === k}">${v.label}</button>`).join('')}</div>
       <h3>${ids.length} ${ids.length === 1 ? 'spot' : 'spots'}</h3>${ids.length ? `<ul class="rows">${ids.map(id => rowSpot(id, true)).join('')}</ul>` : '<p class="empty">Nothing matches.</p>'}`;
     panel.querySelectorAll('[data-sf]').forEach(b => b.addEventListener('click', () => { const [k, v] = b.dataset.sf.split(':'); state.spotFilter = Object.assign({}, f, { [k]: v || null }); renderSpots(); wire(panel); }));
   }
@@ -2038,7 +2153,7 @@ window.Sync = (() => {
     const secs = []; HOODS.forEach(h => subs(h.name).forEach(s => { if (s.name.toLowerCase().includes(qq)) secs.push({ hood: h.name, sub: s.name }); }));
     const spots = Object.keys(state.spots).filter(id => state.spots[id].name.toLowerCase().includes(qq) || (state.spots[id].note || '').toLowerCase().includes(qq));
     const lms = map.landmarks.filter(l => l.name.toLowerCase().includes(qq));
-    setHead({ eyebrow: 'Search', title: esc(q.value), onBack: () => { q.value = ''; state.query = ''; q.classList.remove('has'); render(); } });
+    setHead({ eyebrow: 'Search', title: esc(q.value), onBack: () => { q.value = ''; state.query = ''; q.classList.remove('has'); q.blur(); endSearch('peek'); render(); } });
     let first = true; const F = () => { const f = first ? 'data-first' : ''; first = false; return f; };
     panel.innerHTML = `
       ${hoods.length ? `<h3>Places <span class="n">${hoods.length}</span></h3><ul class="rows">${hoods.map(n => `<li><button type="button" class="row" ${F()} data-go='${attr({ hood: n })}'><span class="ic ${isDone(IDX[n]) ? 'flag' : isWant(IDX[n]) ? 'star' : 'none'}"></span><span class="nm">${esc(n)}<small>${esc(REGIONS[HOODS[IDX[n]].region].label)}</small></span><span class="rt"><span class="chev"></span></span></button></li>`).join('')}</ul>` : ''}
@@ -2046,7 +2161,7 @@ window.Sync = (() => {
       ${lms.length ? `<h3>Landmarks</h3><ul class="rows">${lms.map(l => `<li><button type="button" class="row" ${F()} data-go='${attr({ hood: l.hood })}'><span class="ic sq" style="--c:var(--ink)"></span><span class="nm">${esc(l.name)}<small>${esc(l.hood)}</small></span><span class="rt"><span class="chev"></span></span></button></li>`).join('')}</ul>` : ''}
       ${spots.length ? `<h3>Your spots <span class="n">${spots.length}</span></h3><ul class="rows">${spots.map(id => rowSpot(id, true).replace('class="row"', `class="row" ${F()}`)).join('')}</ul>` : ''}
       ${!hoods.length && !secs.length && !spots.length && !lms.length ? `<p class="empty">Nothing called “${esc(q.value)}”. To log a new place, open a neighborhood and tap +.</p>` : ''}`;
-    panel.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => { q.value = ''; state.query = ''; q.classList.remove('has'); q.blur(); })); // before wire(): go() must see the query cleared
+    panel.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => { q.value = ''; state.query = ''; q.classList.remove('has'); q.blur(); endSearch('half'); })); // before wire(): go() must see the query cleared
     wire(panel);
   }
 
@@ -2187,24 +2302,25 @@ window.Sync = (() => {
       ${placed ? '' : `<div class="actions" style="margin:0 0 14px"><button type="button" class="btn sm" id="lf-pin">${ICON.pin} Drop a pin on the map</button><button type="button" class="btn sm" id="lf-gps">Use my location</button></div>`}
       <div class="field"><label>Kind</label><div class="seg" id="lf-kind">${Object.entries(KINDS).filter(([k]) => k !== 'other').map(([k, v]) => `<button type="button" data-k="${k}" aria-pressed="${d.kind === k}">${v.label}</button>`).join('')}</div></div>
       <div class="field"><label>Status</label><div class="seg" id="lf-status"><button type="button" data-s="been" aria-pressed="${d.status === 'been'}">Been</button><button type="button" data-s="want" aria-pressed="${d.status === 'want'}">Want to try</button></div></div>
-      <div class="two" id="lf-been" ${d.status === 'been' ? '' : 'hidden'} style="display:${d.status === 'been' ? 'grid' : 'none'};grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+      <div class="two lf-been" id="lf-been" ${d.status === 'been' ? '' : 'hidden'}>
         <div class="field" style="margin:0"><label>Rating</label><div class="rate" id="lf-rate">${[1, 2, 3, 4, 5].map(n => `<button type="button" data-r="${n}" class="${n <= d.rating ? 'on' : ''}" aria-label="${n} star${n > 1 ? 's' : ''}">★</button>`).join('')}</div></div>
         <div class="field" style="margin:0"><label for="lf-date">When</label><input type="date" id="lf-date" value="${esc(d.at || today())}"></div>
       </div>
       <div class="field"><label for="lf-note">Note</label><textarea id="lf-note" rows="2" placeholder="What to order, who to bring, what to skip">${esc(d.note || '')}</textarea></div>
-      <div class="actions"><button type="submit" class="btn primary">${d.id ? 'Save changes' : 'Save spot'}</button><button type="button" class="btn" id="lf-cancel">Cancel</button>${d.id ? '' : (!placed ? `<span style="font-size:12.5px;color:var(--muted);align-self:center">Without a pin it lands in the middle of ${esc(d.sub || d.hood || 'the map')}.</span>` : '')}</div>
+      ${d.id || placed || !isPhone() ? '' : `<p class="empty" id="lf-hint" style="font-size:12.5px">Without a pin it lands in the middle of ${esc(d.sub || d.hood || 'the map')}.</p>`}
+      <div class="actions" id="lf-actions"><button type="submit" class="btn primary">${d.id ? 'Save changes' : 'Save spot'}</button><button type="button" class="btn" id="lf-cancel">Cancel</button>${d.id || placed || isPhone() ? '' : `<span style="font-size:12.5px;color:var(--muted);align-self:center">Without a pin it lands in the middle of ${esc(d.sub || d.hood || 'the map')}.</span>`}</div>
     </form>`;
     const form = panel.querySelector('#logform'), qi = panel.querySelector('#lf-q'), sug = panel.querySelector('#lf-sug');
     qi.addEventListener('input', () => { d.name = qi.value; if (placed && d.src === 'search') return; clearTimeout(sugTimer); const v = qi.value.trim(); if (v.length < 2) { sug.hidden = true; return; } sugTimer = setTimeout(() => suggest(v, sug, qi, false), 280); });
     qi.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); clearTimeout(sugTimer); const first = sug.querySelector('[data-i]'); if (first && !sug.hidden) first.click(); else if (qi.value.trim().length >= 2 && !(placed && d.src === 'search')) suggest(qi.value.trim(), sug, qi, true); } });
     panel.querySelectorAll('#lf-kind [data-k]').forEach(b => b.addEventListener('click', () => { d.kind = b.dataset.k; panel.querySelectorAll('#lf-kind [data-k]').forEach(x => x.setAttribute('aria-pressed', String(x === b))); }));
-    panel.querySelectorAll('#lf-status [data-s]').forEach(b => b.addEventListener('click', () => { d.status = b.dataset.s; panel.querySelectorAll('#lf-status [data-s]').forEach(x => x.setAttribute('aria-pressed', String(x === b))); panel.querySelector('#lf-been').style.display = d.status === 'been' ? 'grid' : 'none'; }));
+    panel.querySelectorAll('#lf-status [data-s]').forEach(b => b.addEventListener('click', () => { d.status = b.dataset.s; panel.querySelectorAll('#lf-status [data-s]').forEach(x => x.setAttribute('aria-pressed', String(x === b))); panel.querySelector('#lf-been').hidden = d.status !== 'been'; }));
     panel.querySelectorAll('#lf-rate [data-r]').forEach(b => b.addEventListener('click', () => { d.rating = d.rating === +b.dataset.r ? 0 : +b.dataset.r; panel.querAll = null; panel.querySelectorAll('#lf-rate [data-r]').forEach(x => x.classList.toggle('on', +x.dataset.r <= d.rating)); }));
     panel.querySelector('#lf-date').addEventListener('change', e => d.at = e.target.value || today());
     panel.querySelector('#lf-note').addEventListener('input', e => d.note = e.target.value);
     panel.querySelector('#lf-cancel').addEventListener('click', cancelLog);
     const clr = panel.querySelector('#lf-clear'); if (clr) clr.addEventListener('click', () => { d.lon = d.lat = d.x = d.y = null; d.where = ''; d.src = null; renderLogForm(); });
-    const pin = panel.querySelector('#lf-pin'); if (pin) pin.addEventListener('click', () => { state.placing = true; state.pending = null; stage.classList.add('placing'); if (isPhone()) sheet.set('peek'); toast('Tap the map where it is', 3200); map.redraw(); });
+    const pin = panel.querySelector('#lf-pin'); if (pin) pin.addEventListener('click', () => { state.placing = true; state.pending = null; stage.classList.add('placing'); if (isPhone()) sheet.set('peek'); setHead({ eyebrow: 'Drop a pin', title: 'Tap the map', onBack: () => { stopPlacing(); renderLogForm(); if (isPhone()) sheet.set('full'); }, tools: [] }); toast('Tap the map where it is', 3200); map.redraw(); });
     const gps = panel.querySelector('#lf-gps'); if (gps) gps.addEventListener('click', () => locate(pos => { const [x, y] = Geom.proj(pos); const w = locateXY(x, y); Object.assign(d, { lon: pos[0], lat: pos[1], x, y, hood: w.hood || d.hood, sub: w.sub, src: 'gps', where: 'Your location' }); renderLogForm(); }));
     form.addEventListener('submit', e => { e.preventDefault(); saveDraft(); });
   }
@@ -2219,12 +2335,14 @@ window.Sync = (() => {
     sug.querySelectorAll('[data-i]').forEach(b => b.addEventListener('click', () => { const r = res[+b.dataset.i], [x, y] = Geom.proj([r.lon, r.lat]), w = locateXY(x, y); Object.assign(d, { name: r.name, lon: r.lon, lat: r.lat, x, y, where: r.where, src: 'search', hood: w.hood || d.hood, sub: w.sub, kind: r.kind || d.kind }); renderLogForm(); }));
   }
   function placePending(xy) {
+    const tEl = $('toast'); tEl.classList.remove('on'); clearTimeout(toastTimer); // the 'tap the map' hint is done
     const [x, y] = xy, [lon, lat] = Geom.unproj(x, y), w = locateXY(x, y), d = state.draft;
     state.placing = false; stage.classList.remove('placing');
     if (!d) { state.draft = { id: null, name: '', kind: 'food', status: 'been', rating: 0, note: '', at: today(), lon, lat, x, y, hood: w.hood, sub: w.sub, src: 'pin', where: '' }; }
     else Object.assign(d, { lon, lat, x, y, hood: w.hood || d.hood, sub: w.sub, src: 'pin', where: '' });
     state.pending = { x, y };
-    go(state.loc, { view: 'log', fly: false, replace: true, sheet: isPhone() ? 'full' : undefined });
+    go(state.loc, { view: 'log', fly: false, replace: true, sheet: isPhone() ? 'half' : undefined }); // phone: half, so the pin stays in view above the form
+    if (isPhone()) map.flyTo([x - .01, y - .01, x + .01, y + .01], 1, NX * 0.028);
   }
   function stopPlacing() { state.placing = false; state.pending = null; stage.classList.remove('placing'); map.redraw(); }
   function cancelLog() { const d = state.draft; state.draft = null; stopPlacing(); if (d && d.id) go({ spot: d.id }, { replace: true, fly: false }); else go(state.loc, { replace: true, fly: false }); }

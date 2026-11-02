@@ -160,7 +160,7 @@
     const tc = document.createElement('canvas'), tctx = tc.getContext('2d', { alpha: false });
     const cache = { valid: false, k: 0, x: 0, y: 0, mw: 0, mh: 0, t: 0, cost: 4 };
     let dirty = true; // something other than the camera changed (colors, selection, region, filters)
-    function subFactor(i) { if (quiz) return 0; const px = hoodPx(i); let f = smooth(px, 300, 560); if (i === sel) f = Math.max(f, px > 150 ? 1 : 0); return subsOf(i) ? f : 0; }
+    function subFactor(i) { if (quiz) return 0; const px = hoodPx(i); let f = smooth(px, 300, 560); if (i === sel) f = Math.max(f, px > (isPhone() ? 110 : 150) ? 1 : 0); return subsOf(i) ? f : 0; }
     function renderTerrain(k) {
       // slow devices get a lower-resolution terrain bitmap (labels stay crisp: they are drawn live)
       const cd = cache.cost > 60 ? Math.min(dpr, 1) : cache.cost > 28 ? Math.min(dpr, 1.5) : dpr;
@@ -217,8 +217,10 @@
       ctx.setTransform(k * dpr, 0, 0, k * dpr, -cam.x * k * dpr + tx, -cam.y * k * dpr + ty); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
       if (hover >= 0 && hover !== sel && !quiz) { ctx.strokeStyle = P.ink; ctx.lineWidth = 1.4 / k; ctx.stroke(PATH[hover]); }
       if (sel >= 0) {
-        ctx.strokeStyle = P.accent; ctx.lineWidth = 2.2 / k; ctx.stroke(PATH[sel]);
-        if (selSub >= 0 && subsOf(sel)) { ctx.lineWidth = 1.8 / k; ctx.stroke(subsOf(sel)[selSub].path); }
+        const cells = subsOf(sel), sp = selSub >= 0 && cells ? cells[selSub] : null, ph = isPhone();
+        if (sp && ph) { ctx.globalAlpha = .16; ctx.fillStyle = P.accent; ctx.fill(sp.path); ctx.globalAlpha = 1; } // phone: the selected section is tinted and outlined harder than its place
+        ctx.strokeStyle = P.accent; ctx.lineWidth = (sp && ph ? 1.4 : 2.2) / k; ctx.stroke(PATH[sel]);
+        if (sp) { ctx.lineWidth = (ph ? 2.8 : 1.8) / k; ctx.stroke(sp.path); }
         if (hoverSub >= 0 && hoverSub !== selSub && hover === sel && subsOf(sel)) { ctx.strokeStyle = P.ink; ctx.lineWidth = 1.2 / k; ctx.stroke(subsOf(sel)[hoverSub].path); }
       }
       const vis = [], subF = [];
@@ -229,14 +231,18 @@
       ctx.textBaseline = 'middle';
       // water & bridge names
       anim = fade(waterLblA, 0, k < 5.5 && !quiz ? 1 : 0, dt) || anim;
-      if (waterLblA[0] > 0.01) { ctx.globalAlpha = waterLblA[0]; ctx.fillStyle = P.wlbl; ctx.textAlign = 'center'; const fs = isPhone() ? 9.5 : 10.5; ctx.font = `500 ${fs}px Figtree, system-ui, sans-serif`; if (supportsLS) ctx.letterSpacing = '0.3em'; for (const wl of WATER_LBL) { const [sx, sy] = toScreen(wl.p[0], wl.p[1]); if (sx > -200 && sx < W + 200 && sy > -40 && sy < H + 40) ctx.fillText(wl.t, sx, sy); } if (supportsLS) ctx.letterSpacing = '0px'; ctx.globalAlpha = 1; }
+      const waterBoxes = []; // phone: place labels avoid the water names
+      if (waterLblA[0] > 0.01) { ctx.globalAlpha = waterLblA[0]; ctx.fillStyle = P.wlbl; ctx.textAlign = 'center'; const fs = isPhone() ? 9.5 : 10.5; ctx.font = `500 ${fs}px Figtree, system-ui, sans-serif`; if (supportsLS) ctx.letterSpacing = '0.3em'; for (const wl of WATER_LBL) { const [sx, sy] = toScreen(wl.p[0], wl.p[1]); if (sx > -200 && sx < W + 200 && sy > -40 && sy < H + 40) { ctx.fillText(wl.t, sx, sy); if (isPhone() && waterLblA[0] > .3) { const ww = (measure(wl.t, 500, fs) + wl.t.length * fs * .3) / 2; waterBoxes.push([sx - ww, sy - fs * .7, sx + ww, sy + fs * .7]); } } } if (supportsLS) ctx.letterSpacing = '0px'; ctx.globalAlpha = 1; }
       anim = fade(bridgeLblA, 0, k > 3.2 && k < 40 && !quiz ? 1 : 0, dt) || anim;
-      if (bridgeLblA[0] > 0.01) { ctx.globalAlpha = bridgeLblA[0]; ctx.textAlign = 'center'; ctx.font = `500 ${isPhone() ? 9.5 : 10.5}px Figtree, system-ui, sans-serif`; for (const b of BRIDGES) if (b.lbl) { const [sx, sy] = toScreen(b.lbl.p[0], b.lbl.p[1]); if (sx > -100 && sx < W + 100 && sy > -20 && sy < H + 20) { ctx.fillStyle = P.water; for (let q = 0; q < 6; q++) { const a = q * Math.PI / 3; ctx.fillText(b.lbl.text, sx + Math.cos(a) * 1.2, sy + Math.sin(a) * 1.2); } ctx.fillStyle = P.muted; ctx.fillText(b.lbl.text, sx, sy); } } ctx.globalAlpha = 1; }
+      if (bridgeLblA[0] > 0.01) { ctx.globalAlpha = bridgeLblA[0]; ctx.textAlign = 'center'; ctx.font = `500 ${isPhone() ? 9.5 : 10.5}px Figtree, system-ui, sans-serif`; for (const b of BRIDGES) if (b.lbl) { const [sx, sy] = toScreen(b.lbl.p[0], b.lbl.p[1]); if (sx > -100 && sx < W + 100 && sy > -20 && sy < H + 20 && (!isPhone() || Math.abs(sx - W / 2) + measure(b.lbl.text, 500, 9.5) / 2 < W / 2 - 2)) { ctx.fillStyle = P.water; for (let q = 0; q < 6; q++) { const a = q * Math.PI / 3; ctx.fillText(b.lbl.text, sx + Math.cos(a) * 1.2, sy + Math.sin(a) * 1.2); } ctx.fillStyle = P.muted; ctx.fillText(b.lbl.text, sx, sy); } } ctx.globalAlpha = 1; }
 
       tick('waterlbl');
       // labels: hoods first (priority order, no overlaps), then sections, then spot names
       const placed = [];
-      const clash = b => placed.some(q => b[0] < q[2] && b[2] > q[0] && b[1] < q[3] && b[3] > q[1]);
+      const clash = (b, self) => placed.some(q => (q.own == null || q.own !== self) && b[0] < q[2] && b[2] > q[0] && b[1] < q[3] && b[3] > q[1]);
+      if (o.occluders) for (const b of o.occluders()) placed.push(b); // floating chrome over the canvas (phone)
+      for (const b of waterBoxes) placed.push(b);
+      const marks = o.marks ? o.marks() : [];
       // landmark glyphs cannot move, so their footprints are reserved first (they are drawn later, above the fills)
       const lmF = quiz ? 0 : smooth(k, 7, 10.5), lmH = clamp(k * 1.7, 16, 44);
       LANDS.forEach((l, j) => {
@@ -247,8 +253,9 @@
         l._box = (lmA[j] > 0.01 && onScreen) ? [sx - lmH * (l.w || 1) / 2, sy - lmH, sx + lmH * (l.w || 1) / 2, sy] : null;
         if (l._box && lmA[j] > 0.3) placed.push([l._box[0] - 2, l._box[1] - 2, l._box[2] + 2, l._box[3] + 2]);
       });
+      // flags and stars are fixed too: reserve their footprints so neighbouring labels move or hide
+      if (!quiz && isPhone()) for (const i of vis) if (marks[i]) { const [sx, sy] = toScreen(HOODS[i].cx, HOODS[i].cy); const b = marks[i] === 'flag' ? [sx - 4, sy - 19, sx + 14, sy + 3] : [sx - 9, sy - 9, sx + 9, sy + 9]; b.own = i; placed.push(b); } // a place's own label sits below its mark
       const base = Math.round((isPhone() ? 10.5 : 11.5) * clamp(Math.pow(NX / cam.w, 0.22), 1, 1.32) * 4) / 4;
-      const marks = o.marks ? o.marks() : [];
       const prio = i => (i === sel ? 1e9 : 0) + (i === hover ? 5e8 : 0) + (marks[i] ? 1e7 : 0) + HOODS[i].cells;
       const order = vis.slice().sort((a, b) => prio(b) - prio(a));
       const labelFont = s => `600 ${s.toFixed(1)}px Figtree, system-ui, sans-serif`;
@@ -258,48 +265,61 @@
         let target = 0, box = null, size = base, ghost = false;
         if (!quiz && !far) {
           const hot = i === sel || i === hover, text = (window.SHORT[h.name] || h.name).toUpperCase();
-          ghost = subF[i] > 0.6 && !hot;
+          ghost = subF[i] > 0.6 && (isPhone() ? i === sel : !hot); // phone: only the selected place becomes a watermark (its sections get the room); neighbours keep normal labels
           size = ghost ? base * 1.55 : hot ? base * 1.15 : base;
           const tw = measure(text, 600, size) + text.length * size * (ghost ? .14 : .05), th = size * 1.2;
           const [cx, cy0] = toScreen(h.cx, h.cy); const cy = cy0 + (marks[i] && !ghost ? size * 1.25 : 0);
-          const at = y => [cx - tw / 2 - 2, y - th / 2, cx + tw / 2 + 2, y + th / 2];
+          const gx = isPhone() ? 4 : 2, gy = isPhone() ? 1 : 0; // phone labels keep wider clearance
+          const at = y => [cx - tw / 2 - gx, y - th / 2 - gy, cx + tw / 2 + gx, y + th / 2 + gy];
           box = at(cy);
           const fits = (BB[i][2] - BB[i][0]) * k >= tw * .72 && (BB[i][3] - BB[i][1]) * k >= th;
           const keep = hot || marks[i] || h.cells < 10;
-          if (!ghost && (fits || keep) && clash(box)) { for (const dy of [th * 1.15, -th * 1.15, th * 2.2]) { const alt = at(cy + dy); if (!clash(alt)) { box = alt; break; } } }
-          target = ghost ? (fits ? .32 : 0) : (hot || ((fits || keep) && !clash(box))) ? 1 : 0;
+          const onOwn = b => { if (!isPhone()) return true; const [x0, y0] = toScreen(BB[i][0], BB[i][1]), [x1, y1] = toScreen(BB[i][2], BB[i][3]), my = (b[1] + b[3]) / 2; return my >= Math.min(y0, y1) - th * .6 && my <= Math.max(y0, y1) + th * .6; }; // phone: never move a label off its own place; hide it instead
+          if (!ghost && (fits || keep) && clash(box, i)) { for (const dy of [th * 1.15, -th * 1.15, th * 2.2]) { const alt = at(cy + dy); if (onOwn(alt) && !clash(alt, i)) { box = alt; break; } } }
+          const inView = b => !isPhone() || hot || (b[0] >= 2 && b[2] <= W - 2 && b[1] >= 0 && b[3] <= H); // phone: no labels sliced by the screen edge
+          target = ghost ? (i === sel ? .5 : (fits ? .32 : 0)) : (hot || ((fits || keep) && !clash(box, i) && inView(box))) ? 1 : 0;
           if (target && !ghost) placed.push(box);
         }
         anim = fade(lblA, i, target, dt, 160) || anim;
         if (lblA[i] > 0.01 && box) show.push({ i, box, size, ghost, hot: i === sel || i === hover });
       }
+      let wm = null; // phone: the selected place's watermark is placed after its section labels, in a clear spot
       for (const s of show) {
+        if (s.ghost && s.i === sel && isPhone()) { wm = s; continue; }
         const h = HOODS[s.i], text = (window.SHORT[h.name] || h.name).toUpperCase(), cx = (s.box[0] + s.box[2]) / 2, cy = (s.box[1] + s.box[3]) / 2;
         ctx.globalAlpha = lblA[s.i]; ctx.textAlign = 'center'; ctx.font = labelFont(s.size);
         if (supportsLS) ctx.letterSpacing = s.ghost ? '0.14em' : '0.05em';
-        if (s.ghost) { ctx.fillStyle = P.label; ctx.fillText(text, cx, cy); } else haloText(text, cx, cy, s.size, s.hot ? P.accent : P.label);
+        if (s.ghost) { ctx.fillStyle = s.i === sel ? P.accent : P.label; ctx.fillText(text, cx, cy); } else haloText(text, cx, cy, s.size, s.hot ? P.accent : P.label);
       }
       if (supportsLS) ctx.letterSpacing = '0px';
       ctx.globalAlpha = 1; tick('hoodlbl');
       // section labels
-      const subSize = isPhone() ? 10.5 : 11.5, subFont = `500 ${subSize}px Figtree, system-ui, sans-serif`;
+      const subSize = isPhone() ? 10.5 : 11.5, subFont = `500 ${subSize}px Figtree, system-ui, sans-serif`, sgx = 2;
+      const hotSize = subSize * 1.25, hotFont = `600 ${hotSize}px Figtree, system-ui, sans-serif`; // phone: the selected section's name leads
       for (const i of vis) {
         const cells = subsOf(i); if (!cells) continue;
         cells.forEach((c, j) => {
           const key = i + ':' + j; let target = 0, box = null;
           if (subF[i] > 0.01) {
-            const tw = measure(c.name, 500, subSize), th = subSize * 1.2, [cx, cy] = toScreen(c.c[0], c.c[1]);
-            box = [cx - tw / 2 - 2, cy - th / 2, cx + tw / 2 + 2, cy + th / 2];
+            const hot = i === sel && j === selSub, big = hot && isPhone(), ss = big ? hotSize : subSize;
+            const tw = measure(c.name, big ? 600 : 500, ss), th = ss * 1.2, [cx, cy] = toScreen(c.c[0], c.c[1]);
+            box = [cx - tw / 2 - sgx, cy - th / 2, cx + tw / 2 + sgx, cy + th / 2];
             const fits = (c.bbox[2] - c.bbox[0]) * k >= tw * .8 && (c.bbox[3] - c.bbox[1]) * k >= th * 1.1;
-            const hot = i === sel && j === selSub;
-            if ((fits || hot) && !clash(box)) { target = subF[i]; placed.push(box); }
+            if ((fits || hot) && !clash(box) && (hot || !isPhone() || (box[0] >= 2 && box[2] <= W - 2 && box[1] >= 0 && box[3] <= H))) { target = subF[i]; placed.push(box); }
           }
           anim = fade(subA, key, target, dt, 160) || anim;
           if (subA[key] > 0.01 && box) {
-            ctx.globalAlpha = subA[key]; ctx.textAlign = 'center'; ctx.font = subFont;
-            haloText(c.name, (box[0] + box[2]) / 2, (box[1] + box[3]) / 2, subSize, (i === sel && j === selSub) ? P.accent : P.label);
+            const big = i === sel && j === selSub && isPhone();
+            ctx.globalAlpha = subA[key]; ctx.textAlign = 'center'; ctx.font = big ? hotFont : subFont;
+            haloText(c.name, (box[0] + box[2]) / 2, (box[1] + box[3]) / 2, big ? hotSize : subSize, (i === sel && j === selSub) ? P.accent : P.label);
           }
         });
+      }
+      if (wm) {
+        const text = (window.SHORT[HOODS[wm.i].name] || HOODS[wm.i].name).toUpperCase(), th = wm.size * 1.2, b = wm.box;
+        const hit = q => placed.some(p => q[0] < p[2] && q[2] > p[0] && q[1] < p[3] && q[3] > p[1]);
+        const dy = [0, th * 1.4, -th * 1.4, th * 2.8, -th * 2.8, th * 4.2, -th * 4.2].find(d => !hit([b[0], b[1] + d, b[2], b[3] + d]));
+        if (dy != null) { ctx.globalAlpha = lblA[wm.i]; ctx.textAlign = 'center'; ctx.font = labelFont(wm.size); if (supportsLS) ctx.letterSpacing = '0.14em'; ctx.fillStyle = P.accent; ctx.fillText(text, (b[0] + b[2]) / 2, (b[1] + b[3]) / 2 + dy); if (supportsLS) ctx.letterSpacing = '0px'; }
       }
       ctx.globalAlpha = 1; tick('sublbl');
 
@@ -331,7 +351,8 @@
         sp._s = [sx, sy];
         const hot = sp.id === hoverSpot || sp.id === o.selectedSpot?.(); const r = (hot ? 6.5 : 5) * pinScale;
         ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI * 2);
-        if (sp.status === 'pending') { ctx.fillStyle = P.paper; ctx.fill(); ctx.setLineDash([2, 1.5]); ctx.strokeStyle = P.accent; ctx.lineWidth = 1.5; ctx.stroke(); ctx.setLineDash([]); }
+        if (sp.status === 'pending' && isPhone()) { ctx.beginPath(); ctx.arc(sx, sy, r * 1.5, 0, Math.PI * 2); ctx.globalAlpha = .22; ctx.fillStyle = P.accent; ctx.fill(); ctx.globalAlpha = 1; ctx.setLineDash([3, 2]); ctx.strokeStyle = P.accent; ctx.lineWidth = 2; ctx.stroke(); ctx.setLineDash([]); ctx.beginPath(); ctx.arc(sx, sy, r * .45, 0, Math.PI * 2); ctx.fillStyle = P.accent; ctx.fill(); } // phone: a dashed accent ring that reads in both themes
+        else if (sp.status === 'pending') { ctx.fillStyle = P.paper; ctx.fill(); ctx.setLineDash([2, 1.5]); ctx.strokeStyle = P.accent; ctx.lineWidth = 1.5; ctx.stroke(); ctx.setLineDash([]); }
         else { ctx.fillStyle = P.paper; ctx.fill(); ctx.strokeStyle = hot ? P.ink : 'rgba(0,0,0,.25)'; ctx.lineWidth = hot ? 1.5 : 1; ctx.stroke(); ctx.beginPath(); ctx.arc(sx, sy, r * .55, 0, Math.PI * 2); const c = cssColor(sp.c); if (sp.status === 'want') { ctx.strokeStyle = c; ctx.lineWidth = 1.6; ctx.stroke(); } else { ctx.fillStyle = c; ctx.fill(); } }
         if (k > 16 && sp.name && !quiz) { const ps = isPhone() ? 10.5 : 11.5, tw = measure(sp.name, 500, ps), box = [sx + r + 3, sy - 7, sx + r + 3 + tw + 4, sy + 7]; if (!clash(box) || hot) { placed.push(box); ctx.textAlign = 'left'; ctx.font = pinFont; haloText(sp.name, sx + r + 5, sy, ps, P.label); } }
       }

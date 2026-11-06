@@ -2,7 +2,7 @@
    Type: Bricolage Grotesque for display, Figtree for everything else. */
 :root {
   color-scheme: light;
-  --water: #cfd9df;
+  --water: #c8d5dc;
   --paper: #ffffff;
   --paper-2: #f3f5f7;
   --paper-3: #e9edf0;
@@ -21,16 +21,16 @@
   --star-soft: #fbf2da;
   --good: #2e8b57;
   --bad: #c93c2e;
-  --land: #eaedea;
-  --land-other: #dde3e2;
-  --dot: #c9d2d4;
-  --coast: #8fa6b6;
-  --wlbl: #7f95a5;
-  --steel: #6b7076;
+  --land: #ebe5d6;
+  --land-other: #e3dccb;
+  --dot: #cdc3ad;
+  --coast: #7d99ad;
+  --wlbl: #7a8f9c;
+  --steel: #6b6760;
   --gg: #e85a1f;
-  --grey-fill: #d9dfe0;
+  --grey-fill: #dcd5c4;
   --label: #15202b;
-  --label-halo: #eaedea;
+  --label-halo: #ebe5d6;
   --sub-line: #ffffff;
   --v-fog: #8ea4ba; --v-hills: #c98a66; --v-water: #74a9ab; --v-sun: #d6b25c; --v-buzz: #c5848e; --v-green: #9fb48a;
   --fog1:#e9ece9; --fog2:#cfd5d9; --fog3:#adbac6; --fog4:#8ea4ba; --fog5:#5f7a94;
@@ -51,10 +51,10 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --water: #0b1319; --paper: #151d25; --paper-2: #1d2730; --paper-3: #26313b; --ink: #eaeff3; --ink-2: #c3ccd4; --muted: #8e9ca8; --line: #273139; --line-2: #37434d;
+    --water: #0e151d; --paper: #151d25; --paper-2: #1d2730; --paper-3: #26313b; --ink: #eaeff3; --ink-2: #c3ccd4; --muted: #8e9ca8; --line: #273139; --line-2: #37434d;
     --accent: #ff7a3d; --accent-soft: #3a2316; --accent-ink: #1a110b; --want: #6ea0e0; --want-soft: #1b2a3f; --star: #f0c04a; --star-ink: #f0c04a; --star-soft: #33290f; --good: #6fae7f; --bad: #e0675a;
-    --land: #28323c; --land-other: #19222b; --dot: #2b3540; --coast: #43607e; --wlbl: #5c7389; --steel: #a7a39b; --gg: #ff7a3d; --grey-fill: #3a4452;
-    --label: #eaeff3; --label-halo: #28323c; --sub-line: #151d25;
+    --land: #2a333f; --land-other: #1f2733; --dot: #303b49; --coast: #4b6a8a; --wlbl: #5c7389; --steel: #a7a39b; --gg: #ff7a3d; --grey-fill: #343e4b;
+    --label: #eaeff3; --label-halo: #2a333f; --sub-line: #151d25;
     --v-fog: #6f88a6; --v-hills: #b8795a; --v-water: #5d9598; --v-sun: #c2a052; --v-buzz: #b0727d; --v-green: #86a075;
     --fog1:#28323c; --fog2:#334456; --fog3:#45607a; --fog4:#6f88a6; --fog5:#a6bdd3;
     --hill1:#2f2c2a; --hill2:#55432f; --hill3:#80603f; --hill4:#ad8458; --hill5:#d8ad7a;
@@ -66,10 +66,10 @@
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --water: #0b1319; --paper: #151d25; --paper-2: #1d2730; --paper-3: #26313b; --ink: #eaeff3; --ink-2: #c3ccd4; --muted: #8e9ca8; --line: #273139; --line-2: #37434d;
+  --water: #0e151d; --paper: #151d25; --paper-2: #1d2730; --paper-3: #26313b; --ink: #eaeff3; --ink-2: #c3ccd4; --muted: #8e9ca8; --line: #273139; --line-2: #37434d;
   --accent: #ff7a3d; --accent-soft: #3a2316; --accent-ink: #1a110b; --want: #6ea0e0; --want-soft: #1b2a3f; --star: #f0c04a; --star-ink: #f0c04a; --star-soft: #33290f; --good: #6fae7f; --bad: #e0675a;
-  --land: #28323c; --land-other: #19222b; --dot: #2b3540; --coast: #43607e; --wlbl: #5c7389; --steel: #a7a39b; --gg: #ff7a3d; --grey-fill: #3a4452;
-  --label: #eaeff3; --label-halo: #28323c; --sub-line: #151d25;
+  --land: #2a333f; --land-other: #1f2733; --dot: #303b49; --coast: #4b6a8a; --wlbl: #5c7389; --steel: #a7a39b; --gg: #ff7a3d; --grey-fill: #343e4b;
+  --label: #eaeff3; --label-halo: #2a333f; --sub-line: #151d25;
   --v-fog: #6f88a6; --v-hills: #b8795a; --v-water: #5d9598; --v-sun: #c2a052; --v-buzz: #b0727d; --v-green: #86a075;
   --fog1:#28323c; --fog2:#334456; --fog3:#45607a; --fog4:#6f88a6; --fog5:#a6bdd3;
   --hill1:#2f2c2a; --hill2:#55432f; --hill3:#80603f; --hill4:#ad8458; --hill5:#d8ad7a;

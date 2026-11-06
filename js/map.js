@@ -79,7 +79,7 @@
 
   // ---- palette from CSS variables ----
   const P = {};
-  const VARS = { water: '--water', paper: '--paper', ink: '--ink', muted: '--muted', land: '--land', landOther: '--land-other', coast: '--coast', wlbl: '--wlbl', steel: '--steel', gg: '--gg', accent: '--accent', want: '--want', label: '--label', labelHalo: '--label-halo', subLine: '--sub-line', face: '--glyph-face', shade: '--glyph-shade', roof: '--glyph-roof', line2: '--line-2', star: '--star', starInk: '--star-ink' };
+  const VARS = { water: '--water', paper: '--paper', dot: '--dot', ink: '--ink', muted: '--muted', land: '--land', landOther: '--land-other', coast: '--coast', wlbl: '--wlbl', steel: '--steel', gg: '--gg', accent: '--accent', want: '--want', label: '--label', labelHalo: '--label-halo', subLine: '--sub-line', face: '--glyph-face', shade: '--glyph-shade', roof: '--glyph-roof', line2: '--line-2', star: '--star', starInk: '--star-ink' };
   function refreshPalette() { const cs = getComputedStyle(document.documentElement); for (const k in VARS) P[k] = cs.getPropertyValue(VARS[k]).trim() || '#888'; }
   const hex2rgb = h => { h = h.replace('#', ''); if (h.length === 3) h = h.split('').map(c => c + c).join(''); const n = parseInt(h, 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; };
   const rgbStr = c => `rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0})`;
@@ -181,6 +181,13 @@
     const cache = { valid: false, k: 0, x: 0, y: 0, mw: 0, mh: 0, t: 0, cost: 4 };
     let dirty = true; // something other than the camera changed (colors, selection, region, filters)
     function subFactor(i) { if (quiz) return 0; const px = hoodPx(i); let f = smooth(px, 300, 560); if (i === sel) f = Math.max(f, px > (isPhone() ? 110 : 150) ? 1 : 0); return subsOf(i) ? f : 0; }
+    let stipKey = '', stipPat = null;
+    function stipplePattern(cd) {
+      const key = P.dot + '|' + cd; if (key === stipKey && stipPat) return stipPat;
+      const t = document.createElement('canvas'), px = Math.max(1, Math.round(5 * cd)); t.width = t.height = px;
+      const g = t.getContext('2d'); g.fillStyle = P.dot; g.beginPath(); g.arc(px / 2, px / 2, Math.max(.5, .75 * cd), 0, Math.PI * 2); g.fill();
+      stipKey = key; stipPat = tctx.createPattern(t, 'repeat'); return stipPat;
+    }
     function renderTerrain(k) {
       // slow devices get a lower-resolution terrain bitmap (labels stay crisp: they are drawn live)
       const cd = cache.cost > 60 ? Math.min(dpr, 1) : cache.cost > 28 ? Math.min(dpr, 1.5) : dpr;
@@ -191,7 +198,10 @@
       c.setTransform(cd, 0, 0, cd, 0, 0); c.fillStyle = P.water; c.fillRect(0, 0, W + 2 * mw, H + 2 * mh);
       c.setTransform(k * cd, 0, 0, k * cd, -x * k * cd, -y * k * cd);
       c.lineJoin = 'round'; c.lineCap = 'round';
-      c.fillStyle = P.landOther; c.fill(FAR_LAND); c.fill(OTHER); c.fillStyle = P.water; c.fill(WATER); tick('t-other');
+      c.fillStyle = P.landOther; c.fill(FAR_LAND); c.fill(OTHER);
+      // stipple on the land outside the places: a fixed 5 px screen pitch whatever the zoom, like a printed atlas
+      c.save(); const stip = new Path2D(); stip.addPath(FAR_LAND); stip.addPath(OTHER); c.clip(stip); c.setTransform(1, 0, 0, 1, 0, 0); c.fillStyle = stipplePattern(cd); c.fillRect(0, 0, tc.width, tc.height); c.restore();
+      c.setTransform(k * cd, 0, 0, k * cd, -x * k * cd, -y * k * cd); c.fillStyle = P.water; c.fill(WATER); tick('t-other');
       c.strokeStyle = P.coast; for (const [wpx, a] of [[14, .05], [8, .08], [3, .16]]) { c.globalAlpha = a; c.lineWidth = wpx / k; c.stroke(OUTLINE); } c.globalAlpha = 1; tick('t-halo');
       const vis = [], subF = [], x1 = x + (W + 2 * mw) / k, y1 = y + (H + 2 * mh) / k, gold = hex2rgb(P.star);
       for (let i = 0; i < HOODS.length; i++) { const bb = BB[i]; if (bb[2] < x || bb[0] > x1 || bb[3] < y || bb[1] > y1) continue; vis.push(i); subF[i] = subFactor(i); }

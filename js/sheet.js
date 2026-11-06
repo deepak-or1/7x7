@@ -6,15 +6,22 @@
     const grip = opt.grip, head = opt.head, panel = opt.panel, root = document.documentElement;
     let detent = 'peek', fullPx = 0, vis = 0, dragging = null;
     const isPhone = () => window.innerWidth <= 880;
-    const safeTop = () => { const v = parseFloat(getComputedStyle(root).getPropertyValue('--sat')) || 0; return v; };
+    // safe-area insets: env() only resolves inside CSS, so a hidden probe carries them as padding we can read
+    const probe = document.createElement('div'); probe.id = 'sa-probe';
+    probe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;visibility:hidden;pointer-events:none;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)';
+    document.body.appendChild(probe);
+    const insets = () => { const cs = getComputedStyle(probe); return { t: parseFloat(cs.paddingTop) || 0, b: parseFloat(cs.paddingBottom) || 0 }; };
     function heights() {
-      const H = window.innerHeight, top = Math.max(10, safeTop() + 8);
-      const full = H - top, peek = Math.min(full, (grip.offsetHeight || 18) + (head.offsetHeight || 54) + 2), half = clamp(Math.round(H * 0.46), peek + 60, full - 40);
+      // full clears the Dynamic Island (or, while searching, the pinned top card); peek adds the home-indicator inset as paper under the title
+      const H = window.innerHeight, i = insets(), topEl = document.querySelector('.top');
+      const pin = root.classList.contains('searching') && topEl ? topEl.getBoundingClientRect().bottom + 8 : 0;
+      const top = Math.max(10, i.t + 6, pin), full = H - top;
+      const peek = Math.min(full, (grip.offsetHeight || 18) + (head.offsetHeight || 54) + 2 + i.b), half = clamp(Math.round(H * 0.46), peek + 60, full - 40);
       return { peek, half, full, H };
     }
     function apply(v, animate) {
       vis = v; const y = fullPx - v;
-      el.classList.toggle('lifting', !animate); opt.ctl && opt.ctl.classList.toggle('lifting', !animate);
+      el.classList.toggle('lifting', !animate); opt.ctl && opt.ctl.classList.toggle('lifting', !animate); opt.legend && opt.legend.classList.toggle('lifting', !animate);
       root.style.setProperty('--sheet-y', y.toFixed(1) + 'px'); root.style.setProperty('--sheet-vis', v.toFixed(1) + 'px');
     }
     function set(d, o = {}) {
@@ -52,6 +59,9 @@
     panel.addEventListener('touchend', endTouch); panel.addEventListener('touchcancel', endTouch);
     panel.addEventListener('click', e => { if (isPhone() && detent === 'peek' && !e.target.closest('button, a, input, select, textarea, label, summary')) set('half'); });
     panel.addEventListener('scroll', () => el.classList.toggle('scrolled', panel.scrollTop > 2), { passive: true });
+    // keyboard: a field opens the sheet to full (half does not scroll) and scrolls into view; --kb pads the panel above the keyboard
+    panel.addEventListener('focusin', e => { if (!isPhone() || !e.target.matches('input:not([type=checkbox]):not([type=file]), textarea, select')) return; if (detent !== 'full') set('full'); setTimeout(() => { try { e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (err) {} }, 450); });
+    if (window.visualViewport) { const kb = () => root.style.setProperty('--kb', Math.max(0, window.innerHeight - visualViewport.height - visualViewport.offsetTop).toFixed(0) + 'px'); visualViewport.addEventListener('resize', kb); visualViewport.addEventListener('scroll', kb); kb(); }
     window.addEventListener('resize', () => set(detent, { instant: true, resize: true }));
     return { set, get detent() { return detent; }, get visible() { return isPhone() ? vis : 0; }, heights, isPhone };
   };

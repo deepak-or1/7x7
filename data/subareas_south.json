@@ -1,0 +1,1838 @@
+{
+ "Palo Alto": [
+  {
+   "name": "Downtown & University Ave",
+   "lon": -122.161,
+   "lat": 37.4455,
+   "line": "University Avenue’s restaurants and bookshops from the Caltrain station to Webster Street.",
+   "known": [
+    "University Avenue",
+    "Palo Alto Caltrain station",
+    "Stanford Theatre"
+   ],
+   "tags": [
+    "food",
+    "nightlife",
+    "shops",
+    "historic"
+   ]
+  },
+  {
+   "name": "Professorville & Old Palo Alto",
+   "lon": -122.153,
+   "lat": 37.441,
+   "line": "Shingled houses where Stanford faculty settled, and the big lots south of Embarcadero.",
+   "known": [
+    "HP Garage on Addison Avenue",
+    "Rinconada Park",
+    "Lucie Stern Community Center"
+   ],
+   "tags": [
+    "historic",
+    "quiet",
+    "parks"
+   ]
+  },
+  {
+   "name": "California Avenue",
+   "lon": -122.1435,
+   "lat": 37.4275,
+   "line": "The second downtown: Cal Ave’s cafés, the Sunday farmers market and its own Caltrain stop.",
+   "known": [
+    "California Avenue farmers market",
+    "California Avenue Caltrain station",
+    "Peers Park"
+   ],
+   "tags": [
+    "food",
+    "shops",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Midtown",
+   "lon": -122.128,
+   "lat": 37.431,
+   "line": "Middlefield Road’s everyday strip and ranch-house blocks toward Mitchell Park.",
+   "known": [
+    "Mitchell Park and its library",
+    "Middlefield Road",
+    "Midtown shopping center"
+   ],
+   "tags": [
+    "quiet",
+    "parks",
+    "shops"
+   ]
+  },
+  {
+   "name": "Baylands",
+   "lon": -122.108,
+   "lat": 37.456,
+   "line": "Marsh boardwalks, the Duck Pond and Byxbee Park’s hills on the old landfill.",
+   "known": [
+    "Baylands Nature Preserve",
+    "Byxbee Park",
+    "Palo Alto Duck Pond"
+   ],
+   "tags": [
+    "waterfront",
+    "parks",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Research Park & Foothills",
+   "lon": -122.1485,
+   "lat": 37.396,
+   "line": "Page Mill Road past the Research Park’s campuses up to Foothills Nature Preserve.",
+   "known": [
+    "Stanford Research Park",
+    "Foothills Nature Preserve",
+    "Pearson-Arastradero Preserve"
+   ],
+   "tags": [
+    "hilly",
+    "parks",
+    "views"
+   ]
+  }
+ ],
+ "Stanford": [
+  {
+   "name": "Main Quad & Palm Drive",
+   "lon": -122.17,
+   "lat": 37.4275,
+   "line": "Sandstone arcades and Memorial Church at the end of Palm Drive, with the Oval out front.",
+   "known": [
+    "Memorial Church",
+    "Hoover Tower",
+    "Cantor Arts Center"
+   ],
+   "tags": [
+    "historic",
+    "artsy",
+    "parks"
+   ]
+  },
+  {
+   "name": "Escondido Village & Faculty Hill",
+   "lon": -122.164,
+   "lat": 37.421,
+   "line": "Grad-student towers at Escondido Village and faculty houses on San Juan Hill above it.",
+   "known": [
+    "Escondido Village",
+    "San Juan Hill faculty housing",
+    "Frenchman’s Road"
+   ],
+   "tags": [
+    "quiet",
+    "hilly",
+    "views"
+   ]
+  },
+  {
+   "name": "Lagunita & West Campus",
+   "lon": -122.181,
+   "lat": 37.4275,
+   "line": "Lake Lagunita’s dry bed and the dorms along Santa Teresa Street and Governor’s Avenue.",
+   "known": [
+    "Lake Lagunita",
+    "Governor’s Corner",
+    "Stanford Golf Course"
+   ],
+   "tags": [
+    "parks",
+    "quiet",
+    "sunny"
+   ]
+  }
+ ],
+ "Los Altos": [
+  {
+   "name": "Downtown Los Altos",
+   "lon": -122.1145,
+   "lat": 37.3795,
+   "line": "Main and State streets’ small shops and cafés, with Lincoln Park along the old rail line.",
+   "known": [
+    "Main Street",
+    "State Street",
+    "Lincoln Park"
+   ],
+   "tags": [
+    "food",
+    "shops",
+    "quiet"
+   ]
+  },
+  {
+   "name": "North Los Altos",
+   "lon": -122.1,
+   "lat": 37.3855,
+   "line": "Big-lot ranch houses between El Camino and Foothill, around Los Altos High School.",
+   "known": [
+    "Los Altos High School",
+    "San Antonio Road",
+    "Almond Avenue"
+   ],
+   "tags": [
+    "quiet",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Rancho Shopping Center",
+   "lon": -122.0985,
+   "lat": 37.37,
+   "line": "The low 1950s center at Foothill Expressway and Springer Road, with Covington Road behind it.",
+   "known": [
+    "Rancho Shopping Center",
+    "Springer Road",
+    "Covington Road"
+   ],
+   "tags": [
+    "shops",
+    "parks",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Loyola Corners",
+   "lon": -122.0895,
+   "lat": 37.358,
+   "line": "A little crossroads at Fremont Avenue and Foothill, under the hills toward Rancho San Antonio.",
+   "known": [
+    "Loyola Corners",
+    "Fremont Avenue",
+    "Loyola School"
+   ],
+   "tags": [
+    "quiet",
+    "shops",
+    "hilly"
+   ]
+  }
+ ],
+ "Los Altos Hills": [
+  {
+   "name": "Town Center & Purissima",
+   "lon": -122.1385,
+   "lat": 37.377,
+   "line": "Town Hall and Purissima Park among oak-studded acre lots off Fremont Road.",
+   "known": [
+    "Los Altos Hills Town Hall",
+    "Purissima Park",
+    "Fremont Road"
+   ],
+   "tags": [
+    "quiet",
+    "parks",
+    "hilly"
+   ]
+  },
+  {
+   "name": "Foothill College",
+   "lon": -122.129,
+   "lat": 37.3615,
+   "line": "The Ernest Kump hilltop campus by I-280, with its observatory and views over the valley.",
+   "known": [
+    "Foothill College",
+    "Foothill Observatory",
+    "El Monte Road"
+   ],
+   "tags": [
+    "views",
+    "hilly",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Westwind Barn & Byrne Preserve",
+   "lon": -122.156,
+   "lat": 37.364,
+   "line": "Horse country off Altamont Road: the town-owned barn and grassy ridge trails.",
+   "known": [
+    "Westwind Community Barn",
+    "Byrne Preserve",
+    "Altamont Road"
+   ],
+   "tags": [
+    "hilly",
+    "views",
+    "parks"
+   ]
+  }
+ ],
+ "Mountain View": [
+  {
+   "name": "Downtown & Castro Street",
+   "lon": -122.0805,
+   "lat": 37.3935,
+   "line": "Castro Street’s dumplings, ramen and bars between the train station and City Hall.",
+   "known": [
+    "Castro Street",
+    "Mountain View Center for the Performing Arts",
+    "Mountain View Caltrain and light rail"
+   ],
+   "tags": [
+    "food",
+    "nightlife",
+    "shops"
+   ]
+  },
+  {
+   "name": "North Bayshore & Shoreline",
+   "lon": -122.084,
+   "lat": 37.423,
+   "line": "Google’s campus, Shoreline Amphitheatre and the sailing lake on the old dump.",
+   "known": [
+    "Googleplex",
+    "Shoreline Amphitheatre",
+    "Shoreline Lake"
+   ],
+   "tags": [
+    "waterfront",
+    "parks",
+    "sunny"
+   ]
+  },
+  {
+   "name": "San Antonio",
+   "lon": -122.106,
+   "lat": 37.403,
+   "line": "The rebuilt San Antonio Center and apartment blocks near the Palo Alto line.",
+   "known": [
+    "San Antonio Center",
+    "San Antonio Caltrain station",
+    "Showers Drive"
+   ],
+   "tags": [
+    "shops",
+    "food",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Rengstorff & Monta Loma",
+   "lon": -122.095,
+   "lat": 37.4,
+   "line": "Rengstorff Park’s pool and Monta Loma’s Eichlers north of Central Expressway.",
+   "known": [
+    "Rengstorff Park",
+    "Monta Loma Eichlers",
+    "Crittenden Middle School"
+   ],
+   "tags": [
+    "parks",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Whisman",
+   "lon": -122.061,
+   "lat": 37.396,
+   "line": "Office parks and townhomes along Middlefield and Whisman Road, by the light rail.",
+   "known": [
+    "Middlefield light rail station",
+    "Whisman Road",
+    "Whisman Park"
+   ],
+   "tags": [
+    "quiet",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Cuesta & Waverly Park",
+   "lon": -122.08,
+   "lat": 37.372,
+   "line": "Leafy south side around Cuesta Park, Grant Road and El Camino Hospital.",
+   "known": [
+    "Cuesta Park",
+    "El Camino Hospital",
+    "Grant Road"
+   ],
+   "tags": [
+    "parks",
+    "quiet",
+    "sunny"
+   ]
+  }
+ ],
+ "Sunnyvale": [
+  {
+   "name": "Downtown & Murphy Avenue",
+   "lon": -122.03,
+   "lat": 37.377,
+   "line": "One preserved block of 1900s storefronts, now restaurants, beside the Caltrain station.",
+   "known": [
+    "Historic Murphy Avenue",
+    "Sunnyvale Caltrain station",
+    "Plaza del Sol"
+   ],
+   "tags": [
+    "food",
+    "nightlife",
+    "historic"
+   ]
+  },
+  {
+   "name": "Moffett Park",
+   "lon": -122.023,
+   "lat": 37.408,
+   "line": "Aerospace and tech campuses on the bay flats, from Lockheed Martin to the salt-pond edge.",
+   "known": [
+    "Lockheed Martin Space",
+    "Moffett Park Drive",
+    "Sunnyvale Water Pollution Control Plant ponds"
+   ],
+   "tags": [
+    "waterfront",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Lakewood & Baylands",
+   "lon": -121.998,
+   "lat": 37.405,
+   "line": "Lakewood Village’s tract homes north of 101 and the bayside Baylands Park.",
+   "known": [
+    "Sunnyvale Baylands Park",
+    "Lakewood Park",
+    "Lawrence Expressway"
+   ],
+   "tags": [
+    "parks",
+    "waterfront",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Fair Oaks",
+   "lon": -122.005,
+   "lat": 37.38,
+   "line": "Apartment blocks and small shopping strips along Fair Oaks Avenue, east of downtown.",
+   "known": [
+    "Fair Oaks Park",
+    "Fair Oaks Avenue",
+    "Wolfe Road"
+   ],
+   "tags": [
+    "food",
+    "shops",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Cherry Chase",
+   "lon": -122.047,
+   "lat": 37.362,
+   "line": "Quiet orchard-era streets near the Mountain View line, around Ortega Park.",
+   "known": [
+    "Ortega Park",
+    "Cherry Chase Elementary",
+    "Mary Avenue"
+   ],
+   "tags": [
+    "quiet",
+    "parks",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Las Palmas & Community Center",
+   "lon": -122.027,
+   "lat": 37.357,
+   "line": "The Community Center’s lake and theatre, and Las Palmas Park off Russet Drive.",
+   "known": [
+    "Sunnyvale Community Center",
+    "Las Palmas Park",
+    "Remington Drive"
+   ],
+   "tags": [
+    "parks",
+    "quiet",
+    "sunny"
+   ]
+  }
+ ],
+ "Cupertino": [
+  {
+   "name": "Main Street",
+   "lon": -122.009,
+   "lat": 37.3235,
+   "line": "The open-air blocks off Stevens Creek at Finch, with the old Vallco site across the road.",
+   "known": [
+    "Alexander’s Steakhouse",
+    "Lazy Dog and Pacific Catch",
+    "The old Vallco Mall site"
+   ],
+   "tags": [
+    "food",
+    "shops",
+    "sunny"
+   ],
+   "star": "Friend’s pick"
+  },
+  {
+   "name": "Apple Park",
+   "lon": -122.009,
+   "lat": 37.3346,
+   "line": "The ring building behind its berms off Wolfe Road, with a public visitor center.",
+   "known": [
+    "Apple Park Visitor Center",
+    "Tantau Avenue",
+    "Homestead Road"
+   ],
+   "tags": [
+    "sunny",
+    "quiet"
+   ]
+  },
+  {
+   "name": "De Anza & Civic Center",
+   "lon": -122.044,
+   "lat": 37.319,
+   "line": "De Anza College and Memorial Park at Stelling, east to City Hall and the library on Torre Avenue.",
+   "known": [
+    "De Anza College",
+    "Memorial Park",
+    "Cupertino Library"
+   ],
+   "tags": [
+    "parks",
+    "food",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Monta Vista",
+   "lon": -122.056,
+   "lat": 37.323,
+   "line": "The old crossroads by Monta Vista High and the Stevens Creek Trail at McClellan Ranch.",
+   "known": [
+    "Monta Vista High School",
+    "McClellan Ranch Preserve",
+    "Blackberry Farm"
+   ],
+   "tags": [
+    "parks",
+    "quiet",
+    "hilly"
+   ]
+  },
+  {
+   "name": "Rancho Rinconada",
+   "lon": -121.999,
+   "lat": 37.314,
+   "line": "Small Eichler-era tract homes on the San Jose edge, around the neighbourhood pool.",
+   "known": [
+    "Rancho Rinconada Recreation Center",
+    "Miller Avenue",
+    "Lawrence Expressway"
+   ],
+   "tags": [
+    "quiet",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Seven Springs & Linda Vista",
+   "lon": -122.045,
+   "lat": 37.302,
+   "line": "Hillside streets at the south edge of town below the Santa Cruz Mountains.",
+   "known": [
+    "Linda Vista Park",
+    "Deep Cliff Golf Course",
+    "Seven Springs Parkway"
+   ],
+   "tags": [
+    "hilly",
+    "views",
+    "quiet"
+   ]
+  }
+ ],
+ "Santa Clara": [
+  {
+   "name": "Old Quad & Santa Clara University",
+   "lon": -121.941,
+   "lat": 37.349,
+   "line": "The rebuilt mission church, the university’s rose garden and the old streets beside it.",
+   "known": [
+    "Mission Santa Clara de Asís",
+    "Santa Clara University",
+    "Franklin Square"
+   ],
+   "tags": [
+    "historic",
+    "parks",
+    "quiet"
+   ]
+  },
+  {
+   "name": "El Camino Real",
+   "lon": -121.985,
+   "lat": 37.353,
+   "line": "Santa Clara’s Koreatown: barbecue, tofu houses and markets along El Camino.",
+   "known": [
+    "El Camino Real Korean restaurants",
+    "Kiely Boulevard",
+    "Santa Clara Town Centre"
+   ],
+   "tags": [
+    "food",
+    "shops",
+    "nightlife"
+   ]
+  },
+  {
+   "name": "Central Park",
+   "lon": -121.97,
+   "lat": 37.344,
+   "line": "The city’s big park, with the International Swim Center and the Central Park Library.",
+   "known": [
+    "Central Park",
+    "International Swim Center",
+    "Central Park Library"
+   ],
+   "tags": [
+    "parks",
+    "sunny",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Levi’s Stadium & Great America",
+   "lon": -121.97,
+   "lat": 37.403,
+   "line": "The 49ers’ stadium, the theme park’s coasters and the convention center along Tasman Drive.",
+   "known": [
+    "Levi’s Stadium",
+    "California’s Great America",
+    "Santa Clara Convention Center"
+   ],
+   "tags": [
+    "nightlife",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Rivermark",
+   "lon": -121.95,
+   "lat": 37.394,
+   "line": "A 2000s neighbourhood on old state hospital land, around Rivermark Plaza.",
+   "known": [
+    "Rivermark Plaza",
+    "Agnews Historic Park",
+    "Montague Expressway"
+   ],
+   "tags": [
+    "shops",
+    "historic",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Mission College & Intel",
+   "lon": -121.976,
+   "lat": 37.388,
+   "line": "Chip-company campuses north of 101, from Intel’s headquarters to Mission College.",
+   "known": [
+    "Intel Museum at Robert Noyce Building",
+    "Mission College",
+    "Bowers Avenue"
+   ],
+   "tags": [
+    "sunny",
+    "quiet"
+   ]
+  }
+ ],
+ "San Jose": [
+  {
+   "name": "Downtown",
+   "lon": -121.8875,
+   "lat": 37.334,
+   "line": "Plaza de César Chávez, the Tech Interactive and SJSU around the old pueblo core.",
+   "known": [
+    "Plaza de César Chávez",
+    "The Tech Interactive",
+    "San Pedro Square Market"
+   ],
+   "tags": [
+    "food",
+    "nightlife",
+    "historic"
+   ]
+  },
+  {
+   "name": "Japantown",
+   "lon": -121.8945,
+   "lat": 37.3487,
+   "line": "Jackson Street’s Japanese American blocks, one of three Japantowns left in the US.",
+   "known": [
+    "Japanese American Museum of San Jose",
+    "San Jose Buddhist Church Betsuin",
+    "Japantown Farmers Market"
+   ],
+   "tags": [
+    "food",
+    "historic",
+    "shops"
+   ]
+  },
+  {
+   "name": "Willow Glen",
+   "lon": -121.8965,
+   "lat": 37.305,
+   "line": "Lincoln Avenue’s small-town main street and bungalow blocks off Minnesota Avenue.",
+   "known": [
+    "Lincoln Avenue",
+    "Bramhall Park",
+    "Willow Glen Library"
+   ],
+   "tags": [
+    "food",
+    "shops",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Santana Row",
+   "lon": -121.948,
+   "lat": 37.321,
+   "line": "Patio dining and shops on Santana Row, across Stevens Creek from Valley Fair.",
+   "known": [
+    "Santana Row",
+    "Westfield Valley Fair",
+    "Stevens Creek Boulevard"
+   ],
+   "tags": [
+    "food",
+    "shops",
+    "nightlife"
+   ],
+   "star": "Friend’s pick"
+  },
+  {
+   "name": "West San Jose & Westgate",
+   "lon": -121.99,
+   "lat": 37.295,
+   "line": "Westgate Center and El Paseo de Saratoga along the Saratoga Avenue strip.",
+   "known": [
+    "Westgate Center",
+    "El Paseo de Saratoga",
+    "Saratoga Avenue"
+   ],
+   "tags": [
+    "shops",
+    "food",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Rose Garden",
+   "lon": -121.9265,
+   "lat": 37.332,
+   "line": "The Municipal Rose Garden at Naglee and Dana, and the Rosicrucians’ Egyptian temple.",
+   "known": [
+    "San Jose Municipal Rose Garden",
+    "Rosicrucian Egyptian Museum",
+    "The Alameda"
+   ],
+   "tags": [
+    "parks",
+    "historic",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Alum Rock & East Side",
+   "lon": -121.84,
+   "lat": 37.365,
+   "line": "Alum Rock Avenue’s taquerias and panaderías, up to Alum Rock Park’s canyon.",
+   "known": [
+    "Mexican Heritage Plaza",
+    "Alum Rock Avenue",
+    "Alum Rock Park"
+   ],
+   "tags": [
+    "food",
+    "parks",
+    "hilly"
+   ]
+  },
+  {
+   "name": "Evergreen",
+   "lon": -121.775,
+   "lat": 37.305,
+   "line": "Foothill subdivisions below the Diablo Range around Evergreen Valley College.",
+   "known": [
+    "Evergreen Valley College",
+    "Montgomery Hill Park",
+    "Eastridge Center"
+   ],
+   "tags": [
+    "quiet",
+    "hilly",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Berryessa",
+   "lon": -121.86,
+   "lat": 37.385,
+   "line": "Flatland tracts around the Berryessa BART station and the San Jose Flea Market.",
+   "known": [
+    "San Jose Flea Market",
+    "Berryessa/North San José BART",
+    "Penitencia Creek Park"
+   ],
+   "tags": [
+    "shops",
+    "food",
+    "sunny"
+   ]
+  },
+  {
+   "name": "North San Jose",
+   "lon": -121.93,
+   "lat": 37.39,
+   "line": "Office campuses along North First Street, the light rail and the airport runways.",
+   "known": [
+    "San José Mineta International Airport",
+    "North First Street",
+    "Cisco’s Tasman Drive campus"
+   ],
+   "tags": [
+    "sunny",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Alviso",
+   "lon": -121.975,
+   "lat": 37.4255,
+   "line": "The old port village at the bay’s southern tip, ringed by salt ponds and levees.",
+   "known": [
+    "Alviso Marina County Park",
+    "Don Edwards San Francisco Bay National Wildlife Refuge",
+    "Bay Trail levee loops"
+   ],
+   "tags": [
+    "waterfront",
+    "historic",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Almaden Valley",
+   "lon": -121.87,
+   "lat": 37.225,
+   "line": "Suburban valley below the hills where New Almaden’s quicksilver mines once ran.",
+   "known": [
+    "Almaden Lake Park",
+    "Almaden Quicksilver County Park",
+    "Almaden Expressway"
+   ],
+   "tags": [
+    "parks",
+    "quiet",
+    "hilly"
+   ]
+  },
+  {
+   "name": "Cambrian",
+   "lon": -121.915,
+   "lat": 37.27,
+   "line": "Postwar ranch houses off Camden and Union avenues, between Campbell and Los Gatos.",
+   "known": [
+    "Camden Avenue",
+    "Union Avenue",
+    "Cambrian Branch Library"
+   ],
+   "tags": [
+    "quiet",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Blossom Valley",
+   "lon": -121.835,
+   "lat": 37.255,
+   "line": "1960s tracts under the Santa Teresa ridge, out east of Westfield Oakridge.",
+   "known": [
+    "Westfield Oakridge",
+    "Santa Teresa County Park",
+    "Martial Cottle Park"
+   ],
+   "tags": [
+    "parks",
+    "shops",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Edenvale & Coyote Valley",
+   "lon": -121.79,
+   "lat": 37.235,
+   "line": "The Hayes Mansion and Edenvale, then open farmland south toward Morgan Hill.",
+   "known": [
+    "Hayes Mansion",
+    "Coyote Creek Trail",
+    "Coyote Valley Open Space Preserve"
+   ],
+   "tags": [
+    "historic",
+    "parks",
+    "quiet"
+   ]
+  }
+ ],
+ "Campbell": [
+  {
+   "name": "Downtown Campbell",
+   "lon": -121.944,
+   "lat": 37.287,
+   "line": "Campbell Avenue’s restaurant row, the Sunday farmers market and the old water tower.",
+   "known": [
+    "East Campbell Avenue",
+    "Campbell Farmers Market",
+    "Campbell Water Tower"
+   ],
+   "tags": [
+    "food",
+    "nightlife",
+    "historic"
+   ]
+  },
+  {
+   "name": "Pruneyard",
+   "lon": -121.932,
+   "lat": 37.289,
+   "line": "The Pruneyard’s shops and office tower at Bascom and Campbell, by the creek trail.",
+   "known": [
+    "The Pruneyard",
+    "Pruneyard Cinemas",
+    "Los Gatos Creek Trail"
+   ],
+   "tags": [
+    "shops",
+    "food"
+   ]
+  },
+  {
+   "name": "Los Gatos Creek",
+   "lon": -121.955,
+   "lat": 37.265,
+   "line": "Percolation ponds and creekside trail on the way south to Vasona.",
+   "known": [
+    "Los Gatos Creek County Park",
+    "The percolation ponds",
+    "Campbell Park on the creek trail"
+   ],
+   "tags": [
+    "parks",
+    "waterfront",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Hamilton & Winchester",
+   "lon": -121.952,
+   "lat": 37.293,
+   "line": "Shopping strips along Hamilton Avenue and Winchester Boulevard on the north side.",
+   "known": [
+    "Hamilton Avenue",
+    "Winchester Boulevard",
+    "Campbell Community Center"
+   ],
+   "tags": [
+    "shops",
+    "food"
+   ]
+  }
+ ],
+ "Saratoga": [
+  {
+   "name": "The Village",
+   "lon": -122.0315,
+   "lat": 37.256,
+   "line": "Big Basin Way’s restaurants and tasting rooms at the foot of the canyon road.",
+   "known": [
+    "Big Basin Way",
+    "Saratoga Historical Museum",
+    "Blaney Plaza"
+   ],
+   "tags": [
+    "food",
+    "historic",
+    "shops"
+   ]
+  },
+  {
+   "name": "Montalvo",
+   "lon": -122.029,
+   "lat": 37.247,
+   "line": "Senator James Phelan’s 1912 Mediterranean villa, now an arts center with hillside trails.",
+   "known": [
+    "Montalvo Arts Center",
+    "Villa Montalvo’s Great Lawn",
+    "Lilian Fontaine Garden Theatre"
+   ],
+   "tags": [
+    "artsy",
+    "historic",
+    "hilly"
+   ]
+  },
+  {
+   "name": "Hakone",
+   "lon": -122.045,
+   "lat": 37.2552,
+   "line": "The Stines’ 1915 hill-and-pond garden off Big Basin Way, now owned by the city.",
+   "known": [
+    "Hakone Estate and Gardens",
+    "Hakone’s koi pond",
+    "Highway 9 toward Saratoga Gap"
+   ],
+   "tags": [
+    "parks",
+    "quiet",
+    "hilly"
+   ]
+  },
+  {
+   "name": "Prospect & North Saratoga",
+   "lon": -122.03,
+   "lat": 37.285,
+   "line": "Ranch-house streets up to Prospect Road along the Saratoga–Sunnyvale corridor.",
+   "known": [
+    "Prospect Road",
+    "Saratoga–Sunnyvale Road",
+    "Kevin Moran Park"
+   ],
+   "tags": [
+    "quiet",
+    "sunny"
+   ]
+  },
+  {
+   "name": "West Valley College",
+   "lon": -122.008,
+   "lat": 37.265,
+   "line": "Flat east Saratoga around the West Valley College campus and Fruitvale Avenue.",
+   "known": [
+    "West Valley College",
+    "Fruitvale Avenue",
+    "Saratoga Avenue"
+   ],
+   "tags": [
+    "quiet",
+    "sunny"
+   ]
+  }
+ ],
+ "Los Gatos": [
+  {
+   "name": "Downtown Los Gatos",
+   "lon": -121.982,
+   "lat": 37.2245,
+   "line": "North Santa Cruz Avenue’s shops and Town Plaza, under the Sierra Azul ridges.",
+   "known": [
+    "Town Plaza Park",
+    "North Santa Cruz Avenue",
+    "Los Gatos Theatre"
+   ],
+   "tags": [
+    "food",
+    "shops",
+    "historic"
+   ]
+  },
+  {
+   "name": "Vasona",
+   "lon": -121.968,
+   "lat": 37.244,
+   "line": "Vasona Lake’s paddle boats and the Billy Jones Wildcat Railroad at Oak Meadow Park.",
+   "known": [
+    "Vasona Lake County Park",
+    "Billy Jones Wildcat Railroad",
+    "Oak Meadow Park"
+   ],
+   "tags": [
+    "parks",
+    "waterfront"
+   ]
+  },
+  {
+   "name": "Los Gatos Boulevard",
+   "lon": -121.959,
+   "lat": 37.234,
+   "line": "The town’s car-dealer and shopping strip between Blossom Hill Road and Lark Avenue.",
+   "known": [
+    "Los Gatos Boulevard",
+    "Blossom Hill Road",
+    "Lark Avenue"
+   ],
+   "tags": [
+    "shops",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Kennedy Road hills",
+   "lon": -121.942,
+   "lat": 37.223,
+   "line": "Big lots along winding Kennedy and Shannon roads, with Sierra Azul views.",
+   "known": [
+    "Kennedy Road",
+    "Shannon Road",
+    "Sierra Azul Open Space Preserve"
+   ],
+   "tags": [
+    "hilly",
+    "views",
+    "quiet"
+   ]
+  }
+ ],
+ "Milpitas": [
+  {
+   "name": "Main Street",
+   "lon": -121.906,
+   "lat": 37.432,
+   "line": "The original town strip near Calaveras Boulevard, with the library and city hall.",
+   "known": [
+    "Milpitas Library",
+    "Milpitas City Hall",
+    "North Main Street"
+   ],
+   "tags": [
+    "historic",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Great Mall & BART",
+   "lon": -121.896,
+   "lat": 37.4145,
+   "line": "The Great Mall in the old Ford plant and the BART and light rail station beside it.",
+   "known": [
+    "Great Mall of the Bay Area",
+    "Milpitas Transit Center",
+    "Montague Expressway"
+   ],
+   "tags": [
+    "shops",
+    "food"
+   ]
+  },
+  {
+   "name": "McCarthy Ranch",
+   "lon": -121.92,
+   "lat": 37.425,
+   "line": "Big-box shopping and tech offices west of I-880 along Coyote Creek.",
+   "known": [
+    "McCarthy Ranch Marketplace",
+    "Coyote Creek",
+    "Interstate 880"
+   ],
+   "tags": [
+    "shops",
+    "sunny"
+   ]
+  },
+  {
+   "name": "East Foothills",
+   "lon": -121.855,
+   "lat": 37.4505,
+   "line": "Hillside streets up Calaveras Road toward Ed Levin Park and Monument Peak.",
+   "known": [
+    "Ed Levin County Park",
+    "Calaveras Road",
+    "Monument Peak"
+   ],
+   "tags": [
+    "hilly",
+    "views",
+    "parks"
+   ]
+  },
+  {
+   "name": "Dixon Landing",
+   "lon": -121.915,
+   "lat": 37.455,
+   "line": "North Milpitas homes and offices off Dixon Landing Road, by the Fremont line.",
+   "known": [
+    "Dixon Landing Road",
+    "Coyote Creek Trail",
+    "North McCarthy Boulevard"
+   ],
+   "tags": [
+    "quiet",
+    "sunny"
+   ]
+  }
+ ],
+ "Morgan Hill": [
+  {
+   "name": "Downtown Morgan Hill",
+   "lon": -121.6545,
+   "lat": 37.1305,
+   "line": "Monterey Road’s restaurant blocks, the Caltrain depot and Villa Mira Monte.",
+   "known": [
+    "Monterey Road",
+    "Villa Mira Monte",
+    "Morgan Hill Caltrain station"
+   ],
+   "tags": [
+    "food",
+    "nightlife",
+    "historic"
+   ]
+  },
+  {
+   "name": "El Toro & West Side",
+   "lon": -121.6819,
+   "lat": 37.1281,
+   "line": "The west side climbing toward El Toro’s summit and the Santa Cruz foothills.",
+   "known": [
+    "El Toro",
+    "West Edmundson Avenue",
+    "Centennial Recreation Center"
+   ],
+   "tags": [
+    "hilly",
+    "views",
+    "parks"
+   ]
+  },
+  {
+   "name": "Condit Road",
+   "lon": -121.6344,
+   "lat": 37.1279,
+   "line": "East of Highway 101: the Aquatics Center, the Outdoor Sports Center and warehouses.",
+   "known": [
+    "Morgan Hill Aquatics Center",
+    "Morgan Hill Outdoor Sports Center",
+    "Condit Road"
+   ],
+   "tags": [
+    "parks",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Cochrane",
+   "lon": -121.6448,
+   "lat": 37.1588,
+   "line": "Cochrane Road’s shopping centers and newer tracts below Anderson Lake.",
+   "known": [
+    "Cochrane Road",
+    "Anderson Lake County Park",
+    "Coyote Creek Trail"
+   ],
+   "tags": [
+    "shops",
+    "parks",
+    "sunny"
+   ]
+  },
+  {
+   "name": "South Morgan Hill",
+   "lon": -121.6409,
+   "lat": 37.1077,
+   "line": "Tennant Avenue and the southern subdivisions, toward the San Martin vineyards.",
+   "known": [
+    "Tennant Avenue",
+    "Monterey Road",
+    "San Martin vineyards"
+   ],
+   "tags": [
+    "quiet",
+    "sunny"
+   ]
+  }
+ ],
+ "Gilroy": [
+  {
+   "name": "Downtown Gilroy",
+   "lon": -121.5685,
+   "lat": 37.0055,
+   "line": "Monterey Street’s brick storefronts, the 1905 Old City Hall and the Caltrain terminus.",
+   "known": [
+    "Old City Hall",
+    "Monterey Street",
+    "Gilroy Caltrain station"
+   ],
+   "tags": [
+    "historic",
+    "food"
+   ]
+  },
+  {
+   "name": "Christmas Hill Park",
+   "lon": -121.5935,
+   "lat": 37.0005,
+   "line": "Uvas Creek parkland that hosted the Garlic Festival for four decades.",
+   "known": [
+    "Christmas Hill Park",
+    "Uvas Creek",
+    "Miller Avenue"
+   ],
+   "tags": [
+    "parks",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Outlets & Leavesley",
+   "lon": -121.5627,
+   "lat": 37.0202,
+   "line": "Gilroy Premium Outlets and big-box centers along Highway 101 at Leavesley Road.",
+   "known": [
+    "Gilroy Premium Outlets",
+    "Leavesley Road",
+    "Highway 101"
+   ],
+   "tags": [
+    "shops",
+    "sunny"
+   ]
+  },
+  {
+   "name": "North Gilroy",
+   "lon": -121.5797,
+   "lat": 37.0284,
+   "line": "Newer subdivisions off Wren Avenue around Las Animas Veterans Park.",
+   "known": [
+    "Las Animas Veterans Park",
+    "Wren Avenue",
+    "Mantelli Drive"
+   ],
+   "tags": [
+    "quiet",
+    "parks"
+   ]
+  },
+  {
+   "name": "Southwest Gilroy",
+   "lon": -121.6,
+   "lat": 36.99,
+   "line": "Glen Loma Ranch and the foothill edge toward Hecker Pass.",
+   "known": [
+    "Glen Loma Ranch",
+    "Santa Teresa Boulevard",
+    "Hecker Pass Highway"
+   ],
+   "tags": [
+    "quiet",
+    "sunny"
+   ]
+  }
+ ],
+ "East Palo Alto": [
+  {
+   "name": "University Ave & 4 Corners",
+   "lon": -122.1405,
+   "lat": 37.4705,
+   "line": "City Hall and the Bay Road crossroads, the old center of town.",
+   "known": [
+    "East Palo Alto City Hall",
+    "4 Corners at University and Bay Road",
+    "Jack Farrell Park"
+   ],
+   "tags": [
+    "food",
+    "historic",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Westside",
+   "lon": -122.1433,
+   "lat": 37.4601,
+   "line": "Apartments between 101 and San Francisquito Creek, with the Four Seasons at the corner.",
+   "known": [
+    "University Circle",
+    "Woodland Avenue",
+    "Euclid Avenue"
+   ],
+   "tags": [
+    "quiet",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Ravenswood 101",
+   "lon": -122.134,
+   "lat": 37.4585,
+   "line": "Big-box shopping on the bay side of the freeway at Donohoe Street.",
+   "known": [
+    "Ravenswood 101 shopping center",
+    "IKEA East Palo Alto",
+    "University Avenue overpass"
+   ],
+   "tags": [
+    "shops",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Pulgas & MLK Park",
+   "lon": -122.1265,
+   "lat": 37.464,
+   "line": "Single-story streets east of the freeway toward the baylands.",
+   "known": [
+    "Martin Luther King Jr. Park",
+    "Pulgas Avenue",
+    "Bay Trail along the marsh"
+   ],
+   "tags": [
+    "quiet",
+    "parks",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Bay Road & Cooley Landing",
+   "lon": -122.1255,
+   "lat": 37.4735,
+   "line": "Bay Road runs out to a former dump turned bayfront park.",
+   "known": [
+    "Cooley Landing",
+    "The Bay Trail at the end of Bay Road",
+    "Ravenswood Open Space Preserve"
+   ],
+   "tags": [
+    "waterfront",
+    "parks",
+    "views"
+   ]
+  }
+ ],
+ "Atherton": [
+  {
+   "name": "Town Center & Holbrook-Palmer",
+   "lon": -122.195,
+   "lat": 37.464,
+   "line": "Town Hall, the closed Caltrain stop and the town’s one big public park.",
+   "known": [
+    "Holbrook-Palmer Park",
+    "Atherton Town Hall",
+    "The former Atherton station, closed in 2020"
+   ],
+   "tags": [
+    "parks",
+    "quiet",
+    "historic"
+   ]
+  },
+  {
+   "name": "Lindenwood",
+   "lon": -122.1816,
+   "lat": 37.4688,
+   "line": "The Flood family’s Linden Towers estate, subdivided into oak-shaded lanes.",
+   "known": [
+    "Middlefield Road",
+    "Ringwood Avenue",
+    "Watkins Avenue"
+   ],
+   "tags": [
+    "quiet",
+    "historic"
+   ]
+  },
+  {
+   "name": "Valparaiso & the Schools",
+   "lon": -122.1935,
+   "lat": 37.4525,
+   "line": "Private-school row along Valparaiso Avenue, by the Menlo Park line.",
+   "known": [
+    "Menlo School",
+    "Sacred Heart Schools",
+    "Menlo College"
+   ],
+   "tags": [
+    "quiet",
+    "historic"
+   ]
+  },
+  {
+   "name": "West Atherton",
+   "lon": -122.215,
+   "lat": 37.452,
+   "line": "Larger lots along the Alameda de las Pulgas toward the foothills.",
+   "known": [
+    "Alameda de las Pulgas",
+    "Selby Lane",
+    "Atherton Avenue"
+   ],
+   "tags": [
+    "quiet",
+    "sunny"
+   ]
+  }
+ ],
+ "Woodside": [
+  {
+   "name": "Woodside Village",
+   "lon": -122.253,
+   "lat": 37.429,
+   "line": "The crossroads of Woodside Road and Cañada Road: saloon, market and Town Hall.",
+   "known": [
+    "Pioneer Saloon",
+    "Roberts Market",
+    "Woodside Town Hall"
+   ],
+   "tags": [
+    "food",
+    "historic",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Kings Mountain & Huddart",
+   "lon": -122.2834,
+   "lat": 37.4392,
+   "line": "Redwood switchbacks up Kings Mountain Road past the 1854 store.",
+   "known": [
+    "Woodside Store",
+    "Huddart County Park",
+    "Kings Mountain Road"
+   ],
+   "tags": [
+    "parks",
+    "hilly",
+    "historic"
+   ]
+  },
+  {
+   "name": "Woodside Glens",
+   "lon": -122.258,
+   "lat": 37.444,
+   "line": "Wooded lanes off Cañada Road north of the village.",
+   "known": [
+    "Woodside Glens",
+    "Cañada Road",
+    "Olive Hill Lane"
+   ],
+   "tags": [
+    "quiet",
+    "hilly"
+   ]
+  },
+  {
+   "name": "Upper Woodside Road",
+   "lon": -122.2588,
+   "lat": 37.4086,
+   "line": "Horse country climbing Woodside Road toward Wunderlich Park and Folger Stable.",
+   "known": [
+    "Wunderlich County Park",
+    "Folger Stable",
+    "Bear Gulch Road"
+   ],
+   "tags": [
+    "parks",
+    "hilly",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Mountain Home & Jasper Ridge",
+   "lon": -122.2438,
+   "lat": 37.4124,
+   "line": "Estates along Portola Road and Mountain Home Road by Stanford’s preserve.",
+   "known": [
+    "Mountain Home Road",
+    "Portola Road",
+    "Jasper Ridge Biological Preserve"
+   ],
+   "tags": [
+    "quiet",
+    "sunny"
+   ]
+  }
+ ],
+ "Portola Valley": [
+  {
+   "name": "Town Center",
+   "lon": -122.2298,
+   "lat": 37.3807,
+   "line": "Library, Town Hall and playing fields on Portola Road, rebuilt off the fault.",
+   "known": [
+    "Portola Valley Town Center",
+    "Portola Valley Library",
+    "The Historic Schoolhouse"
+   ],
+   "tags": [
+    "parks",
+    "quiet",
+    "historic"
+   ]
+  },
+  {
+   "name": "Westridge",
+   "lon": -122.218,
+   "lat": 37.392,
+   "line": "Hillside homes on Westridge Drive with views across the valley.",
+   "known": [
+    "Westridge Drive",
+    "Ormondale School",
+    "Ladera views"
+   ],
+   "tags": [
+    "hilly",
+    "views",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Alpine Road & Ford Field",
+   "lon": -122.194,
+   "lat": 37.388,
+   "line": "Alpine Road’s low end by the ball field and the old roadhouse.",
+   "known": [
+    "Ford Field",
+    "Alpine Road",
+    "The Alpine Inn, just over the line"
+   ],
+   "tags": [
+    "food",
+    "parks",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Priory & Corte Madera",
+   "lon": -122.211,
+   "lat": 37.372,
+   "line": "Two schools and the mid-valley stretch of Portola Road.",
+   "known": [
+    "Woodside Priory School",
+    "Corte Madera School",
+    "Portola Road"
+   ],
+   "tags": [
+    "quiet",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Portola Valley Ranch",
+   "lon": -122.213,
+   "lat": 37.356,
+   "line": "Clustered homes and open grassland under Blue Oaks at the south end.",
+   "known": [
+    "Portola Valley Ranch",
+    "Blue Oaks",
+    "Los Trancos Road"
+   ],
+   "tags": [
+    "hilly",
+    "quiet",
+    "views"
+   ]
+  },
+  {
+   "name": "Windy Hill",
+   "lon": -122.2366,
+   "lat": 37.361,
+   "line": "Bare ridge trails climbing to Skyline, the valley’s skyline landmark.",
+   "known": [
+    "Windy Hill Open Space Preserve",
+    "Spring Ridge Trail",
+    "Hamms Gulch Trail"
+   ],
+   "tags": [
+    "parks",
+    "views",
+    "hilly"
+   ]
+  }
+ ],
+ "La Honda": [
+  {
+   "name": "La Honda Village",
+   "lon": -122.275,
+   "lat": 37.32,
+   "line": "Store, bar and post office strung along Highway 84 in the redwoods.",
+   "known": [
+    "La Honda Country Market",
+    "Apple Jack’s Inn",
+    "La Honda Elementary School"
+   ],
+   "tags": [
+    "historic",
+    "quiet",
+    "food"
+   ]
+  },
+  {
+   "name": "Cuesta La Honda",
+   "lon": -122.256,
+   "lat": 37.317,
+   "line": "Cabins on winding lanes up the hill, with their own clubhouse and pool.",
+   "known": [
+    "Cuesta La Honda Guild",
+    "Cuesta Real",
+    "La Honda Creek"
+   ],
+   "tags": [
+    "quiet",
+    "hilly",
+    "parks"
+   ]
+  }
+ ],
+ "Pescadero": [
+  {
+   "name": "Stage Road",
+   "lon": -122.382,
+   "lat": 37.254,
+   "line": "The old main street: tavern, grocery, white steeple, all in a block.",
+   "known": [
+    "Duarte’s Tavern",
+    "Arcangeli Grocery",
+    "Pescadero Community Church"
+   ],
+   "tags": [
+    "food",
+    "historic",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Pescadero Marsh",
+   "lon": -122.4,
+   "lat": 37.26,
+   "line": "Creek-mouth wetlands behind the dunes, heron country on the way to the beach.",
+   "known": [
+    "Pescadero Marsh Natural Preserve",
+    "Pescadero State Beach",
+    "Pescadero Creek"
+   ],
+   "tags": [
+    "waterfront",
+    "foggy",
+    "parks"
+   ]
+  },
+  {
+   "name": "Butano Cut-off",
+   "lon": -122.362,
+   "lat": 37.25,
+   "line": "Farm fields and the school campus heading inland toward the redwoods.",
+   "known": [
+    "Pescadero Middle/High School",
+    "Butano Cut-off",
+    "Pescadero Creek Road"
+   ],
+   "tags": [
+    "quiet",
+    "foggy"
+   ]
+  }
+ ],
+ "Point Reyes Station": [
+  {
+   "name": "Downtown",
+   "lon": -122.8075,
+   "lat": 38.0695,
+   "line": "Highway 1 as Main Street: feed barn, bakery, bookstore, saloon.",
+   "known": [
+    "Toby’s Feed Barn",
+    "Bovine Bakery",
+    "Point Reyes Books"
+   ],
+   "tags": [
+    "food",
+    "shops",
+    "historic"
+   ]
+  },
+  {
+   "name": "Giacomini Wetlands",
+   "lon": -122.8175,
+   "lat": 38.0725,
+   "line": "Former dairy pasture restored to marsh where Lagunitas Creek meets Tomales Bay.",
+   "known": [
+    "Giacomini Wetlands",
+    "Lagunitas Creek",
+    "White House Pool"
+   ],
+   "tags": [
+    "waterfront",
+    "parks",
+    "foggy"
+   ]
+  },
+  {
+   "name": "Coast Guard Hill",
+   "lon": -122.8005,
+   "lat": 38.068,
+   "line": "The old Coast Guard housing a few blocks east, now slated for affordable homes.",
+   "known": [
+    "Commodore Webster Drive",
+    "Former Coast Guard housing",
+    "West Marin School"
+   ],
+   "tags": [
+    "quiet",
+    "views"
+   ]
+  }
+ ],
+ "Inverness": [
+  {
+   "name": "Inverness Village",
+   "lon": -122.852,
+   "lat": 38.0965,
+   "line": "A store, a post office and a little museum on the bay shore.",
+   "known": [
+    "The Inverness Store",
+    "Jack Mason Museum of West Marin History",
+    "Inverness Yacht Club"
+   ],
+   "tags": [
+    "waterfront",
+    "historic",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Seahaven",
+   "lon": -122.868,
+   "lat": 38.1065,
+   "line": "Lanes under the bishop pines at the north end, down to Chicken Ranch Beach.",
+   "known": [
+    "Chicken Ranch Beach",
+    "Seahaven",
+    "Sir Francis Drake toward Tomales Bay State Park"
+   ],
+   "tags": [
+    "waterfront",
+    "foggy",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Inverness Park",
+   "lon": -122.828,
+   "lat": 38.064,
+   "line": "Homes on the ridge above the bay’s south end, rebuilt after the 1995 fire.",
+   "known": [
+    "Inverness Park Market",
+    "Paradise Ranch Estates",
+    "Mount Vision Road"
+   ],
+   "tags": [
+    "foggy",
+    "hilly",
+    "views"
+   ]
+  }
+ ]
+}

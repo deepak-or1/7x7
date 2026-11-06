@@ -24,13 +24,25 @@
     for (let i = 0; i < n; i++) {
       const a = ring[i], b = ring[(i + 1) % n], sa = side(a), sb = side(b);
       if (sa <= 0) out.push(a);
-      if ((sa <= 0) !== (sb <= 0)) { const t = sa / (sa - sb); out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]); }
+      if ((sa <= 0) !== (sb <= 0)) { const t = sa / (sa - sb), q = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]; q.cut = true; out.push(q); }
     }
     return out;
   }
+  // Half-plane clipping of a concave ring can leave connecting edges along a bisector that run outside the place.
+  // Such an edge joins two cut points and has the outside of the place on both sides of its midpoint.
+  function leaks(rings, polys) {
+    for (const r of rings) for (let i = 0; i < r.length; i++) {
+      const a = r[i], b = r[(i + 1) % r.length]; if (!a.cut || !b.cut) continue;
+      const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy); if (L < 1e-6) continue;
+      const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2, e = Math.min(.05, L / 4), nx = -dy / L * e, ny = dx / L * e;
+      if (!inPolys(polys, mx + nx, my + ny) && !inPolys(polys, mx - nx, my - ny)) return true;
+    }
+    return false;
+  }
   // Voronoi cells of `seeds` ([x,y] in map units) clipped to the outer rings of `polys`.
-  // Returns per seed: { rings: [ring, ...], bbox, c: label point }
-  function cells(polys, seeds) {
+  // Returns per seed: { rings: [ring, ...], bbox, c: label point, leak }. atSeed[i]: anchor that label at its seed
+  // (when the seed is inside its cell) instead of the centroid of the cell's largest ring.
+  function cells(polys, seeds, atSeed) {
     return seeds.map((s, i) => {
       const rings = [];
       polys.forEach(poly => {
@@ -45,7 +57,8 @@
       if (!rings.length) return { rings: [], bbox: [s[0], s[1], s[0], s[1]], c: s, a: 0 };
       const big = rings.reduce((m, r) => Math.abs(area(r)) > Math.abs(area(m)) ? r : m, rings[0]);
       let c = centroid(big); if (!pip(big, c[0], c[1])) c = s;
-      return { rings, bbox: bboxOf(rings), c, a: rings.reduce((t, r) => t + Math.abs(area(r)), 0) };
+      if (atSeed && atSeed[i] && rings.some(r => pip(r, s[0], s[1]))) c = s;
+      return { rings, bbox: bboxOf(rings), c, a: rings.reduce((t, r) => t + Math.abs(area(r)), 0), leak: leaks(rings, polys) };
     });
   }
   function pathOf(rings) { const p = new Path2D(); rings.forEach(r => { r.forEach((q, k) => k ? p.lineTo(q[0], q[1]) : p.moveTo(q[0], q[1])); p.closePath(); }); return p; }

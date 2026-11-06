@@ -3,10 +3,11 @@
 (function () {
   const $ = id => document.getElementById(id);
   const G = window.GEO, HOODS = G.hoods, INFO = window.INFO, VIBES = window.VIBES, REGIONS = window.REGIONS, SHORT = window.SHORT, MOODS = window.MOODS, FOG_WORDS = window.FOG_WORDS;
-  const NX = G.nx, NY = G.ny, Geom = window.Geom;
+  const NX = G.nx, NY = G.ny, Geom = window.Geom, U = 400; // U: zoom limits are tuned in map units, where the first (SF-and-close-Bay) canvas was 400 wide
   const IDX = Object.fromEntries(HOODS.map((h, i) => [h.name, i]));
   const NAMES = HOODS.map(h => h.name).sort((a, b) => a.localeCompare(b));
   const REGION_N = Object.fromEntries(Object.keys(REGIONS).map(r => [r, HOODS.filter(h => r === 'all' || h.region === r).length]));
+  { const tag = document.querySelector('.brand p'); if (tag) tag.textContent = `${REGION_N.all} places between the ocean and the hills.`; } // the static copy in index.html says the same
   const slug = n => String(n).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   const BY_SLUG = Object.fromEntries(NAMES.map(n => [slug(n), n]));
   const ft = m => Math.round(m * 3.28084);
@@ -20,10 +21,12 @@
   const LENSES = { vibe: { label: 'Character', sub: 'Six kinds of place' }, fog: { label: 'Fog', sub: 'Sunbelt to permanent cloud' }, elev: { label: 'Hills', sub: 'Sea level to the summits' }, done: { label: 'Walked', sub: 'Where you have been' } };
   const STAMPS = [
     { id: 'first', label: 'First steps', test: s => s.n >= 1, icon: '1' }, { id: 'ten', label: 'Ten down', test: s => s.n >= 10, icon: '10' },
-    { id: 'half', label: 'Half the city', test: s => s.sf >= Math.ceil(REGION_N.sf / 2), icon: '½' }, { id: 'all', label: 'Whole city', test: s => s.sf >= REGION_N.sf, icon: '37' },
+    { id: 'half', label: 'Half the city', test: s => s.sf >= Math.ceil(REGION_N.sf / 2), icon: '½' }, { id: 'all', label: 'Whole city', test: s => s.sf >= REGION_N.sf, icon: String(REGION_N.sf) },
     { id: 'gg', label: 'Over the Golden Gate', test: s => s.marin >= 1, icon: 'GG' }, { id: 'bb', label: 'Over the Bay Bridge', test: s => s.east >= 1, icon: 'BB' },
     { id: 'marin', label: 'All of Marin', test: s => s.marin >= REGION_N.marin, icon: 'M' }, { id: 'east', label: 'Whole East Bay', test: s => s.east >= REGION_N.east, icon: 'E' },
     { id: 'south', label: 'Down the Peninsula', test: s => s.penin >= 1, icon: '280' }, { id: 'penin', label: 'Whole Peninsula', test: s => s.penin >= REGION_N.penin, icon: 'P' },
+    { id: 'sj', label: 'Down to the South Bay', test: s => s.south >= 1, icon: 'SJ' }, { id: 'southbay', label: 'Whole South Bay', test: s => s.south >= REGION_N.south, icon: 'SB' },
+    { id: 'nb', label: 'Up to the North Bay', test: s => s.north >= 1, icon: 'N' }, { id: 'north', label: 'Whole North Bay', test: s => s.north >= REGION_N.north, icon: 'NB' },
     { id: 'bay', label: 'The whole map', test: s => s.n >= REGION_N.all, icon: '∞' },
     { id: 'sun', label: 'Sun belt', test: s => s.vibe.sun, icon: '☀' }, { id: 'fog', label: 'Fog belt', test: s => s.vibe.fog, icon: '☁' }, { id: 'hills', label: 'Hill climber', test: s => s.vibe.hills, icon: '▲' },
     { id: 'water', label: 'Shoreline', test: s => s.vibe.water, icon: '≈' }, { id: 'buzz', label: 'Night owl', test: s => s.vibe.buzz, icon: '♪' }, { id: 'green', label: 'Park ranger', test: s => s.vibe.green, icon: '✿' },
@@ -33,7 +36,7 @@
     back: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>',
     plus: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
     check: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3 3 7-7" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    star: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5l1.9 4.1 4.5.5-3.3 3 .9 4.4L8 11.3l-4 2.2.9-4.4-3.3-3 4.5-.5z" fill="#fff"/></svg>',
+    star: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2h8v12l-4-3.2L4 14z" fill="#fff"/></svg>', // want to go: a bookmark (the gold star is a friend's pick)
     pin: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6-5.3-6-11a6 6 0 0 1 12 0c0 5.7-6 11-6 11z"/><circle cx="12" cy="10" r="2.2"/></svg>',
     close: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
   };
@@ -60,7 +63,7 @@
     alphaFor(i) { if (state.quiz) return 1; const filtered = state.filters.size > 0 && !matches(i) ? .25 : 1; const veil = !state.showAll && state.lens !== 'done' && !isDone(i) ? .35 : 1; return filtered * veil; },
     onTap, onHover, onGestureStart() { closeLenses(); },
     // phone: the floating chrome (top card, control stack, legend) reserves its footprint so map labels avoid it
-    occluders() { if (!isPhone() || document.documentElement.classList.contains('sheet-full')) return []; return ['.top', '#ctl .stack', '#legend'].map(s => document.querySelector(s)).filter(el => el && el.offsetParent !== null && getComputedStyle(el).opacity !== '0').map(el => el.getBoundingClientRect()).filter(b => b.height > 0).map(b => [b.left - 4, b.top - 4, b.right + 4, b.bottom + 4]); },
+    occluders() { if (isPhone() && document.documentElement.classList.contains('sheet-full')) return []; return (isPhone() ? ['.top', '#ctl .stack', '#legend'] : ['#ctl .stack', '#legend']).map(s => document.querySelector(s)).filter(el => el && el.offsetParent !== null && getComputedStyle(el).opacity !== '0').map(el => el.getBoundingClientRect()).filter(b => b.height > 0).map(b => [b.left - 4, b.top - 4, b.right + 4, b.bottom + 4]); },
   });
 
   function colorFor(i) {
@@ -88,6 +91,14 @@
   const subs = name => map.subs(IDX[name]) || [];
   const subByName = (hood, sub) => subs(hood).find(s => s.name === sub) || null;
   const subIndex = (hood, sub) => subs(hood).findIndex(s => s.name === sub);
+  // starred sections ("star": "<reason>" in the sub-area data); a place is starred when any of its sections is
+  const starOf = hood => subs(hood).some(s => s.star);
+  let lastBurst = -Infinity;
+  function celebrate(s) { // a tap opened a starred section: confetti over everything, and the reason in a toast
+    const t = performance.now(); if (t - lastBurst < 1500) return; lastBurst = t;
+    if (window.Confetti) window.Confetti.burst();
+    toast('★ ' + s.star, 2000);
+  }
   const level = l => l.spot ? 4 : l.sub ? 3 : l.hood ? 2 : l.region !== 'all' ? 1 : 0;
   // hashes use only letters, digits and hyphens; a double hyphen separates the levels
   function hashOf(l) { if (l.spot) return '#spot--' + l.spot; if (l.sub) return '#' + slug(l.hood) + '--' + slug(l.sub); if (l.hood) return '#' + slug(l.hood); if (l.region !== 'all') return '#' + l.region; return ''; }
@@ -111,13 +122,15 @@
     if (isPhone()) { const lv = level(next); if (opts.sheet) sheet.set(opts.sheet, { quiet: true }); else if (lv >= 2) { if (!opts.fromMap || sheet.detent === 'peek') sheet.set('half', { quiet: true }); } else if (opts.fromMap || lv < level(prev)) sheet.set('peek', { quiet: true }); } // up to a region or the whole map: back to map-first
     else panel.scrollTop = 0;
     if (opts.fly !== false) flyToLoc(opts.dur);
+    // a tap on the map or a list that opens a starred section (never a hash load, back/forward, or a step up)
+    if ((opts.fromMap || opts.tap) && !opts.view && next.sub && !next.spot && !(prev.hood === next.hood && prev.sub === next.sub)) { const s = subByName(next.hood, next.sub); if (s && s.star) celebrate(s); }
   }
   function up() { const l = state.loc; if (state.view) { go(l, { replace: true, fly: false }); return; } if (l.spot) go({ hood: l.hood, sub: l.sub }); else if (l.sub) go({ hood: l.hood }); else if (l.hood) go({ region: l.region }); else if (l.region !== 'all') go({ region: 'all' }); }
   function flyToLoc(dur) {
     const l = state.loc;
-    if (l.spot && state.spots[l.spot]) { const sp = state.spots[l.spot], [x, y] = sp._xy || Geom.proj([sp.lon, sp.lat]); map.flyTo([x - .01, y - .01, x + .01, y + .01], 1, NX * 0.028, dur); return; }
-    if (l.sub) { const s = subByName(l.hood, l.sub); if (s) { map.flyTo(s.bbox, isPhone() ? 1.3 : 1.5, NX * 0.03, dur); return; } }
-    if (l.hood) { const ph = isPhone(); map.flyTo(map.hoodBBox(IDX[l.hood]), ph ? 1.25 : 1.75, NX * (ph ? 0.06 : 0.08), dur); return; }
+    if (l.spot && state.spots[l.spot]) { const sp = state.spots[l.spot], [x, y] = sp._xy || Geom.proj([sp.lon, sp.lat]); map.flyTo([x - .01, y - .01, x + .01, y + .01], 1, U * 0.028, dur); return; }
+    if (l.sub) { const s = subByName(l.hood, l.sub); if (s) { const pb = map.hoodBBox(IDX[l.hood]); map.flyTo(s.bbox, isPhone() ? 1.3 : 1.5, Math.max(U * 0.03, (s.bbox[2] - s.bbox[0]) * 3, (pb[2] - pb[0]) * .5), dur); return; } } // keep the parent place in view around a small section
+    if (l.hood) { const ph = isPhone(); map.flyTo(map.hoodBBox(IDX[l.hood]), ph ? 1.25 : 1.75, U * (ph ? 0.06 : 0.08), dur); return; }
     map.flyTo(map.regionBBox(l.region), l.region === 'all' ? 1.03 : 1.06, 0, dur);
   }
   window.addEventListener('popstate', e => { const l = (e.state && e.state.loc) || parseHash(location.hash); go(l, { push: false }); });
@@ -220,10 +233,10 @@
     wire(panel);
   }
   function wire(root) {
-    root.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => go(JSON.parse(b.dataset.go))));
+    root.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => go(JSON.parse(b.dataset.go), { tap: true })));
     root.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => go(state.loc, { view: b.dataset.view, fly: false, replace: true, sheet: isPhone() ? 'full' : undefined })));
   }
-  const rowSub = (hood, s, j) => { const n = Object.values(state.spots).filter(sp => sp.hood === hood && sp.sub === s.name).length; return `<li><button type="button" class="row" data-go='${attr({ hood, sub: s.name })}'><span class="ic sq" style="--c:${colorFor(IDX[hood])};opacity:${[1, .75, .5][j % 3]}"></span><span class="nm">${esc(s.name)}<small>${esc(s.line)}</small></span><span class="rt">${n ? n + (n === 1 ? ' spot' : ' spots') : ''}<span class="chev"></span></span></button></li>`; };
+  const rowSub = (hood, s, j) => { const n = Object.values(state.spots).filter(sp => sp.hood === hood && sp.sub === s.name).length; return `<li><button type="button" class="row" data-go='${attr({ hood, sub: s.name })}'>${s.star ? '<span class="ic starb" aria-label="Starred"></span>' : `<span class="ic sq" style="--c:${colorFor(IDX[hood])};opacity:${[1, .75, .5][j % 3]}"></span>`}<span class="nm">${esc(s.name)}<small>${s.star ? `<span class="why">${esc(s.star)}</span> · ` : ''}${esc(s.line)}</small></span><span class="rt">${n ? n + (n === 1 ? ' spot' : ' spots') : ''}<span class="chev"></span></span></button></li>`; };
   const rowSpot = (id, withPlace) => { const sp = state.spots[id], k = KINDS[sp.kind] || KINDS.other; const meta = [k.label, withPlace ? (sp.sub || sp.hood) : sp.sub, sp.note].filter(Boolean).join(' · '); const rt = sp.status === 'want' ? 'want to try' : (sp.rating ? '★'.repeat(sp.rating) : niceDate(sp.at)); return `<li><button type="button" class="row" data-go='${attr({ spot: id })}'><span class="ic" style="--c:${k.c};${sp.status === 'want' ? 'background:transparent;box-shadow:0 0 0 2px ' + k.c + ' inset' : ''}"></span><span class="nm">${esc(sp.name)}<small>${esc(meta)}</small></span><span class="rt">${esc(rt)}</span></button></li>`; };
   const spotsIn = (hood, sub) => Object.keys(state.spots).filter(id => state.spots[id].hood === hood && (!sub || state.spots[id].sub === sub)).sort((a, b) => (state.spots[a].at < state.spots[b].at ? 1 : -1));
   const logTool = (hood, sub) => ({ id: 'log', label: 'Log a place', icon: ICON.plus, run: () => startLog({ hood, sub }) });
@@ -232,7 +245,7 @@
   const doneCount = (r = state.loc.region) => HOODS.reduce((s, h, i) => s + (inRegion(i, r) && isDone(i) ? 1 : 0), 0);
   const climbedFt = (r = state.loc.region) => HOODS.reduce((s, h, i) => s + (inRegion(i, r) && isDone(i) ? ft(h.max) : 0), 0);
   const areaPct = (r = state.loc.region) => { let a = 0, t = 0; HOODS.forEach((h, i) => { if (inRegion(i, r)) { t += h.cells; if (isDone(i)) a += h.cells; } }); return t ? a / t : 0; };
-  function stampState() { const vibe = {}; for (const k in VIBES) vibe[k] = HOODS.every((h, i) => INFO[h.name].vibe !== k || isDone(i)); return { n: doneCount('all'), sf: doneCount('sf'), marin: doneCount('marin'), east: doneCount('east'), penin: doneCount('penin'), ft: climbedFt('all'), vibe }; }
+  function stampState() { const vibe = {}; for (const k in VIBES) vibe[k] = HOODS.every((h, i) => INFO[h.name].vibe !== k || isDone(i)); return { n: doneCount('all'), sf: doneCount('sf'), marin: doneCount('marin'), east: doneCount('east'), penin: doneCount('penin'), south: doneCount('south'), north: doneCount('north'), ft: climbedFt('all'), vibe }; }
   function renderHome() {
     const r = state.loc.region, n = doneCount(), total = REGION_N[r], s = stampState(), earned = STAMPS.filter(st => st.test(s)), next = STAMPS.find(st => !st.test(s));
     setHead({ back: r !== 'all', eyebrow: r === 'all' ? 'Logbook' : 'Logbook · Bay Area', title: r === 'all' ? 'The Bay Area' : REGIONS[r].label, tools: [logTool(null, null)] });
@@ -241,8 +254,8 @@
     const recent = Object.keys(state.spots).filter(id => IDX[state.spots[id].hood] != null && inRegion(IDX[state.spots[id].hood])).sort((a, b) => (state.spots[a].at < state.spots[b].at ? 1 : -1));
     const active = state.filters.size > 0, hits = active ? NAMES.filter(x => matches(IDX[x])) : [];
     const places = r === 'all'
-      ? ['sf', 'marin', 'east', 'penin'].map(k => `<li><button type="button" class="row" data-go='${attr({ region: k })}'><span class="ic ${doneCount(k) === REGION_N[k] ? 'flag' : doneCount(k) ? 'sq' : 'none'}" style="--c:var(--accent)"></span><span class="nm">${REGIONS[k].label}</span><span class="rt">${doneCount(k)} of ${REGION_N[k]}<span class="chev"></span></span></button></li>`).join('')
-      : NAMES.filter(x => inRegion(IDX[x])).map(x => `<li><button type="button" class="row" data-go='${attr({ hood: x })}'><span class="ic ${isDone(IDX[x]) ? 'flag' : isWant(IDX[x]) ? 'star' : 'none'}"></span><span class="nm">${esc(x)}</span><span class="rt">${ft(HOODS[IDX[x]].max).toLocaleString()} ft</span></button></li>`).join('');
+      ? Object.keys(REGIONS).filter(k => k !== 'all').map(k => `<li><button type="button" class="row" data-go='${attr({ region: k })}'><span class="ic ${doneCount(k) === REGION_N[k] ? 'flag' : doneCount(k) ? 'sq' : 'none'}" style="--c:var(--accent)"></span><span class="nm">${REGIONS[k].label}</span><span class="rt">${doneCount(k)} of ${REGION_N[k]}<span class="chev"></span></span></button></li>`).join('')
+      : NAMES.filter(x => inRegion(IDX[x])).map(x => `<li><button type="button" class="row" data-go='${attr({ hood: x })}'><span class="ic ${isDone(IDX[x]) ? 'flag' : isWant(IDX[x]) ? 'star' : 'none'}"></span><span class="nm">${esc(x)}${starOf(x) ? '<span class="st" role="img" aria-label="Starred"></span>' : ''}</span><span class="rt">${ft(HOODS[IDX[x]].max).toLocaleString()} ft</span></button></li>`).join('');
     // the phone puts the tappable list right under the progress bar, so the half sheet shows rows, not instructions
     const progress = `<div class="progress"><div class="bar"><i style="width:${(n / total * 100).toFixed(1)}%"></i></div><small>${n === 0 ? (state.store === 'sync' && !Object.keys(state.spots).length ? 'Nothing walked yet · <button type="button" class="act" id="join-log-hint">Already have a log? Join it</button>' : 'Nothing walked yet') : `<b>${n}</b> of ${total} walked · ${Math.round(areaPct() * 100)}% by area · ${climbedFt().toLocaleString()} ft climbed`}</small></div>`;
     const lead = `<p class="lead">${n === 0 ? `Tap a place on the map, or pick one ${isPhone() ? 'above' : 'below'}. When you have set foot in it, log it and it gets a flag.` : n === total ? `All ${total}. You have walked ${REGIONS[r].the}.` : `${total - n} to go.${next ? ' Next stamp: ' + next.label + '.' : ''}`}</p>`;
@@ -290,7 +303,7 @@
       </div>
       ${done ? `<textarea class="note" id="note" placeholder="What did you eat, see, or climb?" aria-label="Notes for ${esc(name)}">${esc(keepNote ?? done.note ?? '')}</textarea>` : ''}<div class="savestate" id="savestate">${state.canWrite ? '' : 'Sign in to keep a list'}</div>
       <div class="facts"><span><b>${ft(h.max).toLocaleString()} ft</b> high point${roof ? ' · ' + REGIONS[h.region].roof : ''}</span><span><b>Fog</b> <span class="dots">${[1, 2, 3, 4, 5].map(n => `<i class="${n <= info.fog ? 'on' : ''}"></i>`).join('')}</span> ${FOG_WORDS[info.fog - 1]}</span></div>
-      ${secs.length ? `<h3>Sections <span class="n">${secs.length}</span></h3><ul class="rows">${secs.map((s, j) => rowSub(name, s, j)).join('')}</ul>` : ''}
+      ${secs.length ? `<h3>Sections <span class="n">${secs.length}</span></h3><ul class="rows">${secs.map((s, j) => [s, j]).sort((a, b) => !!b[0].star - !!a[0].star).map(([s, j]) => rowSub(name, s, j)).join('')}</ul>` : ''}
       <h3>Spots <span class="n">${mine.length || ''}</span><button type="button" class="act" id="log-here">+ Log a place</button></h3>
       ${mine.length ? `<ul class="rows">${mine.map(id => rowSpot(id, false)).join('')}</ul>` : `<p class="empty">Nothing logged here yet.</p>`}
       <h3>Known for</h3><ul class="plain">${info.known.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
@@ -304,8 +317,10 @@
   // ---- a section of a neighborhood ----
   function renderSub(hood, subName) {
     const s = subByName(hood, subName), i = IDX[hood], info = INFO[hood], mine = spotsIn(hood, subName), others = subs(hood).filter(x => x.name !== subName);
-    setHead({ eyebrow: `${esc(hood)} · ${REGIONS[HOODS[i].region].label}`, dot: `var(--${VIBES[info.vibe].cls})`, title: esc(subName), tools: [logTool(hood, subName)] });
+    if (s.star) setHead({ eyebrow: `<span class="star"><b>★</b> Starred · ${esc(s.star)}</span>`, title: esc(subName), tools: [logTool(hood, subName)] });
+    else setHead({ eyebrow: `${esc(hood)} · ${REGIONS[HOODS[i].region].label}`, dot: `var(--${VIBES[info.vibe].cls})`, title: esc(subName), tools: [logTool(hood, subName)] });
     panel.innerHTML = `
+      ${s.star ? `<p class="starnote"><b aria-hidden="true">★</b><span>${esc(s.star)}</span></p>` : ''}
       <p class="lead">${esc(s.line)}</p>
       ${s.tags && s.tags.length ? `<div class="facts">${s.tags.map(t => `<span>${esc(t)}</span>`).join('')}</div>` : ''}
       <h3>Spots here <span class="n">${mine.length || ''}</span><button type="button" class="act" id="log-here">+ Log a place</button></h3>
@@ -538,7 +553,7 @@
     else Object.assign(d, { lon, lat, x, y, hood: w.hood || d.hood, sub: w.sub, src: 'pin', where: '' });
     state.pending = { x, y };
     go(state.loc, { view: 'log', fly: false, replace: true, sheet: isPhone() ? 'half' : undefined }); // phone: half, so the pin stays in view above the form
-    if (isPhone()) map.flyTo([x - .01, y - .01, x + .01, y + .01], 1, NX * 0.028);
+    if (isPhone()) map.flyTo([x - .01, y - .01, x + .01, y + .01], 1, U * 0.028);
   }
   function stopPlacing() { state.placing = false; state.pending = null; stage.classList.remove('placing'); map.redraw(); }
   function cancelLog() { const d = state.draft; state.draft = null; stopPlacing(); if (d && d.id) go({ spot: d.id }, { replace: true, fly: false }); else go(state.loc, { replace: true, fly: false }); }
@@ -567,7 +582,7 @@
       if (onPos) { onPos([lon, lat]); return; }
       const w = locateXY(x, y);
       if (w.hood) { toast('You are in ' + (w.sub ? w.sub + ', ' + w.hood : w.hood), 3000); go(w.sub ? { hood: w.hood, sub: w.sub } : { hood: w.hood }, { fromMap: true }); }
-      else { toast('You are here', 3000); map.flyTo([x - .01, y - .01, x + .01, y + .01], 1, NX * 0.08); }
+      else { toast('You are here', 3000); map.flyTo([x - .01, y - .01, x + .01, y + .01], 1, U * 0.08); }
     }, err => {
       btn.classList.remove('busy'); const framed = window.top !== window.self;
       if (err.code === 1 && framed) toast('Location is blocked inside this frame. Open the app on its own.', 3600); else toast(err.code === 1 ? 'Location permission was refused' : 'Could not get a location', 3000);

@@ -1,0 +1,2184 @@
+{
+ "Hayward": [
+  {
+   "name": "Downtown Hayward",
+   "lon": -122.081,
+   "lat": 37.672,
+   "line": "B Street’s shops and the old City Hall on the fault, by Hayward BART.",
+   "known": [
+    "B Street",
+    "Old Hayward City Hall",
+    "Hayward Japanese Gardens"
+   ],
+   "tags": [
+    "food",
+    "historic",
+    "shops"
+   ]
+  },
+  {
+   "name": "Cal State & Hayward Hills",
+   "lon": -122.056,
+   "lat": 37.654,
+   "line": "The university’s hilltop campus and the Bay views from Hayward’s eastern ridges.",
+   "known": [
+    "Cal State East Bay",
+    "Carlos Bee Boulevard",
+    "Garin Regional Park"
+   ],
+   "tags": [
+    "hilly",
+    "views",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Southland & the Airport",
+   "lon": -122.108,
+   "lat": 37.652,
+   "line": "Southland Mall, Winton Avenue and the general-aviation runways of Hayward Executive.",
+   "known": [
+    "Southland Mall",
+    "Hayward Executive Airport",
+    "Winton Avenue"
+   ],
+   "tags": [
+    "shops",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Hayward Shoreline",
+   "lon": -122.138,
+   "lat": 37.623,
+   "line": "Restored salt marsh and levee trails along the Bay, below the San Mateo Bridge.",
+   "known": [
+    "Hayward Regional Shoreline",
+    "Hayward Shoreline Interpretive Center",
+    "San Francisco Bay Trail"
+   ],
+   "tags": [
+    "waterfront",
+    "parks",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Tennyson & South Hayward",
+   "lon": -122.06,
+   "lat": 37.63,
+   "line": "Tennyson Road’s taquerias and the neighbourhoods by South Hayward BART.",
+   "known": [
+    "Tennyson Road",
+    "South Hayward BART",
+    "Tennyson Park"
+   ],
+   "tags": [
+    "food",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Mt. Eden & Industrial",
+   "lon": -122.102,
+   "lat": 37.615,
+   "line": "Warehouses along Industrial Parkway, with old Mt. Eden’s streets toward the marshes.",
+   "known": [
+    "Industrial Parkway",
+    "Mt. Eden Park",
+    "Eden Landing Ecological Reserve"
+   ],
+   "tags": [
+    "quiet",
+    "sunny"
+   ]
+  }
+ ],
+ "San Lorenzo": [
+  {
+   "name": "San Lorenzo Village",
+   "lon": -122.124,
+   "lat": 37.676,
+   "line": "Bohannon’s 1940s tract streets around the Village shopping center on Hesperian.",
+   "known": [
+    "Hesperian Boulevard",
+    "San Lorenzo Community Park",
+    "San Lorenzo Library"
+   ],
+   "tags": [
+    "quiet",
+    "historic",
+    "shops"
+   ]
+  },
+  {
+   "name": "Lewelling & Grant",
+   "lon": -122.144,
+   "lat": 37.677,
+   "line": "The older streets toward the Bay off Lewelling Boulevard and Grant Avenue.",
+   "known": [
+    "Lewelling Boulevard",
+    "Grant Avenue",
+    "San Lorenzo Creek"
+   ],
+   "tags": [
+    "quiet",
+    "sunny"
+   ]
+  }
+ ],
+ "Castro Valley": [
+  {
+   "name": "The Boulevard",
+   "lon": -122.077,
+   "lat": 37.695,
+   "line": "Castro Valley Boulevard’s diners and shops, between the BART station and Redwood Road.",
+   "known": [
+    "Castro Valley Boulevard",
+    "Castro Valley BART",
+    "Castro Valley Library"
+   ],
+   "tags": [
+    "food",
+    "shops",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Lake Chabot side",
+   "lon": -122.098,
+   "lat": 37.715,
+   "line": "Lake Chabot Road and the hills above the reservoir’s eastern shore.",
+   "known": [
+    "Lake Chabot Regional Park",
+    "Lake Chabot Road",
+    "Chabot Dam"
+   ],
+   "tags": [
+    "parks",
+    "hilly",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Five Canyons",
+   "lon": -122.04,
+   "lat": 37.705,
+   "line": "Hillside subdivisions off Five Canyons Parkway, against the Palomares ridges.",
+   "known": [
+    "Five Canyons Parkway",
+    "Don Castro Regional Recreation Area",
+    "Palomares Road"
+   ],
+   "tags": [
+    "hilly",
+    "quiet",
+    "views"
+   ]
+  },
+  {
+   "name": "Upper Redwood & Crow Canyon",
+   "lon": -122.057,
+   "lat": 37.73,
+   "line": "Ranch country up Redwood Road and Crow Canyon Road toward the regional parks.",
+   "known": [
+    "Redwood Road",
+    "Crow Canyon Road",
+    "Cull Canyon Regional Recreation Area"
+   ],
+   "tags": [
+    "hilly",
+    "quiet",
+    "parks"
+   ]
+  }
+ ],
+ "Union City": [
+  {
+   "name": "Old Alvarado",
+   "lon": -122.078,
+   "lat": 37.596,
+   "line": "The 1850s river town on Alameda Creek, where the sugar beet factory stood.",
+   "known": [
+    "Smith Street",
+    "Old Alvarado Park",
+    "Alameda Creek Trail"
+   ],
+   "tags": [
+    "historic",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Union Landing",
+   "lon": -122.064,
+   "lat": 37.602,
+   "line": "The big shopping centre by I-880 at Alvarado-Niles Road.",
+   "known": [
+    "Union Landing",
+    "Alvarado-Niles Road",
+    "Interstate 880"
+   ],
+   "tags": [
+    "shops",
+    "food",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Decoto & Station District",
+   "lon": -122.02,
+   "lat": 37.592,
+   "line": "Decoto’s old blocks around Union City BART and the new station district.",
+   "known": [
+    "Union City BART",
+    "Decoto Road",
+    "James Logan High School"
+   ],
+   "tags": [
+    "food",
+    "historic"
+   ]
+  },
+  {
+   "name": "Alvarado Boulevard & Contempo",
+   "lon": -122.065,
+   "lat": 37.58,
+   "line": "Tract streets south of Alvarado Boulevard, down to the Alameda Creek levee trail.",
+   "known": [
+    "Alvarado Boulevard",
+    "Contempo Park",
+    "Veterans Memorial Park"
+   ],
+   "tags": [
+    "parks",
+    "quiet"
+   ]
+  }
+ ],
+ "Newark": [
+  {
+   "name": "Old Town Newark",
+   "lon": -122.038,
+   "lat": 37.534,
+   "line": "Thornton Avenue at Sycamore Street, the old railroad town’s centre.",
+   "known": [
+    "Thornton Avenue",
+    "Sycamore Street",
+    "Newark Pavilion"
+   ],
+   "tags": [
+    "historic",
+    "food",
+    "quiet"
+   ]
+  },
+  {
+   "name": "NewPark & Mowry",
+   "lon": -122.0,
+   "lat": 37.524,
+   "line": "NewPark Mall and the restaurant strip along Mowry Avenue by I-880.",
+   "known": [
+    "NewPark Mall",
+    "Mowry Avenue",
+    "Silliman Activity Center"
+   ],
+   "tags": [
+    "shops",
+    "food",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Dumbarton & the Bayside",
+   "lon": -122.045,
+   "lat": 37.507,
+   "line": "Office parks along the Dumbarton Bridge approach, with salt ponds on the city’s Bay edge.",
+   "known": [
+    "Dumbarton Bridge",
+    "Lucid Motors headquarters",
+    "Don Edwards San Francisco Bay National Wildlife Refuge"
+   ],
+   "tags": [
+    "waterfront",
+    "quiet",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Lakeshore & Cedar",
+   "lon": -122.031,
+   "lat": 37.55,
+   "line": "Homes around Lakeshore Park’s lake loop in north Newark, off Cedar Boulevard.",
+   "known": [
+    "Lakeshore Park",
+    "Cedar Boulevard",
+    "Jarvis Avenue"
+   ],
+   "tags": [
+    "quiet",
+    "parks"
+   ]
+  }
+ ],
+ "Fremont": [
+  {
+   "name": "Niles",
+   "lon": -121.977,
+   "lat": 37.577,
+   "line": "The silent-film town at the canyon mouth: the Essanay museum and canyon train rides.",
+   "known": [
+    "Niles Essanay Silent Film Museum",
+    "Niles Canyon Railway",
+    "Niles Boulevard"
+   ],
+   "tags": [
+    "historic",
+    "shops",
+    "artsy"
+   ]
+  },
+  {
+   "name": "Centerville",
+   "lon": -122.0,
+   "lat": 37.552,
+   "line": "Fremont Boulevard’s Little Kabul and the old Centerville depot, with Lake Elizabeth nearby.",
+   "known": [
+    "Centerville Train Depot",
+    "Fremont Boulevard",
+    "Central Park and Lake Elizabeth"
+   ],
+   "tags": [
+    "food",
+    "historic",
+    "parks"
+   ]
+  },
+  {
+   "name": "Ardenwood & Coyote Hills",
+   "lon": -122.045,
+   "lat": 37.565,
+   "line": "Ardenwood’s farm and Victorian house, then the Coyote Hills marshes on the Bay.",
+   "known": [
+    "Ardenwood Historic Farm",
+    "Coyote Hills Regional Park",
+    "Paseo Padre Parkway"
+   ],
+   "tags": [
+    "parks",
+    "waterfront",
+    "historic"
+   ]
+  },
+  {
+   "name": "Irvington",
+   "lon": -121.969,
+   "lat": 37.526,
+   "line": "The crossroads at Fremont and Washington Boulevards, where a BART station has long been planned.",
+   "known": [
+    "Washington Boulevard",
+    "Irvington Monument",
+    "Fremont Boulevard"
+   ],
+   "tags": [
+    "food",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Mission San José",
+   "lon": -121.92,
+   "lat": 37.533,
+   "line": "The 1797 mission and the hill streets below the Mission Peak trailhead.",
+   "known": [
+    "Mission San José",
+    "Mission Peak Regional Preserve",
+    "Ohlone College"
+   ],
+   "tags": [
+    "historic",
+    "hilly",
+    "views"
+   ]
+  },
+  {
+   "name": "Warm Springs",
+   "lon": -121.935,
+   "lat": 37.49,
+   "line": "The Tesla factory, the BART station and Fremont’s southern tech parks.",
+   "known": [
+    "Tesla Fremont Factory",
+    "Warm Springs BART",
+    "Mission Boulevard"
+   ],
+   "tags": [
+    "sunny",
+    "quiet"
+   ]
+  }
+ ],
+ "Dublin": [
+  {
+   "name": "Downtown & Heritage Park",
+   "lon": -121.936,
+   "lat": 37.704,
+   "line": "The 1859 church and pioneer cemetery at Heritage Park, by Dublin Boulevard’s shops.",
+   "known": [
+    "Dublin Heritage Park and Museums",
+    "Old St. Raymond’s Church",
+    "Dublin Boulevard"
+   ],
+   "tags": [
+    "historic",
+    "shops",
+    "food"
+   ]
+  },
+  {
+   "name": "West Dublin Hills",
+   "lon": -121.959,
+   "lat": 37.706,
+   "line": "Hillside streets west of I-680 up toward Schaefer Ranch and the open ridges.",
+   "known": [
+    "Schaefer Ranch",
+    "Dublin Hills Regional Park",
+    "Silvergate Drive"
+   ],
+   "tags": [
+    "hilly",
+    "views",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Dublin Crossing & Camp Parks",
+   "lon": -121.9,
+   "lat": 37.715,
+   "line": "The new Boulevard neighbourhood on old Camp Parks land, with Army reserve ranges beyond.",
+   "known": [
+    "Camp Parks",
+    "Dublin Crossing",
+    "Dougherty Road"
+   ],
+   "tags": [
+    "quiet",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Dublin Ranch & Emerald Glen",
+   "lon": -121.87,
+   "lat": 37.712,
+   "line": "East Dublin’s newer tracts around Emerald Glen Park and the Fallon Road shopping.",
+   "known": [
+    "Emerald Glen Park",
+    "Fallon Gateway",
+    "Tassajara Road"
+   ],
+   "tags": [
+    "parks",
+    "sunny",
+    "shops"
+   ]
+  },
+  {
+   "name": "Fallon Sports Park & Positano",
+   "lon": -121.852,
+   "lat": 37.722,
+   "line": "The northern edge of town against the Tassajara hills, around Fallon Sports Park.",
+   "known": [
+    "Fallon Sports Park",
+    "Positano Parkway",
+    "Fallon Road"
+   ],
+   "tags": [
+    "parks",
+    "hilly",
+    "quiet"
+   ]
+  }
+ ],
+ "Pleasanton": [
+  {
+   "name": "Downtown Main Street",
+   "lon": -121.875,
+   "lat": 37.661,
+   "line": "Main Street under the Pleasanton arch, with its restaurants and Saturday farmers market.",
+   "known": [
+    "The Pleasanton arch",
+    "Museum on Main",
+    "Pleasanton Farmers Market"
+   ],
+   "tags": [
+    "food",
+    "historic",
+    "shops"
+   ]
+  },
+  {
+   "name": "Fairgrounds",
+   "lon": -121.891,
+   "lat": 37.662,
+   "line": "The county fair’s home and its 1858 one-mile racetrack.",
+   "known": [
+    "Alameda County Fairgrounds",
+    "Pleasanton Fairgrounds Racetrack",
+    "Alameda County Fair each June"
+   ],
+   "tags": [
+    "historic",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Hacienda",
+   "lon": -121.885,
+   "lat": 37.695,
+   "line": "The office park and apartments around Dublin/Pleasanton BART.",
+   "known": [
+    "Hacienda Business Park",
+    "Dublin/Pleasanton BART",
+    "Owens Drive"
+   ],
+   "tags": [
+    "sunny",
+    "food"
+   ]
+  },
+  {
+   "name": "Stoneridge",
+   "lon": -121.925,
+   "lat": 37.694,
+   "line": "Stoneridge Shopping Center and the West Dublin/Pleasanton BART end of town.",
+   "known": [
+    "Stoneridge Shopping Center",
+    "West Dublin/Pleasanton BART",
+    "Stoneridge Drive"
+   ],
+   "tags": [
+    "shops",
+    "food"
+   ]
+  },
+  {
+   "name": "Pleasanton Ridge & Foothill",
+   "lon": -121.918,
+   "lat": 37.657,
+   "line": "Foothill Road’s homes along the base of Pleasanton Ridge’s oak and olive trails.",
+   "known": [
+    "Pleasanton Ridge Regional Park",
+    "Foothill Road",
+    "Augustin Bernal Park"
+   ],
+   "tags": [
+    "hilly",
+    "parks",
+    "views"
+   ]
+  },
+  {
+   "name": "Ruby Hill & Vineyard Avenue",
+   "lon": -121.838,
+   "lat": 37.645,
+   "line": "Vineyard Avenue toward the Livermore wine country and the Ruby Hill estates.",
+   "known": [
+    "Ruby Hill",
+    "Vineyard Avenue",
+    "Shadow Cliffs Regional Recreation Area"
+   ],
+   "tags": [
+    "quiet",
+    "sunny",
+    "hilly"
+   ]
+  }
+ ],
+ "Livermore": [
+  {
+   "name": "Downtown First Street",
+   "lon": -121.768,
+   "lat": 37.682,
+   "line": "First Street’s restaurants, the Bankhead Theater and the Livermore flagpole.",
+   "known": [
+    "Bankhead Theater",
+    "First Street",
+    "Livermorium Plaza"
+   ],
+   "tags": [
+    "food",
+    "nightlife",
+    "historic"
+   ]
+  },
+  {
+   "name": "Springtown",
+   "lon": -121.747,
+   "lat": 37.712,
+   "line": "Northern Livermore’s 1960s neighbourhood and golf course under the Altamont hills.",
+   "known": [
+    "Springtown Golf Course",
+    "Springtown Boulevard",
+    "Altamont hills"
+   ],
+   "tags": [
+    "quiet",
+    "hilly"
+   ]
+  },
+  {
+   "name": "Las Positas & the Airport",
+   "lon": -121.805,
+   "lat": 37.695,
+   "line": "Las Positas College, the municipal airport and the outlets off I-580.",
+   "known": [
+    "Las Positas College",
+    "Livermore Municipal Airport",
+    "San Francisco Premium Outlets"
+   ],
+   "tags": [
+    "shops",
+    "sunny"
+   ]
+  },
+  {
+   "name": "The Labs",
+   "lon": -121.715,
+   "lat": 37.688,
+   "line": "The fenced square mile of Lawrence Livermore and Sandia on East Avenue.",
+   "known": [
+    "Lawrence Livermore National Laboratory",
+    "Sandia National Laboratories",
+    "East Avenue"
+   ],
+   "tags": [
+    "quiet",
+    "sunny"
+   ]
+  },
+  {
+   "name": "South Livermore & Sycamore Grove",
+   "lon": -121.767,
+   "lat": 37.653,
+   "line": "Arroyo del Valle’s sycamores and the vineyards along Tesla and Arroyo roads.",
+   "known": [
+    "Sycamore Grove Park",
+    "Wente Vineyards",
+    "Concannon Vineyard"
+   ],
+   "tags": [
+    "parks",
+    "sunny",
+    "quiet"
+   ]
+  }
+ ],
+ "Martinez": [
+  {
+   "name": "Downtown Martinez",
+   "lon": -122.1355,
+   "lat": 38.018,
+   "line": "Main Street’s antique shops and the 1932 courthouse, with Amtrak trains along the shore.",
+   "known": [
+    "Main Street",
+    "Wakefield Taylor Courthouse",
+    "Martinez Amtrak station"
+   ],
+   "tags": [
+    "historic",
+    "shops",
+    "food"
+   ]
+  },
+  {
+   "name": "Waterfront & Marina",
+   "lon": -122.139,
+   "lat": 38.0275,
+   "line": "Ballfields, marsh trails and the fishing pier on Carquinez Strait, below the bridges.",
+   "known": [
+    "Martinez Regional Shoreline",
+    "Waterfront Park",
+    "Martinez Marina"
+   ],
+   "tags": [
+    "waterfront",
+    "parks",
+    "views"
+   ]
+  },
+  {
+   "name": "John Muir House",
+   "lon": -122.131,
+   "lat": 37.991,
+   "line": "The 1882 Italianate house and orchard on Alhambra Avenue where Muir lived from 1890, with Mount Wanda behind.",
+   "known": [
+    "John Muir National Historic Site",
+    "Mount Wanda",
+    "Alhambra Avenue"
+   ],
+   "tags": [
+    "historic",
+    "parks",
+    "hilly"
+   ]
+  },
+  {
+   "name": "Hidden Lakes & Morello",
+   "lon": -122.106,
+   "lat": 37.988,
+   "line": "Morello Avenue’s tract homes around the ponds and oak trails of Hidden Lakes.",
+   "known": [
+    "Hidden Lakes Open Space",
+    "Morello Avenue",
+    "Hidden Valley Park"
+   ],
+   "tags": [
+    "parks",
+    "quiet",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Virginia Hills",
+   "lon": -122.106,
+   "lat": 37.963,
+   "line": "Hillside streets at Martinez’s southern tip, above Alhambra Avenue toward Pleasant Hill.",
+   "known": [
+    "Alhambra Avenue",
+    "Virginia Hills",
+    "Pleasant Hill Road"
+   ],
+   "tags": [
+    "hilly",
+    "quiet",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Alhambra Valley",
+   "lon": -122.144,
+   "lat": 37.9715,
+   "line": "Alhambra Creek’s ranch-house valley, the road out toward Briones.",
+   "known": [
+    "Alhambra Valley Road",
+    "Alhambra Creek",
+    "Briones Regional Park"
+   ],
+   "tags": [
+    "quiet",
+    "hilly",
+    "parks"
+   ]
+  }
+ ],
+ "Pleasant Hill": [
+  {
+   "name": "Downtown Pleasant Hill",
+   "lon": -122.061,
+   "lat": 37.948,
+   "line": "Crescent Drive’s shops, cinema and plaza off Contra Costa Boulevard.",
+   "known": [
+    "Crescent Drive",
+    "Contra Costa Boulevard",
+    "Pleasant Hill Library"
+   ],
+   "tags": [
+    "shops",
+    "food",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Diablo Valley College",
+   "lon": -122.071,
+   "lat": 37.9695,
+   "line": "The community college campus on Golf Club Road, the north end of town.",
+   "known": [
+    "Diablo Valley College",
+    "Golf Club Road",
+    "Chilpancingo Parkway"
+   ],
+   "tags": [
+    "quiet",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Gregory Gardens",
+   "lon": -122.061,
+   "lat": 37.9575,
+   "line": "Postwar ranch houses off Gregory Lane and the city’s main park.",
+   "known": [
+    "Gregory Lane",
+    "Pleasant Hill Park",
+    "Contra Costa Canal Trail"
+   ],
+   "tags": [
+    "parks",
+    "quiet",
+    "sunny"
+   ]
+  },
+  {
+   "name": "West Hills",
+   "lon": -122.088,
+   "lat": 37.956,
+   "line": "Oak-covered slopes west of Pleasant Hill Road, toward Briones.",
+   "known": [
+    "Pleasant Hill Road",
+    "Paso Nogal Park",
+    "Briones foothills"
+   ],
+   "tags": [
+    "hilly",
+    "views",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Rodgers Ranch & Taylor Blvd",
+   "lon": -122.08,
+   "lat": 37.933,
+   "line": "The south end along Taylor Boulevard, with a restored 1870s ranch.",
+   "known": [
+    "Rodgers Ranch Heritage Center",
+    "Taylor Boulevard",
+    "Pleasant Hill Road"
+   ],
+   "tags": [
+    "historic",
+    "quiet",
+    "hilly"
+   ]
+  }
+ ],
+ "Concord": [
+  {
+   "name": "Downtown & Todos Santos Plaza",
+   "lon": -122.031,
+   "lat": 37.978,
+   "line": "The 1869 plaza with summer concerts and a farmers market, ringed by restaurants.",
+   "known": [
+    "Todos Santos Plaza",
+    "Concord BART",
+    "Salvio Street"
+   ],
+   "tags": [
+    "food",
+    "nightlife",
+    "historic"
+   ]
+  },
+  {
+   "name": "Monument Corridor",
+   "lon": -122.045,
+   "lat": 37.953,
+   "line": "Monument Boulevard’s taquerias and apartment blocks, the city’s busiest Latino strip.",
+   "known": [
+    "Monument Boulevard",
+    "Meadow Homes Park",
+    "Monument Crisis Center"
+   ],
+   "tags": [
+    "food",
+    "shops",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Sun Valley & Willows",
+   "lon": -122.053,
+   "lat": 37.972,
+   "line": "Big-box shopping by Highway 242: Sun Valley mall and the Willows center.",
+   "known": [
+    "Sun Valley Mall",
+    "Willows Shopping Center",
+    "Highway 242"
+   ],
+   "tags": [
+    "shops",
+    "sunny"
+   ]
+  },
+  {
+   "name": "North Concord & the Naval Station",
+   "lon": -121.985,
+   "lat": 37.995,
+   "line": "Former weapons-station hills, now parkland and future neighborhoods.",
+   "known": [
+    "Thurgood Marshall Regional Park",
+    "North Concord/Martinez BART",
+    "Willow Pass Road"
+   ],
+   "tags": [
+    "parks",
+    "historic",
+    "hilly"
+   ]
+  },
+  {
+   "name": "Ygnacio Valley & Newhall Park",
+   "lon": -121.998,
+   "lat": 37.952,
+   "line": "Ranch-house suburbs along Ygnacio Valley and Clayton roads under Lime Ridge.",
+   "known": [
+    "Newhall Community Park",
+    "Lime Ridge Open Space",
+    "Ygnacio Valley Road"
+   ],
+   "tags": [
+    "parks",
+    "quiet",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Pavilion & Clayton Valley",
+   "lon": -121.948,
+   "lat": 37.96,
+   "line": "The hillside amphitheater on Kirker Pass Road and the Clayton Valley tracts below.",
+   "known": [
+    "Concord Pavilion",
+    "Kirker Pass Road",
+    "Clayton Valley"
+   ],
+   "tags": [
+    "nightlife",
+    "hilly",
+    "sunny"
+   ]
+  }
+ ],
+ "Clayton": [
+  {
+   "name": "Town Center & Main Street",
+   "lon": -121.9355,
+   "lat": 37.941,
+   "line": "An 1857 town’s Main Street: the saloon, the museum and the grove park.",
+   "known": [
+    "Clayton Club Saloon",
+    "Clayton Museum",
+    "The Grove Park"
+   ],
+   "tags": [
+    "historic",
+    "food",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Oakhurst",
+   "lon": -121.92,
+   "lat": 37.9285,
+   "line": "Golf-course homes up Peacock Creek Drive under Mount Diablo’s north face.",
+   "known": [
+    "Oakhurst Country Club",
+    "Peacock Creek Drive",
+    "Mount Diablo views"
+   ],
+   "tags": [
+    "hilly",
+    "views",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Clayton Road side",
+   "lon": -121.943,
+   "lat": 37.95,
+   "line": "Tract streets along Clayton Road toward Concord, with the library and middle school.",
+   "known": [
+    "Clayton Road",
+    "Clayton Community Library",
+    "Diablo View Middle School"
+   ],
+   "tags": [
+    "quiet",
+    "sunny"
+   ]
+  }
+ ],
+ "Walnut Creek": [
+  {
+   "name": "Downtown Walnut Creek",
+   "lon": -122.062,
+   "lat": 37.8985,
+   "line": "Broadway Plaza, Main Street’s restaurants and the Lesher Center, a walk from BART.",
+   "known": [
+    "Broadway Plaza",
+    "Lesher Center for the Arts",
+    "Main Street"
+   ],
+   "tags": [
+    "shops",
+    "food",
+    "nightlife"
+   ]
+  },
+  {
+   "name": "North Main & Larkey Park",
+   "lon": -122.072,
+   "lat": 37.913,
+   "line": "North of downtown, the wildlife hospital in Larkey Park and Walnut Heights homes.",
+   "known": [
+    "Lindsay Wildlife Experience",
+    "Larkey Park",
+    "North Main Street"
+   ],
+   "tags": [
+    "parks",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Heather Farm & Ygnacio Valley",
+   "lon": -122.044,
+   "lat": 37.9225,
+   "line": "The pond-and-garden park on Ygnacio Valley Road, with ballfields and dog runs.",
+   "known": [
+    "Heather Farm Park",
+    "The Gardens at Heather Farm",
+    "Ygnacio Valley Road"
+   ],
+   "tags": [
+    "parks",
+    "sunny",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Shadelands",
+   "lon": -122.015,
+   "lat": 37.932,
+   "line": "The northeast’s 1960s office park and the old Penniman ranch house museum.",
+   "known": [
+    "Shadelands Ranch Museum",
+    "Shadelands business park",
+    "Ygnacio Valley Road"
+   ],
+   "tags": [
+    "historic",
+    "sunny",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Northgate & Shell Ridge",
+   "lon": -122.015,
+   "lat": 37.895,
+   "line": "Eastern neighborhoods backing onto Shell Ridge’s grassland trails and cattle.",
+   "known": [
+    "Shell Ridge Open Space",
+    "Borges Ranch",
+    "Northgate High School"
+   ],
+   "tags": [
+    "parks",
+    "hilly",
+    "views"
+   ]
+  },
+  {
+   "name": "Rossmoor",
+   "lon": -122.072,
+   "lat": 37.869,
+   "line": "The gated retirement community in the hills along Tice Valley Boulevard.",
+   "known": [
+    "Rossmoor",
+    "Tice Valley Boulevard",
+    "Rossmoor golf courses"
+   ],
+   "tags": [
+    "quiet",
+    "hilly",
+    "views"
+   ]
+  }
+ ],
+ "Lafayette": [
+  {
+   "name": "Downtown Lafayette",
+   "lon": -122.118,
+   "lat": 37.886,
+   "line": "Mount Diablo Boulevard’s restaurants, the library and BART, under the hillside crosses.",
+   "known": [
+    "Mount Diablo Boulevard",
+    "Lafayette Library and Learning Center",
+    "Lafayette BART"
+   ],
+   "tags": [
+    "food",
+    "shops",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Lafayette Reservoir",
+   "lon": -122.143,
+   "lat": 37.883,
+   "line": "The EBMUD reservoir and its 2.7-mile loop, busy with walkers at dawn.",
+   "known": [
+    "Lafayette Reservoir",
+    "Rim Trail",
+    "Lafayette Reservoir boathouse"
+   ],
+   "tags": [
+    "parks",
+    "views",
+    "hilly"
+   ]
+  },
+  {
+   "name": "Happy Valley",
+   "lon": -122.135,
+   "lat": 37.901,
+   "line": "Big lots and winding roads up Happy Valley Road, north of Highway 24.",
+   "known": [
+    "Happy Valley Road",
+    "Happy Valley Elementary",
+    "Briones foothills"
+   ],
+   "tags": [
+    "quiet",
+    "hilly"
+   ]
+  },
+  {
+   "name": "Reliez Valley",
+   "lon": -122.115,
+   "lat": 37.92,
+   "line": "The northern arm along Reliez Valley Road, with Acalanes Ridge above.",
+   "known": [
+    "Reliez Valley Road",
+    "Acalanes Ridge Open Space",
+    "Pleasant Hill Road"
+   ],
+   "tags": [
+    "quiet",
+    "hilly",
+    "parks"
+   ]
+  },
+  {
+   "name": "Burton Valley",
+   "lon": -122.098,
+   "lat": 37.864,
+   "line": "Family streets south toward Moraga, along the Lafayette–Moraga Trail.",
+   "known": [
+    "Burton Valley Elementary",
+    "Lafayette–Moraga Regional Trail",
+    "Moraga Road"
+   ],
+   "tags": [
+    "quiet",
+    "parks",
+    "sunny"
+   ]
+  }
+ ],
+ "Orinda": [
+  {
+   "name": "Orinda Village & Theatre Square",
+   "lon": -122.183,
+   "lat": 37.88,
+   "line": "The 1941 Orinda Theatre, Theatre Square and the shops of Orinda Village by BART.",
+   "known": [
+    "Orinda Theatre",
+    "Theatre Square",
+    "Orinda BART"
+   ],
+   "tags": [
+    "food",
+    "shops",
+    "historic"
+   ]
+  },
+  {
+   "name": "Glorietta",
+   "lon": -122.165,
+   "lat": 37.856,
+   "line": "Quiet streets off Glorietta Boulevard and Moraga Way, south toward Moraga.",
+   "known": [
+    "Glorietta Boulevard",
+    "Glorietta Elementary",
+    "Moraga Way"
+   ],
+   "tags": [
+    "quiet",
+    "hilly"
+   ]
+  },
+  {
+   "name": "Sleepy Hollow",
+   "lon": -122.193,
+   "lat": 37.9,
+   "line": "Wooded homes north of Highway 24 around San Pablo Creek.",
+   "known": [
+    "Sleepy Hollow Elementary",
+    "Camino Pablo",
+    "San Pablo Creek"
+   ],
+   "tags": [
+    "quiet",
+    "hilly"
+   ]
+  },
+  {
+   "name": "Miner Road",
+   "lon": -122.17,
+   "lat": 37.907,
+   "line": "The northeast hills along Miner Road, wooded and steep.",
+   "known": [
+    "Miner Road",
+    "Orinda Oaks Open Space",
+    "Camino Pablo"
+   ],
+   "tags": [
+    "hilly",
+    "quiet",
+    "parks"
+   ]
+  },
+  {
+   "name": "Orinda Country Club",
+   "lon": -122.208,
+   "lat": 37.888,
+   "line": "The golf club and Lake Cascade, with El Toyonal climbing toward Wildcat Canyon.",
+   "known": [
+    "Orinda Country Club",
+    "Lake Cascade",
+    "El Toyonal"
+   ],
+   "tags": [
+    "hilly",
+    "views",
+    "quiet"
+   ]
+  }
+ ],
+ "Moraga": [
+  {
+   "name": "Moraga Center & Commons",
+   "lon": -122.121,
+   "lat": 37.8355,
+   "line": "Moraga Road’s shopping center and the Commons, where the trail passes the playground.",
+   "known": [
+    "Moraga Commons Park",
+    "Moraga Shopping Center",
+    "Hacienda de las Flores"
+   ],
+   "tags": [
+    "parks",
+    "food",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Rheem Valley",
+   "lon": -122.125,
+   "lat": 37.86,
+   "line": "The north end around the Rheem Theatre and Campolindo High.",
+   "known": [
+    "Rheem Theatre",
+    "Rheem Valley Shopping Center",
+    "Campolindo High School"
+   ],
+   "tags": [
+    "shops",
+    "quiet",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Saint Mary’s College",
+   "lon": -122.108,
+   "lat": 37.841,
+   "line": "Mission-style campus and white chapel tower off St. Mary’s Road.",
+   "known": [
+    "Saint Mary’s College Chapel",
+    "Saint Mary’s Road",
+    "Lafayette–Moraga Regional Trail"
+   ],
+   "tags": [
+    "historic",
+    "quiet",
+    "hilly"
+   ]
+  },
+  {
+   "name": "Sanders Ranch",
+   "lon": -122.118,
+   "lat": 37.817,
+   "line": "The southern pocket at the end of Camino Pablo, past Rancho Laguna Park.",
+   "known": [
+    "Sanders Ranch",
+    "Camino Pablo",
+    "Rancho Laguna Park"
+   ],
+   "tags": [
+    "quiet",
+    "hilly",
+    "views"
+   ]
+  }
+ ],
+ "Danville": [
+  {
+   "name": "Downtown & Hartz Avenue",
+   "lon": -121.999,
+   "lat": 37.8215,
+   "line": "Hartz Avenue’s old-town blocks, the 1891 depot museum and the Iron Horse Trail.",
+   "known": [
+    "Hartz Avenue",
+    "Museum of the San Ramon Valley",
+    "Danville Hotel"
+   ],
+   "tags": [
+    "food",
+    "shops",
+    "historic"
+   ]
+  },
+  {
+   "name": "West Side & Tao House",
+   "lon": -122.015,
+   "lat": 37.825,
+   "line": "Foothills west of town toward Las Trampas, where O’Neill built Tao House.",
+   "known": [
+    "Eugene O’Neill National Historic Site",
+    "Las Trampas Regional Wilderness",
+    "Hap Magee Ranch Park"
+   ],
+   "tags": [
+    "historic",
+    "hilly",
+    "parks"
+   ]
+  },
+  {
+   "name": "Diablo Road & Green Valley",
+   "lon": -121.97,
+   "lat": 37.83,
+   "line": "Northeast streets along Diablo Road, Mount Diablo filling the view.",
+   "known": [
+    "Diablo Road",
+    "Green Valley Road",
+    "Mount Diablo views"
+   ],
+   "tags": [
+    "hilly",
+    "views",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Sycamore Valley",
+   "lon": -121.96,
+   "lat": 37.806,
+   "line": "East of I-680 along Sycamore Valley Road, with the big park and its ponds.",
+   "known": [
+    "Sycamore Valley Park",
+    "Sycamore Valley Road",
+    "Osage Station Park"
+   ],
+   "tags": [
+    "parks",
+    "quiet",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Greenbrook",
+   "lon": -121.978,
+   "lat": 37.795,
+   "line": "South Danville’s tract streets off San Ramon Valley Boulevard.",
+   "known": [
+    "Greenbrook Drive",
+    "Greenbrook Elementary",
+    "San Ramon Valley Boulevard"
+   ],
+   "tags": [
+    "quiet",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Camino Tassajara",
+   "lon": -121.937,
+   "lat": 37.804,
+   "line": "Newer subdivisions along Camino Tassajara toward Blackhawk.",
+   "known": [
+    "Camino Tassajara",
+    "Tassajara Hills Elementary",
+    "Blackhawk Road"
+   ],
+   "tags": [
+    "hilly",
+    "quiet",
+    "sunny"
+   ]
+  }
+ ],
+ "Alamo": [
+  {
+   "name": "Alamo Plaza & Danville Blvd",
+   "lon": -122.032,
+   "lat": 37.8505,
+   "line": "The village center where Stone Valley Road meets Danville Boulevard.",
+   "known": [
+    "Alamo Plaza",
+    "Danville Boulevard",
+    "Iron Horse Regional Trail"
+   ],
+   "tags": [
+    "shops",
+    "food",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Round Hill & Stone Valley",
+   "lon": -121.994,
+   "lat": 37.853,
+   "line": "Estates on the east side up Stone Valley Road, around the country club.",
+   "known": [
+    "Round Hill Country Club",
+    "Stone Valley Road",
+    "Diablo foothills"
+   ],
+   "tags": [
+    "quiet",
+    "hilly",
+    "views"
+   ]
+  }
+ ],
+ "San Ramon": [
+  {
+   "name": "Bishop Ranch & City Center",
+   "lon": -121.96,
+   "lat": 37.7645,
+   "line": "The office park on Bollinger Canyon Road and its newer City Center plaza.",
+   "known": [
+    "City Center Bishop Ranch",
+    "Bishop Ranch",
+    "San Ramon Central Park"
+   ],
+   "tags": [
+    "shops",
+    "food",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Crow Canyon & Twin Creeks",
+   "lon": -121.972,
+   "lat": 37.776,
+   "line": "The north end around Crow Canyon Road and the Iron Horse Trail.",
+   "known": [
+    "Crow Canyon Road",
+    "Twin Creeks Elementary",
+    "Iron Horse Regional Trail"
+   ],
+   "tags": [
+    "quiet",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Westside & Forest Home Farms",
+   "lon": -121.97,
+   "lat": 37.758,
+   "line": "West of I-680, a walnut farm museum under the Las Trampas hills.",
+   "known": [
+    "Forest Home Farms Historic Park",
+    "San Ramon Valley Boulevard",
+    "Bollinger Canyon Road"
+   ],
+   "tags": [
+    "historic",
+    "hilly",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Dougherty Valley",
+   "lon": -121.905,
+   "lat": 37.772,
+   "line": "The 2000s planned suburb in the eastern hills, with its big high school.",
+   "known": [
+    "Dougherty Valley High School",
+    "Windemere Parkway",
+    "Bollinger Canyon Road"
+   ],
+   "tags": [
+    "hilly",
+    "quiet",
+    "sunny"
+   ]
+  },
+  {
+   "name": "The Bridges & Gale Ranch",
+   "lon": -121.918,
+   "lat": 37.75,
+   "line": "Golf-course homes in the southeast, toward the Dublin line.",
+   "known": [
+    "The Bridges Golf Club",
+    "Gale Ranch",
+    "Bollinger Canyon Road"
+   ],
+   "tags": [
+    "hilly",
+    "quiet",
+    "views"
+   ]
+  }
+ ],
+ "San Pablo": [
+  {
+   "name": "Old Town & Alvarado Square",
+   "lon": -122.3415,
+   "lat": 37.9595,
+   "line": "Alvarado Square’s museums and the old blocks of Church Lane, off San Pablo Avenue.",
+   "known": [
+    "Alvarado Adobe",
+    "Blume House Museum",
+    "Church Lane"
+   ],
+   "tags": [
+    "historic",
+    "quiet",
+    "food"
+   ]
+  },
+  {
+   "name": "Casino & San Pablo Avenue",
+   "lon": -122.334,
+   "lat": 37.9545,
+   "line": "The southern stretch of San Pablo Avenue, City Hall and the Lytton Pomo casino.",
+   "known": [
+    "Casino San Pablo",
+    "San Pablo City Hall on Gateway Avenue",
+    "San Pablo Avenue taquerias"
+   ],
+   "tags": [
+    "food",
+    "nightlife",
+    "shops"
+   ]
+  },
+  {
+   "name": "Rumrill & Davis Park",
+   "lon": -122.3505,
+   "lat": 37.962,
+   "line": "Rumrill Boulevard’s west-side blocks around John Hubert Davis Park.",
+   "known": [
+    "Rumrill Boulevard",
+    "John Hubert Davis Park",
+    "Helms Middle School on Road 20"
+   ],
+   "tags": [
+    "parks",
+    "food",
+    "quiet"
+   ]
+  },
+  {
+   "name": "North San Pablo",
+   "lon": -122.349,
+   "lat": 37.974,
+   "line": "Quiet blocks up to Giant Road and Contra Costa College on Mission Bell Drive.",
+   "known": [
+    "Giant Road",
+    "Contra Costa College",
+    "Rumrill Boulevard north"
+   ],
+   "tags": [
+    "quiet",
+    "sunny"
+   ]
+  }
+ ],
+ "Pinole": [
+  {
+   "name": "Old Town",
+   "lon": -122.298,
+   "lat": 38.0045,
+   "line": "San Pablo Avenue’s old storefronts where Pinole Creek runs under the road.",
+   "known": [
+    "San Pablo Avenue",
+    "Tennent Avenue",
+    "Pinole Creek Trail"
+   ],
+   "tags": [
+    "historic",
+    "food",
+    "shops"
+   ]
+  },
+  {
+   "name": "Bayfront",
+   "lon": -122.297,
+   "lat": 38.0115,
+   "line": "The shoreline park past the railroad tracks, on the Bay Trail.",
+   "known": [
+    "Bayfront Park",
+    "San Francisco Bay Trail",
+    "Pinole Shores"
+   ],
+   "tags": [
+    "waterfront",
+    "parks",
+    "views"
+   ]
+  },
+  {
+   "name": "Pinole Valley",
+   "lon": -122.2865,
+   "lat": 37.99,
+   "line": "Pinole Valley Road’s houses and schools, up the creek from Old Town.",
+   "known": [
+    "Pinole Valley Road",
+    "Pinole Valley High School",
+    "Fernandez Park"
+   ],
+   "tags": [
+    "quiet",
+    "parks",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Pinole Valley Park",
+   "lon": -122.268,
+   "lat": 37.9785,
+   "line": "Oak hillsides at the top of the valley, next to Sobrante Ridge.",
+   "known": [
+    "Pinole Valley Park",
+    "Sobrante Ridge Regional Preserve",
+    "Alhambra Valley Road"
+   ],
+   "tags": [
+    "parks",
+    "hilly",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Pinole Vista & Appian Way",
+   "lon": -122.3045,
+   "lat": 37.9905,
+   "line": "The I-80 shopping strip and Appian Way climbing toward El Sobrante.",
+   "known": [
+    "Appian Way",
+    "Pinole Vista Shopping Center",
+    "Fitzgerald Drive"
+   ],
+   "tags": [
+    "shops",
+    "food",
+    "hilly"
+   ]
+  }
+ ],
+ "Hercules": [
+  {
+   "name": "Old Town & Bayfront",
+   "lon": -122.2885,
+   "lat": 38.017,
+   "line": "Hercules Village’s Victorian workers’ houses by the old dynamite works shore.",
+   "known": [
+    "Hercules Village Historic District",
+    "Railroad Avenue",
+    "San Francisco Bay Trail"
+   ],
+   "tags": [
+    "historic",
+    "waterfront",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Refugio Valley Park",
+   "lon": -122.27,
+   "lat": 38.007,
+   "line": "The long park and lakes down the middle of town.",
+   "known": [
+    "Refugio Valley Park",
+    "Refugio Creek",
+    "Ohlone Elementary"
+   ],
+   "tags": [
+    "parks",
+    "quiet",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Sycamore & Foxboro",
+   "lon": -122.262,
+   "lat": 38.015,
+   "line": "Sycamore Avenue’s shopping centers and the transit center at I-80.",
+   "known": [
+    "Hercules Transit Center",
+    "Sycamore Avenue",
+    "Willow Avenue at Highway 4"
+   ],
+   "tags": [
+    "shops",
+    "food"
+   ]
+  },
+  {
+   "name": "Refugio Valley Road",
+   "lon": -122.255,
+   "lat": 37.999,
+   "line": "Hillside tracts up Refugio Valley Road around the high school.",
+   "known": [
+    "Hercules Middle/High School",
+    "Refugio Valley Road",
+    "Refugio Creek trail"
+   ],
+   "tags": [
+    "hilly",
+    "quiet",
+    "views"
+   ]
+  },
+  {
+   "name": "Franklin Canyon",
+   "lon": -122.225,
+   "lat": 38.003,
+   "line": "Grassy hills along Highway 4 toward Martinez.",
+   "known": [
+    "Highway 4",
+    "Franklin Canyon Road",
+    "John Muir Parkway"
+   ],
+   "tags": [
+    "hilly",
+    "quiet",
+    "views"
+   ]
+  }
+ ],
+ "Rodeo": [
+  {
+   "name": "Downtown & Parker Avenue",
+   "lon": -122.2665,
+   "lat": 38.033,
+   "line": "Parker Avenue’s main street, the ballfield and the marina below.",
+   "known": [
+    "Parker Avenue",
+    "Lefty Gomez Ballfield Complex",
+    "San Pablo Bay shoreline"
+   ],
+   "tags": [
+    "historic",
+    "waterfront",
+    "food"
+   ]
+  },
+  {
+   "name": "Willow Avenue",
+   "lon": -122.256,
+   "lat": 38.02,
+   "line": "Hillside subdivisions south of downtown, up toward I-80.",
+   "known": [
+    "Willow Avenue",
+    "Rodeo Creek",
+    "The I-80 interchange at Willow Avenue"
+   ],
+   "tags": [
+    "hilly",
+    "quiet",
+    "views"
+   ]
+  }
+ ],
+ "Crockett": [
+  {
+   "name": "Downtown & C&H",
+   "lon": -122.2195,
+   "lat": 38.0545,
+   "line": "Pomona Street’s few blocks below the brick sugar refinery.",
+   "known": [
+    "C&H Sugar refinery",
+    "Crockett Community Center",
+    "Pomona Street"
+   ],
+   "tags": [
+    "historic",
+    "waterfront",
+    "food"
+   ]
+  },
+  {
+   "name": "Valona & the Bridge",
+   "lon": -122.2275,
+   "lat": 38.053,
+   "line": "Steep streets under the Carquinez Bridge approaches.",
+   "known": [
+    "Alfred Zampa Memorial Bridge",
+    "Loring Avenue",
+    "Carquinez Strait views"
+   ],
+   "tags": [
+    "hilly",
+    "views",
+    "quiet"
+   ]
+  }
+ ],
+ "Antioch": [
+  {
+   "name": "Rivertown",
+   "lon": -121.811,
+   "lat": 38.017,
+   "line": "The old downtown on the San Joaquin, from the marina to the fairgrounds.",
+   "known": [
+    "El Campanil Theatre",
+    "Antioch Marina",
+    "Contra Costa County Fairgrounds"
+   ],
+   "tags": [
+    "historic",
+    "waterfront",
+    "food"
+   ]
+  },
+  {
+   "name": "Somersville",
+   "lon": -121.843,
+   "lat": 38.002,
+   "line": "The Somersville Road shopping district by Highway 4.",
+   "known": [
+    "Somersville Towne Center",
+    "Somersville Road",
+    "Highway 4"
+   ],
+   "tags": [
+    "shops",
+    "food"
+   ]
+  },
+  {
+   "name": "Contra Loma",
+   "lon": -121.827,
+   "lat": 37.974,
+   "line": "Southwest hills and the reservoir park below Black Diamond Mines.",
+   "known": [
+    "Contra Loma Regional Park",
+    "Black Diamond Mines Regional Preserve",
+    "Lone Tree Way west"
+   ],
+   "tags": [
+    "parks",
+    "hilly",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Hillcrest & Antioch BART",
+   "lon": -121.781,
+   "lat": 37.996,
+   "line": "The 2018 BART terminus on Hillcrest Avenue and the tracts around it.",
+   "known": [
+    "Antioch BART",
+    "Hillcrest Avenue",
+    "Highway 4 at Hillcrest Avenue"
+   ],
+   "tags": [
+    "shops",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Deer Valley & Lone Tree",
+   "lon": -121.785,
+   "lat": 37.955,
+   "line": "Newer southern tracts from Lone Tree Way to Kaiser on Deer Valley Road.",
+   "known": [
+    "Prewett Family Park",
+    "Deer Valley High School",
+    "Kaiser Permanente Antioch Medical Center"
+   ],
+   "tags": [
+    "parks",
+    "quiet",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Slatten Ranch",
+   "lon": -121.74,
+   "lat": 37.968,
+   "line": "The big-box center where Lone Tree Way meets Highway 4.",
+   "known": [
+    "Slatten Ranch Shopping Center",
+    "Lone Tree Way",
+    "Highway 4"
+   ],
+   "tags": [
+    "shops",
+    "food",
+    "sunny"
+   ]
+  }
+ ],
+ "Pittsburg": [
+  {
+   "name": "Old Town & Marina",
+   "lon": -121.885,
+   "lat": 38.032,
+   "line": "Railroad Avenue’s old downtown ending at the marina on New York Slough.",
+   "known": [
+    "Railroad Avenue",
+    "Pittsburg Marina",
+    "California Theatre"
+   ],
+   "tags": [
+    "historic",
+    "waterfront",
+    "food"
+   ]
+  },
+  {
+   "name": "Pittsburg Center",
+   "lon": -121.889,
+   "lat": 38.016,
+   "line": "Mid-town around the 2018 BART station in the Highway 4 median.",
+   "known": [
+    "Pittsburg Center BART",
+    "Railroad Avenue",
+    "Pittsburg City Hall on Civic Avenue"
+   ],
+   "tags": [
+    "shops",
+    "food"
+   ]
+  },
+  {
+   "name": "Loveridge & the Steel Mill",
+   "lon": -121.862,
+   "lat": 38.033,
+   "line": "The east-side industrial shore: the steel mill, idled in 2023, and power plants.",
+   "known": [
+    "Pittsburg steel mill",
+    "Loveridge Road",
+    "New York Slough"
+   ],
+   "tags": [
+    "waterfront",
+    "historic"
+   ]
+  },
+  {
+   "name": "Los Medanos & Buchanan",
+   "lon": -121.86,
+   "lat": 38.004,
+   "line": "The community college and the southern tracts along Buchanan Road.",
+   "known": [
+    "Los Medanos College",
+    "Buchanan Road",
+    "Buchanan Park"
+   ],
+   "tags": [
+    "parks",
+    "quiet",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Stoneman",
+   "lon": -121.915,
+   "lat": 38.009,
+   "line": "West-side neighborhoods around Stoneman Park and Bailey Road.",
+   "known": [
+    "Stoneman Park",
+    "Bailey Road",
+    "West Leland Road"
+   ],
+   "tags": [
+    "parks",
+    "quiet"
+   ]
+  },
+  {
+   "name": "San Marco",
+   "lon": -121.97,
+   "lat": 38.016,
+   "line": "Hilltop subdivisions at the city’s west edge, looking over Suisun Bay.",
+   "known": [
+    "San Marco Boulevard",
+    "Suisun Bay views",
+    "Highway 4"
+   ],
+   "tags": [
+    "hilly",
+    "views",
+    "quiet"
+   ]
+  }
+ ],
+ "Oakley": [
+  {
+   "name": "Downtown & Main Street",
+   "lon": -121.713,
+   "lat": 37.997,
+   "line": "Main Street’s old farm-town blocks and the civic center park.",
+   "known": [
+    "Main Street",
+    "Civic Center Park",
+    "Oakley City Hall"
+   ],
+   "tags": [
+    "historic",
+    "food",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Big Break",
+   "lon": -121.735,
+   "lat": 38.011,
+   "line": "The north shore where a 1928 levee break made a bay.",
+   "known": [
+    "Big Break Regional Shoreline",
+    "Big Break Visitor Center",
+    "Delta de Anza Trail"
+   ],
+   "tags": [
+    "waterfront",
+    "parks",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Laurel & Freedom",
+   "lon": -121.715,
+   "lat": 37.978,
+   "line": "Southern subdivisions along Laurel Road and O’Hara Avenue toward Brentwood.",
+   "known": [
+    "Laurel Road",
+    "O’Hara Avenue",
+    "Empire Avenue"
+   ],
+   "tags": [
+    "quiet",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Cypress & Dutch Slough",
+   "lon": -121.678,
+   "lat": 38.003,
+   "line": "East Cypress Road’s fields and the restored tidal marsh by Dutch Slough.",
+   "known": [
+    "Dutch Slough",
+    "East Cypress Road",
+    "Delta orchards"
+   ],
+   "tags": [
+    "waterfront",
+    "quiet",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Summer Lake",
+   "lon": -121.6335,
+   "lat": 37.9885,
+   "line": "The lagoon community at the far east end, near Bethel Island.",
+   "known": [
+    "Summer Lake",
+    "Cypress Road",
+    "Sandmound Slough"
+   ],
+   "tags": [
+    "waterfront",
+    "quiet",
+    "sunny"
+   ]
+  }
+ ],
+ "Brentwood": [
+  {
+   "name": "Downtown",
+   "lon": -121.6955,
+   "lat": 37.9315,
+   "line": "First and Oak streets around City Park and its summer concerts.",
+   "known": [
+    "City Park",
+    "Brentwood City Hall",
+    "Oak Street"
+   ],
+   "tags": [
+    "food",
+    "historic",
+    "shops"
+   ]
+  },
+  {
+   "name": "Sand Creek & the Streets",
+   "lon": -121.739,
+   "lat": 37.9455,
+   "line": "The outdoor mall and newer tracts along Sand Creek Road.",
+   "known": [
+    "The Streets of Brentwood",
+    "Sand Creek Road",
+    "Highway 4 bypass"
+   ],
+   "tags": [
+    "shops",
+    "food"
+   ]
+  },
+  {
+   "name": "Lone Tree Way",
+   "lon": -121.71,
+   "lat": 37.962,
+   "line": "North Brentwood’s shopping plazas along Lone Tree Way, at the Oakley line.",
+   "known": [
+    "Lone Tree Way",
+    "Brentwood Boulevard",
+    "The Oakley city line"
+   ],
+   "tags": [
+    "shops",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Shadow Lakes",
+   "lon": -121.75,
+   "lat": 37.928,
+   "line": "The west-side golf course community off Balfour Road.",
+   "known": [
+    "Shadow Lakes Golf Club",
+    "West Country Club Drive",
+    "Heritage High School"
+   ],
+   "tags": [
+    "quiet",
+    "parks",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Summerset & Balfour",
+   "lon": -121.727,
+   "lat": 37.912,
+   "line": "Active-adult Summerset and the south end toward the foothills.",
+   "known": [
+    "Summerset",
+    "Balfour Road",
+    "Marsh Creek Trail"
+   ],
+   "tags": [
+    "quiet",
+    "sunny",
+    "hilly"
+   ]
+  }
+ ]
+}

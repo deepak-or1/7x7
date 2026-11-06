@@ -13,10 +13,12 @@
 // place in the list is "new": appended in list order, polygon reused from data/geo.js when already there,
 // otherwise fetched from the Census TIGERweb generalized (500K) place layers; label anchor, adjacency
 // (250 m polygon proximity, with a 2-nearest fallback up to 25 km for isolated places) recomputed.
-// For every hood, max elevation and cell counts are resampled from Mapzen terrarium tiles (z=12). The canvas
+// For every hood, max elevation and cell counts are resampled from Mapzen terrarium tiles: cells from z=12 (the scale CELL_SCALE was
+// pinned on), max from z=14 (only the tiles holding a sample inside a place; z=12 flattens small summits). The canvas
 // bbox is recomputed at the fixed unit density of the original SF/Marin/East/Peninsula canvas (UNIT_REF) so
 // every tuned map constant stays valid; region rects, the land filler (`other`: Census counties near the
-// canvas), the Delta/strait water and the coast outline are rebuilt. The calibrated constants below
+// canvas), the inland water (TIGERweb areal hydrography on the canvas, size rules at WATER_*) and the coast outline
+// (county shore plus the shores of the larger water bodies) are rebuilt. The calibrated constants below
 // (CELL_SCALE, ANCHOR_METHOD, REGION_PAD) were measured once against the hand-made 90-place file and are
 // pinned so reruns are stable; the calibrations are still recomputed into the report as diagnostics.
 // Network responses and tiles are cached in tools/geo-cache (gitignored) so reruns work offline; a JSON report
@@ -36,12 +38,20 @@ const TIGER = 'https://tigerweb.geo.census.gov/arcgis/rest/services/Generalized_
 const PLACE_LAYER = { city: 10, cdp: 11 };
 const COUNTY_URL = `${TIGER}/State_County/MapServer/11/query`;
 const HYDRO_URL = 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Hydro/MapServer/1/query'; // areal hydrography (full detail; generalized on the server)
-// the county filler is land across the Carquinez Strait, Suisun Bay and the Delta mouths: these water bodies are cut back out
-const WATER_NAMES = ['Carquinez Strait', 'Suisun Bay', 'Grizzly Bay', 'Honker Bay', 'Mare Island Strait', 'Napa Riv', 'Sacramento Riv', 'San Joaquin Riv', 'Big Break'];
-const WATER_ENV = [-122.32, 37.98, -121.55, 38.2], WATER_MIN_M2 = 3e6, WATER_GEN_DEG = 0.0003;
+// the county filler is land across inland water (lakes, reservoirs, the Carquinez Strait, Suisun Bay, the Delta, the marsh sloughs):
+// every areal hydrography feature on the canvas with AREAWATER > WATER_CHANNEL_MIN_M2 is queried, then kept when it is
+// a channel/bay/estuary (any MTFCC but lake/pond/reservoir), or still water (WATER_STILL) of at least WATER_MIN_M2 or sharing
+// its NAME with such a feature (a reservoir split in pieces); the higher still-water bar keeps out ponds and salt-pond grids.
+// Features mostly outside the filler (ocean, the open bay) are dropped: water over water, they only add vertices and seams.
+const WATER_STILL = ['H2030', 'H2040']; // MTFCC lake/pond, reservoir
+const WATER_MIN_M2 = 1.24e6, WATER_CHANNEL_MIN_M2 = 5e5, WATER_GEN_DEG = 0.0003, WATER_PAGE = 100;
+const WATER_IN_FILLER = 0.5;  // keep a feature when at least this share of its area lies on the county filler
+const WATER_SHORE_EPS = 0.0005; // deg: side offset that tells a shore (land on one side) from a seam or open water
+const WATER_SHORE_MIN_M = 200;  // open shore pieces shorter than this (about 1.4 map units) are dropped from the halo as noise
 const COAST_PAD = 0.3; // outline edges beyond bbox + this many degrees are county lines inland, not shore
 const TERRARIUM = (z, x, y) => `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${z}/${x}/${y}.png`;
-const Z = 12, N = 1 << Z;
+const Z = 12, ZMAX = 14; // z=12 samples give `cells` (pinned CELL_SCALE); z=14 samples (about 7.5 m) give `max`
+const SPIKE_M = 10; // z=14 max: a pixel more than this above the second-highest of its 8 neighbours is a tile artefact (seen: 54 m in flat Oakley), not a summit
 const MARGIN = 0.04, GRID = 0.005, ADJ_M = 250, ADJ_CAP = 8, FALLBACK_N = 2, FALLBACK_M = 25000;
 const REGION_KEYS = ['sf', 'marin', 'east', 'penin', 'south', 'north'];
 // pinned calibration (measured against the original hand-made 90-place file; see the header)
@@ -128,10 +138,9 @@ const anchors = {
 };
 
 // ---------- terrarium tiles ----------
-const lon2tx = lon => (lon + 180) / 360 * N;
-const lat2ty = lat => (1 - mercY(lat) / Math.PI) / 2 * N;
-const tx2lon = x => x / N * 360 - 180;
-const ty2lat = y => invMercY(Math.PI * (1 - 2 * y / N));
+const lon2tx = (lon, z) => (lon + 180) / 360 * (1 << z);
+const lat2ty = (lat, z) => (1 - mercY(lat) / Math.PI) / 2 * (1 << z);
+const ty2lat = (y, z) => invMercY(Math.PI * (1 - 2 * y / (1 << z)));
 function decodePNG(buf) {
   if (buf.readUInt32BE(0) !== 0x89504e47) throw new Error('not a PNG');
   let p = 8, w, h, depth, ct, interlace; const idat = [];
@@ -158,44 +167,58 @@ function decodePNG(buf) {
   return { ch, data: out };
 }
 const tileCache = new Map();
-async function loadTiles(keys) {
+async function loadTiles(keys) { // keys "z/x/y"
   const todo = keys.filter(k => !tileCache.has(k)); let i = 0, done = 0;
   async function worker() {
     while (i < todo.length) {
-      const k = todo[i++], [x, y] = k.split('/').map(Number);
-      const buf = await cachedFetch(TERRARIUM(Z, x, y), path.join(TILES, `${Z}-${x}-${y}.png`), true);
+      const k = todo[i++], [z, x, y] = k.split('/').map(Number);
+      const buf = await cachedFetch(TERRARIUM(z, x, y), path.join(TILES, `${z}-${x}-${y}.png`), true);
       tileCache.set(k, decodePNG(buf)); done++;
       if (done % 50 === 0) console.log(`  tiles ${done}/${todo.length}`);
     }
   }
   await Promise.all(Array.from({ length: 8 }, worker));
 }
-function tilesFor(polys) {
+function tilesFor(polys, z) { // every tile of the polygon's bbox
   const [lon0, lat0, lon1, lat1] = bboxOf(allRings(polys)); const keys = [];
-  for (let tx = Math.floor(lon2tx(lon0)); tx <= Math.floor(lon2tx(lon1)); tx++) for (let ty = Math.floor(lat2ty(lat1)); ty <= Math.floor(lat2ty(lat0)); ty++) keys.push(`${tx}/${ty}`);
+  for (let tx = Math.floor(lon2tx(lon0, z)); tx <= Math.floor(lon2tx(lon1, z)); tx++) for (let ty = Math.floor(lat2ty(lat1, z)); ty <= Math.floor(lat2ty(lat0, z)); ty++) keys.push(`${z}/${tx}/${ty}`);
   return keys;
 }
-// Scanline sampling of every z=12 pixel centre inside the polygon (even-odd over all rings).
-function sampleElevation(polys) {
+// Scanline over every zoom-z pixel centre inside the polygon (even-odd over all rings): span(gy, ga, gb) per run of pixels gx = ga..gb in row gy.
+function scanPixels(polys, z, span) {
   const edges = []; allRings(polys).forEach(r => { for (let i = 0; i + 1 < r.length; i++) edges.push([r[i], r[i + 1]]); });
-  const [lon0, lat0, lon1, lat1] = bboxOf(allRings(polys));
-  let cells = 0, max = -Infinity;
-  const gy0 = Math.floor(lat2ty(lat1) * 256), gy1 = Math.floor(lat2ty(lat0) * 256);
+  const [, lat0, , lat1] = bboxOf(allRings(polys));
+  const gy0 = Math.floor(lat2ty(lat1, z) * 256), gy1 = Math.floor(lat2ty(lat0, z) * 256);
   for (let gy = gy0; gy <= gy1; gy++) {
-    const lat = ty2lat((gy + 0.5) / 256); const xs = [];
+    const lat = ty2lat((gy + 0.5) / 256, z); const xs = [];
     for (const [p, q] of edges) if ((p[1] > lat) !== (q[1] > lat)) xs.push(p[0] + (lat - p[1]) * (q[0] - p[0]) / (q[1] - p[1]));
     xs.sort((a, b) => a - b);
-    const ty = Math.floor(gy / 256), py = gy & 255;
     for (let k = 0; k + 1 < xs.length; k += 2) {
-      const ga = Math.ceil(lon2tx(xs[k]) * 256 - 0.5), gb = Math.floor(lon2tx(xs[k + 1]) * 256 - 0.5);
-      for (let gx = ga; gx <= gb; gx++) {
-        const t = tileCache.get(`${Math.floor(gx / 256)}/${ty}`); if (!t) throw new Error('tile missing ' + Math.floor(gx / 256) + '/' + ty);
-        const o = (py * 256 + (gx & 255)) * t.ch, e = t.data[o] * 256 + t.data[o + 1] + t.data[o + 2] / 256 - 32768;
-        cells++; if (e > max) max = e;
-      }
+      const ga = Math.ceil(lon2tx(xs[k], z) * 256 - 0.5), gb = Math.floor(lon2tx(xs[k + 1], z) * 256 - 0.5);
+      if (ga <= gb) span(gy, ga, gb);
     }
   }
-  return { cells, max };
+}
+// tiles holding at least one sampled pixel centre of the polygon (z=14: only the tiles the polygon really covers, not its bbox)
+function tilesInside(polys, z) {
+  const keys = new Set();
+  scanPixels(polys, z, (gy, ga, gb) => { const ty = Math.floor(gy / 256); for (let tx = Math.floor(ga / 256); tx <= Math.floor(gb / 256); tx++) keys.add(`${z}/${tx}/${ty}`); });
+  return [...keys];
+}
+const pixel = (z, gx, gy) => { const t = tileCache.get(`${z}/${Math.floor(gx / 256)}/${Math.floor(gy / 256)}`); if (!t) return NaN; const o = ((gy & 255) * 256 + (gx & 255)) * t.ch; return t.data[o] * 256 + t.data[o + 1] + t.data[o + 2] / 256 - 32768; };
+function isSpike(z, gx, gy, e) { // neighbours in tiles that were not loaded are skipped
+  const nb = []; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (dx || dy) { const v = pixel(z, gx + dx, gy + dy); if (!Number.isNaN(v)) nb.push(v); }
+  nb.sort((a, b) => b - a); return nb.length >= 2 && e - nb[1] > SPIKE_M;
+}
+function sampleElevation(polys, z, despike) {
+  let cells = 0, max = -Infinity, spikes = 0;
+  scanPixels(polys, z, (gy, ga, gb) => {
+    for (let gx = ga; gx <= gb; gx++) {
+      const e = pixel(z, gx, gy); if (Number.isNaN(e)) throw new Error(`tile missing ${z}/${Math.floor(gx / 256)}/${Math.floor(gy / 256)}`);
+      cells++; if (e > max) { if (despike && isSpike(z, gx, gy, e)) spikes++; else max = e; }
+    }
+  });
+  return { cells, max, spikes };
 }
 
 // ---------- distances for adjacency (metres, local equirectangular) ----------
@@ -310,11 +333,22 @@ function polyDistanceM(pa, pb, cosLat) {
   const all = [...hoods, ...newHoods];
   const polysOf = h => hpByName.get(h.name) || places.find(p => p.name === h.name).polys;
 
-  // 9. elevation sampling
-  const tileKeys = [...new Set(all.flatMap(h => tilesFor(polysOf(h))))];
+  // 9. elevation sampling: cells from z=12 (the scale CELL_SCALE was pinned on), max from z=14 (z=12 pixels, about 30 m, flatten small summits)
+  const tileKeys = [...new Set(all.flatMap(h => tilesFor(polysOf(h), Z)))];
   note(`terrarium tiles needed at z=${Z}: ${tileKeys.length}`);
   await loadTiles(tileKeys);
-  const samples = all.map(h => sampleElevation(polysOf(h)));
+  const samples = all.map(h => sampleElevation(polysOf(h), Z, false));
+  tileKeys.forEach(k => tileCache.delete(k));
+  const tileKeysMax = [...new Set(all.flatMap(h => tilesInside(polysOf(h), ZMAX)))].sort();
+  note(`terrarium tiles needed at z=${ZMAX} (tiles holding a sample inside a place): ${tileKeysMax.length}`);
+  await loadTiles(tileKeysMax);
+  const noMax = [], spiky = [];
+  all.forEach((h, i) => {
+    const m = sampleElevation(polysOf(h), ZMAX, true); if (m.spikes) spiky.push(`${h.name} ${m.spikes}`);
+    if (Number.isFinite(m.max)) samples[i].max = m.max; else noMax.push(h.name); // no z=14 pixel centre inside: keep the z=12 max
+  });
+  report.maxFromZ12 = noMax; if (noMax.length) note(`no z=${ZMAX} sample inside (z=${Z} max kept): ${noMax.join(', ')}`);
+  report.maxSpikesSkipped = spiky; note(`z=${ZMAX} spike pixels skipped for max (more than ${SPIKE_M} m above the second-highest neighbour): ${spiky.join(', ') || 'none'}`);
   const ratios = [], maxDev = [], maxRel = [];
   hoods.forEach((h, i) => { const o = OLDX[i], s = samples[i]; if (o.cells > 0) ratios.push(s.cells / o.cells); maxDev.push(Math.abs(s.max - o.max)); maxRel.push(Math.abs(s.max - o.max) / Math.max(1, o.max)); });
   const medRatio = median(ratios), within2 = ratios.filter(r => r >= 0.5 && r <= 2).length;
@@ -409,12 +443,66 @@ function polyDistanceM(pa, pb, cosLat) {
   report.counties = counties.map(c => c.name).sort();
   note(`other: ${counties.length} counties (${report.counties.join(', ')}), ${other.length} polygons, ${other.flat().reduce((s, r) => s + r.length, 0)} vertices`);
 
-  // 12b. water: named bays, straits and river mouths inside the county filler (drawn in the water colour over it)
-  const wq = await fetchJSON(`${HYDRO_URL}?where=${encodeURIComponent(`AREAWATER>${WATER_MIN_M2} AND NAME IN (${WATER_NAMES.map(n => `'${n}'`).join(',')})`)}&geometry=${WATER_ENV.join(',')}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=NAME,AREAWATER&outSR=4326&maxAllowableOffset=${WATER_GEN_DEG}&f=geojson`);
-  if (wq.exceededTransferLimit) throw new Error('water query exceeded transfer limit');
-  const water = wq.features.flatMap(f => geomToPolys(f.geometry));
-  report.water = [...new Set(wq.features.map(f => f.properties.NAME))].sort();
-  note(`water: ${wq.features.length} features (${report.water.join(', ')}), ${water.length} polygons, ${water.flat().reduce((s, r) => s + r.length, 0)} vertices`);
+  // 12b. water: inland areal hydrography on the canvas (drawn in the water colour over the county filler); rules at WATER_* above
+  const wBase = `${HYDRO_URL}?where=${encodeURIComponent(`AREAWATER>${WATER_CHANNEL_MIN_M2}`)}&geometry=${bbox.join(',')}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=OBJECTID,NAME,MTFCC,AREAWATER&outSR=4326&maxAllowableOffset=${WATER_GEN_DEG}&orderByFields=OBJECTID&f=geojson`;
+  const wFeats = [], wSeen = new Set();
+  for (let off = 0, page = 0; ; page++) { // paged by resultOffset; a page cut short by the server's transfer limit just moves the offset by what came back
+    if (page > 200) throw new Error('water query: too many pages');
+    const j = await fetchJSON(`${wBase}&resultOffset=${off}&resultRecordCount=${WATER_PAGE}`);
+    const more = j.exceededTransferLimit || (j.properties && j.properties.exceededTransferLimit);
+    j.features.forEach(f => { const id = f.properties.OBJECTID; if (!wSeen.has(id)) { wSeen.add(id); wFeats.push(f); } });
+    off += j.features.length;
+    if (!j.features.length || (!more && j.features.length < WATER_PAGE)) break;
+  }
+  const isStill = f => WATER_STILL.includes(f.properties.MTFCC), wArea = f => +f.properties.AREAWATER;
+  wFeats.forEach(f => { f.polys = geomToPolys(f.geometry); f.bb = bboxOf(f.polys.map(p => p[0])); });
+  const bigStill = wFeats.filter(f => isStill(f) && wArea(f) >= WATER_MIN_M2 && f.properties.NAME);
+  const touches = (a, b, m = 0.005) => a[0] <= b[2] + m && a[2] >= b[0] - m && a[1] <= b[3] + m && a[3] >= b[1] - m;
+  const pieceOf = f => bigStill.some(g => g.properties.NAME === f.properties.NAME && touches(f.bb, g.bb)); // a small piece of a big named lake
+  const sized = wFeats.filter(f => !isStill(f) || wArea(f) >= WATER_MIN_M2 || pieceOf(f));
+  const otherBB = other.map(p => bboxOf([p[0]]));
+  const onFiller = (x, y) => other.some((p, i) => { const b = otherBB[i]; return x >= b[0] && x <= b[2] && y >= b[1] && y <= b[3] && pip(p[0], x, y) && !p.slice(1).some(h => pip(h, x, y)); });
+  const fillerShare = f => { // share of a grid of points inside the feature that falls on the filler (vertices when the grid misses a thin feature)
+    const b = f.bb, st = Math.sqrt((b[2] - b[0]) * (b[3] - b[1]) / 2000) || 1e-4; let n = 0, k = 0;
+    for (let y = b[1] + st / 2; y < b[3]; y += st) for (let x = b[0] + st / 2; x < b[2]; x += st) if (inPolys(f.polys, x, y)) { n++; if (onFiller(x, y)) k++; }
+    if (n < 20) f.polys.forEach(p => p[0].forEach(([x, y]) => { n++; if (onFiller(x, y)) k++; }));
+    return k / n;
+  };
+  sized.forEach(f => { f.share = fillerShare(f); });
+  const wKept = sized.filter(f => f.share >= WATER_IN_FILLER);
+  const water = wKept.flatMap(f => f.polys);
+  const wRow = f => ({ name: f.properties.NAME || '(unnamed)', mtfcc: f.properties.MTFCC, km2: r2(wArea(f) / 1e6), onFiller: r2(f.share), vertices: f.polys.flat().reduce((s, r) => s + r.length, 0) });
+  const byArea = (a, b) => wArea(b) - wArea(a) || a.properties.OBJECTID - b.properties.OBJECTID;
+  report.water = { queried: wFeats.length, sized: sized.length, kept: wKept.slice().sort(byArea).map(wRow), droppedOpenWater: sized.filter(f => f.share < WATER_IN_FILLER).sort(byArea).map(wRow) };
+  note(`water: ${wFeats.length} features over ${WATER_CHANNEL_MIN_M2 / 1e6} km2 on the canvas, ${sized.length} pass the size rules, ${wKept.length} kept on the filler (${sized.length - wKept.length} open-water dropped); ${water.length} polygons, ${water.flat().reduce((s, r) => s + r.length, 0)} vertices; largest: ${report.water.kept.slice(0, 10).map(w => `${w.name} ${w.km2}`).join(', ')}`);
+  // shores for the halo: rings of kept features of at least WATER_MIN_M2 (or pieces of a big lake), cut to the segments with
+  // land on one side and water (kept water, or off the filler) on the other: seams between water features and open-water edges drop out
+  const waterBB = water.map(p => bboxOf([p[0]]));
+  const inWater = (x, y) => water.some((p, i) => { const b = waterBB[i]; return x >= b[0] && x <= b[2] && y >= b[1] && y <= b[3] && pip(p[0], x, y) && !p.slice(1).some(h => pip(h, x, y)); });
+  const wet = (x, y) => inWater(x, y) || !onFiller(x, y);
+  const shoreLines = [], shortDropped = [0];
+  const lineM = l => { let m = 0; for (let i = 1; i < l.length; i++) m += Math.hypot((l[i][0] - l[i - 1][0]) * Math.cos(l[i][1] * Math.PI / 180), l[i][1] - l[i - 1][1]) * 111320; return m; };
+  const pushRun = l => { if (lineM(l) >= WATER_SHORE_MIN_M) shoreLines.push(l); else shortDropped[0]++; };
+  for (const f of wKept) {
+    if (!(wArea(f) >= WATER_MIN_M2 || pieceOf(f))) continue;
+    for (const ring of f.polys.flat()) {
+      const L = ring.length - 1, keep = [];
+      for (let i = 0; i < L; i++) {
+        const [ax, ay] = ring[i], [bx, by] = ring[i + 1], c = Math.cos(ay * Math.PI / 180), ex = (bx - ax) * c, ey = by - ay, len = Math.hypot(ex, ey);
+        const nx = -ey / len * WATER_SHORE_EPS / c, ny = ex / len * WATER_SHORE_EPS, mx = (ax + bx) / 2, my = (ay + by) / 2;
+        keep.push(wet(mx + nx, my + ny) !== wet(mx - nx, my - ny));
+      }
+      if (keep.every(Boolean)) { shoreLines.push(ring); continue; }
+      const s0 = keep.findIndex((k, i) => !k); let run = null;
+      for (let t = 1; t <= L; t++) {
+        const i = (s0 + t) % L;
+        if (keep[i]) { if (!run) run = [ring[i]]; run.push(ring[i + 1]); } else if (run) { pushRun(run); run = null; }
+      }
+      if (run) pushRun(run);
+    }
+  }
+  report.waterShores = { polylines: shoreLines.length, vertices: shoreLines.reduce((s, l) => s + l.length, 0), shortDropped: shortDropped[0] };
+  note(`water shores (halo): ${shoreLines.length} polylines, ${report.waterShores.vertices} vertices (${shortDropped[0]} pieces under ${WATER_SHORE_MIN_M} m dropped)`);
 
   // 13. outline: union of the county polygons by directed-edge cancellation
   const key = p => p[0] + ',' + p[1];
@@ -436,10 +524,10 @@ function polyDistanceM(pa, pb, cosLat) {
   for (const [start] of out) while (out.get(start) && out.get(start).length) lines.push(walk(start));
   if (used !== survivors.length) throw new Error(`outline chaining used ${used} of ${survivors.length} edges`);
   // the water bodies' own shores get the same coast halo
-  const outline = lines.filter(l => l.length >= 2).map(l => [l.map(k => k.split(',').map(Number))]).concat(water.map(poly => [poly[0]]));
+  const outline = lines.filter(l => l.length >= 2).map(l => [l.map(k => k.split(',').map(Number))]).concat(shoreLines.map(l => [l]));
   const closed = lines.filter(l => l[0] === l[l.length - 1]).length;
-  note(`outline: ${total} directed edges, ${cancelled} cancelled, ${inland} inland edges dropped, ${survivors.length} shore edges chained into ${lines.length} polylines (${closed} closed, largest ${Math.max(...lines.map(l => l.length))} pts), plus ${water.length} water shores`);
-  report.outline = { edges: total, cancelled, inland, survivors: survivors.length, polylines: lines.length, closed, water: water.length };
+  note(`outline: ${total} directed edges, ${cancelled} cancelled, ${inland} inland edges dropped, ${survivors.length} shore edges chained into ${lines.length} polylines (${closed} closed, largest ${Math.max(...lines.map(l => l.length))} pts), plus ${shoreLines.length} water shore polylines`);
+  report.outline = { edges: total, cancelled, inland, survivors: survivors.length, polylines: lines.length, closed, waterShores: shoreLines.length };
 
   // 14. validate
   const HP = all.map(h => ({ name: h.name, polys: polysOf(h) }));
@@ -467,7 +555,7 @@ function polyDistanceM(pa, pb, cosLat) {
   // 15. write
   const GEO = { nx, ny, bbox, regions, hoods: finalHoods, other, water, outline }; // outline: shore polylines (open or closed), stroked, never filled
   const text = '// Generated by tools/geo-build.js (do not edit by hand). Geometry: projected canvas (nx x ny), lon/lat bbox, places with label anchors, and polygons (lon/lat).\n'
-    + '// SF boundaries: SF Planning Department. Other places: US Census TIGERweb generalized places (500K). Land filler and coast: Census counties (500K). Delta and strait water: TIGERweb areal hydrography. Elevation: Mapzen terrarium tiles, z=12.\n'
+    + '// SF boundaries: SF Planning Department. Other places: US Census TIGERweb generalized places (500K). Land filler and coast: Census counties (500K). Inland water: TIGERweb areal hydrography. Elevation: Mapzen terrarium tiles (high points z=14, area cells z=12).\n'
     + 'window.GEO = ' + JSON.stringify(GEO) + ';\n'
     + 'window.HP = ' + JSON.stringify(HP) + ';\n';
   fs.writeFileSync(path.join(CACHE, 'report.json'), JSON.stringify(report, null, 1));

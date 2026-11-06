@@ -131,7 +131,7 @@
     if (l.spot && state.spots[l.spot]) { const sp = state.spots[l.spot], [x, y] = sp._xy || Geom.proj([sp.lon, sp.lat]); map.flyTo([x - .01, y - .01, x + .01, y + .01], 1, U * 0.028, dur); return; }
     if (l.sub) { const s = subByName(l.hood, l.sub); if (s) { const pb = map.hoodBBox(IDX[l.hood]); map.flyTo(s.bbox, isPhone() ? 1.3 : 1.5, Math.max(U * 0.03, (s.bbox[2] - s.bbox[0]) * 3, (pb[2] - pb[0]) * .5), dur); return; } } // keep the parent place in view around a small section
     if (l.hood) { const ph = isPhone(); map.flyTo(map.hoodBBox(IDX[l.hood]), ph ? 1.25 : 1.75, U * (ph ? 0.06 : 0.08), dur); return; }
-    map.flyTo(map.regionBBox(l.region), l.region === 'all' ? 1.03 : 1.06, 0, dur);
+    map.flyTo(map.regionBBox(l.region), 1.06, 0, dur); // 'all' is the bay core box, padded like a region
   }
   window.addEventListener('popstate', e => { const l = (e.state && e.state.loc) || parseHash(location.hash); go(l, { push: false }); });
 
@@ -636,7 +636,7 @@
     try { if (!state.bootLoc) history.replaceState({ loc: state.loc }, '', location.pathname + location.search + hashOf(state.loc)); } catch (e) {}
     render();
     { // synchronously, so the very first frame is already the fitted view
-      const l = state.loc; const v = l.hood ? null : map.fitView(...map.regionBBox(l.region), l.region === 'all' ? 1.03 : 1.06, 0); if (v) { map.jumpTo(v); } else { const bb = map.regionBBox(l.region); map.jumpTo(map.fitView(bb[0], bb[1], bb[2], bb[3], 1.06, 0)); flyToLoc(900); }
+      const l = state.loc; const v = l.hood ? null : map.fitView(...map.regionBBox(l.region), 1.06, 0); if (v) { map.jumpTo(v); } else { const bb = map.regionBBox(l.region); map.jumpTo(map.fitView(bb[0], bb[1], bb[2], bb[3], 1.06, 0)); flyToLoc(900); }
     }
     connectStore();
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => map.redraw());

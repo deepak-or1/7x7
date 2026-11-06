@@ -25,6 +25,9 @@
   const WATER = Geom.pathOf((G.water || []).flat().map(r => r.map(proj))); // straits, bays and river mouths inside the county filler
   const OUTLINE = new Path2D(); G.outline.flat().forEach(l => l.forEach((p, k) => { const q = proj(p); if (k) OUTLINE.lineTo(q[0], q[1]); else OUTLINE.moveTo(q[0], q[1]); })); // shore polylines: open, never closed
   const REGION_BB = Object.assign({ all: [0, 0, NX, NY] }, G.regions);
+  // landing frames the bay core (SF plus the inner ring of places), not the whole nine counties; zooming out still shows all of it
+  const CORE = ['Novato', 'Richmond', 'Oakland', 'Hayward', 'San Mateo', 'Pacifica', 'Bolinas'], CORE_I = HOODS.map((h, i) => BB[i] && (h.region === 'sf' || CORE.includes(h.name)) ? i : -1).filter(i => i >= 0);
+  if (CORE_I.length) REGION_BB.all = CORE_I.reduce((b, i) => [Math.min(b[0], BB[i][0]), Math.min(b[1], BB[i][1]), Math.max(b[2], BB[i][2]), Math.max(b[3], BB[i][3])], [Infinity, Infinity, -Infinity, -Infinity]);
   const SUB = [], LEAK = []; // per hood: [{name, line, known, tags, rings, path, bbox, c}] computed lazily; LEAK[i]: some cell edge runs outside the place
   function subsOf(i) {
     if (SUB[i] !== undefined) return SUB[i];

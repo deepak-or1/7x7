@@ -4,6 +4,7 @@
 // "settle" repaint. Geometry lives in map units (GEO.nx x GEO.ny); k = pixels per unit.
 (function () {
   const G = window.GEO, Geom = window.Geom, NX = Geom.NX, NY = Geom.NY, proj = Geom.proj;
+  const U = 400; // zoom-in limit and label growth are tuned in map units, where the first (SF-and-close-Bay) canvas was 400 wide
   const HOODS = G.hoods, IDX = Object.fromEntries(HOODS.map((h, i) => [h.name, i]));
   const SUBD = window.SUBAREAS || {}, LANDS = (window.LANDMARKS || []).map(l => { const [x, y] = proj([l.lon, l.lat]); return Object.assign({ x, y }, l); });
   const now = () => performance.now();
@@ -19,17 +20,29 @@
     PP[i] = polys; PATH[i] = Geom.pathOf(polys.flat()); BB[i] = Geom.bboxOf(polys.flat());
   });
   const OTHER = Geom.pathOf(G.other.flat().map(r => r.map(proj)));
-  const OUTLINE = Geom.pathOf(G.outline.flat().map(r => r.map(proj)));
+  // the Central Valley and the Sierra east of the county filler: land, so a wide zoomed-out view has no false sea there
+  const FAR_LAND = (() => { const p = new Path2D(), a = proj([-121.3, 42.5]), b = proj([-114, 34.5]); p.rect(a[0], a[1], b[0] - a[0], b[1] - a[1]); return p; })();
+  const WATER = Geom.pathOf((G.water || []).flat().map(r => r.map(proj))); // straits, bays and river mouths inside the county filler
+  const OUTLINE = new Path2D(); G.outline.flat().forEach(l => l.forEach((p, k) => { const q = proj(p); if (k) OUTLINE.lineTo(q[0], q[1]); else OUTLINE.moveTo(q[0], q[1]); })); // shore polylines: open, never closed
   const REGION_BB = Object.assign({ all: [0, 0, NX, NY] }, G.regions);
-  const SUB = []; // per hood: [{name, line, known, tags, rings, path, bbox, c}] computed lazily
+  // landing frames the bay core (SF plus the inner ring of places), not the whole nine counties; zooming out still shows all of it
+  const CORE = ['Novato', 'Richmond', 'Oakland', 'Hayward', 'San Mateo', 'Pacifica', 'Bolinas'], CORE_I = HOODS.map((h, i) => BB[i] && (h.region === 'sf' || CORE.includes(h.name)) ? i : -1).filter(i => i >= 0);
+  if (CORE_I.length) REGION_BB.all = CORE_I.reduce((b, i) => [Math.min(b[0], BB[i][0]), Math.min(b[1], BB[i][1]), Math.max(b[2], BB[i][2]), Math.max(b[3], BB[i][3])], [Infinity, Infinity, -Infinity, -Infinity]);
+  const SUB = [], LEAK = []; // per hood: [{name, line, known, tags, rings, path, bbox, c}] computed lazily; LEAK[i]: some cell edge runs outside the place
   function subsOf(i) {
     if (SUB[i] !== undefined) return SUB[i];
     const def = SUBD[HOODS[i].name]; if (!def || def.length < 2) { SUB[i] = null; return null; }
     const seeds = def.map(s => proj([s.lon, s.lat]));
-    const cells = Geom.cells(PP[i], seeds);
+    const cells = Geom.cells(PP[i], seeds, def.map(s => !!s.star)); // starred sections label at their seed (curated to sit on the thing itself)
+    LEAK[i] = cells.some(c => c.leak);
     SUB[i] = cells.map((c, j) => Object.assign({}, def[j], { rings: c.rings, path: Geom.pathOf(c.rings), bbox: c.bbox, c: c.c, area: c.a }));
     return SUB[i];
   }
+  // run draw() with the canvas clipped to place i, when its section cells have edges outside it
+  const clipTo = (c, i, draw) => { if (!LEAK[i]) return draw(); c.save(); c.clip(PATH[i]); draw(); c.restore(); };
+  // starred: a section may carry "star": "<reason>"; a place is starred when any of its sections is
+  const STAR = HOODS.map(h => (SUBD[h.name] || []).some(s => s && s.star));
+  function starPath(c, x, y, r) { c.beginPath(); for (let q = 0; q < 10; q++) { const rr = q % 2 ? r * .45 : r, a = -Math.PI / 2 + q * Math.PI / 5; c.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); } c.closePath(); }
   const subIndexAt = (i, x, y) => { const s = subsOf(i); if (!s) return -1; return s.findIndex(c => c.rings.some(r => Geom.pip(r, x, y))); };
 
   // ---- bridges: side views laid along their spans (precomputed, strokes sized in px at draw time) ----
@@ -39,12 +52,16 @@
     { name: '', pts: [[-122.3590, 37.8135], [-122.3200, 37.8230]], kind: 'suspension', cable: [[.06, 0], [.3, 1], [.56, 0]], h: .075 },
     { name: 'Richmond–San Rafael Bridge', pts: [[-122.4800, 37.9405], [-122.3960, 37.9345]], lbl: [-122.4380, 37.9500], kind: 'truss', humps: [.3, .62], w: .09, h: .035 },
     { name: 'San Mateo Bridge', pts: [[-122.2560, 37.5660], [-122.1200, 37.6080]], lbl: [-122.2000, 37.6000], kind: 'truss', humps: [.12], w: .08, h: .028 },
+    { name: 'Dumbarton Bridge', pts: [[-122.1290, 37.4980], [-122.1100, 37.5118]], lbl: [-122.1300, 37.5120], kind: 'truss', humps: [.5], w: .1, h: .04 },
+    { name: 'Carquinez Bridge', pts: [[-122.2262, 38.0562], [-122.2285, 38.0662]], lbl: [-122.2450, 38.0600], kind: 'suspension', cable: [[0, 0], [.2, 1], [.8, 1], [1, 0]], h: .12 },
+    { name: 'Benicia–Martinez Bridge', pts: [[-122.1230, 38.0335], [-122.1265, 38.0470]], lbl: [-122.1350, 38.0380], kind: 'truss', humps: [.5], w: .18, h: .05 },
+    { name: 'Antioch Bridge', pts: [[-121.7518, 38.0122], [-121.7495, 38.0345]], lbl: [-121.7750, 38.0250], kind: 'truss', humps: [.45], w: .12, h: .04 },
   ].map(b => {
     const A = proj(b.pts[0]), B = proj(b.pts[1]), L = Math.hypot(B[0] - A[0], B[1] - A[1]), u = [(B[0] - A[0]) / L, (B[1] - A[1]) / L];
     let n = [-u[1], u[0]]; if (n[1] > 0.3 || (Math.abs(n[1]) <= 0.3 && n[0] > 0)) n = [-n[0], -n[1]];
     const P = (f, k) => [A[0] + u[0] * f * L + n[0] * k * L, A[1] + u[1] * f * L + n[1] * k * L];
     const path = pts => { const p = new Path2D(); pts.forEach((q, k) => k ? p.lineTo(q[0], q[1]) : p.moveTo(q[0], q[1])); return p; };
-    const out = { gg: !!b.gg, deck: path([A, B]), towers: new Path2D(), cable: new Path2D(), hang: new Path2D(), humps: new Path2D(), lbl: b.name ? { text: b.name, p: proj(b.lbl) } : null };
+    const out = { a: A, b: B, gg: !!b.gg, deck: path([A, B]), towers: new Path2D(), cable: new Path2D(), hang: new Path2D(), humps: new Path2D(), lbl: b.name ? { text: b.name, p: proj(b.lbl) } : null };
     if (b.kind === 'suspension') {
       const h = b.h, dip = h * 0.18, c = b.cable;
       const heightAt = (f, p, q) => { const s = (f - p[0]) / (q[0] - p[0]); if (p[1] && q[1]) { const ctl = 2 * dip - h; return (1 - s) * (1 - s) * h + 2 * (1 - s) * s * ctl + s * s * h; } return (p[1] ? h : 0) * (1 - s) + (q[1] ? h : 0) * s; };
@@ -58,11 +75,14 @@
     } else b.humps.forEach(f => { const a = P(f - b.w, 0), m = P(f, b.h * 2), bb = P(f + b.w, 0); out.humps.moveTo(a[0], a[1]); out.humps.quadraticCurveTo(m[0], m[1], bb[0], bb[1]); });
     return out;
   });
-  const WATER_LBL = [['Pacific Ocean', -122.66, 37.60], ['San Francisco Bay', -122.25, 37.63], ['San Pablo Bay', -122.40, 38.06]].map(([t, lon, lat]) => ({ t: t.toUpperCase(), p: proj([lon, lat]) }));
+  const WATER_LBL = [['Pacific Ocean', -122.80, 37.35], ['San Francisco Bay', -122.25, 37.63, .8], ['San Pablo Bay', -122.40, 38.06, .8], ['Suisun Bay', -122.05, 38.08, 1.2], ['Tomales Bay', -122.89, 38.17, 1.2], ['South Bay', -122.06, 37.48, 1.2]].map(([t, lon, lat, kMin]) => ({ t: t.toUpperCase(), p: proj([lon, lat]), kMin: kMin || 0 })); // kMin: the bays are too narrow to name in the whole-Bay view
+
+  // San Francisco's 38 small hoods rarely win a label at Bay Area scale: the city gets one name of its own there
+  const SF_LBL = (() => { let w = 0, x = 0, y = 0; HOODS.forEach(h => { if (h.region === 'sf') { w += h.cells; x += h.cx * h.cells; y += h.cy * h.cells; } }); return w ? [x / w, y / w] : null; })();
 
   // ---- palette from CSS variables ----
   const P = {};
-  const VARS = { water: '--water', paper: '--paper', ink: '--ink', muted: '--muted', land: '--land', landOther: '--land-other', coast: '--coast', wlbl: '--wlbl', steel: '--steel', gg: '--gg', accent: '--accent', want: '--want', label: '--label', labelHalo: '--label-halo', subLine: '--sub-line', face: '--glyph-face', shade: '--glyph-shade', roof: '--glyph-roof', line2: '--line-2' };
+  const VARS = { water: '--water', paper: '--paper', dot: '--dot', ink: '--ink', muted: '--muted', land: '--land', landOther: '--land-other', coast: '--coast', wlbl: '--wlbl', steel: '--steel', gg: '--gg', accent: '--accent', want: '--want', label: '--label', labelHalo: '--label-halo', subLine: '--sub-line', face: '--glyph-face', shade: '--glyph-shade', roof: '--glyph-roof', line2: '--line-2', star: '--star', starInk: '--star-ink' };
   function refreshPalette() { const cs = getComputedStyle(document.documentElement); for (const k in VARS) P[k] = cs.getPropertyValue(VARS[k]).trim() || '#888'; }
   const hex2rgb = h => { h = h.replace('#', ''); if (h.length === 3) h = h.split('').map(c => c + c).join(''); const n = parseInt(h, 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; };
   const rgbStr = c => `rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0})`;
@@ -85,7 +105,7 @@
     // state from the app
     let region = 'all', sel = -1, selSub = -1, hover = -1, hoverSub = -1, hoverSpot = null, quiz = false;
     const colNow = HOODS.map(() => [200, 200, 200]), colTo = HOODS.map(() => [200, 200, 200]); let colAnim = false;
-    const lblA = HOODS.map(() => 0), subA = {}, lmA = LANDS.map(() => 0), bridgeLblA = [0], waterLblA = [0];
+    const lblA = HOODS.map(() => 0), subA = {}, lmA = LANDS.map(() => 0), bridgeLblA = [0], waterLblA = [0], sfA = [0], starA = {};
     const markAnim = {}; let me = null, meT0 = 0;
     const measureCache = new Map(); let drawnSpots = [];
     // widths measured before the webfont arrives belong to the fallback face: measure again once it loads
@@ -93,9 +113,12 @@
     // widths scale linearly with size for a given face, so measure once at 20px and scale
     function measure(text, weight, size) { const key = weight + '|' + text; let w = measureCache.get(key); if (w == null) { ctx.font = `${weight} 20px Figtree, system-ui, sans-serif`; w = ctx.measureText(text).width; if (!document.fonts || document.fonts.status !== 'loading') measureCache.set(key, w); } return w * size / 20; }
     function haloText(text, x, y, size, color) { if (!lite) { const r = Math.max(1, size * .11); ctx.fillStyle = P.labelHalo; for (let q = 0; q < 6; q++) { const a = q * Math.PI / 3; ctx.fillText(text, x + Math.cos(a) * r, y + Math.sin(a) * r); } } ctx.fillStyle = color; ctx.fillText(text, x, y); }
+    // the gold star beside a starred label: a vector glyph (same on every platform) with the label halo around it
+    function haloStar(x, y, size, halo = true) { const r = size * .5; starPath(ctx, x, y, r); if (halo && !lite) { ctx.strokeStyle = P.labelHalo; ctx.lineWidth = Math.max(2, size * .26); ctx.lineJoin = 'round'; ctx.stroke(); } ctx.fillStyle = P.star; ctx.fill(); }
 
     // ---- camera helpers ----
-    function clampCam(c) { c.w = clamp(c.w, NX * 0.012, NX * 2.2); const h = c.w * H / W; c.x = clamp(c.x, -c.w * .55, NX - c.w * .45); c.y = clamp(c.y, -h * .55, NY - h * .45); return c; }
+    const maxW = () => Math.max(NX, NY * W / H) * 2.2; // zoomed out: the whole canvas fits either way, with room
+    function clampCam(c) { c.w = clamp(c.w, U * 0.012, maxW()); const h = c.w * H / W; c.x = clamp(c.x, -c.w * .55, NX - c.w * .45); c.y = clamp(c.y, -h * .55, NY - h * .45); return c; }
     function insets() { return o.insets ? o.insets() : { top: 0, right: 0, bottom: 0, left: 0 }; }
     function fitView(x0, y0, x1, y1, pad, minW) {
       const I = insets(), vw = Math.max(80, W - I.left - I.right), vh = Math.max(80, H - I.top - I.bottom);
@@ -126,7 +149,7 @@
     }
     function zoomAt(sx, sy, factor, instant) { // keep the map point under (sx,sy) fixed
       const base = instant ? cam : goal, k = W / base.w, mx = base.x + sx / k, my = base.y + sy / k;
-      const w = clamp(base.w * factor, NX * 0.012, NX * 2.2), k2 = W / w;
+      const w = clamp(base.w * factor, U * 0.012, maxW()), k2 = W / w;
       const n = clampCam({ x: mx - sx / k2, y: my - sy / k2, w });
       if (instant) { Object.assign(cam, n); Object.assign(goal, n); mode = 'drag'; } else { Object.assign(goal, n); if (mode !== 'smooth') { fly = null; mode = 'smooth'; } }
       userMoved = true; kick();
@@ -160,7 +183,14 @@
     const tc = document.createElement('canvas'), tctx = tc.getContext('2d', { alpha: false });
     const cache = { valid: false, k: 0, x: 0, y: 0, mw: 0, mh: 0, t: 0, cost: 4 };
     let dirty = true; // something other than the camera changed (colors, selection, region, filters)
-    function subFactor(i) { if (quiz) return 0; const px = hoodPx(i); let f = smooth(px, 300, 560); if (i === sel) f = Math.max(f, px > 150 ? 1 : 0); return subsOf(i) ? f : 0; }
+    function subFactor(i) { if (quiz) return 0; const px = hoodPx(i); let f = smooth(px, 300, 560); if (i === sel) f = Math.max(f, px > (isPhone() ? 110 : 150) ? 1 : 0); return subsOf(i) ? f : 0; }
+    let stipKey = '', stipPat = null;
+    function stipplePattern(cd) {
+      const key = P.dot + '|' + cd; if (key === stipKey && stipPat) return stipPat;
+      const t = document.createElement('canvas'), px = Math.max(1, Math.round(5 * cd)); t.width = t.height = px;
+      const g = t.getContext('2d'); g.fillStyle = P.dot; g.beginPath(); g.arc(px / 2, px / 2, Math.max(.5, .75 * cd), 0, Math.PI * 2); g.fill();
+      stipKey = key; stipPat = tctx.createPattern(t, 'repeat'); return stipPat;
+    }
     function renderTerrain(k) {
       // slow devices get a lower-resolution terrain bitmap (labels stay crisp: they are drawn live)
       const cd = cache.cost > 60 ? Math.min(dpr, 1) : cache.cost > 28 ? Math.min(dpr, 1.5) : dpr;
@@ -171,20 +201,25 @@
       c.setTransform(cd, 0, 0, cd, 0, 0); c.fillStyle = P.water; c.fillRect(0, 0, W + 2 * mw, H + 2 * mh);
       c.setTransform(k * cd, 0, 0, k * cd, -x * k * cd, -y * k * cd);
       c.lineJoin = 'round'; c.lineCap = 'round';
-      c.fillStyle = P.landOther; c.fill(OTHER); tick('t-other');
+      c.fillStyle = P.landOther; c.fill(FAR_LAND); c.fill(OTHER);
+      // stipple on the land outside the places: a fixed 5 px screen pitch whatever the zoom, like a printed atlas
+      c.save(); const stip = new Path2D(); stip.addPath(FAR_LAND); stip.addPath(OTHER); c.clip(stip); c.setTransform(1, 0, 0, 1, 0, 0); c.fillStyle = stipplePattern(cd); c.fillRect(0, 0, tc.width, tc.height); c.restore();
+      c.setTransform(k * cd, 0, 0, k * cd, -x * k * cd, -y * k * cd); c.fillStyle = P.water; c.fill(WATER); tick('t-other');
       c.strokeStyle = P.coast; for (const [wpx, a] of [[14, .05], [8, .08], [3, .16]]) { c.globalAlpha = a; c.lineWidth = wpx / k; c.stroke(OUTLINE); } c.globalAlpha = 1; tick('t-halo');
-      const vis = [], subF = [], x1 = x + (W + 2 * mw) / k, y1 = y + (H + 2 * mh) / k;
+      const vis = [], subF = [], x1 = x + (W + 2 * mw) / k, y1 = y + (H + 2 * mh) / k, gold = hex2rgb(P.star);
       for (let i = 0; i < HOODS.length; i++) { const bb = BB[i]; if (bb[2] < x || bb[0] > x1 || bb[3] < y || bb[1] > y1) continue; vis.push(i); subF[i] = subFactor(i); }
       for (const i of vis) {
         const far = region !== 'all' && HOODS[i].region !== region && i !== sel;
         const a = (o.alphaFor ? o.alphaFor(i) : 1) * (far ? .32 : 1);
         c.globalAlpha = a; c.fillStyle = rgbStr(colNow[i]); c.fill(PATH[i]);
-        if (subF[i] > 0.01) { const cells = subsOf(i), base = colNow[i], white = [255, 255, 255], black = [20, 30, 40]; c.globalAlpha = a * subF[i]; cells.forEach((cell, j) => { const m = j % 3; c.fillStyle = rgbStr(m === 0 ? mix(base, .09, white) : m === 1 ? base : mix(base, .07, black)); c.fill(cell.path); }); }
+        if (subF[i] > 0.01) { const cells = subsOf(i), base = colNow[i], white = [255, 255, 255], black = [20, 30, 40]; c.globalAlpha = a * subF[i]; clipTo(c, i, () => cells.forEach((cell, j) => { const m = j % 3; c.fillStyle = rgbStr(cell.star ? mix(base, .12, gold) : m === 0 ? mix(base, .09, white) : m === 1 ? base : mix(base, .07, black)); c.fill(cell.path); })); }
       }
       tick('t-fills'); c.strokeStyle = P.paper; c.lineWidth = 1 / k;
       for (const i of vis) { const far = region !== 'all' && HOODS[i].region !== region; c.globalAlpha = far ? .35 : .9; c.stroke(PATH[i]); }
       c.strokeStyle = P.subLine; c.lineWidth = .8 / k;
-      for (const i of vis) if (subF[i] > 0.01) { c.globalAlpha = subF[i] * .9; subsOf(i).forEach(cell => c.stroke(cell.path)); }
+      for (const i of vis) if (subF[i] > 0.01) { c.globalAlpha = subF[i] * .9; clipTo(c, i, () => subsOf(i).forEach(cell => c.stroke(cell.path))); }
+      // starred sections: a gold band just inside the cell edge, with a dark-gold rim, so it reads on any base colour
+      for (const i of vis) if (STAR[i] && subF[i] > 0.01) { c.globalAlpha = subF[i]; clipTo(c, i, () => subsOf(i).forEach(cell => { if (!cell.star) return; c.save(); c.clip(cell.path); c.strokeStyle = P.star; c.lineWidth = 6 / k; c.stroke(cell.path); c.strokeStyle = P.starInk; c.lineWidth = 2 / k; c.stroke(cell.path); c.restore(); })); }
       c.globalAlpha = 1; tick('t-borders');
       for (const b of BRIDGES) {
         const col = b.gg ? P.gg : P.steel; c.strokeStyle = col;
@@ -217,9 +252,13 @@
       ctx.setTransform(k * dpr, 0, 0, k * dpr, -cam.x * k * dpr + tx, -cam.y * k * dpr + ty); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
       if (hover >= 0 && hover !== sel && !quiz) { ctx.strokeStyle = P.ink; ctx.lineWidth = 1.4 / k; ctx.stroke(PATH[hover]); }
       if (sel >= 0) {
-        ctx.strokeStyle = P.accent; ctx.lineWidth = 2.2 / k; ctx.stroke(PATH[sel]);
-        if (selSub >= 0 && subsOf(sel)) { ctx.lineWidth = 1.8 / k; ctx.stroke(subsOf(sel)[selSub].path); }
-        if (hoverSub >= 0 && hoverSub !== selSub && hover === sel && subsOf(sel)) { ctx.strokeStyle = P.ink; ctx.lineWidth = 1.2 / k; ctx.stroke(subsOf(sel)[hoverSub].path); }
+        const cells = subsOf(sel), sp = selSub >= 0 && cells ? cells[selSub] : null, ph = isPhone();
+        clipTo(ctx, sel, () => { if (sp && ph && !sp.star) { ctx.globalAlpha = .16; ctx.fillStyle = P.accent; ctx.fill(sp.path); ctx.globalAlpha = 1; } }); // phone: the selected section is tinted and outlined harder than its place (a starred one keeps its gold band instead)
+        ctx.strokeStyle = P.accent; ctx.lineWidth = (sp && ph ? 1.4 : 2.2) / k; ctx.stroke(PATH[sel]);
+        clipTo(ctx, sel, () => {
+          if (sp) { ctx.strokeStyle = P.accent; ctx.lineWidth = (ph ? 2.8 : 1.8) / k; ctx.stroke(sp.path); }
+          if (hoverSub >= 0 && hoverSub !== selSub && hover === sel && subsOf(sel)) { ctx.strokeStyle = P.ink; ctx.lineWidth = 1.2 / k; ctx.stroke(subsOf(sel)[hoverSub].path); }
+        });
       }
       const vis = [], subF = [];
       for (let i = 0; i < HOODS.length; i++) { if (!visible(BB[i], k, 40)) { subF[i] = 0; continue; } vis.push(i); subF[i] = subFactor(i); }
@@ -229,14 +268,18 @@
       ctx.textBaseline = 'middle';
       // water & bridge names
       anim = fade(waterLblA, 0, k < 5.5 && !quiz ? 1 : 0, dt) || anim;
-      if (waterLblA[0] > 0.01) { ctx.globalAlpha = waterLblA[0]; ctx.fillStyle = P.wlbl; ctx.textAlign = 'center'; const fs = isPhone() ? 9.5 : 10.5; ctx.font = `500 ${fs}px Figtree, system-ui, sans-serif`; if (supportsLS) ctx.letterSpacing = '0.3em'; for (const wl of WATER_LBL) { const [sx, sy] = toScreen(wl.p[0], wl.p[1]); if (sx > -200 && sx < W + 200 && sy > -40 && sy < H + 40) ctx.fillText(wl.t, sx, sy); } if (supportsLS) ctx.letterSpacing = '0px'; ctx.globalAlpha = 1; }
+      const waterBoxes = []; // phone: place labels avoid the water names
+      if (waterLblA[0] > 0.01) { ctx.globalAlpha = waterLblA[0]; ctx.fillStyle = P.wlbl; ctx.textAlign = 'center'; const fs = isPhone() ? 9.5 : 10.5; ctx.font = `500 ${fs}px Figtree, system-ui, sans-serif`; if (supportsLS) ctx.letterSpacing = '0.3em'; for (const wl of WATER_LBL) { if (k < wl.kMin) continue; const [sx, sy] = toScreen(wl.p[0], wl.p[1]); if (sx > -200 && sx < W + 200 && sy > -40 && sy < H + 40) { ctx.fillText(wl.t, sx, sy); if (isPhone() && waterLblA[0] > .3) { const ww = (measure(wl.t, 500, fs) + wl.t.length * fs * .3) / 2; waterBoxes.push([sx - ww, sy - fs * .7, sx + ww, sy + fs * .7]); } } } if (supportsLS) ctx.letterSpacing = '0px'; ctx.globalAlpha = 1; }
       anim = fade(bridgeLblA, 0, k > 3.2 && k < 40 && !quiz ? 1 : 0, dt) || anim;
-      if (bridgeLblA[0] > 0.01) { ctx.globalAlpha = bridgeLblA[0]; ctx.textAlign = 'center'; ctx.font = `500 ${isPhone() ? 9.5 : 10.5}px Figtree, system-ui, sans-serif`; for (const b of BRIDGES) if (b.lbl) { const [sx, sy] = toScreen(b.lbl.p[0], b.lbl.p[1]); if (sx > -100 && sx < W + 100 && sy > -20 && sy < H + 20) { ctx.fillStyle = P.water; for (let q = 0; q < 6; q++) { const a = q * Math.PI / 3; ctx.fillText(b.lbl.text, sx + Math.cos(a) * 1.2, sy + Math.sin(a) * 1.2); } ctx.fillStyle = P.muted; ctx.fillText(b.lbl.text, sx, sy); } } ctx.globalAlpha = 1; }
+      if (bridgeLblA[0] > 0.01) { ctx.globalAlpha = bridgeLblA[0]; ctx.textAlign = 'center'; ctx.font = `500 ${isPhone() ? 9.5 : 10.5}px Figtree, system-ui, sans-serif`; for (const b of BRIDGES) if (b.lbl) { const [sx, sy] = toScreen(b.lbl.p[0], b.lbl.p[1]); if (sx > -100 && sx < W + 100 && sy > -20 && sy < H + 20 && (!isPhone() || Math.abs(sx - W / 2) + measure(b.lbl.text, 500, 9.5) / 2 < W / 2 - 2)) { ctx.fillStyle = P.water; for (let q = 0; q < 6; q++) { const a = q * Math.PI / 3; ctx.fillText(b.lbl.text, sx + Math.cos(a) * 1.2, sy + Math.sin(a) * 1.2); } ctx.fillStyle = P.muted; ctx.fillText(b.lbl.text, sx, sy); } } ctx.globalAlpha = 1; }
 
       tick('waterlbl');
       // labels: hoods first (priority order, no overlaps), then sections, then spot names
       const placed = [];
-      const clash = b => placed.some(q => b[0] < q[2] && b[2] > q[0] && b[1] < q[3] && b[3] > q[1]);
+      const clash = (b, self) => placed.some(q => (q.own == null || q.own !== self) && b[0] < q[2] && b[2] > q[0] && b[1] < q[3] && b[3] > q[1]);
+      if (o.occluders) for (const b of o.occluders()) placed.push(b); // floating chrome over the canvas (phone)
+      for (const b of waterBoxes) placed.push(b);
+      const marks = o.marks ? o.marks() : [];
       // landmark glyphs cannot move, so their footprints are reserved first (they are drawn later, above the fills)
       const lmF = quiz ? 0 : smooth(k, 7, 10.5), lmH = clamp(k * 1.7, 16, 44);
       LANDS.forEach((l, j) => {
@@ -247,59 +290,101 @@
         l._box = (lmA[j] > 0.01 && onScreen) ? [sx - lmH * (l.w || 1) / 2, sy - lmH, sx + lmH * (l.w || 1) / 2, sy] : null;
         if (l._box && lmA[j] > 0.3) placed.push([l._box[0] - 2, l._box[1] - 2, l._box[2] + 2, l._box[3] + 2]);
       });
-      const base = Math.round((isPhone() ? 10.5 : 11.5) * clamp(Math.pow(NX / cam.w, 0.22), 1, 1.32) * 4) / 4;
-      const marks = o.marks ? o.marks() : [];
-      const prio = i => (i === sel ? 1e9 : 0) + (i === hover ? 5e8 : 0) + (marks[i] ? 1e7 : 0) + HOODS[i].cells;
+      // flags and want marks are fixed too: reserve their footprints so neighbouring labels move or hide (a place's own label starts below its mark)
+      if (!quiz) for (const i of vis) if (marks[i]) { const [sx, sy] = toScreen(HOODS[i].cx, HOODS[i].cy); placed.push(marks[i] === 'flag' ? [sx - 4, sy - 19, sx + 14, sy + 3] : [sx - 6, sy - 10, sx + 6, sy + 5]); }
+      // bridge decks: small boxes along each span, so place names do not sit on a bridge
+      if (!quiz) for (const b of BRIDGES) { const [ax, ay] = toScreen(b.a[0], b.a[1]), [bx, by] = toScreen(b.b[0], b.b[1]), n = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) / 10)); for (let q = 0; q <= n; q++) { const x = ax + (bx - ax) * q / n, y = ay + (by - ay) * q / n; if (x > -10 && x < W + 10 && y > -10 && y < H + 10) placed.push([x - 4, y - 4, x + 4, y + 4]); } }
+      // Bay Area view: one name for San Francisco, placed before the per-place labels
+      const sfOn = !quiz && region === 'all' && sel < 0 && SF_LBL && (REGION_BB.sf[2] - REGION_BB.sf[0]) * k < 170;
+      anim = fade(sfA, 0, sfOn ? 1 : 0, dt, 160) || anim;
+      let sfBox = null; const sfSize = Math.round((isPhone() ? 10.5 : 11.5) * 1.1 * 4) / 4;
+      if (sfA[0] > 0.01 && SF_LBL) { // on the city if there is room, else just west of it over the ocean, or below
+        const [sx, sy] = toScreen(SF_LBL[0], SF_LBL[1]), tw = measure('SAN FRANCISCO', 600, sfSize) + 13 * sfSize * .05, th = sfSize * 1.2;
+        sfBox = [[0, 0], [-tw / 2 - 14, 0], [-tw / 2 - 14, th], [0, th * 1.3]].map(([dx, dy]) => [sx + dx - tw / 2 - 2, sy + dy - th / 2, sx + dx + tw / 2 + 2, sy + dy + th / 2]).find(b => !clash(b)) || null;
+        if (sfBox && sfOn) placed.push(sfBox); }
+      const base = Math.round((isPhone() ? 10.5 : 11.5) * clamp(Math.pow(U / cam.w, 0.22), 1, 1.32) * 4) / 4;
+      const prio = i => (i === sel ? 1e9 : 0) + (i === hover ? 5e8 : 0) + (STAR[i] ? 2e7 : 0) + (marks[i] ? 1e7 : 0) + HOODS[i].cells; // starred places outrank marks: the user asked for them to stand out
       const order = vis.slice().sort((a, b) => prio(b) - prio(a));
       const labelFont = s => `600 ${s.toFixed(1)}px Figtree, system-ui, sans-serif`;
       const show = [];
       for (const i of order) {
         const h = HOODS[i], far = region !== 'all' && h.region !== region && i !== sel && i !== hover;
-        let target = 0, box = null, size = base, ghost = false;
+        let target = 0, box = null, size = base, ghost = false, st = 0;
         if (!quiz && !far) {
           const hot = i === sel || i === hover, text = (window.SHORT[h.name] || h.name).toUpperCase();
-          ghost = subF[i] > 0.6 && !hot;
+          ghost = subF[i] > 0.6 && (isPhone() ? i === sel : !hot); // phone: only the selected place becomes a watermark (its sections get the room); neighbours keep normal labels
           size = ghost ? base * 1.55 : hot ? base * 1.15 : base;
-          const tw = measure(text, 600, size) + text.length * size * (ghost ? .14 : .05), th = size * 1.2;
+          st = STAR[i] ? size * (ghost ? .75 : .85) + size * .3 : 0; // a starred place: a small gold star after its name, inside the label's box
+          const tw = measure(text, 600, size) + text.length * size * (ghost ? .14 : .05) + st, th = size * 1.2;
           const [cx, cy0] = toScreen(h.cx, h.cy); const cy = cy0 + (marks[i] && !ghost ? size * 1.25 : 0);
-          const at = y => [cx - tw / 2 - 2, y - th / 2, cx + tw / 2 + 2, y + th / 2];
+          const gx = isPhone() ? 4 : 2, gy = isPhone() ? 1 : 0; // phone labels keep wider clearance
+          const at = y => [cx - tw / 2 - gx, y - th / 2 - gy, cx + tw / 2 + gx, y + th / 2 + gy];
           box = at(cy);
           const fits = (BB[i][2] - BB[i][0]) * k >= tw * .72 && (BB[i][3] - BB[i][1]) * k >= th;
-          const keep = hot || marks[i] || h.cells < 10;
-          if (!ghost && (fits || keep) && clash(box)) { for (const dy of [th * 1.15, -th * 1.15, th * 2.2]) { const alt = at(cy + dy); if (!clash(alt)) { box = alt; break; } } }
-          target = ghost ? (fits ? .32 : 0) : (hot || ((fits || keep) && !clash(box))) ? 1 : 0;
+          const keep = hot || marks[i] || STAR[i] || h.cells < 10;
+          const onOwn = b => { if (!isPhone()) return true; const [x0, y0] = toScreen(BB[i][0], BB[i][1]), [x1, y1] = toScreen(BB[i][2], BB[i][3]), my = (b[1] + b[3]) / 2; return my >= Math.min(y0, y1) - th * .6 && my <= Math.max(y0, y1) + th * .6; }; // phone: never move a label off its own place; hide it instead
+          if (!ghost && (fits || keep) && clash(box, i)) { for (const dy of [th * 1.15, -th * 1.15, th * 2.2]) { const alt = at(cy + dy); if (onOwn(alt) && !clash(alt, i)) { box = alt; break; } } }
+          const inView = b => !isPhone() || hot || (b[0] >= 2 && b[2] <= W - 2 && b[1] >= 0 && b[3] <= H); // phone: no labels sliced by the screen edge
+          target = ghost ? (i === sel ? .5 : (fits ? .32 : 0)) : (hot || ((fits || keep) && !clash(box, i) && inView(box))) ? 1 : 0;
           if (target && !ghost) placed.push(box);
         }
         anim = fade(lblA, i, target, dt, 160) || anim;
-        if (lblA[i] > 0.01 && box) show.push({ i, box, size, ghost, hot: i === sel || i === hover });
+        if (lblA[i] > 0.01 && box) show.push({ i, box, size, ghost, st, gx: isPhone() ? 4 : 2, hot: i === sel || i === hover });
+        // a starred place whose name lost the room still shows its gold star, if 18 px are free at its anchor
+        if (STAR[i]) { let sb = null; if (!quiz && !far && !target) { const [sx, sy] = toScreen(h.cx, h.cy); sb = (sx < 0 || sx > W || sy < 0 || sy > H) ? null : [[0, 0], [0, 14], [-14, 4], [14, 8]].map(([dx, dy]) => [sx + dx - 9, sy + dy - 9, sx + dx + 9, sy + dy + 9]).find(b => !clash(b)) || null; if (sb) placed.push(sb); } // beside a flag, if the anchor itself is taken
+          anim = fade(starA, i, sb ? 1 : 0, dt, 160) || anim; if (sb) starA['b' + i] = sb; }
       }
+      // the star after a starred place's name: centred in the room the label box saved for it
+      const placeStar = (s, dy = 0) => { if (!s.st) return; const ss = s.size * (s.ghost ? .75 : .85); haloStar(s.box[2] - s.gx - ss / 2, (s.box[1] + s.box[3]) / 2 + dy - s.size * .06, ss, !s.ghost); };
+      let wm = null; // phone: the selected place's watermark is placed after its section labels, in a clear spot
+      if (sfBox && sfA[0] > 0.01) { ctx.globalAlpha = sfA[0]; ctx.textAlign = 'center'; ctx.font = labelFont(sfSize); if (supportsLS) ctx.letterSpacing = '0.05em'; haloText('SAN FRANCISCO', (sfBox[0] + sfBox[2]) / 2, (sfBox[1] + sfBox[3]) / 2, sfSize, P.label); if (supportsLS) ctx.letterSpacing = '0px'; ctx.globalAlpha = 1; }
+      for (const key in starA) { if (key[0] === 'b' || starA[key] <= 0.01 || !starA['b' + key]) continue; const b = starA['b' + key]; ctx.globalAlpha = starA[key]; haloStar((b[0] + b[2]) / 2, (b[1] + b[3]) / 2, base * 1.1); ctx.globalAlpha = 1; }
       for (const s of show) {
-        const h = HOODS[s.i], text = (window.SHORT[h.name] || h.name).toUpperCase(), cx = (s.box[0] + s.box[2]) / 2, cy = (s.box[1] + s.box[3]) / 2;
+        if (s.ghost && s.i === sel && isPhone()) { wm = s; continue; }
+        const h = HOODS[s.i], text = (window.SHORT[h.name] || h.name).toUpperCase(), cx = (s.box[0] + s.box[2]) / 2 - s.st / 2, cy = (s.box[1] + s.box[3]) / 2;
         ctx.globalAlpha = lblA[s.i]; ctx.textAlign = 'center'; ctx.font = labelFont(s.size);
         if (supportsLS) ctx.letterSpacing = s.ghost ? '0.14em' : '0.05em';
-        if (s.ghost) { ctx.fillStyle = P.label; ctx.fillText(text, cx, cy); } else haloText(text, cx, cy, s.size, s.hot ? P.accent : P.label);
+        if (s.ghost) { ctx.fillStyle = s.i === sel ? P.accent : P.label; ctx.fillText(text, cx, cy); } else haloText(text, cx, cy, s.size, s.hot ? P.accent : P.label);
+        placeStar(s);
       }
       if (supportsLS) ctx.letterSpacing = '0px';
       ctx.globalAlpha = 1; tick('hoodlbl');
       // section labels
-      const subSize = isPhone() ? 10.5 : 11.5, subFont = `500 ${subSize}px Figtree, system-ui, sans-serif`;
-      for (const i of vis) {
-        const cells = subsOf(i); if (!cells) continue;
-        cells.forEach((c, j) => {
-          const key = i + ':' + j; let target = 0, box = null;
+      const subSize = isPhone() ? 10.5 : 11.5, subFont = `500 ${subSize}px Figtree, system-ui, sans-serif`, sgx = 2;
+      const hotSize = subSize * 1.25, hotFont = `600 ${hotSize}px Figtree, system-ui, sans-serif`; // phone: the selected section's name leads
+      // the selected section's label claims its room first, then starred sections, then the rest
+      const hotL = [], secs = [], plain = [];
+      for (const i of vis) { const cells = subsOf(i); if (cells) cells.forEach((c, j) => (i === sel && j === selSub ? hotL : c.star ? secs : plain).push([i, j, c])); }
+      for (const [i, j, c] of hotL.concat(secs, plain)) {
+          const key = i + ':' + j; let target = 0, box = null, sw = 0;
           if (subF[i] > 0.01) {
-            const tw = measure(c.name, 500, subSize), th = subSize * 1.2, [cx, cy] = toScreen(c.c[0], c.c[1]);
-            box = [cx - tw / 2 - 2, cy - th / 2, cx + tw / 2 + 2, cy + th / 2];
+            const hot = i === sel && j === selSub, big = hot && isPhone(), ss = big ? hotSize : subSize;
+            sw = c.star ? ss * 1.05 + 3 : 0; // the star glyph and its gap, in front of the name
+            const tw = measure(c.name, big ? 600 : 500, ss) + sw, th = ss * 1.2, [cx, cy] = toScreen(c.c[0], c.c[1]);
+            box = [cx - tw / 2 - sgx, cy - th / 2, cx + tw / 2 + sgx, cy + th / 2];
             const fits = (c.bbox[2] - c.bbox[0]) * k >= tw * .8 && (c.bbox[3] - c.bbox[1]) * k >= th * 1.1;
-            const hot = i === sel && j === selSub;
-            if ((fits || hot) && !clash(box)) { target = subF[i]; placed.push(box); }
+            // in a starred place, a label that clashes looks for the nearest clear, on-screen spot whose centre stays in its own section
+            let moved = false;
+            if (STAR[i] && (c.star || fits) && clash(box)) {
+              const inScr = b => { const dx = Math.max(0, 2 - b[0]) + Math.min(0, W - 2 - b[2]); return [b[0] + dx, b[1], b[2] + dx, b[3]]; };
+              const inCell = b => { const [mx, my] = toMap((b[0] + b[2]) / 2, (b[1] + b[3]) / 2); return c.rings.some(r => Geom.pip(r, mx, my)); };
+              search: for (const dy of [0, th * 1.15, -th * 1.15, th * 2.3, -th * 2.3]) for (const dx of [0, -tw * .5, tw * .5, -tw, tw]) { const alt = inScr([box[0] + dx, box[1] + dy, box[2] + dx, box[3] + dy]); if (!clash(alt) && inCell(alt)) { box = alt; moved = true; break search; } }
+            }
+            if ((c.star && !clash(box)) || ((fits || hot || moved) && !clash(box) && (hot || !isPhone() || (box[0] >= 2 && box[2] <= W - 2 && box[1] >= 0 && box[3] <= H)))) { target = subF[i]; placed.push(box); }
           }
           anim = fade(subA, key, target, dt, 160) || anim;
           if (subA[key] > 0.01 && box) {
-            ctx.globalAlpha = subA[key]; ctx.textAlign = 'center'; ctx.font = subFont;
-            haloText(c.name, (box[0] + box[2]) / 2, (box[1] + box[3]) / 2, subSize, (i === sel && j === selSub) ? P.accent : P.label);
+            const big = i === sel && j === selSub && isPhone(), ss = big ? hotSize : subSize, my = (box[1] + box[3]) / 2;
+            ctx.globalAlpha = subA[key]; ctx.textAlign = 'center'; ctx.font = big ? hotFont : subFont;
+            haloText(c.name, (box[0] + box[2]) / 2 + sw / 2, my, ss, (i === sel && j === selSub && !c.star) ? P.accent : P.label); // a selected starred section keeps ink text: accent on its gold reads poorly
+            if (sw) haloStar(box[0] + sgx + ss * .525, my - ss * .05, ss * 1.05);
           }
-        });
+      }
+      if (wm) {
+        const text = (window.SHORT[HOODS[wm.i].name] || HOODS[wm.i].name).toUpperCase(), th = wm.size * 1.2, b = wm.box;
+        const hit = q => placed.some(p => q[0] < p[2] && q[2] > p[0] && q[1] < p[3] && q[3] > p[1]);
+        const dy = [0, th * 1.4, -th * 1.4, th * 2.8, -th * 2.8, th * 4.2, -th * 4.2].find(d => !hit([b[0], b[1] + d, b[2], b[3] + d]));
+        if (dy != null) { ctx.globalAlpha = lblA[wm.i]; ctx.textAlign = 'center'; ctx.font = labelFont(wm.size); if (supportsLS) ctx.letterSpacing = '0.14em'; ctx.fillStyle = P.accent; ctx.fillText(text, (b[0] + b[2]) / 2 - wm.st / 2, (b[1] + b[3]) / 2 + dy); if (supportsLS) ctx.letterSpacing = '0px'; placeStar(wm, dy); }
       }
       ctx.globalAlpha = 1; tick('sublbl');
 
@@ -311,7 +396,7 @@
         let s = 1; if (markAnim[i]) { const p = (t - markAnim[i]) / 420; if (p < 1) { s = 1 + Math.sin(p * Math.PI) * .6 * (1 - p); anim = true; } else delete markAnim[i]; }
         ctx.save(); ctx.translate(sx, sy); ctx.scale(s, s);
         if (m === 'flag') { ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(0, 0, 3, 1.5, 0, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = P.labelHalo; ctx.lineWidth = 3.4; ctx.beginPath(); ctx.moveTo(0, .5); ctx.lineTo(0, -17); ctx.stroke(); ctx.strokeStyle = P.ink; ctx.lineWidth = 1.7; ctx.stroke(); ctx.fillStyle = P.accent; ctx.strokeStyle = P.labelHalo; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(0, -17); ctx.lineTo(12, -13); ctx.lineTo(0, -9); ctx.closePath(); ctx.fill(); ctx.stroke(); }
-        else { ctx.fillStyle = P.want; ctx.strokeStyle = P.paper; ctx.lineWidth = 1.2; ctx.beginPath(); for (let q = 0; q < 10; q++) { const r = q % 2 ? 3.4 : 7.5, a = -Math.PI / 2 + q * Math.PI / 5; ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r); } ctx.closePath(); ctx.fill(); ctx.stroke(); }
+        else { ctx.fillStyle = P.want; ctx.strokeStyle = P.paper; ctx.lineWidth = 1.2; ctx.lineJoin = 'round'; ctx.beginPath(); ctx.moveTo(-4.5, -8.5); ctx.lineTo(4.5, -8.5); ctx.lineTo(4.5, 4); ctx.lineTo(0, .5); ctx.lineTo(-4.5, 4); ctx.closePath(); ctx.fill(); ctx.stroke(); } // want to go: a bookmark (the gold star means a friend's pick)
         ctx.restore();
       }
       tick('marks');
@@ -331,7 +416,8 @@
         sp._s = [sx, sy];
         const hot = sp.id === hoverSpot || sp.id === o.selectedSpot?.(); const r = (hot ? 6.5 : 5) * pinScale;
         ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI * 2);
-        if (sp.status === 'pending') { ctx.fillStyle = P.paper; ctx.fill(); ctx.setLineDash([2, 1.5]); ctx.strokeStyle = P.accent; ctx.lineWidth = 1.5; ctx.stroke(); ctx.setLineDash([]); }
+        if (sp.status === 'pending' && isPhone()) { ctx.beginPath(); ctx.arc(sx, sy, r * 1.5, 0, Math.PI * 2); ctx.globalAlpha = .22; ctx.fillStyle = P.accent; ctx.fill(); ctx.globalAlpha = 1; ctx.setLineDash([3, 2]); ctx.strokeStyle = P.accent; ctx.lineWidth = 2; ctx.stroke(); ctx.setLineDash([]); ctx.beginPath(); ctx.arc(sx, sy, r * .45, 0, Math.PI * 2); ctx.fillStyle = P.accent; ctx.fill(); } // phone: a dashed accent ring that reads in both themes
+        else if (sp.status === 'pending') { ctx.fillStyle = P.paper; ctx.fill(); ctx.setLineDash([2, 1.5]); ctx.strokeStyle = P.accent; ctx.lineWidth = 1.5; ctx.stroke(); ctx.setLineDash([]); }
         else { ctx.fillStyle = P.paper; ctx.fill(); ctx.strokeStyle = hot ? P.ink : 'rgba(0,0,0,.25)'; ctx.lineWidth = hot ? 1.5 : 1; ctx.stroke(); ctx.beginPath(); ctx.arc(sx, sy, r * .55, 0, Math.PI * 2); const c = cssColor(sp.c); if (sp.status === 'want') { ctx.strokeStyle = c; ctx.lineWidth = 1.6; ctx.stroke(); } else { ctx.fillStyle = c; ctx.fill(); } }
         if (k > 16 && sp.name && !quiz) { const ps = isPhone() ? 10.5 : 11.5, tw = measure(sp.name, 500, ps), box = [sx + r + 3, sy - 7, sx + r + 3 + tw + 4, sy + 7]; if (!clash(box) || hot) { placed.push(box); ctx.textAlign = 'left'; ctx.font = pinFont; haloText(sp.name, sx + r + 5, sy, ps, P.label); } }
       }

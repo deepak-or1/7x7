@@ -8,12 +8,12 @@ const read = f => fs.readFileSync(path.join(root, f), 'utf8');
 
 // 1. sub-areas
 const merged = {};
-for (const f of ['data/subareas_sf.json', 'data/subareas_bay.json']) {
+for (const f of ['data/subareas_sf.json', 'data/subareas_bay.json', 'data/subareas_south.json', 'data/subareas_eastbay.json', 'data/subareas_north.json']) {
   if (!fs.existsSync(path.join(root, f))) { console.warn('missing', f); continue; }
   Object.assign(merged, JSON.parse(read(f)));
 }
 const n = Object.values(merged).reduce((s, a) => s + a.length, 0);
-fs.writeFileSync(path.join(root, 'data/subareas.js'), '// Sections inside each place: a seed point (lon, lat) plus a line. The map cuts the place polygon into\n// Voronoi cells around these seeds. Source files: data/subareas_sf.json and data/subareas_bay.json; build with node tools/build.js\nwindow.SUBAREAS = ' + JSON.stringify(merged) + ';\n');
+fs.writeFileSync(path.join(root, 'data/subareas.js'), '// Sections inside each place: a seed point (lon, lat) plus a line. The map cuts the place polygon into\n// Voronoi cells around these seeds. Source files: data/subareas_{sf,bay,south,eastbay,north}.json; build with node tools/build.js\nwindow.SUBAREAS = ' + JSON.stringify(merged) + ';\n');
 console.log(`subareas.js: ${Object.keys(merged).length} places, ${n} sections`);
 
 // 2. the artifact page

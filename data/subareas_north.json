@@ -1,0 +1,1559 @@
+{
+ "Vallejo": [
+  {
+   "name": "Downtown & Waterfront",
+   "lon": -122.258,
+   "lat": 38.101,
+   "line": "Georgia Street’s old storefronts, the ferry terminal and the Napa River promenade.",
+   "known": [
+    "Vallejo Ferry Terminal",
+    "Georgia Street",
+    "Vallejo Naval and Historical Museum"
+   ],
+   "tags": [
+    "waterfront",
+    "historic",
+    "food"
+   ]
+  },
+  {
+   "name": "Mare Island",
+   "lon": -122.274,
+   "lat": 38.096,
+   "line": "The 1854 Navy shipyard across the causeway: dry docks, officers’ row and a Tiffany-windowed chapel.",
+   "known": [
+    "Mare Island Naval Shipyard",
+    "St. Peter’s Chapel",
+    "Mare Island Shoreline Heritage Preserve"
+   ],
+   "tags": [
+    "historic",
+    "waterfront",
+    "views"
+   ]
+  },
+  {
+   "name": "Glen Cove",
+   "lon": -122.215,
+   "lat": 38.07,
+   "line": "Quiet southern hills above the Carquinez Strait, at the foot of the bridge.",
+   "known": [
+    "Glen Cove Waterfront Park",
+    "Carquinez Bridge",
+    "Glen Cove Marina"
+   ],
+   "tags": [
+    "waterfront",
+    "views",
+    "quiet"
+   ]
+  },
+  {
+   "name": "North Vallejo & Sonoma Blvd",
+   "lon": -122.252,
+   "lat": 38.133,
+   "line": "Highway 29’s long commercial strip north toward the White Slough marshes.",
+   "known": [
+    "Sonoma Boulevard",
+    "White Slough",
+    "Redwood Street"
+   ],
+   "tags": [
+    "shops",
+    "food"
+   ]
+  },
+  {
+   "name": "Six Flags & Blue Rock Springs",
+   "lon": -122.225,
+   "lat": 38.138,
+   "line": "Roller coasters off Highway 37, the county fairgrounds and Blue Rock Springs in the hills.",
+   "known": [
+    "Six Flags Discovery Kingdom",
+    "Solano County Fairgrounds",
+    "Blue Rock Springs Park"
+   ],
+   "tags": [
+    "parks",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Hiddenbrooke",
+   "lon": -122.18,
+   "lat": 38.158,
+   "line": "Golf-course subdivision tucked into the hills off Interstate 80.",
+   "known": [
+    "Hiddenbrooke Golf Club",
+    "Hiddenbrooke Parkway",
+    "American Canyon Road"
+   ],
+   "tags": [
+    "hilly",
+    "quiet",
+    "views"
+   ]
+  }
+ ],
+ "Benicia": [
+  {
+   "name": "Downtown & First Street",
+   "lon": -122.1585,
+   "lat": 38.049,
+   "line": "First Street’s shops and bars from the 1852 capitol down to the marina.",
+   "known": [
+    "Benicia Capitol State Historic Park",
+    "First Street",
+    "Benicia Marina"
+   ],
+   "tags": [
+    "historic",
+    "food",
+    "waterfront",
+    "shops"
+   ]
+  },
+  {
+   "name": "Benicia Arsenal",
+   "lon": -122.14,
+   "lat": 38.052,
+   "line": "Sandstone Army warehouses turned artists’ studios, with the Camel Barns museum.",
+   "known": [
+    "Camel Barns",
+    "The Clocktower",
+    "Arsenal artist studios"
+   ],
+   "tags": [
+    "historic",
+    "artsy",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Southampton",
+   "lon": -122.17,
+   "lat": 38.076,
+   "line": "The northwest hills of ranch houses around Southampton Road.",
+   "known": [
+    "Southampton Road",
+    "Benicia Community Park",
+    "Lake Herman Road"
+   ],
+   "tags": [
+    "hilly",
+    "quiet",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Industrial Park & Refinery",
+   "lon": -122.125,
+   "lat": 38.08,
+   "line": "Port, warehouses and the Valero refinery, idled in 2026, on the east end by the Benicia-Martinez Bridge.",
+   "known": [
+    "Valero Benicia Refinery, idled in 2026",
+    "Park Road",
+    "Benicia-Martinez Bridge"
+   ],
+   "tags": [
+    "waterfront",
+    "views"
+   ]
+  }
+ ],
+ "Fairfield": [
+  {
+   "name": "Downtown & Texas Street",
+   "lon": -122.04,
+   "lat": 38.249,
+   "line": "The county seat’s old main street, with the government center and the arts center.",
+   "known": [
+    "Texas Street",
+    "Solano County Government Center",
+    "Fairfield Center for Creative Arts"
+   ],
+   "tags": [
+    "historic",
+    "food",
+    "shops"
+   ]
+  },
+  {
+   "name": "Westfield & Travis Boulevard",
+   "lon": -122.06,
+   "lat": 38.26,
+   "line": "The mall at the I-80 junction and the Linear Park path behind it.",
+   "known": [
+    "Westfield Solano",
+    "Travis Boulevard",
+    "Fairfield Linear Park"
+   ],
+   "tags": [
+    "shops",
+    "food",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Cordelia & Green Valley",
+   "lon": -122.142,
+   "lat": 38.228,
+   "line": "Western Fairfield where I-80 meets I-680, below Green Valley’s hills.",
+   "known": [
+    "Cordelia Junction",
+    "Green Valley Road",
+    "Rockville Road"
+   ],
+   "tags": [
+    "hilly",
+    "quiet",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Rancho Solano",
+   "lon": -122.06,
+   "lat": 38.285,
+   "line": "Northern hillside subdivisions around the city golf course.",
+   "known": [
+    "Rancho Solano Golf Course",
+    "Dover Avenue",
+    "Rockville Hills Regional Park"
+   ],
+   "tags": [
+    "hilly",
+    "views",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Paradise Valley",
+   "lon": -122.025,
+   "lat": 38.29,
+   "line": "Northeast subdivisions off Paradise Valley Drive, below the bare slopes of Cement Hill.",
+   "known": [
+    "Paradise Valley Golf Course",
+    "Paradise Valley Drive",
+    "Cement Hill"
+   ],
+   "tags": [
+    "quiet",
+    "sunny",
+    "parks"
+   ]
+  },
+  {
+   "name": "East Fairfield",
+   "lon": -121.975,
+   "lat": 38.28,
+   "line": "Travis Boulevard’s run east toward the air base and the Peabody Road station.",
+   "known": [
+    "Travis Boulevard",
+    "Peabody Road",
+    "Fairfield-Vacaville Hannigan station"
+   ],
+   "tags": [
+    "sunny",
+    "shops"
+   ]
+  }
+ ],
+ "Suisun City": [
+  {
+   "name": "Old Town & Harbor",
+   "lon": -122.039,
+   "lat": 38.239,
+   "line": "Main Street’s restored waterfront and marina on Suisun Slough, by the train depot.",
+   "known": [
+    "Suisun City Marina",
+    "Main Street",
+    "Suisun-Fairfield Amtrak station"
+   ],
+   "tags": [
+    "waterfront",
+    "historic",
+    "food"
+   ]
+  },
+  {
+   "name": "Lawler Ranch & East Side",
+   "lon": -121.995,
+   "lat": 38.247,
+   "line": "Subdivisions off Highway 12 and Walters Road, on the marsh’s northern edge.",
+   "known": [
+    "Lawler Ranch Parkway",
+    "Walters Road",
+    "Highway 12"
+   ],
+   "tags": [
+    "quiet",
+    "sunny"
+   ]
+  }
+ ],
+ "Vacaville": [
+  {
+   "name": "Downtown & Andrews Park",
+   "lon": -121.9875,
+   "lat": 38.3565,
+   "line": "Main Street’s old town and the creekside park behind it.",
+   "known": [
+    "Andrews Park",
+    "Main Street",
+    "Vacaville Museum"
+   ],
+   "tags": [
+    "historic",
+    "food",
+    "parks"
+   ]
+  },
+  {
+   "name": "Nut Tree & Outlets",
+   "lon": -121.96,
+   "lat": 38.364,
+   "line": "The rebuilt Nut Tree and the outlet mall where I-80 meets I-505.",
+   "known": [
+    "Nut Tree Plaza",
+    "Vacaville Premium Outlets",
+    "Nut Tree Airport"
+   ],
+   "tags": [
+    "shops",
+    "food",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Lagoon Valley",
+   "lon": -122.008,
+   "lat": 38.327,
+   "line": "Lake, hiking hills and an 1842 adobe at the city’s southwest gate.",
+   "known": [
+    "Lagoon Valley Park",
+    "Peña Adobe",
+    "Lagoon Valley lake"
+   ],
+   "tags": [
+    "parks",
+    "hilly",
+    "historic"
+   ]
+  },
+  {
+   "name": "North Vacaville",
+   "lon": -121.98,
+   "lat": 38.39,
+   "line": "Vaca Valley Parkway’s business parks and subdivisions under the Vaca Mountains.",
+   "known": [
+    "Vaca Valley Parkway",
+    "Kaiser Permanente Vacaville Medical Center",
+    "Vaca Mountains"
+   ],
+   "tags": [
+    "sunny",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Browns Valley",
+   "lon": -122.005,
+   "lat": 38.37,
+   "line": "Western neighborhoods climbing toward the foothills along Browns Valley Parkway.",
+   "known": [
+    "Browns Valley Parkway",
+    "Browns Valley Road",
+    "Alamo Creek"
+   ],
+   "tags": [
+    "hilly",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Elmira & Peabody Road",
+   "lon": -121.935,
+   "lat": 38.345,
+   "line": "Flat eastern tracts out toward the prisons and the farm fields.",
+   "known": [
+    "Elmira Road",
+    "Peabody Road",
+    "California Medical Facility"
+   ],
+   "tags": [
+    "sunny",
+    "quiet"
+   ]
+  }
+ ],
+ "Dixon": [
+  {
+   "name": "Downtown & First Street",
+   "lon": -121.8235,
+   "lat": 38.446,
+   "line": "A short brick downtown along the railroad tracks.",
+   "known": [
+    "First Street",
+    "Dixon Public Library",
+    "Union Pacific tracks"
+   ],
+   "tags": [
+    "historic",
+    "quiet",
+    "food"
+   ]
+  },
+  {
+   "name": "May Fair & South First",
+   "lon": -121.822,
+   "lat": 38.437,
+   "line": "The fairgrounds that have hosted the Dixon May Fair since 1876.",
+   "known": [
+    "Dixon May Fair grounds",
+    "South First Street",
+    "Hall Memorial Park"
+   ],
+   "tags": [
+    "historic",
+    "parks",
+    "sunny"
+   ]
+  },
+  {
+   "name": "West Dixon",
+   "lon": -121.846,
+   "lat": 38.444,
+   "line": "Newer subdivisions out to Pitt School Road and the orchards beyond.",
+   "known": [
+    "Pitt School Road",
+    "West A Street",
+    "The Pitt School Road exit on I-80"
+   ],
+   "tags": [
+    "quiet",
+    "sunny"
+   ]
+  },
+  {
+   "name": "North Dixon",
+   "lon": -121.825,
+   "lat": 38.465,
+   "line": "Warehouses and highway services along I-80’s northern frontage.",
+   "known": [
+    "North First Street",
+    "Vaughn Road",
+    "Interstate 80"
+   ],
+   "tags": [
+    "sunny",
+    "shops"
+   ]
+  }
+ ],
+ "Rio Vista": [
+  {
+   "name": "Downtown & Riverfront",
+   "lon": -121.693,
+   "lat": 38.156,
+   "line": "Main Street ends at the Sacramento River, beside the drawbridge.",
+   "known": [
+    "Main Street",
+    "Humphrey the Whale marker",
+    "Rio Vista Bridge"
+   ],
+   "tags": [
+    "waterfront",
+    "historic",
+    "food"
+   ]
+  },
+  {
+   "name": "Sandy Beach",
+   "lon": -121.69,
+   "lat": 38.145,
+   "line": "South-side streets along Beach Drive, out to Sandy Beach County Park on the river.",
+   "known": [
+    "Sandy Beach County Park",
+    "Beach Drive",
+    "Sacramento River"
+   ],
+   "tags": [
+    "waterfront",
+    "parks",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Trilogy & Airport",
+   "lon": -121.712,
+   "lat": 38.183,
+   "line": "A retirement community and the municipal airport on the town’s north side.",
+   "known": [
+    "Trilogy at Rio Vista",
+    "Rio Vista Municipal Airport",
+    "Highway 12"
+   ],
+   "tags": [
+    "quiet",
+    "sunny"
+   ]
+  }
+ ],
+ "American Canyon": [
+  {
+   "name": "Napa Junction & Highway 29",
+   "lon": -122.255,
+   "lat": 38.18,
+   "line": "The old rail junction turned shopping strip along Highway 29.",
+   "known": [
+    "Highway 29",
+    "Napa Junction",
+    "American Canyon Road"
+   ],
+   "tags": [
+    "shops",
+    "food",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Wetlands Edge",
+   "lon": -122.266,
+   "lat": 38.172,
+   "line": "West-side homes backing onto the Napa River marshes and the Bay Trail.",
+   "known": [
+    "Wetlands Edge Park",
+    "Napa River Bay Trail",
+    "Wetlands Edge Road"
+   ],
+   "tags": [
+    "waterfront",
+    "parks",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Eastside & Newell",
+   "lon": -122.237,
+   "lat": 38.165,
+   "line": "Hillside subdivisions climbing toward the Newell preserve.",
+   "known": [
+    "Newell Open Space Preserve",
+    "American Canyon High School",
+    "Donaldson Way"
+   ],
+   "tags": [
+    "hilly",
+    "parks",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Green Island",
+   "lon": -122.27,
+   "lat": 38.203,
+   "line": "Wine warehouses and industry on the flats south of Napa’s airport.",
+   "known": [
+    "Green Island Road",
+    "Napa County Airport",
+    "Devlin Road"
+   ],
+   "tags": [
+    "quiet",
+    "sunny"
+   ]
+  }
+ ],
+ "Napa": [
+  {
+   "name": "Downtown & Oxbow",
+   "lon": -122.2855,
+   "lat": 38.2995,
+   "line": "First Street’s tasting rooms, the river walk and the Oxbow market.",
+   "known": [
+    "Oxbow Public Market",
+    "Napa Valley Opera House",
+    "Napa River Trail"
+   ],
+   "tags": [
+    "food",
+    "nightlife",
+    "waterfront",
+    "historic"
+   ]
+  },
+  {
+   "name": "Old Town & Fuller Park",
+   "lon": -122.2945,
+   "lat": 38.2925,
+   "line": "Victorian and Craftsman houses around Fuller Park’s century-old trees.",
+   "known": [
+    "Fuller Park",
+    "Franklin Street",
+    "Napa High School"
+   ],
+   "tags": [
+    "historic",
+    "quiet",
+    "parks"
+   ]
+  },
+  {
+   "name": "Browns Valley & West Napa",
+   "lon": -122.315,
+   "lat": 38.306,
+   "line": "Western neighborhoods up to the oak hills of Alston and Westwood parks.",
+   "known": [
+    "Browns Valley Road",
+    "Alston Park",
+    "Westwood Hills Park"
+   ],
+   "tags": [
+    "hilly",
+    "parks",
+    "quiet"
+   ]
+  },
+  {
+   "name": "North Napa",
+   "lon": -122.3,
+   "lat": 38.33,
+   "line": "Trancas Street’s shopping and the northern subdivisions.",
+   "known": [
+    "Trancas Street",
+    "Redwood Road",
+    "Vintage High School"
+   ],
+   "tags": [
+    "shops",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Alta Heights & East Napa",
+   "lon": -122.268,
+   "lat": 38.306,
+   "line": "East-side hills above the river, toward the Silverado Trail.",
+   "known": [
+    "Alta Heights",
+    "Silverado Trail",
+    "Coombsville Road"
+   ],
+   "tags": [
+    "hilly",
+    "views",
+    "quiet"
+   ]
+  },
+  {
+   "name": "South Napa & Soscol",
+   "lon": -122.28,
+   "lat": 38.272,
+   "line": "Soscol Avenue’s car lots down to the riverside Kennedy Park.",
+   "known": [
+    "Soscol Avenue",
+    "Kennedy Park",
+    "Napa Valley College"
+   ],
+   "tags": [
+    "parks",
+    "waterfront",
+    "shops"
+   ]
+  }
+ ],
+ "Yountville": [
+  {
+   "name": "Washington Street",
+   "lon": -122.363,
+   "lat": 38.4015,
+   "line": "The town’s one main street, lined with restaurants and inns.",
+   "known": [
+    "The French Laundry",
+    "V Marketplace",
+    "Yountville Community Center"
+   ],
+   "tags": [
+    "food",
+    "quiet",
+    "shops"
+   ]
+  },
+  {
+   "name": "Veterans Home & Chandon",
+   "lon": -122.375,
+   "lat": 38.393,
+   "line": "The 1884 veterans home campus west of Highway 29, beside Domaine Chandon.",
+   "known": [
+    "Veterans Home of California",
+    "Lincoln Theater",
+    "Domaine Chandon"
+   ],
+   "tags": [
+    "historic",
+    "quiet",
+    "parks"
+   ]
+  }
+ ],
+ "St. Helena": [
+  {
+   "name": "Main Street",
+   "lon": -122.4705,
+   "lat": 38.5055,
+   "line": "Highway 29 slows to a two-lane main street of stone and brick storefronts.",
+   "known": [
+    "Main Street",
+    "Lyman Park",
+    "Silverado Museum"
+   ],
+   "tags": [
+    "food",
+    "shops",
+    "historic"
+   ]
+  },
+  {
+   "name": "Greystone & North Main",
+   "lon": -122.483,
+   "lat": 38.518,
+   "line": "The north end’s grand old wineries, ending at Greystone’s stone cellars.",
+   "known": [
+    "Culinary Institute of America at Greystone",
+    "Beringer",
+    "Charles Krug"
+   ],
+   "tags": [
+    "historic",
+    "food"
+   ]
+  },
+  {
+   "name": "South St. Helena",
+   "lon": -122.463,
+   "lat": 38.496,
+   "line": "Quiet south-side streets around Crane Park and Sulphur Creek.",
+   "known": [
+    "Crane Park",
+    "Sulphur Creek",
+    "Louis M. Martini Winery"
+   ],
+   "tags": [
+    "quiet",
+    "parks",
+    "sunny"
+   ]
+  }
+ ],
+ "Calistoga": [
+  {
+   "name": "Lincoln Avenue",
+   "lon": -122.5795,
+   "lat": 38.5785,
+   "line": "The spa town’s main street of mud baths, hot-spring pools and false fronts.",
+   "known": [
+    "Lincoln Avenue",
+    "Indian Springs",
+    "Sharpsteen Museum"
+   ],
+   "tags": [
+    "food",
+    "historic",
+    "shops"
+   ]
+  },
+  {
+   "name": "Fairgrounds & North Oak",
+   "lon": -122.575,
+   "lat": 38.586,
+   "line": "The old county fairgrounds, city-owned since 2024, and the streets around them.",
+   "known": [
+    "Calistoga Fairgrounds",
+    "North Oak Street",
+    "Calistoga Speedway dirt oval, built 1938"
+   ],
+   "tags": [
+    "quiet",
+    "sunny",
+    "parks"
+   ]
+  },
+  {
+   "name": "Foothill Boulevard",
+   "lon": -122.59,
+   "lat": 38.575,
+   "line": "Highway 128’s west side of town, toward Petrified Forest Road.",
+   "known": [
+    "Foothill Boulevard",
+    "Petrified Forest Road",
+    "Pioneer Park"
+   ],
+   "tags": [
+    "quiet",
+    "hilly",
+    "sunny"
+   ]
+  }
+ ],
+ "Petaluma": [
+  {
+   "name": "Downtown Petaluma",
+   "lon": -122.6425,
+   "lat": 38.235,
+   "line": "Iron-front blocks on Petaluma Boulevard and Kentucky Street, with the river turning basin behind.",
+   "known": [
+    "Petaluma Boulevard",
+    "The turning basin",
+    "Mystic Theatre"
+   ],
+   "tags": [
+    "historic",
+    "food",
+    "nightlife",
+    "shops"
+   ]
+  },
+  {
+   "name": "West Side",
+   "lon": -122.656,
+   "lat": 38.242,
+   "line": "Victorian blocks climbing toward the hills, with Helen Putnam Park beyond.",
+   "known": [
+    "Western Avenue",
+    "Helen Putnam Regional Park",
+    "Victorian blocks on D Street"
+   ],
+   "tags": [
+    "historic",
+    "quiet",
+    "hilly"
+   ]
+  },
+  {
+   "name": "Fairgrounds & Washington Street",
+   "lon": -122.629,
+   "lat": 38.239,
+   "line": "The Sonoma-Marin Fairgrounds and the Washington Street strip across the river from downtown.",
+   "known": [
+    "Sonoma-Marin Fairgrounds",
+    "Washington Street",
+    "Petaluma Speedway"
+   ],
+   "tags": [
+    "shops",
+    "food"
+   ]
+  },
+  {
+   "name": "East Petaluma",
+   "lon": -122.6235,
+   "lat": 38.256,
+   "line": "Post-war tracts along McDowell Boulevard around Lucchesi Park.",
+   "known": [
+    "Lucchesi Park",
+    "McDowell Boulevard",
+    "Petaluma Community Center"
+   ],
+   "tags": [
+    "parks",
+    "quiet",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Shollenberger & the Marina",
+   "lon": -122.608,
+   "lat": 38.2315,
+   "line": "Marsh trails and the small-boat marina where the river widens toward San Pablo Bay.",
+   "known": [
+    "Shollenberger Park",
+    "Petaluma Marina",
+    "Alman Marsh"
+   ],
+   "tags": [
+    "waterfront",
+    "parks",
+    "quiet"
+   ]
+  },
+  {
+   "name": "North Petaluma",
+   "lon": -122.645,
+   "lat": 38.268,
+   "line": "Corona Road and the SMART station on the north edge, with ranchland just past it.",
+   "known": [
+    "Corona Road",
+    "Petaluma North SMART station",
+    "Petaluma Boulevard North"
+   ],
+   "tags": [
+    "quiet",
+    "sunny"
+   ]
+  }
+ ],
+ "Rohnert Park": [
+  {
+   "name": "City Center",
+   "lon": -122.701,
+   "lat": 38.347,
+   "line": "City Hall, the library and the shopping centers along Rohnert Park Expressway.",
+   "known": [
+    "Rohnert Park Expressway",
+    "Rohnert Park City Hall",
+    "Rohnert Park-Cotati Regional Library"
+   ],
+   "tags": [
+    "shops",
+    "food"
+   ]
+  },
+  {
+   "name": "SOMO Village",
+   "lon": -122.6925,
+   "lat": 38.3265,
+   "line": "A former Hewlett-Packard campus turned offices, homes and a summer concert lawn.",
+   "known": [
+    "SOMO Village Event Center",
+    "Valley House Drive",
+    "Copeland Creek"
+   ],
+   "tags": [
+    "quiet",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Graton & West of 101",
+   "lon": -122.721,
+   "lat": 38.352,
+   "line": "The casino, big-box stores and hotels west of the freeway.",
+   "known": [
+    "Graton Resort & Casino",
+    "Labath Avenue",
+    "Wilfred Avenue"
+   ],
+   "tags": [
+    "nightlife",
+    "shops"
+   ]
+  },
+  {
+   "name": "University District",
+   "lon": -122.672,
+   "lat": 38.35,
+   "line": "New tracts on the east edge, a short walk north of Sonoma State’s campus.",
+   "known": [
+    "Sonoma State University",
+    "Green Music Center",
+    "Snyder Lane"
+   ],
+   "tags": [
+    "quiet",
+    "sunny"
+   ]
+  },
+  {
+   "name": "North Rohnert Park",
+   "lon": -122.695,
+   "lat": 38.366,
+   "line": "Lettered-section streets around the Foxtail golf courses at the city’s north end.",
+   "known": [
+    "Foxtail Golf Club",
+    "Golf Course Drive",
+    "Sunrise Park"
+   ],
+   "tags": [
+    "quiet",
+    "parks"
+   ]
+  }
+ ],
+ "Cotati": [
+  {
+   "name": "La Plaza & Downtown",
+   "lon": -122.7075,
+   "lat": 38.327,
+   "line": "The hexagonal plaza and the bars along Old Redwood Highway.",
+   "known": [
+    "La Plaza Park",
+    "Old Redwood Highway",
+    "Cotati Accordion Festival"
+   ],
+   "tags": [
+    "historic",
+    "nightlife",
+    "food"
+   ]
+  },
+  {
+   "name": "West Cotati",
+   "lon": -122.718,
+   "lat": 38.33,
+   "line": "Homes off West Sierra Avenue where Gravenstein Highway heads for Sebastopol.",
+   "known": [
+    "Gravenstein Highway",
+    "West Sierra Avenue",
+    "Cotati Creek"
+   ],
+   "tags": [
+    "quiet",
+    "sunny"
+   ]
+  },
+  {
+   "name": "East Cotati Avenue",
+   "lon": -122.692,
+   "lat": 38.332,
+   "line": "The strip across 101 on the road to Sonoma State.",
+   "known": [
+    "East Cotati Avenue",
+    "Highway 101 interchange",
+    "Sonoma State University nearby"
+   ],
+   "tags": [
+    "shops",
+    "quiet"
+   ]
+  }
+ ],
+ "Sebastopol": [
+  {
+   "name": "Downtown & the Plaza",
+   "lon": -122.824,
+   "lat": 38.402,
+   "line": "Main Street’s shops and cafés around the town plaza and its farmers market.",
+   "known": [
+    "Sebastopol Plaza",
+    "Main Street",
+    "Sebastopol farmers market"
+   ],
+   "tags": [
+    "food",
+    "shops",
+    "artsy"
+   ]
+  },
+  {
+   "name": "Florence Avenue",
+   "lon": -122.831,
+   "lat": 38.4065,
+   "line": "A residential street lined with Patrick Amiot’s scrap-metal sculptures.",
+   "known": [
+    "Florence Avenue sculptures",
+    "Bodega Highway",
+    "Ives Park"
+   ],
+   "tags": [
+    "artsy",
+    "quiet"
+   ]
+  },
+  {
+   "name": "The Barlow & the Laguna",
+   "lon": -122.8185,
+   "lat": 38.406,
+   "line": "The old apple cannery turned food hall, beside the Laguna de Santa Rosa.",
+   "known": [
+    "The Barlow",
+    "Laguna de Santa Rosa",
+    "Joe Rodota Trail"
+   ],
+   "tags": [
+    "food",
+    "waterfront",
+    "shops"
+   ]
+  },
+  {
+   "name": "South Main Street",
+   "lon": -122.823,
+   "lat": 38.392,
+   "line": "Gravenstein Highway South past the arts center, heading out toward the orchards.",
+   "known": [
+    "Gravenstein Highway South",
+    "Sebastopol Center for the Arts",
+    "South Main Street"
+   ],
+   "tags": [
+    "historic",
+    "quiet"
+   ]
+  }
+ ],
+ "Santa Rosa": [
+  {
+   "name": "Downtown & Railroad Square",
+   "lon": -122.716,
+   "lat": 38.4395,
+   "line": "Courthouse Square and Fourth Street, with the stone depot and SMART across the freeway.",
+   "known": [
+    "Old Courthouse Square",
+    "Railroad Square",
+    "Luther Burbank Home & Gardens"
+   ],
+   "tags": [
+    "food",
+    "nightlife",
+    "historic",
+    "shops"
+   ]
+  },
+  {
+   "name": "Roseland",
+   "lon": -122.735,
+   "lat": 38.42,
+   "line": "Sebastopol Road’s taquerias and markets, the heart of the city’s Latino community.",
+   "known": [
+    "Sebastopol Road",
+    "Roseland Village",
+    "Bayer Park"
+   ],
+   "tags": [
+    "food",
+    "shops"
+   ]
+  },
+  {
+   "name": "Coffey Park & the Schulz Museum",
+   "lon": -122.74,
+   "lat": 38.465,
+   "line": "Rebuilt tracts north of downtown and the Peanuts museum by Snoopy’s Home Ice.",
+   "known": [
+    "Charles M. Schulz Museum",
+    "Snoopy’s Home Ice",
+    "Coffey Park"
+   ],
+   "tags": [
+    "artsy",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Fountaingrove",
+   "lon": -122.715,
+   "lat": 38.485,
+   "line": "Hillside homes rebuilt after the 2017 Tubbs Fire, on the ridge above Highway 101.",
+   "known": [
+    "Fountaingrove Parkway",
+    "Round Barn Boulevard",
+    "Fountaingrove Lake"
+   ],
+   "tags": [
+    "hilly",
+    "views",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Montgomery Village & Howarth Park",
+   "lon": -122.68,
+   "lat": 38.447,
+   "line": "The 1950s village shopping center and the lake at Howarth Park.",
+   "known": [
+    "Montgomery Village",
+    "Howarth Park",
+    "Spring Lake"
+   ],
+   "tags": [
+    "parks",
+    "shops",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Oakmont",
+   "lon": -122.605,
+   "lat": 38.443,
+   "line": "A retirement community among vineyards at the city’s far east end, under Hood Mountain.",
+   "known": [
+    "Oakmont Village",
+    "Annadel State Park",
+    "Highway 12"
+   ],
+   "tags": [
+    "quiet",
+    "sunny",
+    "parks"
+   ]
+  }
+ ],
+ "Windsor": [
+  {
+   "name": "Town Green",
+   "lon": -122.8165,
+   "lat": 38.547,
+   "line": "The planned downtown square with summer concerts, steps from the SMART station.",
+   "known": [
+    "Windsor Town Green",
+    "Windsor SMART station",
+    "Windsor farmers market"
+   ],
+   "tags": [
+    "food",
+    "shops",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Shiloh Road & East Windsor",
+   "lon": -122.79,
+   "lat": 38.53,
+   "line": "Newer neighborhoods along Shiloh Road climbing toward the regional park.",
+   "known": [
+    "Shiloh Ranch Regional Park",
+    "Shiloh Road",
+    "Old Redwood Highway"
+   ],
+   "tags": [
+    "parks",
+    "quiet",
+    "hilly"
+   ]
+  },
+  {
+   "name": "West Windsor",
+   "lon": -122.829,
+   "lat": 38.5505,
+   "line": "Tracts along Windsor River Road heading west toward the vineyards.",
+   "known": [
+    "Windsor River Road",
+    "Windsor High School",
+    "Keiser Park"
+   ],
+   "tags": [
+    "quiet",
+    "sunny"
+   ]
+  }
+ ],
+ "Healdsburg": [
+  {
+   "name": "Healdsburg Plaza",
+   "lon": -122.8695,
+   "lat": 38.6105,
+   "line": "The 1857 plaza ringed by tasting rooms, restaurants and inns.",
+   "known": [
+    "Healdsburg Plaza",
+    "Healdsburg Museum",
+    "Tuesday concerts on the Plaza"
+   ],
+   "tags": [
+    "food",
+    "historic",
+    "shops"
+   ]
+  },
+  {
+   "name": "Memorial Beach & the River",
+   "lon": -122.861,
+   "lat": 38.604,
+   "line": "The Russian River’s swimming beach under the old Memorial Bridge.",
+   "known": [
+    "Healdsburg Veterans Memorial Beach",
+    "Healdsburg Memorial Bridge",
+    "Russian River"
+   ],
+   "tags": [
+    "waterfront",
+    "parks",
+    "sunny"
+   ]
+  },
+  {
+   "name": "Healdsburg Ridge",
+   "lon": -122.865,
+   "lat": 38.63,
+   "line": "Open-space trails above the north end of town, looking over Fitch Mountain.",
+   "known": [
+    "Healdsburg Ridge Open Space Preserve",
+    "Parkland Farms",
+    "Fitch Mountain views"
+   ],
+   "tags": [
+    "hilly",
+    "views",
+    "parks"
+   ]
+  },
+  {
+   "name": "East Side & Badger Park",
+   "lon": -122.854,
+   "lat": 38.616,
+   "line": "Quiet streets toward the river bend at the foot of Fitch Mountain.",
+   "known": [
+    "Badger Park",
+    "Fitch Mountain",
+    "University Street"
+   ],
+   "tags": [
+    "quiet",
+    "parks"
+   ]
+  }
+ ],
+ "Cloverdale": [
+  {
+   "name": "Downtown Cloverdale",
+   "lon": -123.0165,
+   "lat": 38.806,
+   "line": "The old main street along Cloverdale Boulevard, with its weekly summer concerts.",
+   "known": [
+    "Cloverdale Boulevard",
+    "Friday Night Live in the Plaza",
+    "Cloverdale Historical Society museum"
+   ],
+   "tags": [
+    "historic",
+    "food",
+    "quiet"
+   ]
+  },
+  {
+   "name": "Citrus Fairgrounds",
+   "lon": -123.017,
+   "lat": 38.795,
+   "line": "Home of the February Citrus Fair since the 1890s.",
+   "known": [
+    "Cloverdale Citrus Fair",
+    "Citrus Fair Drive",
+    "Cloverdale Boulevard south"
+   ],
+   "tags": [
+    "historic",
+    "sunny"
+   ]
+  },
+  {
+   "name": "South Cloverdale & the River",
+   "lon": -123.001,
+   "lat": 38.783,
+   "line": "Neighborhoods east of 101 on the Russian River flats.",
+   "known": [
+    "Russian River",
+    "Asti Road",
+    "Highway 101"
+   ],
+   "tags": [
+    "waterfront",
+    "quiet",
+    "sunny"
+   ]
+  }
+ ],
+ "Sonoma": [
+  {
+   "name": "The Plaza",
+   "lon": -122.457,
+   "lat": 38.2925,
+   "line": "California’s largest town plaza, with City Hall in the middle and the mission on its corner.",
+   "known": [
+    "Sonoma Plaza",
+    "Mission San Francisco Solano",
+    "Sonoma Barracks"
+   ],
+   "tags": [
+    "historic",
+    "food",
+    "shops"
+   ]
+  },
+  {
+   "name": "Sonoma Overlook",
+   "lon": -122.461,
+   "lat": 38.2975,
+   "line": "Trails up from the old cemetery to views over the valley and San Pablo Bay.",
+   "known": [
+    "Sonoma Overlook Trail",
+    "Montini Preserve",
+    "Mountain Cemetery"
+   ],
+   "tags": [
+    "hilly",
+    "views",
+    "parks"
+   ]
+  },
+  {
+   "name": "Lachryma Montis & West Spain",
+   "lon": -122.468,
+   "lat": 38.295,
+   "line": "General Vallejo’s Gothic-revival home and the bike path out West Spain Street.",
+   "known": [
+    "Lachryma Montis",
+    "Sonoma Bike Path",
+    "West Spain Street"
+   ],
+   "tags": [
+    "historic",
+    "quiet",
+    "parks"
+   ]
+  },
+  {
+   "name": "Broadway",
+   "lon": -122.456,
+   "lat": 38.284,
+   "line": "The long run south from the plaza, lined with older houses and small shops.",
+   "known": [
+    "Broadway (Highway 12)",
+    "Sonoma Valley High School",
+    "Maxwell Farms Regional Park nearby"
+   ],
+   "tags": [
+    "quiet",
+    "shops"
+   ]
+  },
+  {
+   "name": "East Side",
+   "lon": -122.4505,
+   "lat": 38.2895,
+   "line": "Vineyard-edged streets east of the plaza, out toward Sebastiani’s winery.",
+   "known": [
+    "Sebastiani Vineyards",
+    "Fourth Street East",
+    "East Napa Street"
+   ],
+   "tags": [
+    "quiet",
+    "sunny"
+   ]
+  }
+ ],
+ "Glen Ellen": [
+  {
+   "name": "Glen Ellen Village",
+   "lon": -122.528,
+   "lat": 38.363,
+   "line": "Arnold Drive’s short main street where Sonoma and Calabazas creeks meet.",
+   "known": [
+    "Arnold Drive",
+    "Jack London Village",
+    "Sonoma Creek"
+   ],
+   "tags": [
+    "food",
+    "quiet",
+    "historic"
+   ]
+  },
+  {
+   "name": "London Ranch Road",
+   "lon": -122.54,
+   "lat": 38.358,
+   "line": "The steep road up through vineyards to Jack London’s Beauty Ranch.",
+   "known": [
+    "London Ranch Road",
+    "Jack London State Historic Park",
+    "Benziger Family Winery"
+   ],
+   "tags": [
+    "hilly",
+    "historic",
+    "parks"
+   ]
+  }
+ ],
+ "Bodega Bay": [
+  {
+   "name": "The Harbor",
+   "lon": -123.048,
+   "lat": 38.333,
+   "line": "Highway 1’s fish markets and docks on the east shore of the harbor.",
+   "known": [
+    "Lucas Wharf",
+    "The Tides Wharf",
+    "Highway 1"
+   ],
+   "tags": [
+    "waterfront",
+    "food",
+    "foggy"
+   ]
+  },
+  {
+   "name": "Bodega Head",
+   "lon": -123.061,
+   "lat": 38.3095,
+   "line": "Granite headland where whale watchers stand above the Pacific, beside the Hole in the Head.",
+   "known": [
+    "Bodega Head",
+    "Hole in the Head",
+    "Bodega Marine Laboratory"
+   ],
+   "tags": [
+    "views",
+    "foggy",
+    "waterfront",
+    "parks"
+   ]
+  },
+  {
+   "name": "Doran Beach & Bodega Harbour",
+   "lon": -123.0295,
+   "lat": 38.317,
+   "line": "The sand spit sheltering the harbor and the golf-course homes above it.",
+   "known": [
+    "Doran Beach Regional Park",
+    "The Links at Bodega Harbour",
+    "Bodega Harbour subdivision"
+   ],
+   "tags": [
+    "waterfront",
+    "quiet",
+    "foggy"
+   ]
+  }
+ ],
+ "Guerneville": [
+  {
+   "name": "Main Street & Johnson’s Beach",
+   "lon": -122.9975,
+   "lat": 38.501,
+   "line": "The bars and cafés of Main Street above the river beach and the steel bridge.",
+   "known": [
+    "Johnson’s Beach",
+    "Guerneville Bridge",
+    "Main Street"
+   ],
+   "tags": [
+    "nightlife",
+    "waterfront",
+    "food"
+   ]
+  },
+  {
+   "name": "Armstrong Woods Road",
+   "lon": -122.993,
+   "lat": 38.52,
+   "line": "The road north up Fife Creek’s canyon to the old-growth redwood grove.",
+   "known": [
+    "Armstrong Woods Road",
+    "Armstrong Redwoods State Natural Reserve",
+    "Fife Creek"
+   ],
+   "tags": [
+    "parks",
+    "quiet",
+    "hilly"
+   ]
+  },
+  {
+   "name": "West River Road",
+   "lon": -123.02,
+   "lat": 38.496,
+   "line": "Cabins and river beaches along Highway 116 toward Monte Rio.",
+   "known": [
+    "River Road",
+    "Vacation Beach",
+    "Russian River"
+   ],
+   "tags": [
+    "waterfront",
+    "quiet",
+    "foggy"
+   ]
+  }
+ ]
+}

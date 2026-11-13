@@ -3,8 +3,8 @@
   "short_name": "Seven by Seven",
   "description": "A map of the Bay Area to mark where you have been.",
   "display": "standalone",
-  "background_color": "#c8d5dc",
-  "theme_color": "#182230",
+  "background_color": "#e3dccb",
+  "theme_color": "#e3dccb",
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },

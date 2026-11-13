@@ -17,7 +17,9 @@
   const today = () => new Date().toISOString().slice(0, 10);
   const niceDate = iso => { if (!iso) return ''; const d = new Date(iso + 'T12:00:00'); return isNaN(d) ? iso : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); };
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const KINDS = { food: { label: 'Food', c: 'var(--k-food)' }, drink: { label: 'Drinks', c: 'var(--k-drink)' }, coffee: { label: 'Coffee', c: 'var(--k-coffee)' }, view: { label: 'View', c: 'var(--k-view)' }, shop: { label: 'Shop', c: 'var(--k-shop)' }, park: { label: 'Park', c: 'var(--k-park)' }, other: { label: 'Other', c: 'var(--k-other)' } };
+  const KINDS = { food: { label: 'Food', c: 'var(--k-food)', e: '🍜' }, drink: { label: 'Drinks', c: 'var(--k-drink)', e: '🍸' }, coffee: { label: 'Coffee', c: 'var(--k-coffee)', e: '☕' }, view: { label: 'View', c: 'var(--k-view)', e: '🌄' }, shop: { label: 'Shop', c: 'var(--k-shop)', e: '🛍️' }, park: { label: 'Park', c: 'var(--k-park)', e: '🌳' }, other: { label: 'Other', c: 'var(--k-other)', e: '📍' } };
+  const VIBE_E = { fog: '🌫️', hills: '⛰️', water: '🌊', sun: '☀️', buzz: '✨', green: '🌿' }; // the cover emoji of a place and its sections
+  const VERDICT = ['', 'Skip it', 'Meh', 'Solid', 'Great', 'Loved it']; // a spot's rating, in words
   const LENSES = { vibe: { label: 'Character', sub: 'Six kinds of place' }, fog: { label: 'Fog', sub: 'Sunbelt to permanent cloud' }, elev: { label: 'Hills', sub: 'Sea level to the summits' }, done: { label: 'Walked', sub: 'Where you have been' } };
   const STAMPS = [
     { id: 'first', label: 'First steps', test: s => s.n >= 1, icon: '1' }, { id: 'ten', label: 'Ten down', test: s => s.n >= 10, icon: '10' },
@@ -229,6 +231,7 @@
     if (state.query) { renderSearch(); return; }
     if (state.quiz) { renderQuiz(); return; }
     const l = state.loc, v = state.view; let fresh = true;
+    if (!l.spot) stamped = null; // back on this spot later, the stamp lands again
     if (v === 'log') renderLogForm(); else if (v === 'spots') renderSpots(); else if (l.spot) fresh = renderSpot(l.spot); else if (l.sub) fresh = renderSub(l.hood, l.sub); else if (l.hood) renderHood(l.hood); else renderHome();
     if (fresh === false) return; // the panel was left as it was, listeners and all
     wire(panel);
@@ -265,7 +268,12 @@
   // ---- photos (hosted shared log only): owner keys are Firebase-safe (no . $ # [ ] / or control characters)
   const okey = s => String(s).replace(/[.$#[\]/\x00-\x1f\x7f]/g, '_');
   const ownerKey = { spot: id => okey(id), place: hood => okey('h-' + slug(hood)), section: (hood, sub) => okey('h-' + slug(hood) + '--' + slug(sub)) };
-  const photosBlock = (owner, label) => state.store === 'sync' && window.Photos ? Photos.block(owner, label, state.canWrite) : '';
+  // the photo hero at the top of a spot, section or place; o: { c, e, badge, extras } (see js/photos.js). Without shared photos
+  // (a local log, the artifact) it is the same coloured cover with the emoji, purely decorative, so every mode looks alike.
+  const hero = (owner, label, o) => !window.Photos ? '' : state.store === 'sync' ? Photos.block(owner, label, state.canWrite, o) : Photos.cover(o);
+  const spotSrc = id => ({ owner: ownerKey.spot(id), label: state.spots[id].name });
+  const vibeLook = hood => { const v = INFO[hood].vibe; return { c: `var(--${VIBES[v].cls})`, e: VIBE_E[v] || '📍' }; };
+  let stamped = null; // the spot (and status) whose stamp last landed: it thunks once per spot, not on every re-render
 
   // ---- home: Bay Area or a region ----
   const doneCount = (r = state.loc.region) => HOODS.reduce((s, h, i) => s + (inRegion(i, r) && isDone(i) ? 1 : 0), 0);
@@ -321,7 +329,9 @@
     const roof = h.max === Math.max(...HOODS.filter(x => x.region === h.region).map(x => x.max)), dis = state.canWrite ? '' : 'disabled';
     const keepNote = panel.dataset.name === name && panel.querySelector('#note') ? panel.querySelector('#note').value : null; panel.dataset.name = name;
     setHead({ eyebrow: `${REGIONS[h.region].label} · ${VIBES[info.vibe].label}`, dot: `var(--${VIBES[info.vibe].cls})`, title: esc(name), tools: [logTool(name, null)] });
+    const extras = mine.map(spotSrc).concat(secs.slice().sort((a, b) => !!b.star - !!a.star).map(s => ({ owner: ownerKey.section(name, s.name), label: s.name }))); // spots first, newest first (photos mostly live there and the hero caps its sources), then sections in list order
     panel.innerHTML = `
+      ${hero(ownerKey.place(name), name, Object.assign(vibeLook(name), { extras }))}
       <p class="lead">${esc(info.line)}</p>
       <div class="marks">
         <button type="button" class="mark done ${done ? 'on' : ''}" id="explore" aria-pressed="${!!done}" ${dis}><span class="box">${ICON.check}</span><span><b>${done ? 'Walked' : 'Been here'}</b><small>${done ? niceDate(done.at) + ' · tap to undo' : 'Logs it with a flag'}</small></span></button>
@@ -333,7 +343,6 @@
       ${secs.length ? `<h3>Sections <span class="n">${secs.length}</span></h3><ul class="rows">${secs.map((s, j) => [s, j]).sort((a, b) => !!b[0].star - !!a[0].star).map(([s, j]) => rowSub(name, s, j)).join('')}</ul>` : ''}
       <h3>Spots <span class="n">${mine.length || ''}</span><button type="button" class="act" id="log-here">+ Log a place</button></h3>
       ${mine.length ? `<ul class="rows">${mine.map(id => rowSpot(id, false)).join('')}</ul>` : `<p class="empty">Nothing logged here yet.</p>`}
-      ${photosBlock(ownerKey.place(name), name)}
       <h3>Known for</h3><ul class="plain">${info.known.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
       <h3>One thing to know</h3><p class="fact">${esc(info.fact)}</p>
       <h3>Next door</h3>${h.adj.length ? `<div class="textlinks">${h.adj.map(a => `<button type="button" class="${isDone(IDX[a]) ? 'done' : isWant(IDX[a]) ? 'want' : ''}" data-go='${attr({ hood: a })}'>${esc(a)}</button>`).join('')}</div>` : '<p class="empty">Nobody. It is an island.</p>'}`;
@@ -350,10 +359,10 @@
     const mq = areaQuery(hood, subName);
     if (!paint(`
       ${s.star ? `<p class="starnote"><b aria-hidden="true">★</b><span>${esc(s.star)}</span></p>` : ''}
+      ${hero(ownerKey.section(hood, subName), subName, Object.assign(vibeLook(hood), { extras: mine.map(spotSrc) }))}
       <p class="lead">${esc(s.line)}</p>
-      ${s.tags && s.tags.length ? `<div class="facts">${s.tags.map(t => `<span>${esc(t)}</span>`).join('')}</div>` : ''}
+      ${s.tags && s.tags.length ? `<div class="tags">${s.tags.map(t => `<span>${esc(t)}</span>`).join('')}</div>` : ''}
       ${streetMap(mq, 16, subName)}<div class="actions" style="margin-top:8px">${mapsBtn(mq)}</div>
-      ${photosBlock(ownerKey.section(hood, subName), subName)}
       <h3>Spots here <span class="n">${mine.length || ''}</span><button type="button" class="act" id="log-here">+ Log a place</button></h3>
       ${mine.length ? `<ul class="rows">${mine.map(id => rowSpot(id, false)).join('')}</ul>` : `<p class="empty">Nothing logged in ${esc(subName)} yet.</p>`}
       ${s.known && s.known.length ? `<h3>Known for</h3><ul class="plain">${s.known.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
@@ -364,15 +373,16 @@
   function renderSpot(id) {
     const sp = state.spots[id], k = KINDS[sp.kind] || KINDS.other;
     setHead({ eyebrow: `${k.label} · ${esc(sp.sub || sp.hood)}`, dot: k.c, title: esc(sp.name), tools: [{ id: 'edit', label: 'Edit', icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16v4z"/><path d="M13 7l4 4"/></svg>', run: () => startLog({ hood: sp.hood, sub: sp.sub, edit: id }) }] });
-    const mq = spotQuery(sp);
+    const mq = spotQuery(sp), want = sp.status === 'want', r = want ? 0 : Math.max(0, Math.min(5, sp.rating | 0));
     if (!paint(`
+      ${hero(ownerKey.spot(id), sp.name, { c: k.c, e: k.e, badge: { e: k.e, t: k.label } })}
       ${sp.where ? `<p class="lead">${esc(sp.where)}</p>` : ''}
-      <div class="facts">${sp.status === 'want' ? '<span><b>Want to try</b></span>' : `<span><b>Been</b> ${niceDate(sp.at)}</span>${sp.rating ? `<span class="stars">${'★'.repeat(sp.rating)}<span style="color:var(--line-2)">${'★'.repeat(5 - sp.rating)}</span></span>` : ''}`}<span>${esc(sp.hood)}${sp.sub ? ' › ' + esc(sp.sub) : ''}</span></div>
-      ${sp.note ? `<h3>Notes</h3><p>${esc(sp.note)}</p>` : ''}
+      <div class="vrow">${r ? `<span class="vstars" role="img" aria-label="${r} of 5 stars"><span aria-hidden="true">${'★'.repeat(r)}<i>${'★'.repeat(5 - r)}</i></span></span><b class="vword">${VERDICT[r]}</b>` : ''}<span class="pstamp ${want ? 'want' : 'been'}">${want ? 'Want to try' : `Been${sp.at ? ' · ' + esc(niceDate(sp.at)) : ''}`}</span></div>
+      ${sp.note ? `<p class="pull">${esc(sp.note)}</p>` : ''}
       ${streetMap(mq, 17, sp.name)}
-      ${photosBlock(ownerKey.spot(id), sp.name)}
       <div class="actions" style="margin-top:18px">${sp.status === 'want' ? `<button type="button" class="btn primary" id="been-now">Been here now</button>` : ''}<a class="btn" href="${esc(mapsLink(mq))}" target="_blank" rel="noopener">Open in Maps</a><button type="button" class="btn quiet" id="edit">Edit</button><button type="button" class="btn quiet" id="del" style="color:var(--bad)">Delete</button></div>
       <div class="actions" id="del-confirm" hidden><span style="font-size:13.5px;align-self:center">Remove ${esc(sp.name)} from your log?</span><button type="button" class="btn sm" id="del-yes" style="color:var(--bad);border-color:var(--bad)">Delete</button><button type="button" class="btn sm quiet" id="del-no">Keep</button></div>`)) return false;
+    { const st = panel.querySelector('.pstamp'), key = id + ':' + sp.status; if (st && stamped !== key) { st.classList.add('thunk'); st.addEventListener('animationend', () => st.classList.remove('thunk'), { once: true }); } stamped = key; } // a fresh spot (or a new status): the stamp lands
     // listeners can outlive this render (an identical re-render keeps the panel), so they look the spot up when used
     panel.querySelector('#edit').addEventListener('click', () => { const s = state.spots[id]; if (s) startLog({ hood: s.hood, sub: s.sub, edit: id }); });
     panel.querySelector('#del').addEventListener('click', () => { panel.querySelector('#del-confirm').hidden = false; panel.querySelector('#del').hidden = true; });

@@ -245,12 +245,12 @@ a.btn { text-decoration: none; }
 .dots { display: inline-flex; gap: 2px; vertical-align: middle; } .dots i { width: 7px; height: 7px; border-radius: 2px; display: inline-block; background: var(--line-2); } .dots i.on { background: var(--v-fog); }
 
 /* a spot: verdict (stars, a word, a passport stamp) and the note as a pull-quote; a section's tags as soft pills */
-.verdict { display: flex; align-items: center; gap: 10px; margin: 2px 0 0; min-height: 34px; }
+.vrow { display: flex; align-items: center; gap: 10px; margin: 2px 0 0; min-height: 34px; }
 .vstars { font-size: 22px; line-height: 1; letter-spacing: 1px; color: var(--star); white-space: nowrap; } .vstars i { font-style: normal; color: var(--line-2); }
 .vword { font-family: var(--display); font-weight: 700; font-size: 16px; letter-spacing: -.01em; color: var(--ink); white-space: nowrap; }
 .pstamp { margin-left: auto; flex: none; font-family: var(--display); font-weight: 700; font-size: 12px; line-height: 1; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; color: var(--accent); border: 2px solid currentColor; border-radius: 6px; padding: 5px 9px; outline: 1px solid color-mix(in srgb, currentColor 45%, transparent); outline-offset: -5px; transform: rotate(-5deg); opacity: .86; }
 .pstamp.want { color: var(--want); border-style: dashed; }
-.verdict .pstamp:first-child { margin-left: 2px; } /* no rating: the stamp alone, at the start of the row */
+.vrow .pstamp:first-child { margin-left: 2px; } /* no rating: the stamp alone, at the start of the row */
 .pstamp.thunk { animation: thunk .26s cubic-bezier(.3, 1.5, .5, 1) .12s both; }
 @keyframes thunk { from { opacity: 0; transform: rotate(-5deg) scale(1.5); } to { opacity: .86; transform: rotate(-5deg) scale(1); } }
 .panel .pull { position: relative; margin: 18px 0 4px; padding: 0 0 0 30px; font-family: var(--display); font-size: 20px; line-height: 1.25; font-weight: 600; letter-spacing: -.01em; color: var(--ink); text-wrap: pretty; overflow-wrap: anywhere; }
@@ -2502,6 +2502,17 @@ window.Photos = (() => {
   const heroes = owner => [...document.querySelectorAll('.hero[data-owner]')].filter(el => sourcesOf(el).some(s => s.owner === owner));
   const smooth = () => matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
   const slideAt = track => Math.round(track.scrollLeft / Math.max(1, track.clientWidth));
+  // One file picker for the page, outside every hero: a hero redraws while sources load, and a picker whose input
+  // has left the page can lose the chosen photos (iOS Safari).
+  let picker = null, pickFor = null;
+  function pick(owner, label) {
+    if (!picker) {
+      picker = Object.assign(document.createElement('input'), { type: 'file', accept: 'image/*', multiple: true, hidden: true }); picker.setAttribute('data-ph-file', '');
+      picker.addEventListener('change', () => { const fs = [...picker.files], t = pickFor; picker.value = ''; if (t) add(t.owner, fs, t.label).catch(() => {}); });
+      document.body.appendChild(picker);
+    }
+    pickFor = { owner, label }; picker.click();
+  }
   function draw(el) {
     const srcs = sourcesOf(el), own = srcs[0], e = entry(own.owner), list = combined(srcs), n = list.length;
     const full = Object.keys(e.recs || {}).length >= MAX, write = el.dataset.w === '1' && canWrite() && !!api;
@@ -2511,25 +2522,21 @@ window.Photos = (() => {
     el._sig = sig;
     const old = el.querySelector('.hero-track'), was = old && old.children[slideAt(old)], keep = was ? was.dataset.o + '/' + was.dataset.id : null;
     const focus = el.contains(document.activeElement) ? (document.activeElement.matches('[data-ph-add]') ? 'add' : document.activeElement.dataset.o + '/' + document.activeElement.dataset.id) : null;
-    const file = write ? '<input type="file" accept="image/*" multiple hidden data-ph-file>' : '', busy = e.busy > 0;
+    const busy = e.busy > 0;
     let html = '';
     if (mode === 'photos') {
       const addTxt = full ? `${MAX} of ${MAX}` : busy ? 'Adding…' : '';
-      html = file + `<div class="hero-track" role="group" aria-label="${esc('Photos of ' + own.label)}">${list.map((p, i) => `<button type="button" class="hero-slide" data-i="${i}" data-o="${esc(p.owner)}" data-id="${esc(p.id)}" aria-label="${esc(`Photo ${i + 1} of ${n}, ${p.label}`)}"><img src="${esc(p.d)}" alt="" decoding="async"></button>`).join('')}</div>`
+      html = `<div class="hero-track" role="group" aria-label="${esc('Photos of ' + own.label)}">${list.map((p, i) => `<button type="button" class="hero-slide" data-i="${i}" data-o="${esc(p.owner)}" data-id="${esc(p.id)}" aria-label="${esc(`Photo ${i + 1} of ${n}, ${p.label}`)}"><img src="${esc(p.d)}" alt="" decoding="async"${i > 1 ? ' loading="lazy"' : ''}></button>`).join('')}</div>`
         + (el.dataset.bt ? `<span class="hero-chip hero-badge"><span aria-hidden="true">${esc(el.dataset.be)}</span>${esc(el.dataset.bt)}</span>` : '')
         + '<span class="hero-chip hero-src" hidden></span>'
         + (n > 1 ? (n <= DOTS ? `<span class="hero-dots" aria-hidden="true">${list.map(() => '<i></i>').join('')}</span>` : '<span class="hero-chip hero-count" aria-hidden="true"></span>')
           + `<button type="button" class="hero-nav prev" aria-label="Previous photo">${CHEV('M15 5l-7 7 7 7')}</button><button type="button" class="hero-nav next" aria-label="Next photo">${CHEV('M9 5l7 7-7 7')}</button>` : '')
         + (write ? `<button type="button" class="hero-chip hero-add" data-ph-add ${addTxt ? 'disabled' : ''} aria-label="${esc(full ? `${MAX} of ${MAX} photos, the limit` : busy ? 'Adding photos' : 'Add photos of ' + own.label)}">${addTxt || '+ Photo'}</button>` : '');
-    } else if (mode === 'empty') html = file + `<span class="hero-e" aria-hidden="true">${esc(el.dataset.e)}</span><p class="hero-msg">No photos yet</p>`
+    } else if (mode === 'empty') html = `<span class="hero-e" aria-hidden="true">${esc(el.dataset.e)}</span><p class="hero-msg">No photos yet</p>`
       + (write ? `<button type="button" class="hero-cta" data-ph-add ${busy ? 'disabled' : ''}>${busy ? 'Adding…' : 'Add the first photo'}</button>` : '');
     el.className = 'hero ' + (mode === 'photos' ? 'has' : 'cover') + (mode === 'loading' ? ' loading' : '');
     el.innerHTML = html;
-    const fileIn = el.querySelector('[data-ph-file]');
-    if (fileIn) {
-      el.querySelectorAll('[data-ph-add]').forEach(b => b.addEventListener('click', () => fileIn.click()));
-      fileIn.addEventListener('change', () => { const fs = [...fileIn.files]; fileIn.value = ''; add(own.owner, fs, own.label).catch(() => {}); });
-    }
+    if (write) el.querySelectorAll('[data-ph-add]').forEach(b => b.addEventListener('click', () => pick(own.owner, own.label)));
     const track = el.querySelector('.hero-track');
     if (track) {
       const at = () => Math.max(0, Math.min(n - 1, slideAt(track)));
@@ -2550,7 +2557,7 @@ window.Photos = (() => {
     const f = focus === 'add' ? el.querySelector('[data-ph-add]:not([disabled])') : focus ? [...el.querySelectorAll('.hero-slide')].find(b => b.dataset.o + '/' + b.dataset.id === focus) : null;
     if (f) f.focus({ preventScroll: true });
   }
-  function refresh(owner) { heroes(owner).forEach(draw); if (lb && lb.srcs.some(s => s.owner === owner)) showLb(true); }
+  function refresh(owner) { heroes(owner).forEach(el => { if (el._raf) return; el._raf = requestAnimationFrame(() => { el._raf = 0; if (el.isConnected) draw(el); }); }); if (lb && lb.srcs.some(s => s.owner === owner)) showLb(true); }
   function mount(root) { root.querySelectorAll('.hero[data-owner]').forEach(el => { draw(el); if (api) sourcesOf(el).forEach(s => load(s.owner).catch(() => {})); }); } // every source at once, each through its own cache
 
   // ---------- lightbox ----------
@@ -2960,7 +2967,7 @@ window.Photos = (() => {
     const roof = h.max === Math.max(...HOODS.filter(x => x.region === h.region).map(x => x.max)), dis = state.canWrite ? '' : 'disabled';
     const keepNote = panel.dataset.name === name && panel.querySelector('#note') ? panel.querySelector('#note').value : null; panel.dataset.name = name;
     setHead({ eyebrow: `${REGIONS[h.region].label} · ${VIBES[info.vibe].label}`, dot: `var(--${VIBES[info.vibe].cls})`, title: esc(name), tools: [logTool(name, null)] });
-    const extras = secs.slice().sort((a, b) => !!b.star - !!a.star).map(s => ({ owner: ownerKey.section(name, s.name), label: s.name })).concat(mine.map(spotSrc)); // sections in list order, then spots, newest first
+    const extras = mine.map(spotSrc).concat(secs.slice().sort((a, b) => !!b.star - !!a.star).map(s => ({ owner: ownerKey.section(name, s.name), label: s.name }))); // spots first, newest first (photos mostly live there and the hero caps its sources), then sections in list order
     panel.innerHTML = `
       ${hero(ownerKey.place(name), name, Object.assign(vibeLook(name), { extras }))}
       <p class="lead">${esc(info.line)}</p>
@@ -3008,7 +3015,7 @@ window.Photos = (() => {
     if (!paint(`
       ${hero(ownerKey.spot(id), sp.name, { c: k.c, e: k.e, badge: { e: k.e, t: k.label } })}
       ${sp.where ? `<p class="lead">${esc(sp.where)}</p>` : ''}
-      <div class="verdict">${r ? `<span class="vstars" role="img" aria-label="${r} of 5 stars"><span aria-hidden="true">${'★'.repeat(r)}<i>${'★'.repeat(5 - r)}</i></span></span><b class="vword">${VERDICT[r]}</b>` : ''}<span class="pstamp ${want ? 'want' : 'been'}">${want ? 'Want to try' : `Been${sp.at ? ' · ' + esc(niceDate(sp.at)) : ''}`}</span></div>
+      <div class="vrow">${r ? `<span class="vstars" role="img" aria-label="${r} of 5 stars"><span aria-hidden="true">${'★'.repeat(r)}<i>${'★'.repeat(5 - r)}</i></span></span><b class="vword">${VERDICT[r]}</b>` : ''}<span class="pstamp ${want ? 'want' : 'been'}">${want ? 'Want to try' : `Been${sp.at ? ' · ' + esc(niceDate(sp.at)) : ''}`}</span></div>
       ${sp.note ? `<p class="pull">${esc(sp.note)}</p>` : ''}
       ${streetMap(mq, 17, sp.name)}
       <div class="actions" style="margin-top:18px">${sp.status === 'want' ? `<button type="button" class="btn primary" id="been-now">Been here now</button>` : ''}<a class="btn" href="${esc(mapsLink(mq))}" target="_blank" rel="noopener">Open in Maps</a><button type="button" class="btn quiet" id="edit">Edit</button><button type="button" class="btn quiet" id="del" style="color:var(--bad)">Delete</button></div>

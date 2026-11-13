@@ -99,6 +99,17 @@ window.Photos = (() => {
   const heroes = owner => [...document.querySelectorAll('.hero[data-owner]')].filter(el => sourcesOf(el).some(s => s.owner === owner));
   const smooth = () => matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
   const slideAt = track => Math.round(track.scrollLeft / Math.max(1, track.clientWidth));
+  // One file picker for the page, outside every hero: a hero redraws while sources load, and a picker whose input
+  // has left the page can lose the chosen photos (iOS Safari).
+  let picker = null, pickFor = null;
+  function pick(owner, label) {
+    if (!picker) {
+      picker = Object.assign(document.createElement('input'), { type: 'file', accept: 'image/*', multiple: true, hidden: true }); picker.setAttribute('data-ph-file', '');
+      picker.addEventListener('change', () => { const fs = [...picker.files], t = pickFor; picker.value = ''; if (t) add(t.owner, fs, t.label).catch(() => {}); });
+      document.body.appendChild(picker);
+    }
+    pickFor = { owner, label }; picker.click();
+  }
   function draw(el) {
     const srcs = sourcesOf(el), own = srcs[0], e = entry(own.owner), list = combined(srcs), n = list.length;
     const full = Object.keys(e.recs || {}).length >= MAX, write = el.dataset.w === '1' && canWrite() && !!api;
@@ -108,25 +119,21 @@ window.Photos = (() => {
     el._sig = sig;
     const old = el.querySelector('.hero-track'), was = old && old.children[slideAt(old)], keep = was ? was.dataset.o + '/' + was.dataset.id : null;
     const focus = el.contains(document.activeElement) ? (document.activeElement.matches('[data-ph-add]') ? 'add' : document.activeElement.dataset.o + '/' + document.activeElement.dataset.id) : null;
-    const file = write ? '<input type="file" accept="image/*" multiple hidden data-ph-file>' : '', busy = e.busy > 0;
+    const busy = e.busy > 0;
     let html = '';
     if (mode === 'photos') {
       const addTxt = full ? `${MAX} of ${MAX}` : busy ? 'Adding…' : '';
-      html = file + `<div class="hero-track" role="group" aria-label="${esc('Photos of ' + own.label)}">${list.map((p, i) => `<button type="button" class="hero-slide" data-i="${i}" data-o="${esc(p.owner)}" data-id="${esc(p.id)}" aria-label="${esc(`Photo ${i + 1} of ${n}, ${p.label}`)}"><img src="${esc(p.d)}" alt="" decoding="async"></button>`).join('')}</div>`
+      html = `<div class="hero-track" role="group" aria-label="${esc('Photos of ' + own.label)}">${list.map((p, i) => `<button type="button" class="hero-slide" data-i="${i}" data-o="${esc(p.owner)}" data-id="${esc(p.id)}" aria-label="${esc(`Photo ${i + 1} of ${n}, ${p.label}`)}"><img src="${esc(p.d)}" alt="" decoding="async"${i > 1 ? ' loading="lazy"' : ''}></button>`).join('')}</div>`
         + (el.dataset.bt ? `<span class="hero-chip hero-badge"><span aria-hidden="true">${esc(el.dataset.be)}</span>${esc(el.dataset.bt)}</span>` : '')
         + '<span class="hero-chip hero-src" hidden></span>'
         + (n > 1 ? (n <= DOTS ? `<span class="hero-dots" aria-hidden="true">${list.map(() => '<i></i>').join('')}</span>` : '<span class="hero-chip hero-count" aria-hidden="true"></span>')
           + `<button type="button" class="hero-nav prev" aria-label="Previous photo">${CHEV('M15 5l-7 7 7 7')}</button><button type="button" class="hero-nav next" aria-label="Next photo">${CHEV('M9 5l7 7-7 7')}</button>` : '')
         + (write ? `<button type="button" class="hero-chip hero-add" data-ph-add ${addTxt ? 'disabled' : ''} aria-label="${esc(full ? `${MAX} of ${MAX} photos, the limit` : busy ? 'Adding photos' : 'Add photos of ' + own.label)}">${addTxt || '+ Photo'}</button>` : '');
-    } else if (mode === 'empty') html = file + `<span class="hero-e" aria-hidden="true">${esc(el.dataset.e)}</span><p class="hero-msg">No photos yet</p>`
+    } else if (mode === 'empty') html = `<span class="hero-e" aria-hidden="true">${esc(el.dataset.e)}</span><p class="hero-msg">No photos yet</p>`
       + (write ? `<button type="button" class="hero-cta" data-ph-add ${busy ? 'disabled' : ''}>${busy ? 'Adding…' : 'Add the first photo'}</button>` : '');
     el.className = 'hero ' + (mode === 'photos' ? 'has' : 'cover') + (mode === 'loading' ? ' loading' : '');
     el.innerHTML = html;
-    const fileIn = el.querySelector('[data-ph-file]');
-    if (fileIn) {
-      el.querySelectorAll('[data-ph-add]').forEach(b => b.addEventListener('click', () => fileIn.click()));
-      fileIn.addEventListener('change', () => { const fs = [...fileIn.files]; fileIn.value = ''; add(own.owner, fs, own.label).catch(() => {}); });
-    }
+    if (write) el.querySelectorAll('[data-ph-add]').forEach(b => b.addEventListener('click', () => pick(own.owner, own.label)));
     const track = el.querySelector('.hero-track');
     if (track) {
       const at = () => Math.max(0, Math.min(n - 1, slideAt(track)));
@@ -147,7 +154,7 @@ window.Photos = (() => {
     const f = focus === 'add' ? el.querySelector('[data-ph-add]:not([disabled])') : focus ? [...el.querySelectorAll('.hero-slide')].find(b => b.dataset.o + '/' + b.dataset.id === focus) : null;
     if (f) f.focus({ preventScroll: true });
   }
-  function refresh(owner) { heroes(owner).forEach(draw); if (lb && lb.srcs.some(s => s.owner === owner)) showLb(true); }
+  function refresh(owner) { heroes(owner).forEach(el => { if (el._raf) return; el._raf = requestAnimationFrame(() => { el._raf = 0; if (el.isConnected) draw(el); }); }); if (lb && lb.srcs.some(s => s.owner === owner)) showLb(true); }
   function mount(root) { root.querySelectorAll('.hero[data-owner]').forEach(el => { draw(el); if (api) sourcesOf(el).forEach(s => load(s.owner).catch(() => {})); }); } // every source at once, each through its own cache
 
   // ---------- lightbox ----------

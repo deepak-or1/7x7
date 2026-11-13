@@ -215,12 +215,12 @@ a.btn { text-decoration: none; }
 .dots { display: inline-flex; gap: 2px; vertical-align: middle; } .dots i { width: 7px; height: 7px; border-radius: 2px; display: inline-block; background: var(--line-2); } .dots i.on { background: var(--v-fog); }
 
 /* a spot: verdict (stars, a word, a passport stamp) and the note as a pull-quote; a section's tags as soft pills */
-.verdict { display: flex; align-items: center; gap: 10px; margin: 2px 0 0; min-height: 34px; }
+.vrow { display: flex; align-items: center; gap: 10px; margin: 2px 0 0; min-height: 34px; }
 .vstars { font-size: 22px; line-height: 1; letter-spacing: 1px; color: var(--star); white-space: nowrap; } .vstars i { font-style: normal; color: var(--line-2); }
 .vword { font-family: var(--display); font-weight: 700; font-size: 16px; letter-spacing: -.01em; color: var(--ink); white-space: nowrap; }
 .pstamp { margin-left: auto; flex: none; font-family: var(--display); font-weight: 700; font-size: 12px; line-height: 1; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; color: var(--accent); border: 2px solid currentColor; border-radius: 6px; padding: 5px 9px; outline: 1px solid color-mix(in srgb, currentColor 45%, transparent); outline-offset: -5px; transform: rotate(-5deg); opacity: .86; }
 .pstamp.want { color: var(--want); border-style: dashed; }
-.verdict .pstamp:first-child { margin-left: 2px; } /* no rating: the stamp alone, at the start of the row */
+.vrow .pstamp:first-child { margin-left: 2px; } /* no rating: the stamp alone, at the start of the row */
 .pstamp.thunk { animation: thunk .26s cubic-bezier(.3, 1.5, .5, 1) .12s both; }
 @keyframes thunk { from { opacity: 0; transform: rotate(-5deg) scale(1.5); } to { opacity: .86; transform: rotate(-5deg) scale(1); } }
 .panel .pull { position: relative; margin: 18px 0 4px; padding: 0 0 0 30px; font-family: var(--display); font-size: 20px; line-height: 1.25; font-weight: 600; letter-spacing: -.01em; color: var(--ink); text-wrap: pretty; overflow-wrap: anywhere; }

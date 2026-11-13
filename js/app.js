@@ -329,7 +329,7 @@
     const roof = h.max === Math.max(...HOODS.filter(x => x.region === h.region).map(x => x.max)), dis = state.canWrite ? '' : 'disabled';
     const keepNote = panel.dataset.name === name && panel.querySelector('#note') ? panel.querySelector('#note').value : null; panel.dataset.name = name;
     setHead({ eyebrow: `${REGIONS[h.region].label} · ${VIBES[info.vibe].label}`, dot: `var(--${VIBES[info.vibe].cls})`, title: esc(name), tools: [logTool(name, null)] });
-    const extras = secs.slice().sort((a, b) => !!b.star - !!a.star).map(s => ({ owner: ownerKey.section(name, s.name), label: s.name })).concat(mine.map(spotSrc)); // sections in list order, then spots, newest first
+    const extras = mine.map(spotSrc).concat(secs.slice().sort((a, b) => !!b.star - !!a.star).map(s => ({ owner: ownerKey.section(name, s.name), label: s.name }))); // spots first, newest first (photos mostly live there and the hero caps its sources), then sections in list order
     panel.innerHTML = `
       ${hero(ownerKey.place(name), name, Object.assign(vibeLook(name), { extras }))}
       <p class="lead">${esc(info.line)}</p>
@@ -377,7 +377,7 @@
     if (!paint(`
       ${hero(ownerKey.spot(id), sp.name, { c: k.c, e: k.e, badge: { e: k.e, t: k.label } })}
       ${sp.where ? `<p class="lead">${esc(sp.where)}</p>` : ''}
-      <div class="verdict">${r ? `<span class="vstars" role="img" aria-label="${r} of 5 stars"><span aria-hidden="true">${'★'.repeat(r)}<i>${'★'.repeat(5 - r)}</i></span></span><b class="vword">${VERDICT[r]}</b>` : ''}<span class="pstamp ${want ? 'want' : 'been'}">${want ? 'Want to try' : `Been${sp.at ? ' · ' + esc(niceDate(sp.at)) : ''}`}</span></div>
+      <div class="vrow">${r ? `<span class="vstars" role="img" aria-label="${r} of 5 stars"><span aria-hidden="true">${'★'.repeat(r)}<i>${'★'.repeat(5 - r)}</i></span></span><b class="vword">${VERDICT[r]}</b>` : ''}<span class="pstamp ${want ? 'want' : 'been'}">${want ? 'Want to try' : `Been${sp.at ? ' · ' + esc(niceDate(sp.at)) : ''}`}</span></div>
       ${sp.note ? `<p class="pull">${esc(sp.note)}</p>` : ''}
       ${streetMap(mq, 17, sp.name)}
       <div class="actions" style="margin-top:18px">${sp.status === 'want' ? `<button type="button" class="btn primary" id="been-now">Been here now</button>` : ''}<a class="btn" href="${esc(mapsLink(mq))}" target="_blank" rel="noopener">Open in Maps</a><button type="button" class="btn quiet" id="edit">Edit</button><button type="button" class="btn quiet" id="del" style="color:var(--bad)">Delete</button></div>

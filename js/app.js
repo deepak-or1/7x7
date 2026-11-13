@@ -47,7 +47,9 @@
   const state = { loc: { region: 'all', hood: null, sub: null, spot: null }, view: null, lens: 'vibe', filters: new Set(), query: '', showAll: true, theme: 'system', done: {}, want: {}, spots: {}, placing: false, pending: null, draft: null, canWrite: true, store: 'none', quiz: null, hover: -1 };
   try { const s = JSON.parse(localStorage.getItem('sbs-prefs-v3') || localStorage.getItem('sbs-prefs-v2') || '{}'); if (LENSES[s.lens || s.mode]) state.lens = s.lens || s.mode; if (s.showAll === false) state.showAll = false; if (s.theme === 'light' || s.theme === 'dark') state.theme = s.theme; } catch (e) {}
   const savePrefs = () => { try { localStorage.setItem('sbs-prefs-v3', JSON.stringify({ lens: state.lens, showAll: state.showAll, theme: state.theme })); } catch (e) {} };
-  function applyTheme() { if (state.theme === 'light' || state.theme === 'dark') document.documentElement.setAttribute('data-theme', state.theme); else document.documentElement.removeAttribute('data-theme'); }
+  function applyTheme() { if (state.theme === 'light' || state.theme === 'dark') document.documentElement.setAttribute('data-theme', state.theme); else document.documentElement.removeAttribute('data-theme'); syncThemeColor(); }
+  // the browser / PWA status band follows the theme the page actually shows: the paper tone at the top of the map
+  function syncThemeColor() { const c = getComputedStyle(document.documentElement).getPropertyValue('--land-other').trim(); if (c) document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.setAttribute('content', c)); } // both metas (their media attributes only matter before this runs)
   applyTheme();
   const isDone = i => !!state.done[slug(HOODS[i].name)];
   const isWant = i => !!state.want[slug(HOODS[i].name)];
@@ -64,8 +66,8 @@
     spots: spotList, marks: marksFor, selectedSpot: () => state.loc.spot,
     alphaFor(i) { if (state.quiz) return 1; const filtered = state.filters.size > 0 && !matches(i) ? .25 : 1; const veil = !state.showAll && state.lens !== 'done' && !isDone(i) ? .35 : 1; return filtered * veil; },
     onTap, onHover, onGestureStart() { closeLenses(); },
-    // phone: the floating chrome (top card, control stack, legend) reserves its footprint so map labels avoid it
-    occluders() { if (isPhone() && document.documentElement.classList.contains('sheet-full')) return []; return (isPhone() ? ['.top', '#ctl .stack', '#legend'] : ['#ctl .stack', '#legend']).map(s => document.querySelector(s)).filter(el => el && el.offsetParent !== null && getComputedStyle(el).opacity !== '0').map(el => el.getBoundingClientRect()).filter(b => b.height > 0).map(b => [b.left - 4, b.top - 4, b.right + 4, b.bottom + 4]); },
+    // phone: the floating chrome (brand or trail pill, search button, control stack, legend) reserves its footprint so map labels avoid it
+    occluders() { if (isPhone() && document.documentElement.classList.contains('sheet-full')) return []; return (isPhone() ? ['.top .brand', '.top .search', '#trail', '#ctl .stack', '#legend'] : ['#ctl .stack', '#legend']).map(s => document.querySelector(s)).filter(el => el && el.offsetParent !== null && getComputedStyle(el).opacity !== '0').map(el => el.getBoundingClientRect()).filter(b => b.height > 0).map(b => [b.left - 4, b.top - 4, b.right + 4, b.bottom + 4]); },
   });
 
   function colorFor(i) {
@@ -186,10 +188,12 @@
     trailEl.querySelectorAll('[data-crumb]').forEach(b => b.addEventListener('click', () => { const c = crumbs[+b.dataset.crumb]; if (+b.dataset.crumb === crumbs.length - 1) flyToLoc(); else go(c.loc); }));
     trailEl.scrollLeft = 1e6;
     document.documentElement.classList.toggle('loc-deep', crumbs.length > 2); // phone: the legend is for the overview (landing, region)
+    trailEl.classList.remove('squeeze');
     // phone: when the trail does not fit, fold its leading crumbs into a '…' crumb instead of clipping a word
     if (isPhone() && crumbs.length > 2) {
       const bs = [...trailEl.querySelectorAll('[data-crumb]')];
       for (let h = 1; trailEl.scrollWidth > trailEl.clientWidth + 1 && h <= bs.length - 2; h++) bs.forEach((b, j) => { const sep = b.nextElementSibling; if (j < h - 1) { b.hidden = true; if (sep) sep.hidden = true; } else if (j === h - 1) { b.textContent = '…'; b.setAttribute('aria-label', crumbs[j].label); } });
+      if (trailEl.scrollWidth > trailEl.clientWidth + 1) trailEl.classList.add('squeeze'); // still too long: the last crumb ends in an ellipsis
       trailEl.scrollLeft = 1e6;
     }
   }
@@ -204,7 +208,7 @@
     else if (k === 'fog') el.innerHTML = `<span>Sunny</span><span class="ramp">${swatches('fog')}</span><span>Always foggy</span>`;
     else if (k === 'elev') el.innerHTML = `<span>Sea level</span><span class="ramp">${swatches('elev')}</span><span>${ft(MAXM).toLocaleString()} ft</span>`;
     else el.innerHTML = `<span><i style="--c:var(--accent)"></i>Walked</span><span><i style="--c:var(--grey-fill)"></i>Not yet</span>`;
-    el.innerHTML += `<span class="hint">Tap a place · drag · scroll to zoom</span>`;
+    el.innerHTML = `<div class="lgrow">${el.innerHTML}<span class="hint">Tap a place · drag · scroll to zoom</span></div>`; // the row: display: contents on desktop, the phone's sideways scroller
   }
   function closeLenses() { lensesEl.classList.remove('on'); lensBtn.setAttribute('aria-expanded', 'false'); }
   lensBtn.addEventListener('click', e => { e.stopPropagation(); const on = !lensesEl.classList.contains('on'); lensesEl.classList.toggle('on', on); lensBtn.setAttribute('aria-expanded', String(on)); });
@@ -684,10 +688,10 @@
       const l = state.loc; const v = l.hood ? null : map.fitView(...map.regionBBox(l.region), 1.06, 0); if (v) { map.jumpTo(v); } else { const bb = map.regionBBox(l.region); map.jumpTo(map.fitView(bb[0], bb[1], bb[2], bb[3], 1.06, 0)); flyToLoc(900); }
     }
     connectStore();
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => map.redraw());
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { map.redraw(); renderTrail(); }); // the trail folds by measured width: measure again in the real font
   }
-  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { map.refreshPalette(); recolor(false); });
-  window.addEventListener('resize', () => { map.resize(); map.redraw(); }); // resize() also catches a devicePixelRatio change (browser zoom)
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { syncThemeColor(); map.refreshPalette(); recolor(false); });
+  window.addEventListener('resize', () => { map.resize(); map.redraw(); renderTrail(); }); // resize() also catches a devicePixelRatio change (browser zoom)
   window.__sbs = { map, state, go, sheet, maps: { spotQuery, areaQuery, mapsLink }, photos: window.Photos ? Object.assign(Object.create(window.Photos), { ownerKey }) : null }; // for tests and the console
   window.claude?.hot?.snapshot?.(() => ({ loc: state.loc }));
   window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});

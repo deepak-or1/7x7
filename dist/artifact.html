@@ -22,8 +22,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="theme-color" content="#c8d5dc" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0e151d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#e3dccb" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1f2733" media="(prefers-color-scheme: dark)">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&display=swap">
@@ -176,6 +176,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .legend i { width: 9px; height: 9px; display: inline-block; background: var(--c); border-radius: 2px; }
 .legend .ramp { gap: 1px; } .legend .ramp i { border-radius: 0; } .legend .ramp i:first-child { border-radius: 2px 0 0 2px; } .legend .ramp i:last-child { border-radius: 0 2px 2px 0; }
 .legend .hint { color: var(--muted); font-weight: 400; }
+.lgrow { display: contents; } /* desktop: the items sit straight in the legend's row; the phone makes it a sideways scroller */
 
 /* ---------- the logbook (desktop: right panel; phone: bottom sheet) ---------- */
 .sheet { position: absolute; right: max(16px, env(safe-area-inset-right, 0px)); top: max(16px, env(safe-area-inset-top, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); width: var(--side); z-index: 5; display: flex; flex-direction: column; overflow: hidden; }
@@ -396,38 +397,61 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
 
 /* ---------- phone ---------- */
 @media (max-width: 880px) {
-  :root { --side: 0px; }
-  .top { left: max(10px, env(safe-area-inset-left, 0px)); right: max(10px, env(safe-area-inset-right, 0px)); top: max(10px, env(safe-area-inset-top, 0px)); width: auto; max-width: none; }
-  /* top card: one 44-48px row. Landing shows the brand + search; deeper screens swap the brand for the trail
-     (search button on the right). The only back control is the sheet's, in thumb reach. Search takes the row when active. */
-  .brandrow { padding: 2px 2px 2px 12px; gap: 8px; min-height: 48px; }
+  /* warm paper glass: the floating chrome is translucent paper over the map (tokens below, dark at the end of the file) */
+  :root { --side: 0px; --m: 12px; --sheet-bg: #faf7f0;
+    --glass: rgba(248,244,235,.76); --glass-strong: rgba(250,247,240,.92); --glass-edge: rgba(70,55,30,.10); --glass-hi: rgba(255,255,255,.55);
+    --glass-shadow: 0 8px 24px -12px rgba(60,45,20,.28), 0 1px 2px rgba(60,45,20,.06); --glass-blur: blur(20px) saturate(1.25);
+    --sheet-shadow: 0 -10px 30px -16px rgba(60,45,20,.30); }
+  .top .brand, .search::before, .top .trail::before, .legend, .ctl .stack, .lenses { background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); border: 0; box-shadow: inset 0 0 0 1px var(--glass-edge), inset 0 1px 0 var(--glass-hi), var(--glass-shadow); }
+  /* top: no card. A brand pill at the left, a round search button at the right, the map between them. Deeper screens swap
+     the brand for the trail pill; search takes the row when active. The only back control is the sheet's, in thumb reach. */
+  .top.surface { left: max(var(--m), env(safe-area-inset-left, 0px)); right: max(var(--m), env(safe-area-inset-right, 0px)); top: max(var(--m), env(safe-area-inset-top, 0px)); width: auto; max-width: none; min-height: 44px; flex-direction: row; align-items: center; gap: 8px; background: none; border: 0; border-radius: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; pointer-events: none; }
+  .brandrow { display: contents; }
+  .top .brand, .top .search, .top .trail { pointer-events: auto; }
+  .sheet-full:not(.searching) .top :is(.brand, .search, .trail) { pointer-events: none; } /* hidden under the full sheet: not tappable in the strip above it */
+  .top .brand { flex: none; order: 1; height: 40px; display: flex; align-items: center; padding: 0 16px 1px; border-radius: 999px; }
   .brand h1 { font-size: 17px; } .brand p { display: none; }
-  .search input { width: 44px; height: 44px; padding: 0 10px 0 40px; font-size: 16px; color: transparent; border-color: transparent; background: transparent; }
-  .search svg { left: 13px; width: 18px; height: 18px; stroke: var(--ink); } .search input:not(:focus):not(.has) { padding: 0; }
-  .search input:focus, .search input.has { width: 100%; color: var(--ink); background: var(--paper); border-color: var(--line); }
+  .top .search { order: 3; margin: 0 -2px 0 auto; width: 44px; height: 44px; isolation: isolate; } /* -2px: the 40px disc's edge lines up with the controls' edge */
+  .search::before { content: ""; position: absolute; inset: 2px; border-radius: 999px; z-index: -1; transition: background .2s; }
+  .search input { display: block; width: 44px; height: 44px; padding: 0; font-size: 16px; color: transparent; border: 0; border-radius: 999px; background: transparent; }
+  .search svg { left: 13px; width: 18px; height: 18px; stroke: var(--ink); }
+  .search input:focus, .search input.has { width: 100%; padding: 0 14px 0 40px; color: var(--ink); background: transparent; }
   .search input::placeholder { color: transparent; } .search input:focus::placeholder { color: var(--muted); }
-  .brandrow:is(:focus-within, :has(input.has)) .brand { display: none; } .brandrow:is(:focus-within, :has(input.has)) .search { flex: 1; }
-  .trail { padding: 0 4px 0 8px; font-size: 14px; border-top: 0; }
-  .trail button { font-size: 14px; padding: 0 6px; min-height: 44px; }
+  .search input::-webkit-search-cancel-button { filter: grayscale(1); opacity: .6; } /* Chrome's blue clear button, in ink grey */
+  .top:has(#q:focus, #q.has) .brand, .top:has(#q:focus, #q.has) .trail { display: none; }
+  .top:has(#q:focus, #q.has) .search { flex: 1; margin-left: 0; width: auto; }
+  .top:has(#q:focus, #q.has) .search::before { background: var(--sheet-bg); } /* the sheet opens full under it: one paper surface */
+  /* trail pill: hugs its crumbs, never wider than the room left of the search button; app.js folds leading crumbs into '…'
+     and, if the last crumb alone is still too long, adds .squeeze so it ends in an ellipsis. The row is 44px (the crumb
+     targets) and does not clip or scroll, so its 40px glass pill (the ::before) keeps its shadow and blur. */
+  .top .trail { order: 2; flex: 0 1 auto; min-width: 0; height: 44px; padding: 0 8px; gap: 0; border: 0; position: relative; isolation: isolate; overflow: visible; font-size: 14px; }
+  .top .trail::before { content: ""; position: absolute; inset: 2px 0; border-radius: 999px; z-index: -1; }
+  .trail button { flex: none; } .trail.squeeze [aria-current="true"] { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .trail button { font-size: 14px; padding: 0 6px; min-height: 44px; color: var(--ink-2); } /* ink-2, not muted: 4.5:1 on glass over any place colour */
+  .trail .sep { color: var(--ink-2); opacity: .45; }
   .trail:not(.deep) { display: none; }
-  .top:has(.trail.deep) { flex-direction: row-reverse; align-items: center; }
   .top:has(.trail.deep) .brand { display: none; }
-  .top:has(.trail.deep) .brandrow { padding: 0 2px; min-height: 44px; flex: none; }
-  .top:has(.trail.deep) .trail { flex: 1; min-width: 0; }
-  .top:has(.trail.deep):is(:focus-within, :has(input.has)) .trail { display: none; }
-  .top:has(.trail.deep):is(:focus-within, :has(input.has)) .brandrow { flex: 1; }
   .trail .back svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-  .legend { display: flex; flex-wrap: wrap; left: max(10px, env(safe-area-inset-left, 0px)); right: auto; max-width: calc(100% - 90px); bottom: calc(var(--sheet-vis) + 12px); padding: 6px 10px; gap: 4px 10px; font-size: 11.5px; transition: bottom .42s var(--ease), opacity .2s; }
-  .legend.lifting { transition: none; } .legend .hint { display: none; } .sheet-full .legend { opacity: 0; }
-  .ctl .stack button { width: 44px; height: 44px; }
-  .lenses { right: 0; bottom: calc(100% + 8px); width: min(340px, calc(100vw - 20px)); padding: 6px; }
-  .lenses button { min-height: 52px; padding: 10px 12px; font-size: 15px; } .lenses button small { font-size: 13px; } .lenses .sw i { width: 11px; height: 11px; }
-  .ctl { right: max(10px, env(safe-area-inset-right, 0px)); bottom: calc(var(--sheet-vis) + 12px); transition: bottom .42s var(--ease), opacity .2s; }
+  /* legend: one capsule row at the bottom left, beside the controls; sideways scroll with soft edges when it does not fit */
+  .legend { display: flex; left: max(var(--m), env(safe-area-inset-left, 0px)); right: auto; max-width: calc(100% - 2 * var(--m) - 44px - 8px); height: 34px; bottom: calc(var(--sheet-vis) + var(--m)); padding: 0; gap: 0; border-radius: 999px; overflow: hidden; font-size: 12.5px; pointer-events: auto; transition: bottom .42s var(--ease), opacity .2s; }
+  .legend .lgrow { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 0 26px 0 14px; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; touch-action: pan-x;
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 10px, #000 calc(100% - 26px), transparent); mask-image: linear-gradient(to right, transparent, #000 10px, #000 calc(100% - 26px), transparent); }
+  .legend .lgrow::-webkit-scrollbar { display: none; }
+  .legend span { gap: 6px; } .legend span:not(.ramp) i { width: 8px; height: 8px; border-radius: 50%; }
+  .legend.lifting { transition: none; } .legend .hint { display: none; } .sheet-full .legend { opacity: 0; pointer-events: none; }
+  /* controls: a slim capsule at the bottom right, its bottom on the legend's */
+  .ctl .stack { width: 44px; border-radius: 16px; }
+  .ctl .stack button { width: 44px; height: 44px; border-top: 0; position: relative; }
+  .ctl .stack button + button::before { content: ""; position: absolute; top: 0; left: 10px; right: 10px; height: 1px; background: var(--glass-edge); }
+  .ctl .stack button:hover { background: transparent; }
+  .lenses { right: 0; bottom: calc(100% + 8px); width: min(340px, calc(100vw - 2 * var(--m))); padding: 6px; border-radius: 18px; background: var(--glass-strong); }
+  .lenses button { min-height: 52px; padding: 10px 12px; font-size: 15px; border-radius: 12px; } .lenses button small { font-size: 13px; } .lenses .sw i { width: 11px; height: 11px; }
+  .ctl { right: max(var(--m), env(safe-area-inset-right, 0px)); bottom: calc(var(--sheet-vis) + var(--m)); transition: bottom .42s var(--ease), opacity .2s; }
   .ctl.lifting { transition: none; }
   #zoom-in, #zoom-out { display: none; }
   .sheet-full .ctl, .sheet-full .top { opacity: 0; pointer-events: none; transition: opacity .2s; }
   .searching.sheet-full .top { opacity: 1; pointer-events: auto; } .searching .ctl { opacity: 0; pointer-events: none; } /* search: card pinned, sheet full under it */
-  .sheet { left: 0; right: 0; top: auto; bottom: 0; width: auto; border-radius: 18px 18px 0 0; transform: translateY(var(--sheet-y)); will-change: transform; transition: transform .42s var(--ease); border-left: 0; border-right: 0; border-bottom: 0; background: var(--sheet-bg, var(--paper)); -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: 0 -8px 30px -12px rgba(0,0,0,.35), inset 0 1px 0 var(--edge); }
+  .sheet { left: 0; right: 0; top: auto; bottom: 0; width: auto; border-radius: 24px 24px 0 0; transform: translateY(var(--sheet-y)); will-change: transform; transition: transform .42s var(--ease); border: 0; background: var(--sheet-bg, var(--paper)); -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: var(--sheet-shadow); }
   .sheet.lifting { transition: none; }
   .grip { display: block; flex: none; height: 18px; position: relative; touch-action: none; }
   .grip::after { content: ""; position: absolute; left: 50%; top: 7px; width: 36px; height: 4px; border-radius: 2px; background: var(--line-2); transform: translateX(-50%); }
@@ -441,7 +465,7 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
   .head h2 { grid-area: 2/1/3/3; margin-top: 2px; font-size: 26px; line-height: 1.05; }
   .panel { padding: 6px max(16px, env(safe-area-inset-left, 0px)) calc(32px + var(--kb, 0px) + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
   .sheet:not(.full) .panel { overflow: hidden; }
-  .toast { top: auto; bottom: calc(var(--sheet-vis) + 60px); transform: translateX(-50%) translateY(8px); transition: opacity .25s, transform .25s var(--ease), bottom .42s var(--ease); }
+  .toast { top: auto; bottom: calc(var(--sheet-vis) + 60px); transform: translateX(-50%) translateY(8px); transition: opacity .25s, transform .25s var(--ease), bottom .42s var(--ease); border-radius: 20px; padding: 10px 16px; background: var(--toast-bg, var(--ink)); color: var(--toast-ink, var(--paper)); box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow); width: max-content; max-width: calc(100% - 2 * (max(var(--m), env(safe-area-inset-right, 0px)) + 44px + 8px)); white-space: normal; text-align: center; text-overflow: clip; } /* clear of the controls; a long message wraps */
   .sheet-full .toast { bottom: calc(24px + env(safe-area-inset-bottom, 0px)); top: auto; }
   .tip { display: none; }
   .cols2 { columns: 1; }
@@ -459,7 +483,7 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
   .rate { gap: 0; } .rate button { width: 44px; height: 44px; font-size: 28px; padding: 0; color: var(--muted); opacity: .55; } .rate button.on { color: var(--accent); opacity: 1; }
   .field input, .field select, .field textarea, textarea.note { font-size: 16px; padding: 11px 12px; min-height: 44px; }
   textarea.note, .field textarea { resize: none; min-height: 88px; }
-  .grip { height: 22px; } .grip::after { top: 8px; width: 40px; height: 5px; border-radius: 3px; background: var(--muted); opacity: .5; }
+  .grip { height: 22px; } .grip::after { top: 9px; width: 36px; height: 4px; border-radius: 2px; background: var(--muted); opacity: .35; }
   .progress small .act { border: 0; background: transparent; font: inherit; font-weight: 600; color: var(--accent); cursor: pointer; padding: 10px 0; margin: -10px 0; }
   .lenses button { justify-items: stretch; } .lenses .sw { justify-self: end; } /* labels share one left edge */
   .panel h3 { justify-content: flex-start; } .panel h3 .n { margin-left: auto; } .panel h3 .n:has(+ .act) { margin-left: 0; } .panel h3 .act { margin-left: auto; } /* count beside the label, action at the right */
@@ -499,8 +523,14 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
   .lb-btn { background: rgba(0, 0, 0, .45); }
   .chips button[aria-pressed="true"] { background: var(--seg-on, var(--ink)); color: var(--seg-on-ink, var(--paper)); border-color: var(--seg-on, var(--ink)); text-decoration: none; }
 }
-@media (max-width: 880px) and (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --sheet-bg: #1b242d; --seg-on: #3a4652; --seg-on-ink: #eaeff3; --primary: var(--accent); --primary-ink: var(--accent-ink); --pill: var(--paper-3); } }
-@media (max-width: 880px) { :root[data-theme="dark"] { --sheet-bg: #1b242d; --seg-on: #3a4652; --seg-on-ink: #eaeff3; --primary: var(--accent); --primary-ink: var(--accent-ink); --pill: var(--paper-3); } }
+/* phone, light (system light, or chosen light on a dark system): warm the neutrals to the map's paper; ink stays navy, muted turns
+   warm grey (5:1 or better on every paper tone, where the cool one was 4.2:1) */
+@media (max-width: 880px) and (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --paper: #fdfbf6; --paper-2: #f4efe4; --paper-3: #ebe4d6; --line: #e8e1d2; --line-2: #d2c9b6; --muted: #6b6559; } }
+@media (max-width: 880px) { :root[data-theme="light"] { --paper: #fdfbf6; --paper-2: #f4efe4; --paper-3: #ebe4d6; --line: #e8e1d2; --line-2: #d2c9b6; --muted: #6b6559; } }
+@media (max-width: 880px) and (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --sheet-bg: #1b242d; --seg-on: #3a4652; --seg-on-ink: #eaeff3; --primary: var(--accent); --primary-ink: var(--accent-ink); --pill: var(--paper-3);
+  --glass: rgba(22,30,40,.8); --glass-strong: rgba(27,36,45,.92); --glass-edge: rgba(255,255,255,.08); --glass-hi: rgba(255,255,255,.06); --glass-shadow: 0 10px 28px -12px rgba(0,0,0,.65), 0 1px 2px rgba(0,0,0,.3); --sheet-shadow: 0 -8px 30px -12px rgba(0,0,0,.35), inset 0 1px 0 var(--edge); --toast-bg: #2b3743; --toast-ink: #eaeff3; } }
+@media (max-width: 880px) { :root[data-theme="dark"] { --sheet-bg: #1b242d; --seg-on: #3a4652; --seg-on-ink: #eaeff3; --primary: var(--accent); --primary-ink: var(--accent-ink); --pill: var(--paper-3);
+  --glass: rgba(22,30,40,.8); --glass-strong: rgba(27,36,45,.92); --glass-edge: rgba(255,255,255,.08); --glass-hi: rgba(255,255,255,.06); --glass-shadow: 0 10px 28px -12px rgba(0,0,0,.65), 0 1px 2px rgba(0,0,0,.3); --sheet-shadow: 0 -8px 30px -12px rgba(0,0,0,.35), inset 0 1px 0 var(--edge); --toast-bg: #2b3743; --toast-ink: #eaeff3; } }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 
 </style>
@@ -2685,7 +2715,9 @@ window.Photos = (() => {
   const state = { loc: { region: 'all', hood: null, sub: null, spot: null }, view: null, lens: 'vibe', filters: new Set(), query: '', showAll: true, theme: 'system', done: {}, want: {}, spots: {}, placing: false, pending: null, draft: null, canWrite: true, store: 'none', quiz: null, hover: -1 };
   try { const s = JSON.parse(localStorage.getItem('sbs-prefs-v3') || localStorage.getItem('sbs-prefs-v2') || '{}'); if (LENSES[s.lens || s.mode]) state.lens = s.lens || s.mode; if (s.showAll === false) state.showAll = false; if (s.theme === 'light' || s.theme === 'dark') state.theme = s.theme; } catch (e) {}
   const savePrefs = () => { try { localStorage.setItem('sbs-prefs-v3', JSON.stringify({ lens: state.lens, showAll: state.showAll, theme: state.theme })); } catch (e) {} };
-  function applyTheme() { if (state.theme === 'light' || state.theme === 'dark') document.documentElement.setAttribute('data-theme', state.theme); else document.documentElement.removeAttribute('data-theme'); }
+  function applyTheme() { if (state.theme === 'light' || state.theme === 'dark') document.documentElement.setAttribute('data-theme', state.theme); else document.documentElement.removeAttribute('data-theme'); syncThemeColor(); }
+  // the browser / PWA status band follows the theme the page actually shows: the paper tone at the top of the map
+  function syncThemeColor() { const c = getComputedStyle(document.documentElement).getPropertyValue('--land-other').trim(); if (c) document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.setAttribute('content', c)); } // both metas (their media attributes only matter before this runs)
   applyTheme();
   const isDone = i => !!state.done[slug(HOODS[i].name)];
   const isWant = i => !!state.want[slug(HOODS[i].name)];
@@ -2702,8 +2734,8 @@ window.Photos = (() => {
     spots: spotList, marks: marksFor, selectedSpot: () => state.loc.spot,
     alphaFor(i) { if (state.quiz) return 1; const filtered = state.filters.size > 0 && !matches(i) ? .25 : 1; const veil = !state.showAll && state.lens !== 'done' && !isDone(i) ? .35 : 1; return filtered * veil; },
     onTap, onHover, onGestureStart() { closeLenses(); },
-    // phone: the floating chrome (top card, control stack, legend) reserves its footprint so map labels avoid it
-    occluders() { if (isPhone() && document.documentElement.classList.contains('sheet-full')) return []; return (isPhone() ? ['.top', '#ctl .stack', '#legend'] : ['#ctl .stack', '#legend']).map(s => document.querySelector(s)).filter(el => el && el.offsetParent !== null && getComputedStyle(el).opacity !== '0').map(el => el.getBoundingClientRect()).filter(b => b.height > 0).map(b => [b.left - 4, b.top - 4, b.right + 4, b.bottom + 4]); },
+    // phone: the floating chrome (brand or trail pill, search button, control stack, legend) reserves its footprint so map labels avoid it
+    occluders() { if (isPhone() && document.documentElement.classList.contains('sheet-full')) return []; return (isPhone() ? ['.top .brand', '.top .search', '#trail', '#ctl .stack', '#legend'] : ['#ctl .stack', '#legend']).map(s => document.querySelector(s)).filter(el => el && el.offsetParent !== null && getComputedStyle(el).opacity !== '0').map(el => el.getBoundingClientRect()).filter(b => b.height > 0).map(b => [b.left - 4, b.top - 4, b.right + 4, b.bottom + 4]); },
   });
 
   function colorFor(i) {
@@ -2824,10 +2856,12 @@ window.Photos = (() => {
     trailEl.querySelectorAll('[data-crumb]').forEach(b => b.addEventListener('click', () => { const c = crumbs[+b.dataset.crumb]; if (+b.dataset.crumb === crumbs.length - 1) flyToLoc(); else go(c.loc); }));
     trailEl.scrollLeft = 1e6;
     document.documentElement.classList.toggle('loc-deep', crumbs.length > 2); // phone: the legend is for the overview (landing, region)
+    trailEl.classList.remove('squeeze');
     // phone: when the trail does not fit, fold its leading crumbs into a '…' crumb instead of clipping a word
     if (isPhone() && crumbs.length > 2) {
       const bs = [...trailEl.querySelectorAll('[data-crumb]')];
       for (let h = 1; trailEl.scrollWidth > trailEl.clientWidth + 1 && h <= bs.length - 2; h++) bs.forEach((b, j) => { const sep = b.nextElementSibling; if (j < h - 1) { b.hidden = true; if (sep) sep.hidden = true; } else if (j === h - 1) { b.textContent = '…'; b.setAttribute('aria-label', crumbs[j].label); } });
+      if (trailEl.scrollWidth > trailEl.clientWidth + 1) trailEl.classList.add('squeeze'); // still too long: the last crumb ends in an ellipsis
       trailEl.scrollLeft = 1e6;
     }
   }
@@ -2842,7 +2876,7 @@ window.Photos = (() => {
     else if (k === 'fog') el.innerHTML = `<span>Sunny</span><span class="ramp">${swatches('fog')}</span><span>Always foggy</span>`;
     else if (k === 'elev') el.innerHTML = `<span>Sea level</span><span class="ramp">${swatches('elev')}</span><span>${ft(MAXM).toLocaleString()} ft</span>`;
     else el.innerHTML = `<span><i style="--c:var(--accent)"></i>Walked</span><span><i style="--c:var(--grey-fill)"></i>Not yet</span>`;
-    el.innerHTML += `<span class="hint">Tap a place · drag · scroll to zoom</span>`;
+    el.innerHTML = `<div class="lgrow">${el.innerHTML}<span class="hint">Tap a place · drag · scroll to zoom</span></div>`; // the row: display: contents on desktop, the phone's sideways scroller
   }
   function closeLenses() { lensesEl.classList.remove('on'); lensBtn.setAttribute('aria-expanded', 'false'); }
   lensBtn.addEventListener('click', e => { e.stopPropagation(); const on = !lensesEl.classList.contains('on'); lensesEl.classList.toggle('on', on); lensBtn.setAttribute('aria-expanded', String(on)); });
@@ -3322,10 +3356,10 @@ window.Photos = (() => {
       const l = state.loc; const v = l.hood ? null : map.fitView(...map.regionBBox(l.region), 1.06, 0); if (v) { map.jumpTo(v); } else { const bb = map.regionBBox(l.region); map.jumpTo(map.fitView(bb[0], bb[1], bb[2], bb[3], 1.06, 0)); flyToLoc(900); }
     }
     connectStore();
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => map.redraw());
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { map.redraw(); renderTrail(); }); // the trail folds by measured width: measure again in the real font
   }
-  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { map.refreshPalette(); recolor(false); });
-  window.addEventListener('resize', () => { map.resize(); map.redraw(); }); // resize() also catches a devicePixelRatio change (browser zoom)
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { syncThemeColor(); map.refreshPalette(); recolor(false); });
+  window.addEventListener('resize', () => { map.resize(); map.redraw(); renderTrail(); }); // resize() also catches a devicePixelRatio change (browser zoom)
   window.__sbs = { map, state, go, sheet, maps: { spotQuery, areaQuery, mapsLink }, photos: window.Photos ? Object.assign(Object.create(window.Photos), { ownerKey }) : null }; // for tests and the console
   window.claude?.hot?.snapshot?.(() => ({ loc: state.loc }));
   window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});

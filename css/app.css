@@ -1,16 +1,16 @@
-/* Seven by Seven — the map is the screen. Chrome is flat, frosted, hairlined: no bubbles.
+/* Seven by Seven — the map is the screen. Chrome is warm paper glass, hairlined.
    Type: Bricolage Grotesque for display, Figtree for everything else. */
 :root {
   color-scheme: light;
   --water: #c8d5dc;
-  --paper: #ffffff;
-  --paper-2: #f3f5f7;
-  --paper-3: #e9edf0;
+  --paper: #fdfbf6;        /* warm neutrals: the chrome is the map's paper, not white */
+  --paper-2: #f4efe4;
+  --paper-3: #ebe4d6;
   --ink: #15202b;
   --ink-2: #3c4a57;
-  --muted: #68788a;
-  --line: #e1e7eb;
-  --line-2: #c6d0d7;
+  --muted: #6b6559;        /* warm grey, 5:1 or better on every paper tone */
+  --line: #e8e1d2;
+  --line-2: #d2c9b6;
   --accent: #e85a1f;
   --accent-soft: #fdeee6;
   --accent-ink: #ffffff;
@@ -37,9 +37,15 @@
   --hill1:#e9ece9; --hill2:#e3cfae; --hill3:#d0ab7f; --hill4:#b5825a; --hill5:#8c5b37;
   --k-food: #c98a66; --k-drink: #8c6a9b; --k-coffee: #8a6a4f; --k-view: #5f7a94; --k-shop: #d6b25c; --k-park: #7f9a6b; --k-other: #68788a;
   --glyph-face: #ffffff; --glyph-shade: #cfd5d9; --glyph-roof: #f6f8f9;
-  --frost: rgba(255,255,255,.82);
-  --shadow: 0 10px 30px -14px rgba(21,32,43,.35), 0 1px 1px rgba(21,32,43,.06);
-  --edge: rgba(21,32,43,.08);
+  /* warm paper glass: the floating chrome is translucent paper over the map; the logbook is near-opaque paper */
+  --glass: rgba(248,244,235,.76); --glass-strong: rgba(250,247,240,.92); --glass-edge: rgba(70,55,30,.10); --glass-hi: rgba(255,255,255,.55);
+  --glass-shadow: 0 8px 24px -12px rgba(60,45,20,.28), 0 1px 2px rgba(60,45,20,.06); --glass-blur: blur(20px) saturate(1.25);
+  --glass-ring: inset 0 0 0 1px var(--glass-edge), inset 0 1px 0 var(--glass-hi), var(--glass-shadow);
+  --glass-muted: #625c50; --glass-hover: rgba(70,55,30,.07);  /* muted text on glass: 4.5:1 or better over every place colour */
+  --sheet-bg: #faf7f0;
+  --sheet-shadow: 0 -10px 30px -16px rgba(60,45,20,.30);
+  --panel-shadow: 0 22px 48px -24px rgba(60,45,20,.38), 0 2px 8px -4px rgba(60,45,20,.10), inset 0 0 0 1px var(--glass-edge);
+  --m: 16px;               /* the one outer margin */
   --display: "Bricolage Grotesque", "Avenir Next", "Helvetica Neue", Arial, sans-serif;
   --sans: "Figtree", "Avenir Next", "Helvetica Neue", Arial, sans-serif;
   --r: 12px; --r-sm: 8px;
@@ -60,8 +66,10 @@
     --hill1:#2f2c2a; --hill2:#55432f; --hill3:#80603f; --hill4:#ad8458; --hill5:#d8ad7a;
     --k-food: #c98a66; --k-drink: #a483b4; --k-coffee: #a3826a; --k-view: #7f9ab3; --k-shop: #d6b25c; --k-park: #8fae7b; --k-other: #8e9ca8;
     --glyph-face: #2b3640; --glyph-shade: #1a232c; --glyph-roof: #35414c;
-    --frost: rgba(21,29,37,.84);
-    --shadow: 0 14px 34px -14px rgba(0,0,0,.8), 0 1px 1px rgba(0,0,0,.4); --edge: rgba(255,255,255,.08);
+    --sheet-bg: #1b242d; --seg-on: #3a4652; --seg-on-ink: #eaeff3; --primary: var(--accent); --primary-hover: color-mix(in srgb, var(--accent) 85%, #fff); --primary-ink: var(--accent-ink); --pill: var(--paper-3); --toast-bg: #2b3743; --toast-ink: #eaeff3;
+    --glass: rgba(22,30,40,.8); --glass-strong: rgba(27,36,45,.92); --glass-edge: rgba(255,255,255,.08); --glass-hi: rgba(255,255,255,.06); --glass-shadow: 0 10px 28px -12px rgba(0,0,0,.65), 0 1px 2px rgba(0,0,0,.3);
+    --glass-ring: inset 0 0 0 1px var(--glass-edge), inset 0 1px 0 var(--glass-hi), var(--glass-shadow); --glass-muted: #9ba8b3; --glass-hover: rgba(255,255,255,.08);
+    --sheet-shadow: 0 -8px 30px -12px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.08); --panel-shadow: 0 22px 48px -20px rgba(0,0,0,.7), 0 2px 8px -4px rgba(0,0,0,.35), inset 0 0 0 1px var(--glass-edge);
   }
 }
 :root[data-theme="dark"] {
@@ -75,8 +83,10 @@
   --hill1:#2f2c2a; --hill2:#55432f; --hill3:#80603f; --hill4:#ad8458; --hill5:#d8ad7a;
   --k-food: #c98a66; --k-drink: #a483b4; --k-coffee: #a3826a; --k-view: #7f9ab3; --k-shop: #d6b25c; --k-park: #8fae7b; --k-other: #8e9ca8;
   --glyph-face: #2b3640; --glyph-shade: #1a232c; --glyph-roof: #35414c;
-  --frost: rgba(21,29,37,.84);
-  --shadow: 0 14px 34px -14px rgba(0,0,0,.8), 0 1px 1px rgba(0,0,0,.4); --edge: rgba(255,255,255,.08);
+  --sheet-bg: #1b242d; --seg-on: #3a4652; --seg-on-ink: #eaeff3; --primary: var(--accent); --primary-hover: color-mix(in srgb, var(--accent) 85%, #fff); --primary-ink: var(--accent-ink); --pill: var(--paper-3); --toast-bg: #2b3743; --toast-ink: #eaeff3;
+  --glass: rgba(22,30,40,.8); --glass-strong: rgba(27,36,45,.92); --glass-edge: rgba(255,255,255,.08); --glass-hi: rgba(255,255,255,.06); --glass-shadow: 0 10px 28px -12px rgba(0,0,0,.65), 0 1px 2px rgba(0,0,0,.3);
+  --glass-ring: inset 0 0 0 1px var(--glass-edge), inset 0 1px 0 var(--glass-hi), var(--glass-shadow); --glass-muted: #9ba8b3; --glass-hover: rgba(255,255,255,.08);
+  --sheet-shadow: 0 -8px 30px -12px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.08); --panel-shadow: 0 22px 48px -20px rgba(0,0,0,.7), 0 2px 8px -4px rgba(0,0,0,.35), inset 0 0 0 1px var(--glass-edge);
 }
 
 * { box-sizing: border-box; }
@@ -85,7 +95,7 @@ body { margin: 0; background: var(--water); color: var(--ink); font-family: var(
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 [hidden] { display: none !important; } /* the attribute wins over display:flex/grid rules (.actions, .lf-been) */
-button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible { outline: 2px solid var(--focus, var(--accent)); outline-offset: 2px; }
 .app { position: fixed; inset: 0; overflow: hidden; }
 
 /* ---------- the map ---------- */
@@ -101,7 +111,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
 
 /* ---------- surfaces ---------- */
-.surface { background: var(--frost); -webkit-backdrop-filter: saturate(1.3) blur(14px); backdrop-filter: saturate(1.3) blur(14px); border: 1px solid var(--edge); border-radius: var(--r); box-shadow: var(--shadow); }
+.surface { background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); border: 0; border-radius: var(--r); box-shadow: var(--glass-ring); }
 
 /* ---------- top: brand, search, trail ---------- */
 .top { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); top: max(16px, env(safe-area-inset-top, 0px)); width: 372px; max-width: calc(100% - 32px); z-index: 4; display: flex; flex-direction: column; }
@@ -184,7 +194,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 a.btn { text-decoration: none; }
 .btn:hover { border-color: var(--ink); }
 .btn.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
-.btn.primary:hover { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.primary:hover { background: var(--primary-hover, var(--accent)); border-color: var(--primary-hover, var(--accent)); color: var(--accent-ink); }
 .btn.accent { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .btn.quiet { border-color: transparent; background: var(--paper-2); }
 .btn.quiet:hover { background: var(--paper-3); }
@@ -365,13 +375,63 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
 .quiz .verdict { font-weight: 600; min-height: 24px; margin: 8px 0; } .quiz .verdict.good { color: var(--good); } .quiz .verdict.bad { color: var(--bad); }
 .quiz .bar { margin: 10px 0 14px; }
 
+/* ---------- desktop: the phone's warm paper glass, at desktop scale ---------- */
+@media not all and (max-width: 880px) {
+  :root { --accent-deep: color-mix(in srgb, var(--accent) 78%, var(--ink)); --focus: var(--accent-deep); } /* accent that holds 3:1 on glass, light and dark */
+  /* top left: phone-like pieces. A wordmark pill and a search pill in one row; the trail pill below them under the root */
+  .top.surface { left: max(var(--m), env(safe-area-inset-left, 0px)); top: max(var(--m), env(safe-area-inset-top, 0px)); width: max-content; max-width: calc(100% - var(--side) - var(--m) - max(var(--m), env(safe-area-inset-left, 0px)) - max(var(--m), env(safe-area-inset-right, 0px))); flex-direction: row; align-items: center; gap: 8px; background: none; border-radius: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; pointer-events: none; }
+  .brandrow { display: contents; }
+  .top .brand, .top .search, .top .trail { pointer-events: auto; }
+  .top .brand, .search input, .top .trail { background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: var(--glass-ring); }
+  .top .brand { height: 40px; display: flex; align-items: center; padding: 0 16px 1px; border-radius: 999px; }
+  .brand h1 { font-size: 18px; } .brand h1 span { color: var(--accent-deep); }
+  .brand p { display: none; }
+  .search svg { left: 13px; z-index: 1; stroke: var(--glass-muted); }
+  .search input { width: 220px; height: 40px; padding: 0 14px 0 35px; border: 0; border-radius: 999px; }
+  .search input:focus { width: 280px; background: var(--sheet-bg); outline: 2px solid transparent; box-shadow: inset 0 0 0 1.5px var(--accent-deep), var(--glass-shadow); }
+  .search input::placeholder { color: var(--glass-muted); }
+  .search input::-webkit-search-cancel-button { filter: grayscale(1); opacity: .6; }
+  .top .trail { position: absolute; left: 0; top: calc(100% + 8px); max-width: calc(100vw - var(--side) - 3 * var(--m)); height: 36px; padding: 0 6px; border: 0; border-radius: 999px; color: var(--ink-2); }
+  .trail:not(.deep) { display: none; }
+  .trail button { color: var(--ink-2); } .trail button:hover { color: var(--ink); background: var(--glass-hover); }
+  .trail .sep { color: var(--ink-2); opacity: .45; }
+  /* legend: one fully rounded row at the bottom left; a sideways scroller with a soft edge when it does not fit */
+  .legend { left: max(var(--m), env(safe-area-inset-left, 0px)); bottom: calc(var(--m) + env(safe-area-inset-bottom, 0px)); height: 34px; max-width: calc(100% - var(--side) - 2 * var(--m) - max(var(--m), env(safe-area-inset-left, 0px)) - max(var(--m), env(safe-area-inset-right, 0px)) - 40px); padding: 0; gap: 0; border-radius: 999px; overflow: hidden; font-size: 12.5px; } /* the map keeps its wheel, drag and hover under the legend, as before */
+  .legend .lgrow { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 0 22px 0 14px; overflow-x: auto; scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 10px, #000 calc(100% - 22px), transparent); mask-image: linear-gradient(to right, transparent, #000 10px, #000 calc(100% - 22px), transparent); }
+  .legend .lgrow::-webkit-scrollbar { display: none; }
+  .legend span:not(.ramp) i { width: 8px; height: 8px; border-radius: 50%; }
+  .legend .hint { color: var(--glass-muted); margin-left: 2px; }
+  /* controls: a slim glass capsule, its bottom on the legend's and the logbook's */
+  .ctl { right: calc(var(--side) + var(--m) + max(var(--m), env(safe-area-inset-right, 0px))); bottom: calc(var(--m) + env(safe-area-inset-bottom, 0px)); }
+  .ctl .stack { width: 40px; border-radius: 999px; }
+  .ctl .stack button { width: 40px; height: 40px; border-top: 0; position: relative; }
+  .ctl .stack button + button::before { content: ""; position: absolute; top: 0; left: 10px; right: 10px; height: 1px; background: var(--glass-edge); }
+  .ctl .stack button:hover { background: var(--glass-hover); }
+  .ctl .stack button:focus-visible { outline-offset: -4px; border-radius: 999px; }
+  .ctl .stack button[aria-pressed="true"] { color: var(--accent-deep); }
+  .lenses { right: calc(100% + 8px); bottom: 0; width: 272px; padding: 6px; border-radius: 18px; background: var(--glass-strong); }
+  .lenses button { border-radius: 12px; justify-items: stretch; } .lenses .sw { justify-self: end; } .lenses button:hover { background: var(--glass-hover); }
+  .lenses button small { color: var(--glass-muted); }
+  .lenses button[aria-pressed="true"] { background: var(--glass-hover); }
+  /* the logbook: near-opaque warm paper, a soft warm shadow */
+  .sheet { right: max(var(--m), env(safe-area-inset-right, 0px)); top: max(var(--m), env(safe-area-inset-top, 0px)); bottom: calc(var(--m) + env(safe-area-inset-bottom, 0px)); background: var(--sheet-bg); -webkit-backdrop-filter: none; backdrop-filter: none; border-radius: 18px; box-shadow: var(--panel-shadow); }
+  .sheet .suggest button:hover { background: var(--paper-2); }
+  .panel h3 .act, .progress small .act, .textlinks .done, .textlinks button[aria-pressed="true"], .row:hover .nm, .stamp.got b, .head h2 em { color: var(--accent-deep); } /* small accent text: 4.7:1 on the paper (the plain accent is 3.3:1) */
+  .pstamp:not(.want) { color: color-mix(in srgb, var(--accent) 60%, var(--ink)); } /* the stamp prints at 86% opacity: a deeper ink keeps it at 4.5:1 */
+  .top .brand { flex: none; }
+  .progress small .act { border: 0; background: transparent; padding: 0; font: inherit; font-weight: 600; cursor: pointer; }
+  .quiz .verdict.good { color: color-mix(in srgb, var(--good) 80%, var(--ink)); } /* 5:1 on the paper (the plain green is 4:1) */
+  .panel h3 { justify-content: flex-start; } .panel h3 .n { margin-left: auto; } .panel h3 .n:has(+ .act) { margin-left: 0; } .panel h3 .act { margin-left: auto; } /* count beside the label, action at the right */
+  /* map tooltip: a small glass label; toast: the phone's solid pill, over the middle of the map above the legend */
+  .tip { background: var(--glass-strong); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); color: var(--ink); border-radius: 10px; padding: 6px 11px 7px; box-shadow: var(--glass-ring); }
+  .tip small { color: var(--glass-muted); opacity: 1; }
+  .toast { top: auto; bottom: calc(var(--m) + 34px + 12px + env(safe-area-inset-bottom, 0px)); left: calc((100% - var(--side) - 2 * var(--m)) / 2); transform: translateX(-50%) translateY(8px); border-radius: 20px; padding: 10px 16px; background: var(--toast-bg, var(--ink)); color: var(--toast-ink, var(--paper)); box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow); max-width: calc(100% - var(--side) - 8 * var(--m)); }
+}
 /* ---------- phone ---------- */
 @media (max-width: 880px) {
-  /* warm paper glass: the floating chrome is translucent paper over the map (tokens below, dark at the end of the file) */
-  :root { --side: 0px; --m: 12px; --sheet-bg: #faf7f0;
-    --glass: rgba(248,244,235,.76); --glass-strong: rgba(250,247,240,.92); --glass-edge: rgba(70,55,30,.10); --glass-hi: rgba(255,255,255,.55);
-    --glass-shadow: 0 8px 24px -12px rgba(60,45,20,.28), 0 1px 2px rgba(60,45,20,.06); --glass-blur: blur(20px) saturate(1.25);
-    --sheet-shadow: 0 -10px 30px -16px rgba(60,45,20,.30); }
+  /* warm paper glass: the floating chrome is translucent paper over the map (tokens on :root) */
+  :root { --side: 0px; --m: 12px; }
   .top .brand, .search::before, .top .trail::before, .legend, .ctl .stack, .lenses { background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); border: 0; box-shadow: inset 0 0 0 1px var(--glass-edge), inset 0 1px 0 var(--glass-hi), var(--glass-shadow); }
   /* top: no card. A brand pill at the left, a round search button at the right, the map between them. Deeper screens swap
      the brand for the trail pill; search takes the row when active. The only back control is the sheet's, in thumb reach. */
@@ -469,10 +529,13 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
   .sheet:not(.full) #logform { padding-bottom: 80px; }
   .row:active, .mark:not([disabled]):active, .textlinks button:active, .head .up:active, .head .tools button:active, .trail button:active, .suggest button:active { background: var(--paper-2); }
   .savestate:empty { display: none; } .marks + .savestate:empty + .facts, .marks + .facts { margin-top: 14px; }
-  /* surfaces: tokens resolve to today's values in light; dark gets an elevated sheet (below) */
-  .seg button[aria-pressed="true"] { background: var(--seg-on, var(--ink)); color: var(--seg-on-ink, var(--paper)); }
-  .btn.primary { background: var(--primary, var(--ink)); color: var(--primary-ink, var(--paper)); border-color: var(--primary, var(--ink)); }
-  .sheet .mark, .sheet .btn:not(.primary):not(.accent):not(.quiet), .sheet .seg button:not([aria-pressed="true"]), .sheet .field input, .sheet .field select, .sheet .field textarea, .sheet textarea.note, .sheet .suggest button { background: var(--sheet-bg, var(--paper)); }
+}
+/* surfaces, phone and desktop (outside the phone block, in its cascade position): the logbook's controls sit on its paper; in dark the
+   pressed segment and the primary button are not light slabs */
+.seg button[aria-pressed="true"] { background: var(--seg-on, var(--ink)); color: var(--seg-on-ink, var(--paper)); }
+.btn.primary { background: var(--primary, var(--ink)); color: var(--primary-ink, var(--paper)); border-color: var(--primary, var(--ink)); }
+.sheet .mark, .sheet .btn:not(.primary):not(.accent):not(.quiet), .sheet .seg button:not([aria-pressed="true"]), .sheet .field input, .sheet .field select, .sheet .field textarea, .sheet textarea.note, .sheet .suggest button { background: var(--sheet-bg, var(--paper)); }
+@media (max-width: 880px) {
   .stage::after { content: ""; position: absolute; inset: 0; background: rgba(0,0,0,0); pointer-events: none; transition: background .3s var(--ease); }
   .sheet-full .stage::after { background: rgba(0,0,0,.45); }
   /* log form: Save/Cancel pinned to the sheet bottom (the negative offsets cancel the panel's bottom padding so it sits flush;
@@ -493,12 +556,4 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
   .lb-btn { background: rgba(0, 0, 0, .45); }
   .chips button[aria-pressed="true"] { background: var(--seg-on, var(--ink)); color: var(--seg-on-ink, var(--paper)); border-color: var(--seg-on, var(--ink)); text-decoration: none; }
 }
-/* phone, light (system light, or chosen light on a dark system): warm the neutrals to the map's paper; ink stays navy, muted turns
-   warm grey (5:1 or better on every paper tone, where the cool one was 4.2:1) */
-@media (max-width: 880px) and (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --paper: #fdfbf6; --paper-2: #f4efe4; --paper-3: #ebe4d6; --line: #e8e1d2; --line-2: #d2c9b6; --muted: #6b6559; } }
-@media (max-width: 880px) { :root[data-theme="light"] { --paper: #fdfbf6; --paper-2: #f4efe4; --paper-3: #ebe4d6; --line: #e8e1d2; --line-2: #d2c9b6; --muted: #6b6559; } }
-@media (max-width: 880px) and (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --sheet-bg: #1b242d; --seg-on: #3a4652; --seg-on-ink: #eaeff3; --primary: var(--accent); --primary-ink: var(--accent-ink); --pill: var(--paper-3);
-  --glass: rgba(22,30,40,.8); --glass-strong: rgba(27,36,45,.92); --glass-edge: rgba(255,255,255,.08); --glass-hi: rgba(255,255,255,.06); --glass-shadow: 0 10px 28px -12px rgba(0,0,0,.65), 0 1px 2px rgba(0,0,0,.3); --sheet-shadow: 0 -8px 30px -12px rgba(0,0,0,.35), inset 0 1px 0 var(--edge); --toast-bg: #2b3743; --toast-ink: #eaeff3; } }
-@media (max-width: 880px) { :root[data-theme="dark"] { --sheet-bg: #1b242d; --seg-on: #3a4652; --seg-on-ink: #eaeff3; --primary: var(--accent); --primary-ink: var(--accent-ink); --pill: var(--paper-3);
-  --glass: rgba(22,30,40,.8); --glass-strong: rgba(27,36,45,.92); --glass-edge: rgba(255,255,255,.08); --glass-hi: rgba(255,255,255,.06); --glass-shadow: 0 10px 28px -12px rgba(0,0,0,.65), 0 1px 2px rgba(0,0,0,.3); --sheet-shadow: 0 -8px 30px -12px rgba(0,0,0,.35), inset 0 1px 0 var(--edge); --toast-bg: #2b3743; --toast-ink: #eaeff3; } }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }

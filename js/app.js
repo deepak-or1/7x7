@@ -62,12 +62,12 @@
   const marksFor = () => HOODS.map((h, i) => isDone(i) ? 'flag' : isWant(i) ? 'star' : null);
   const matches = i => { if (!inRegion(i)) return false; const info = INFO[HOODS[i].name]; for (const t of state.filters) if (!info.tags.includes(t)) return false; return true; };
   const map = window.MapView(canvas, {
-    insets() { const top = document.querySelector('.top').getBoundingClientRect().bottom, lg = isPhone() ? $('legend').offsetHeight : 0; return { top: (isPhone() && sheet && sheet.detent === 'full') ? 0 : top + 10, right: isPhone() ? 0 : 400 + 32, bottom: (isPhone() ? (sheet ? sheet.visible : 0) + (lg ? lg + 12 : 0) : 0) + 12, left: 0 }; }, // phone: frame above the legend too
+    insets() { const tr = $('trail'), top = Math.max(document.querySelector('.top').getBoundingClientRect().bottom, !isPhone() && tr.offsetParent ? tr.getBoundingClientRect().bottom : 0), lg = isPhone() ? $('legend').offsetHeight : 0; return { top: (isPhone() && sheet && sheet.detent === 'full') ? 0 : top + 10, right: isPhone() ? 0 : 400 + 32, bottom: (isPhone() ? (sheet ? sheet.visible : 0) + (lg ? lg + 12 : 0) : 0) + 12, left: 0 }; }, // phone: frame above the legend too
     spots: spotList, marks: marksFor, selectedSpot: () => state.loc.spot,
     alphaFor(i) { if (state.quiz) return 1; const filtered = state.filters.size > 0 && !matches(i) ? .25 : 1; const veil = !state.showAll && state.lens !== 'done' && !isDone(i) ? .35 : 1; return filtered * veil; },
     onTap, onHover, onGestureStart() { closeLenses(); },
-    // phone: the floating chrome (brand or trail pill, search button, control stack, legend) reserves its footprint so map labels avoid it
-    occluders() { if (isPhone() && document.documentElement.classList.contains('sheet-full')) return []; return (isPhone() ? ['.top .brand', '.top .search', '#trail', '#ctl .stack', '#legend'] : ['#ctl .stack', '#legend']).map(s => document.querySelector(s)).filter(el => el && el.offsetParent !== null && getComputedStyle(el).opacity !== '0').map(el => el.getBoundingClientRect()).filter(b => b.height > 0).map(b => [b.left - 4, b.top - 4, b.right + 4, b.bottom + 4]); },
+    // the floating chrome (brand and trail pills, search, control capsule, legend) reserves its footprint so map labels avoid it
+    occluders() { if (isPhone() && document.documentElement.classList.contains('sheet-full')) return []; return ['.top .brand', '.top .search', '#trail', '#ctl .stack', '#legend'].map(s => document.querySelector(s)).filter(el => el && el.offsetParent !== null && getComputedStyle(el).opacity !== '0').map(el => el.getBoundingClientRect()).filter(b => b.height > 0).map(b => [b.left - 4, b.top - 4, b.right + 4, b.bottom + 4]); },
   });
 
   function colorFor(i) {

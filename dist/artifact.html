@@ -243,7 +243,20 @@ a.btn { text-decoration: none; }
 .facts { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 12px 0 0; font-size: 13px; color: var(--muted); }
 .facts b { color: var(--ink); font-weight: 600; }
 .dots { display: inline-flex; gap: 2px; vertical-align: middle; } .dots i { width: 7px; height: 7px; border-radius: 2px; display: inline-block; background: var(--line-2); } .dots i.on { background: var(--v-fog); }
-.stars { display: inline-flex; gap: 1px; color: var(--accent); font-size: 12px; letter-spacing: 1px; }
+
+/* a spot: verdict (stars, a word, a passport stamp) and the note as a pull-quote; a section's tags as soft pills */
+.verdict { display: flex; align-items: center; gap: 10px; margin: 2px 0 0; min-height: 34px; }
+.vstars { font-size: 22px; line-height: 1; letter-spacing: 1px; color: var(--star); white-space: nowrap; } .vstars i { font-style: normal; color: var(--line-2); }
+.vword { font-family: var(--display); font-weight: 700; font-size: 16px; letter-spacing: -.01em; color: var(--ink); white-space: nowrap; }
+.pstamp { margin-left: auto; flex: none; font-family: var(--display); font-weight: 700; font-size: 12px; line-height: 1; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; color: var(--accent); border: 2px solid currentColor; border-radius: 6px; padding: 5px 9px; outline: 1px solid color-mix(in srgb, currentColor 45%, transparent); outline-offset: -5px; transform: rotate(-5deg); opacity: .86; }
+.pstamp.want { color: var(--want); border-style: dashed; }
+.verdict .pstamp:first-child { margin-left: 2px; } /* no rating: the stamp alone, at the start of the row */
+.pstamp.thunk { animation: thunk .26s cubic-bezier(.3, 1.5, .5, 1) .12s both; }
+@keyframes thunk { from { opacity: 0; transform: rotate(-5deg) scale(1.5); } to { opacity: .86; transform: rotate(-5deg) scale(1); } }
+.panel .pull { position: relative; margin: 18px 0 4px; padding: 0 0 0 30px; font-family: var(--display); font-size: 20px; line-height: 1.25; font-weight: 600; letter-spacing: -.01em; color: var(--ink); text-wrap: pretty; overflow-wrap: anywhere; }
+.pull::before { content: "\201C"; content: "\201C" / ""; position: absolute; left: -2px; top: -6px; font-size: 52px; line-height: 1; font-weight: 700; color: var(--accent); }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 0; }
+.tags span { font-size: 13px; line-height: 1.3; color: var(--ink-2); background: var(--pill, var(--paper-2)); border-radius: 999px; padding: 4px 10px; }
 
 /* rows: sections, spots, entries */
 .rows { list-style: none; margin: 0; padding: 0; }
@@ -310,18 +323,58 @@ details.more summary { list-style: none; cursor: pointer; font-size: 11.5px; fon
 details.more summary::-webkit-details-marker { display: none; }
 details.more summary::after { content: "+"; font-size: 14px; } details.more[open] summary::after { content: "−"; }
 
-/* street-map preview (section, spot) and photos (strip in the panel, lightbox over everything but the toast) */
+/* street-map preview (section, spot) and photos (the hero at the top of a panel, lightbox over everything but the toast) */
 .mapprev { display: block; width: 100%; aspect-ratio: 16 / 10; border: 1px solid var(--line); border-radius: var(--r-sm); overflow: hidden; background: var(--paper-2); }
 .mapprev iframe { display: block; width: 100%; height: 100%; border: 0; }
-.panel h3 .act[disabled] { color: var(--muted); cursor: default; text-decoration: none; }
-.ph-strip { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 6px; scrollbar-width: thin; overscroll-behavior-x: contain; }
-.ph { flex: none; width: 88px; height: 88px; padding: 0; border: 1px solid var(--line); border-radius: var(--r-sm); overflow: hidden; background: var(--paper-2); }
-.ph:hover { border-color: var(--line-2); }
-.ph img { display: block; width: 100%; height: 100%; object-fit: cover; }
+/* hero: full bleed (the negative margins cancel the panel padding), photos 4:3 in a snap carousel; no photos: a 150px cover in
+   the spot's kind colour or the place's vibe colour (--hc), mixed with paper so it works light and dark */
+.hero { --hx: 18px; position: relative; margin: 4px calc(-1 * var(--hx)) 16px; aspect-ratio: 4 / 3; overflow: hidden; background: var(--paper-2); color: var(--ink); }
+.hero:first-child { margin-top: -14px; }
+.hero.cover { aspect-ratio: auto; height: 150px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; text-align: center;
+  background: radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, var(--hc) 55%, var(--paper)) 0%, transparent 70%), linear-gradient(135deg, color-mix(in srgb, var(--hc) 38%, var(--paper)) 0%, color-mix(in srgb, var(--hc) 14%, var(--paper)) 100%); }
+.hero.cover::after { content: attr(data-e); content: attr(data-e) / ""; position: absolute; right: -14px; bottom: -34px; font-size: 128px; line-height: 1; transform: rotate(-14deg); opacity: .16; pointer-events: none; } /* a big faint echo of the emoji */
+.hero.cover.loading::after, .hero.cover.loading > * { display: none; }
+.hero.loading { background: linear-gradient(100deg, color-mix(in srgb, var(--hc) 10%, var(--paper-2)) 30%, color-mix(in srgb, var(--hc) 22%, var(--paper-2)) 50%, color-mix(in srgb, var(--hc) 10%, var(--paper-2)) 70%) 0 0 / 300% 100%; animation: shimmer 1.3s linear infinite; }
+@keyframes shimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
+.hero-e { position: relative; font-size: 42px; line-height: 1.1; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, .14)); }
+.hero.deco .hero-e { font-size: 54px; }
+.panel .hero-msg { position: relative; margin: 2px 0 0; font-family: var(--display); font-weight: 600; font-size: 15px; letter-spacing: -.01em; color: var(--ink); }
+.hero-cta { position: relative; margin-top: 8px; height: 32px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--ink); color: var(--paper); font-weight: 600; font-size: 13px; box-shadow: 0 6px 14px -8px rgba(0, 0, 0, .5); }
+.hero-cta:hover { background: var(--accent); color: var(--accent-ink); }
+.hero-cta[disabled] { opacity: .6; cursor: default; }
+.hero-track { display: flex; height: 100%; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain; }
+.hero-track::-webkit-scrollbar { display: none; }
+.hero-slide { flex: 0 0 100%; height: 100%; padding: 0; border: 0; border-radius: 0; background: var(--paper-3); scroll-snap-align: start; scroll-snap-stop: always; cursor: zoom-in; }
+.hero-slide img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.hero .hero-slide:focus-visible { outline: 3px solid #fff; outline-offset: -7px; }
+.hero.has::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 42%; background: linear-gradient(to top, rgba(8, 12, 16, .55), rgba(8, 12, 16, .18) 55%, transparent); pointer-events: none; }
+.hero.has::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 64px; background: linear-gradient(to bottom, rgba(8, 12, 16, .28), transparent); pointer-events: none; z-index: 1; opacity: 0; transition: opacity .2s; }
+.hero.has:has(.hero-src:not([hidden]))::before { opacity: 1; } /* a soft top shade only while the caption chip shows */
+.hero-chip { position: absolute; z-index: 2; display: inline-flex; align-items: center; gap: 6px; max-width: calc(100% - 24px); padding: 0 11px; height: 30px; border: 0; border-radius: 999px; background: rgba(8, 12, 16, .5); -webkit-backdrop-filter: blur(10px) saturate(1.3); backdrop-filter: blur(10px) saturate(1.3); color: #fff; font-size: 12.5px; font-weight: 600; line-height: 1; white-space: nowrap; }
+.hero-chip svg { width: 13px; height: 13px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.hero-chip span { overflow: hidden; text-overflow: ellipsis; }
+.hero-badge { left: 12px; bottom: 12px; pointer-events: none; }
+.hero-src { left: 12px; top: 12px; pointer-events: none; }
+.hero-add { right: 12px; bottom: 12px; font-size: 13px; }
+.hero-add:not([disabled]):hover { background: rgba(8, 12, 16, .72); }
+.hero-add[disabled] { cursor: default; color: rgba(255, 255, 255, .8); }
+.hero-count { left: 50%; bottom: 12px; transform: translateX(-50%); height: 24px; padding: 0 9px; font-size: 12px; font-variant-numeric: tabular-nums; pointer-events: none; }
+.hero-dots { position: absolute; z-index: 2; left: 50%; bottom: 23px; transform: translateX(-50%); display: flex; gap: 5px; pointer-events: none; }
+.hero-dots i { width: 6px; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, .55); box-shadow: 0 0 2px rgba(0, 0, 0, .35); transition: width .2s var(--ease), background .2s; }
+.hero-dots i.on { width: 16px; background: #fff; }
+.hero-nav { position: absolute; z-index: 2; top: 50%; width: 36px; height: 36px; margin-top: -18px; padding: 0; border: 0; border-radius: 50%; background: rgba(255, 255, 255, .9); color: #15202b; display: grid; place-items: center; box-shadow: 0 4px 12px -4px rgba(0, 0, 0, .45); opacity: 0; transition: opacity .15s; }
+.hero-nav svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.hero-nav.prev { left: 12px; } .hero-nav.next { right: 12px; }
+.hero-nav[disabled] { visibility: hidden; }
+.hero:hover .hero-nav, .hero:focus-within .hero-nav { opacity: 1; }
 .lb { position: absolute; inset: 0; z-index: 8; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; background: rgba(8, 12, 16, .96); color: #fff; padding: max(10px, env(safe-area-inset-top, 0px)) max(10px, env(safe-area-inset-right, 0px)) max(12px, env(safe-area-inset-bottom, 0px)) max(10px, env(safe-area-inset-left, 0px)); }
 .lb:focus { outline: none; }
 .lb-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; padding-left: 8px; }
-.lb-n { font-size: 13.5px; font-weight: 600; font-variant-numeric: tabular-nums; opacity: .85; }
+.lb-meta { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.lb-n { flex: none; font-size: 13.5px; font-weight: 600; font-variant-numeric: tabular-nums; opacity: .85; }
+.lb-src { display: inline-flex; align-items: center; gap: 6px; min-width: 0; height: 28px; padding: 0 11px; border-radius: 999px; background: rgba(255, 255, 255, .14); font-size: 13px; font-weight: 600; white-space: nowrap; }
+.lb-src span { overflow: hidden; text-overflow: ellipsis; }
+.lb-src svg { width: 13px; height: 13px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .lb-btn { width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: rgba(255, 255, 255, .12); color: #fff; display: grid; place-items: center; }
 .lb-btn:hover { background: rgba(255, 255, 255, .22); }
 .lb-btn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -436,15 +489,18 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
   /* spots filters: one sideways-scrolling row of pills per group */
   .chips { flex-wrap: nowrap; overflow-x: auto; gap: 8px; margin: 0 -16px 8px; padding: 2px 16px; scrollbar-width: none; -webkit-overflow-scrolling: touch; } .chips::-webkit-scrollbar { display: none; }
   .chips button { flex: none; min-height: 36px; height: 36px; padding: 0 14px; border: 1px solid var(--line-2); border-radius: 999px; white-space: nowrap; text-decoration: none; }
-  /* photos: the strip runs to the sheet edges; the lightbox photo takes the full width under the arrows */
-  .ph-strip { margin: 0 -16px; padding: 2px 16px 6px; scrollbar-width: none; } .ph-strip::-webkit-scrollbar { display: none; }
+  /* photos: the hero runs to the sheet edges (the panel's side padding); no arrows on touch; the lightbox photo takes the full width */
+  .hero { --hx: max(16px, env(safe-area-inset-left, 0px)); } .hero:first-child { margin-top: -6px; }
+  .hero-nav { display: none; }
+  .hero-add { height: 36px; padding: 0 14px; font-size: 14px; } .hero-add::before { content: ""; position: absolute; inset: -5px -4px; } /* a 44pt target */
+  .hero-cta { height: 40px; padding: 0 18px; font-size: 14px; }
   .lb-stage img { left: 0; width: 100%; }
   .mapprev iframe { pointer-events: none; } /* phone: the preview is a picture, so a drag on it moves the sheet and a tap opens Maps */
   .lb-btn { background: rgba(0, 0, 0, .45); }
   .chips button[aria-pressed="true"] { background: var(--seg-on, var(--ink)); color: var(--seg-on-ink, var(--paper)); border-color: var(--seg-on, var(--ink)); text-decoration: none; }
 }
-@media (max-width: 880px) and (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --sheet-bg: #1b242d; --seg-on: #3a4652; --seg-on-ink: #eaeff3; --primary: var(--accent); --primary-ink: var(--accent-ink); } }
-@media (max-width: 880px) { :root[data-theme="dark"] { --sheet-bg: #1b242d; --seg-on: #3a4652; --seg-on-ink: #eaeff3; --primary: var(--accent); --primary-ink: var(--accent-ink); } }
+@media (max-width: 880px) and (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --sheet-bg: #1b242d; --seg-on: #3a4652; --seg-on-ink: #eaeff3; --primary: var(--accent); --primary-ink: var(--accent-ink); --pill: var(--paper-3); } }
+@media (max-width: 880px) { :root[data-theme="dark"] { --sheet-bg: #1b242d; --seg-on: #3a4652; --seg-on-ink: #eaeff3; --primary: var(--accent); --primary-ink: var(--accent-ink); --pill: var(--paper-3); } }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 
 </style>
@@ -2115,10 +2171,10 @@ window.LANDMARKS = [
     }
     // content: touch events, so native scrolling keeps working when the sheet is open and scrolled
     let touch = null;
-    panel.addEventListener('touchstart', e => { if (!isPhone() || e.touches.length !== 1) return; touch = { x: e.touches[0].clientX, y: e.touches[0].clientY, took: false, side: !!e.target.closest('.ph-strip') }; }, { passive: true }); // side: the touch began on a strip that scrolls sideways
+    panel.addEventListener('touchstart', e => { if (!isPhone() || e.touches.length !== 1) return; touch = { x: e.touches[0].clientX, y: e.touches[0].clientY, took: false, side: !!e.target.closest('.hero-track') }; }, { passive: true }); // side: the touch began on the photo carousel, which scrolls sideways
     panel.addEventListener('touchmove', e => {
       if (!touch || e.touches.length !== 1) return; const y = e.touches[0].clientY, dy = y - touch.y;
-      if (!touch.took) { const canScroll = detent === 'full' && !(panel.scrollTop <= 0 && dy > 0); if (canScroll) { touch = null; return; } if (touch.side) { const dx = e.touches[0].clientX - touch.x; if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return; if (Math.abs(dx) > Math.abs(dy)) { touch = null; return; } } if (Math.abs(dy) < 3) return; touch.took = true; startDrag(touch.y); } // a sideways swipe on the photo strip scrolls the strip, not the sheet
+      if (!touch.took) { const canScroll = detent === 'full' && !(panel.scrollTop <= 0 && dy > 0); if (canScroll) { touch = null; return; } if (touch.side) { const dx = e.touches[0].clientX - touch.x; if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return; if (Math.abs(dx) > Math.abs(dy)) { touch = null; return; } } if (Math.abs(dy) < 3) return; touch.took = true; startDrag(touch.y); } // a sideways swipe on the photo carousel pages the photos, not the sheet
       e.preventDefault(); moveDrag(y);
     }, { passive: false });
     const endTouch = () => { if (touch && touch.took) endDrag(false); touch = null; };
@@ -2347,9 +2403,13 @@ window.Sync = (() => {
 <script>
 // Photos on spots, sections and places (hosted site only). They live beside the log, not in it:
 // logs/<key>-ph/<owner>/<photoId> = { d: JPEG data URL, w, h, at }, so the live log stream never carries them.
-// This file owns the downscale, an in-memory cache per owner, the strip in a panel, and the lightbox.
+// This file owns the downscale, an in-memory cache per owner, the photo hero at the top of a panel (a section or
+// place also shows the photos of what is inside it), and the lightbox.
 window.Photos = (() => {
   const MAX = 8, EDGE = 1280, BIG = 600000, FRESH = 60000; // FRESH: a panel opened again after a minute re-reads the list in the background
+  const XMAX = 12, DOTS = 8; // XMAX: extra sources rolled into one hero; DOTS: past this many photos the hero shows a counter instead of dots
+  const PIN = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6-5.3-6-11a6 6 0 0 1 12 0c0 5.7-6 11-6 11z"/><circle cx="12" cy="10" r="2.2"/></svg>';
+  const CHEV = d => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg>`;
   const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   const plural = n => n + (n === 1 ? ' photo' : ' photos');
   let api = null, toast = () => {}, canWrite = () => true;
@@ -2391,13 +2451,13 @@ window.Photos = (() => {
   }
 
   // ---------- add / remove ----------
-  async function add(owner, files) {
+  async function add(owner, files, label) { // label: what the photos are of, for the first-photo toast
     files = [...(files || [])].filter(f => f && (!f.type || /^image\//.test(f.type)));
     if (!files.length) return [];
     if (!api) { toast('Could not add the photo. Try again.', 3000); throw new Error('photos are not available'); }
     const e = entry(owner);
     try { await load(owner); } catch (err) {} // count what is there first; offline, the add itself fails below
-    const room = Math.max(0, MAX - Object.keys(e.recs || {}).length), take = files.slice(0, room);
+    const had = Object.keys(e.recs || {}).length, room = Math.max(0, MAX - had), take = files.slice(0, room);
     if (!take.length) { toast(`${MAX} photos is the limit here`, 2600); return []; }
     e.busy++; refresh(owner);
     toast(`Adding ${plural(take.length)}…`, 60000);
@@ -2408,6 +2468,7 @@ window.Photos = (() => {
     }
     e.busy--; refresh(owner);
     if (failed) toast('Could not add the photo. Try again.', 3000);
+    else if (!had && added.length && label) { if (window.Confetti) window.Confetti.burst(); toast(`First photo of ${label}`, 2600); } // its very first photo: a small party
     else toast(`${plural(added.length)} added${take.length < files.length ? ` (${MAX} is the limit)` : ''}`);
     return added;
   }
@@ -2422,37 +2483,90 @@ window.Photos = (() => {
     return api ? api.delAll(owner).catch(err => console.warn('photo cleanup failed', err)) : Promise.resolve();
   }
 
-  // ---------- the strip in a panel ----------
+  // ---------- the hero at the top of a panel ----------
   // app.js writes block() into the panel HTML; mount() fills it, and refresh() redraws it in place when the cache changes,
   // so a panel re-render never refetches or flickers, and the panel HTML never depends on photo state.
-  const block = (owner, label, writable) => `<div class="photos" data-owner="${esc(owner)}" data-label="${esc(label)}" data-w="${writable ? 1 : 0}"></div>`;
-  const boxes = owner => [...document.querySelectorAll('.photos[data-owner]')].filter(el => el.dataset.owner === owner);
-  function draw(el) {
-    const owner = el.dataset.owner, label = el.dataset.label || '', e = entry(owner), list = e.recs ? ordered(owner) : null, n = list ? list.length : 0, full = n >= MAX;
-    const addBtn = el.dataset.w === '1' && canWrite() ? `<button type="button" class="act" data-ph-add ${full || e.busy ? 'disabled' : ''}>${full ? `${MAX} of ${MAX}` : e.busy ? 'Adding…' : '+ Add photos'}</button>` : '';
-    // the file input comes first so the heading is not :first-child (that rule is for a panel's opening heading)
-    el.innerHTML = `<input type="file" accept="image/*" multiple hidden data-ph-file><h3>Photos <span class="n">${n || ''}</span>${addBtn}</h3>`
-      + (list === null ? '<p class="empty">Loading photos…</p>' : n ? `<div class="ph-strip" aria-label="${esc('Photos of ' + label)}">${list.map((p, i) => `<button type="button" class="ph" data-ph="${i}" data-id="${esc(p.id)}" aria-label="${esc(`Photo ${i + 1} of ${n}, ${label}`)}"><img src="${esc(p.d)}" alt="" decoding="async"></button>`).join('')}</div>` : '<p class="empty">No photos yet.</p>');
-    const file = el.querySelector('[data-ph-file]'), btn = el.querySelector('[data-ph-add]');
-    if (btn) btn.addEventListener('click', () => file.click());
-    file.addEventListener('change', () => { const fs = [...file.files]; file.value = ''; add(owner, fs).catch(() => {}); });
-    el.querySelectorAll('[data-ph]').forEach(b => b.addEventListener('click', () => open(owner, +b.dataset.ph, label)));
+  // o: { c: cover colour (CSS), e: cover emoji, badge: { e, t } over the photos (bottom left),
+  //      extras: [{ owner, label }] whose photos follow the panel's own, in order (a section's spots, a place's sections and spots) }
+  const look = o => ` style="--hc:${esc(o.c || 'var(--accent)')}" data-e="${esc(o.e || '')}"`;
+  const cover = (o = {}) => `<div class="hero cover deco"${look(o)} aria-hidden="true"><span class="hero-e">${esc(o.e || '')}</span></div>`; // photos unavailable here: the same cover, decorative only; needs no init
+  const block = (owner, label, writable, o = {}) => `<div class="hero cover loading"${look(o)} data-owner="${esc(owner)}" data-label="${esc(label)}" data-w="${writable ? 1 : 0}"`
+    + (o.badge ? ` data-be="${esc(o.badge.e || '')}" data-bt="${esc(o.badge.t || '')}"` : '')
+    + (o.extras && o.extras.length ? ` data-x="${esc(JSON.stringify(o.extras.slice(0, XMAX).map(x => ({ owner: x.owner, label: x.label }))))}"` : '') + '></div>';
+  function sourcesOf(el) { // [own, ...extras]: no repeats, at most XMAX extras
+    const own = { owner: el.dataset.owner, label: el.dataset.label || '' }, seen = new Set([own.owner]); let x = [];
+    try { x = JSON.parse(el.dataset.x || '[]'); } catch (err) {}
+    return [own].concat((Array.isArray(x) ? x : []).filter(s => s && typeof s.owner === 'string' && !seen.has(s.owner) && seen.add(s.owner)).slice(0, XMAX).map(s => ({ owner: s.owner, label: String(s.label || '') })));
   }
-  function refresh(owner) { boxes(owner).forEach(draw); if (lb && lb.owner === owner) showLb(); }
-  function mount(root) { root.querySelectorAll('.photos[data-owner]').forEach(el => { draw(el); if (api) load(el.dataset.owner).catch(() => {}); }); }
+  const combined = srcs => srcs.flatMap((s, k) => ordered(s.owner).map(p => Object.assign(p, { owner: s.owner, label: s.label, own: k === 0 })));
+  const heroes = owner => [...document.querySelectorAll('.hero[data-owner]')].filter(el => sourcesOf(el).some(s => s.owner === owner));
+  const smooth = () => matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+  const slideAt = track => Math.round(track.scrollLeft / Math.max(1, track.clientWidth));
+  function draw(el) {
+    const srcs = sourcesOf(el), own = srcs[0], e = entry(own.owner), list = combined(srcs), n = list.length;
+    const full = Object.keys(e.recs || {}).length >= MAX, write = el.dataset.w === '1' && canWrite() && !!api;
+    const mode = n ? 'photos' : api && srcs.some(s => !entry(s.owner).recs) ? 'loading' : 'empty'; // no "No photos yet" flash before the first read
+    const sig = JSON.stringify([mode, list.map(p => p.owner + '/' + p.id), write, full, e.busy > 0]);
+    if (el._sig === sig) return; // nothing it shows has changed: keep the slide, the focus and the decoded images
+    el._sig = sig;
+    const old = el.querySelector('.hero-track'), was = old && old.children[slideAt(old)], keep = was ? was.dataset.o + '/' + was.dataset.id : null;
+    const focus = el.contains(document.activeElement) ? (document.activeElement.matches('[data-ph-add]') ? 'add' : document.activeElement.dataset.o + '/' + document.activeElement.dataset.id) : null;
+    const file = write ? '<input type="file" accept="image/*" multiple hidden data-ph-file>' : '', busy = e.busy > 0;
+    let html = '';
+    if (mode === 'photos') {
+      const addTxt = full ? `${MAX} of ${MAX}` : busy ? 'Adding…' : '';
+      html = file + `<div class="hero-track" role="group" aria-label="${esc('Photos of ' + own.label)}">${list.map((p, i) => `<button type="button" class="hero-slide" data-i="${i}" data-o="${esc(p.owner)}" data-id="${esc(p.id)}" aria-label="${esc(`Photo ${i + 1} of ${n}, ${p.label}`)}"><img src="${esc(p.d)}" alt="" decoding="async"></button>`).join('')}</div>`
+        + (el.dataset.bt ? `<span class="hero-chip hero-badge"><span aria-hidden="true">${esc(el.dataset.be)}</span>${esc(el.dataset.bt)}</span>` : '')
+        + '<span class="hero-chip hero-src" hidden></span>'
+        + (n > 1 ? (n <= DOTS ? `<span class="hero-dots" aria-hidden="true">${list.map(() => '<i></i>').join('')}</span>` : '<span class="hero-chip hero-count" aria-hidden="true"></span>')
+          + `<button type="button" class="hero-nav prev" aria-label="Previous photo">${CHEV('M15 5l-7 7 7 7')}</button><button type="button" class="hero-nav next" aria-label="Next photo">${CHEV('M9 5l7 7-7 7')}</button>` : '')
+        + (write ? `<button type="button" class="hero-chip hero-add" data-ph-add ${addTxt ? 'disabled' : ''} aria-label="${esc(full ? `${MAX} of ${MAX} photos, the limit` : busy ? 'Adding photos' : 'Add photos of ' + own.label)}">${addTxt || '+ Photo'}</button>` : '');
+    } else if (mode === 'empty') html = file + `<span class="hero-e" aria-hidden="true">${esc(el.dataset.e)}</span><p class="hero-msg">No photos yet</p>`
+      + (write ? `<button type="button" class="hero-cta" data-ph-add ${busy ? 'disabled' : ''}>${busy ? 'Adding…' : 'Add the first photo'}</button>` : '');
+    el.className = 'hero ' + (mode === 'photos' ? 'has' : 'cover') + (mode === 'loading' ? ' loading' : '');
+    el.innerHTML = html;
+    const fileIn = el.querySelector('[data-ph-file]');
+    if (fileIn) {
+      el.querySelectorAll('[data-ph-add]').forEach(b => b.addEventListener('click', () => fileIn.click()));
+      fileIn.addEventListener('change', () => { const fs = [...fileIn.files]; fileIn.value = ''; add(own.owner, fs, own.label).catch(() => {}); });
+    }
+    const track = el.querySelector('.hero-track');
+    if (track) {
+      const at = () => Math.max(0, Math.min(n - 1, slideAt(track)));
+      let raf = 0;
+      const sync = () => { // dots, counter, arrows and the source caption follow the slide in view
+        raf = 0; const i = at(), p = list[i];
+        el.querySelectorAll('.hero-dots i').forEach((d, j) => d.classList.toggle('on', j === i));
+        const c = el.querySelector('.hero-count'); if (c) c.textContent = `${i + 1} / ${n}`;
+        const s = el.querySelector('.hero-src'); s.hidden = p.own; if (!p.own) s.innerHTML = PIN + `<span>${esc(p.label)}</span>`;
+        const pv = el.querySelector('.hero-nav.prev'), nx = el.querySelector('.hero-nav.next'); if (pv) { pv.disabled = i === 0; nx.disabled = i === n - 1; }
+      };
+      track.addEventListener('scroll', () => { if (!raf) raf = requestAnimationFrame(sync); }, { passive: true });
+      track.querySelectorAll('.hero-slide').forEach(b => b.addEventListener('click', () => open(srcs, +b.dataset.i)));
+      el.querySelectorAll('.hero-nav').forEach(b => b.addEventListener('click', () => track.scrollTo({ left: (at() + (b.classList.contains('next') ? 1 : -1)) * track.clientWidth, behavior: smooth() })));
+      const j = keep ? list.findIndex(p => p.owner + '/' + p.id === keep) : -1; if (j > 0) track.scrollLeft = j * track.clientWidth; // a redraw stays on the photo it showed
+      sync();
+    }
+    const f = focus === 'add' ? el.querySelector('[data-ph-add]:not([disabled])') : focus ? [...el.querySelectorAll('.hero-slide')].find(b => b.dataset.o + '/' + b.dataset.id === focus) : null;
+    if (f) f.focus({ preventScroll: true });
+  }
+  function refresh(owner) { heroes(owner).forEach(draw); if (lb && lb.srcs.some(s => s.owner === owner)) showLb(true); }
+  function mount(root) { root.querySelectorAll('.hero[data-owner]').forEach(el => { draw(el); if (api) sourcesOf(el).forEach(s => load(s.owner).catch(() => {})); }); } // every source at once, each through its own cache
 
   // ---------- lightbox ----------
-  let lb = null; // { el, owner, label, i, list }
-  function open(owner, i, label) {
+  // It shows the hero's combined list: the panel's own photos, then each extra source's. Delete acts on the photo's real owner.
+  let lb = null; // { el, srcs, i, o, id }
+  function open(srcs, i, label) {
+    if (typeof srcs === 'string') srcs = [{ owner: srcs, label: label || '' }]; // open(owner, i, label): one owner's photos
     close(true);
     const el = document.createElement('div');
-    el.className = 'lb'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-label', 'Photos of ' + label); el.tabIndex = -1;
-    el.innerHTML = `<div class="lb-bar"><span class="lb-n" aria-live="polite"></span><button type="button" class="lb-btn lb-x" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    el.className = 'lb'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-label', 'Photos of ' + srcs[0].label); el.tabIndex = -1;
+    el.innerHTML = `<div class="lb-bar"><div class="lb-meta"><span class="lb-n" aria-live="polite"></span><span class="lb-src" hidden></span></div><button type="button" class="lb-btn lb-x" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
       <div class="lb-stage"><img alt=""></div>
       <button type="button" class="lb-btn lb-prev" aria-label="Previous photo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><button type="button" class="lb-btn lb-next" aria-label="Next photo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
       <div class="lb-foot"><button type="button" class="btn sm lb-del">Delete</button><div class="lb-confirm" hidden><span>Delete this photo?</span><button type="button" class="btn sm lb-yes">Delete</button><button type="button" class="btn sm quiet lb-no">Keep</button></div></div>`;
     (document.getElementById('app') || document.body).appendChild(el);
-    lb = { el, owner, label, i };
+    lb = { el, srcs, i };
     el.querySelector('.lb-x').addEventListener('click', () => close());
     el.querySelector('.lb-prev').addEventListener('click', () => step(-1));
     el.querySelector('.lb-next').addEventListener('click', () => step(1));
@@ -2464,20 +2578,22 @@ window.Photos = (() => {
     showLb();
     el.querySelector('.lb-x').focus();
   }
-  function showLb() {
+  function showLb(anchor) { // anchor: a cache change; stay on the same photo if it is still there
     if (!lb) return;
-    const list = ordered(lb.owner), n = list.length; if (!n) { close(); return; }
-    lb.i = Math.max(0, Math.min(n - 1, lb.i)); const p = list[lb.i], el = lb.el; lb.id = p.id;
+    const list = combined(lb.srcs), n = list.length; if (!n) { close(); return; }
+    if (anchor && lb.id) { const j = list.findIndex(p => p.owner === lb.o && p.id === lb.id); if (j >= 0) lb.i = j; }
+    lb.i = Math.max(0, Math.min(n - 1, lb.i)); const p = list[lb.i], el = lb.el; lb.id = p.id; lb.o = p.owner;
     const img = el.querySelector('.lb-stage img'); if (img.getAttribute('src') !== p.d) img.src = p.d;
-    img.alt = `Photo ${lb.i + 1} of ${n}, ${lb.label}`;
+    img.alt = `Photo ${lb.i + 1} of ${n}, ${p.label}`;
     el.querySelector('.lb-n').textContent = `${lb.i + 1} of ${n}`;
+    const src = el.querySelector('.lb-src'); src.hidden = p.own; if (!p.own) src.innerHTML = PIN + `<span>${esc(p.label)}</span>`;
     el.querySelector('.lb-prev').hidden = el.querySelector('.lb-next').hidden = n < 2;
     el.querySelector('.lb-foot').hidden = !canWrite() || !api;
   }
-  function step(d) { if (!lb) return; const n = ordered(lb.owner).length; if (n < 2) return; lb.i = (lb.i + d + n) % n; confirmDel(false); showLb(); }
+  function step(d) { if (!lb) return; const n = combined(lb.srcs).length; if (n < 2) return; lb.i = (lb.i + d + n) % n; confirmDel(false); showLb(); }
   function confirmDel(on) { if (!lb) return; lb.el.querySelector('.lb-confirm').hidden = !on; lb.el.querySelector('.lb-del').hidden = on; if (on) lb.el.querySelector('.lb-no').focus(); }
   async function delCurrent() {
-    if (!lb) return; const { owner, id } = lb, yes = lb.el.querySelector('.lb-yes'); yes.disabled = true;
+    if (!lb) return; const { o: owner, id } = lb, yes = lb.el.querySelector('.lb-yes'); yes.disabled = true;
     try { await remove(owner, id); toast('Photo deleted'); if (lb) { confirmDel(false); lb.el.querySelector('.lb-x').focus(); } }
     catch (err) { console.warn('photo delete failed', err); toast('Could not delete the photo. Try again.', 3000); }
     if (lb) yes.disabled = false;
@@ -2494,16 +2610,18 @@ window.Photos = (() => {
     }
   }
   function close(quiet) {
-    if (!lb) return; const { el, owner, id } = lb; lb = null;
+    if (!lb) return; const { el, srcs, o, id } = lb; lb = null;
     window.removeEventListener('keydown', onKey, true); el.remove();
     if (quiet) return;
-    const box = boxes(owner)[0]; if (!box) return; // focus back to the strip: the photo it showed, or what is left
-    const t = [...box.querySelectorAll('[data-id]')].find(b => b.dataset.id === id) || box.querySelector('[data-ph]') || box.querySelector('[data-ph-add]:not([disabled])');
+    const box = [...document.querySelectorAll('.hero[data-owner]')].find(b => b.dataset.owner === srcs[0].owner); if (!box) return; // back to the hero, on the photo it showed
+    const slides = [...box.querySelectorAll('.hero-slide')], s = slides.find(b => b.dataset.o === o && b.dataset.id === id), track = box.querySelector('.hero-track');
+    if (s && track) track.scrollLeft = slides.indexOf(s) * track.clientWidth;
+    const t = s || slides[0] || box.querySelector('[data-ph-add]:not([disabled])');
     if (t) t.focus({ preventScroll: true });
   }
 
   return {
-    MAX, init, block, mount, add, remove, removeAll, downscale, open, close,
+    MAX, init, block, cover, mount, add, remove, removeAll, downscale, open, close,
     list: owner => (entry(owner).recs ? Promise.resolve() : load(owner)).then(() => ordered(owner)),
     prime(owner, recs) { const e = entry(owner); e.ver++; e.recs = Object.assign({}, recs); e.at = Date.now(); refresh(owner); }, // tests: fill the cache without the network
   };
@@ -2530,7 +2648,9 @@ window.Photos = (() => {
   const today = () => new Date().toISOString().slice(0, 10);
   const niceDate = iso => { if (!iso) return ''; const d = new Date(iso + 'T12:00:00'); return isNaN(d) ? iso : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); };
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const KINDS = { food: { label: 'Food', c: 'var(--k-food)' }, drink: { label: 'Drinks', c: 'var(--k-drink)' }, coffee: { label: 'Coffee', c: 'var(--k-coffee)' }, view: { label: 'View', c: 'var(--k-view)' }, shop: { label: 'Shop', c: 'var(--k-shop)' }, park: { label: 'Park', c: 'var(--k-park)' }, other: { label: 'Other', c: 'var(--k-other)' } };
+  const KINDS = { food: { label: 'Food', c: 'var(--k-food)', e: '🍜' }, drink: { label: 'Drinks', c: 'var(--k-drink)', e: '🍸' }, coffee: { label: 'Coffee', c: 'var(--k-coffee)', e: '☕' }, view: { label: 'View', c: 'var(--k-view)', e: '🌄' }, shop: { label: 'Shop', c: 'var(--k-shop)', e: '🛍️' }, park: { label: 'Park', c: 'var(--k-park)', e: '🌳' }, other: { label: 'Other', c: 'var(--k-other)', e: '📍' } };
+  const VIBE_E = { fog: '🌫️', hills: '⛰️', water: '🌊', sun: '☀️', buzz: '✨', green: '🌿' }; // the cover emoji of a place and its sections
+  const VERDICT = ['', 'Skip it', 'Meh', 'Solid', 'Great', 'Loved it']; // a spot's rating, in words
   const LENSES = { vibe: { label: 'Character', sub: 'Six kinds of place' }, fog: { label: 'Fog', sub: 'Sunbelt to permanent cloud' }, elev: { label: 'Hills', sub: 'Sea level to the summits' }, done: { label: 'Walked', sub: 'Where you have been' } };
   const STAMPS = [
     { id: 'first', label: 'First steps', test: s => s.n >= 1, icon: '1' }, { id: 'ten', label: 'Ten down', test: s => s.n >= 10, icon: '10' },
@@ -2742,6 +2862,7 @@ window.Photos = (() => {
     if (state.query) { renderSearch(); return; }
     if (state.quiz) { renderQuiz(); return; }
     const l = state.loc, v = state.view; let fresh = true;
+    if (!l.spot) stamped = null; // back on this spot later, the stamp lands again
     if (v === 'log') renderLogForm(); else if (v === 'spots') renderSpots(); else if (l.spot) fresh = renderSpot(l.spot); else if (l.sub) fresh = renderSub(l.hood, l.sub); else if (l.hood) renderHood(l.hood); else renderHome();
     if (fresh === false) return; // the panel was left as it was, listeners and all
     wire(panel);
@@ -2778,7 +2899,12 @@ window.Photos = (() => {
   // ---- photos (hosted shared log only): owner keys are Firebase-safe (no . $ # [ ] / or control characters)
   const okey = s => String(s).replace(/[.$#[\]/\x00-\x1f\x7f]/g, '_');
   const ownerKey = { spot: id => okey(id), place: hood => okey('h-' + slug(hood)), section: (hood, sub) => okey('h-' + slug(hood) + '--' + slug(sub)) };
-  const photosBlock = (owner, label) => state.store === 'sync' && window.Photos ? Photos.block(owner, label, state.canWrite) : '';
+  // the photo hero at the top of a spot, section or place; o: { c, e, badge, extras } (see js/photos.js). Without shared photos
+  // (a local log, the artifact) it is the same coloured cover with the emoji, purely decorative, so every mode looks alike.
+  const hero = (owner, label, o) => !window.Photos ? '' : state.store === 'sync' ? Photos.block(owner, label, state.canWrite, o) : Photos.cover(o);
+  const spotSrc = id => ({ owner: ownerKey.spot(id), label: state.spots[id].name });
+  const vibeLook = hood => { const v = INFO[hood].vibe; return { c: `var(--${VIBES[v].cls})`, e: VIBE_E[v] || '📍' }; };
+  let stamped = null; // the spot (and status) whose stamp last landed: it thunks once per spot, not on every re-render
 
   // ---- home: Bay Area or a region ----
   const doneCount = (r = state.loc.region) => HOODS.reduce((s, h, i) => s + (inRegion(i, r) && isDone(i) ? 1 : 0), 0);
@@ -2834,7 +2960,9 @@ window.Photos = (() => {
     const roof = h.max === Math.max(...HOODS.filter(x => x.region === h.region).map(x => x.max)), dis = state.canWrite ? '' : 'disabled';
     const keepNote = panel.dataset.name === name && panel.querySelector('#note') ? panel.querySelector('#note').value : null; panel.dataset.name = name;
     setHead({ eyebrow: `${REGIONS[h.region].label} · ${VIBES[info.vibe].label}`, dot: `var(--${VIBES[info.vibe].cls})`, title: esc(name), tools: [logTool(name, null)] });
+    const extras = secs.slice().sort((a, b) => !!b.star - !!a.star).map(s => ({ owner: ownerKey.section(name, s.name), label: s.name })).concat(mine.map(spotSrc)); // sections in list order, then spots, newest first
     panel.innerHTML = `
+      ${hero(ownerKey.place(name), name, Object.assign(vibeLook(name), { extras }))}
       <p class="lead">${esc(info.line)}</p>
       <div class="marks">
         <button type="button" class="mark done ${done ? 'on' : ''}" id="explore" aria-pressed="${!!done}" ${dis}><span class="box">${ICON.check}</span><span><b>${done ? 'Walked' : 'Been here'}</b><small>${done ? niceDate(done.at) + ' · tap to undo' : 'Logs it with a flag'}</small></span></button>
@@ -2846,7 +2974,6 @@ window.Photos = (() => {
       ${secs.length ? `<h3>Sections <span class="n">${secs.length}</span></h3><ul class="rows">${secs.map((s, j) => [s, j]).sort((a, b) => !!b[0].star - !!a[0].star).map(([s, j]) => rowSub(name, s, j)).join('')}</ul>` : ''}
       <h3>Spots <span class="n">${mine.length || ''}</span><button type="button" class="act" id="log-here">+ Log a place</button></h3>
       ${mine.length ? `<ul class="rows">${mine.map(id => rowSpot(id, false)).join('')}</ul>` : `<p class="empty">Nothing logged here yet.</p>`}
-      ${photosBlock(ownerKey.place(name), name)}
       <h3>Known for</h3><ul class="plain">${info.known.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
       <h3>One thing to know</h3><p class="fact">${esc(info.fact)}</p>
       <h3>Next door</h3>${h.adj.length ? `<div class="textlinks">${h.adj.map(a => `<button type="button" class="${isDone(IDX[a]) ? 'done' : isWant(IDX[a]) ? 'want' : ''}" data-go='${attr({ hood: a })}'>${esc(a)}</button>`).join('')}</div>` : '<p class="empty">Nobody. It is an island.</p>'}`;
@@ -2863,10 +2990,10 @@ window.Photos = (() => {
     const mq = areaQuery(hood, subName);
     if (!paint(`
       ${s.star ? `<p class="starnote"><b aria-hidden="true">★</b><span>${esc(s.star)}</span></p>` : ''}
+      ${hero(ownerKey.section(hood, subName), subName, Object.assign(vibeLook(hood), { extras: mine.map(spotSrc) }))}
       <p class="lead">${esc(s.line)}</p>
-      ${s.tags && s.tags.length ? `<div class="facts">${s.tags.map(t => `<span>${esc(t)}</span>`).join('')}</div>` : ''}
+      ${s.tags && s.tags.length ? `<div class="tags">${s.tags.map(t => `<span>${esc(t)}</span>`).join('')}</div>` : ''}
       ${streetMap(mq, 16, subName)}<div class="actions" style="margin-top:8px">${mapsBtn(mq)}</div>
-      ${photosBlock(ownerKey.section(hood, subName), subName)}
       <h3>Spots here <span class="n">${mine.length || ''}</span><button type="button" class="act" id="log-here">+ Log a place</button></h3>
       ${mine.length ? `<ul class="rows">${mine.map(id => rowSpot(id, false)).join('')}</ul>` : `<p class="empty">Nothing logged in ${esc(subName)} yet.</p>`}
       ${s.known && s.known.length ? `<h3>Known for</h3><ul class="plain">${s.known.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
@@ -2877,15 +3004,16 @@ window.Photos = (() => {
   function renderSpot(id) {
     const sp = state.spots[id], k = KINDS[sp.kind] || KINDS.other;
     setHead({ eyebrow: `${k.label} · ${esc(sp.sub || sp.hood)}`, dot: k.c, title: esc(sp.name), tools: [{ id: 'edit', label: 'Edit', icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16v4z"/><path d="M13 7l4 4"/></svg>', run: () => startLog({ hood: sp.hood, sub: sp.sub, edit: id }) }] });
-    const mq = spotQuery(sp);
+    const mq = spotQuery(sp), want = sp.status === 'want', r = want ? 0 : Math.max(0, Math.min(5, sp.rating | 0));
     if (!paint(`
+      ${hero(ownerKey.spot(id), sp.name, { c: k.c, e: k.e, badge: { e: k.e, t: k.label } })}
       ${sp.where ? `<p class="lead">${esc(sp.where)}</p>` : ''}
-      <div class="facts">${sp.status === 'want' ? '<span><b>Want to try</b></span>' : `<span><b>Been</b> ${niceDate(sp.at)}</span>${sp.rating ? `<span class="stars">${'★'.repeat(sp.rating)}<span style="color:var(--line-2)">${'★'.repeat(5 - sp.rating)}</span></span>` : ''}`}<span>${esc(sp.hood)}${sp.sub ? ' › ' + esc(sp.sub) : ''}</span></div>
-      ${sp.note ? `<h3>Notes</h3><p>${esc(sp.note)}</p>` : ''}
+      <div class="verdict">${r ? `<span class="vstars" role="img" aria-label="${r} of 5 stars"><span aria-hidden="true">${'★'.repeat(r)}<i>${'★'.repeat(5 - r)}</i></span></span><b class="vword">${VERDICT[r]}</b>` : ''}<span class="pstamp ${want ? 'want' : 'been'}">${want ? 'Want to try' : `Been${sp.at ? ' · ' + esc(niceDate(sp.at)) : ''}`}</span></div>
+      ${sp.note ? `<p class="pull">${esc(sp.note)}</p>` : ''}
       ${streetMap(mq, 17, sp.name)}
-      ${photosBlock(ownerKey.spot(id), sp.name)}
       <div class="actions" style="margin-top:18px">${sp.status === 'want' ? `<button type="button" class="btn primary" id="been-now">Been here now</button>` : ''}<a class="btn" href="${esc(mapsLink(mq))}" target="_blank" rel="noopener">Open in Maps</a><button type="button" class="btn quiet" id="edit">Edit</button><button type="button" class="btn quiet" id="del" style="color:var(--bad)">Delete</button></div>
       <div class="actions" id="del-confirm" hidden><span style="font-size:13.5px;align-self:center">Remove ${esc(sp.name)} from your log?</span><button type="button" class="btn sm" id="del-yes" style="color:var(--bad);border-color:var(--bad)">Delete</button><button type="button" class="btn sm quiet" id="del-no">Keep</button></div>`)) return false;
+    { const st = panel.querySelector('.pstamp'), key = id + ':' + sp.status; if (st && stamped !== key) { st.classList.add('thunk'); st.addEventListener('animationend', () => st.classList.remove('thunk'), { once: true }); } stamped = key; } // a fresh spot (or a new status): the stamp lands
     // listeners can outlive this render (an identical re-render keeps the panel), so they look the spot up when used
     panel.querySelector('#edit').addEventListener('click', () => { const s = state.spots[id]; if (s) startLog({ hood: s.hood, sub: s.sub, edit: id }); });
     panel.querySelector('#del').addEventListener('click', () => { panel.querySelector('#del-confirm').hidden = false; panel.querySelector('#del').hidden = true; });

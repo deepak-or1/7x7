@@ -96,7 +96,7 @@
     --hill1:#2f2c2a; --hill2:#55432f; --hill3:#80603f; --hill4:#ad8458; --hill5:#d8ad7a;
     --k-food: #c98a66; --k-drink: #a483b4; --k-coffee: #a3826a; --k-view: #7f9ab3; --k-shop: #d6b25c; --k-park: #8fae7b; --k-other: #8e9ca8;
     --glyph-face: #2b3640; --glyph-shade: #1a232c; --glyph-roof: #35414c;
-    --sheet-bg: #1b242d; --seg-on: #3a4652; --seg-on-ink: #eaeff3; --primary: var(--accent); --primary-ink: var(--accent-ink); --pill: var(--paper-3); --toast-bg: #2b3743; --toast-ink: #eaeff3;
+    --sheet-bg: #1b242d; --seg-on: #3a4652; --seg-on-ink: #eaeff3; --primary: var(--accent); --primary-hover: color-mix(in srgb, var(--accent) 85%, #fff); --primary-ink: var(--accent-ink); --pill: var(--paper-3); --toast-bg: #2b3743; --toast-ink: #eaeff3;
     --glass: rgba(22,30,40,.8); --glass-strong: rgba(27,36,45,.92); --glass-edge: rgba(255,255,255,.08); --glass-hi: rgba(255,255,255,.06); --glass-shadow: 0 10px 28px -12px rgba(0,0,0,.65), 0 1px 2px rgba(0,0,0,.3);
     --glass-ring: inset 0 0 0 1px var(--glass-edge), inset 0 1px 0 var(--glass-hi), var(--glass-shadow); --glass-muted: #9ba8b3; --glass-hover: rgba(255,255,255,.08);
     --sheet-shadow: 0 -8px 30px -12px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.08); --panel-shadow: 0 22px 48px -20px rgba(0,0,0,.7), 0 2px 8px -4px rgba(0,0,0,.35), inset 0 0 0 1px var(--glass-edge);
@@ -113,7 +113,7 @@
   --hill1:#2f2c2a; --hill2:#55432f; --hill3:#80603f; --hill4:#ad8458; --hill5:#d8ad7a;
   --k-food: #c98a66; --k-drink: #a483b4; --k-coffee: #a3826a; --k-view: #7f9ab3; --k-shop: #d6b25c; --k-park: #8fae7b; --k-other: #8e9ca8;
   --glyph-face: #2b3640; --glyph-shade: #1a232c; --glyph-roof: #35414c;
-  --sheet-bg: #1b242d; --seg-on: #3a4652; --seg-on-ink: #eaeff3; --primary: var(--accent); --primary-ink: var(--accent-ink); --pill: var(--paper-3); --toast-bg: #2b3743; --toast-ink: #eaeff3;
+  --sheet-bg: #1b242d; --seg-on: #3a4652; --seg-on-ink: #eaeff3; --primary: var(--accent); --primary-hover: color-mix(in srgb, var(--accent) 85%, #fff); --primary-ink: var(--accent-ink); --pill: var(--paper-3); --toast-bg: #2b3743; --toast-ink: #eaeff3;
   --glass: rgba(22,30,40,.8); --glass-strong: rgba(27,36,45,.92); --glass-edge: rgba(255,255,255,.08); --glass-hi: rgba(255,255,255,.06); --glass-shadow: 0 10px 28px -12px rgba(0,0,0,.65), 0 1px 2px rgba(0,0,0,.3);
   --glass-ring: inset 0 0 0 1px var(--glass-edge), inset 0 1px 0 var(--glass-hi), var(--glass-shadow); --glass-muted: #9ba8b3; --glass-hover: rgba(255,255,255,.08);
   --sheet-shadow: 0 -8px 30px -12px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.08); --panel-shadow: 0 22px 48px -20px rgba(0,0,0,.7), 0 2px 8px -4px rgba(0,0,0,.35), inset 0 0 0 1px var(--glass-edge);
@@ -224,7 +224,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 a.btn { text-decoration: none; }
 .btn:hover { border-color: var(--ink); }
 .btn.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
-.btn.primary:hover { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.primary:hover { background: var(--primary-hover, var(--accent)); border-color: var(--primary-hover, var(--accent)); color: var(--accent-ink); }
 .btn.accent { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .btn.quiet { border-color: transparent; background: var(--paper-2); }
 .btn.quiet:hover { background: var(--paper-3); }
@@ -406,10 +406,10 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
 .quiz .bar { margin: 10px 0 14px; }
 
 /* ---------- desktop: the phone's warm paper glass, at desktop scale ---------- */
-@media (min-width: 881px) {
+@media not all and (max-width: 880px) {
   :root { --accent-deep: color-mix(in srgb, var(--accent) 78%, var(--ink)); --focus: var(--accent-deep); } /* accent that holds 3:1 on glass, light and dark */
   /* top left: phone-like pieces. A wordmark pill and a search pill in one row; the trail pill below them under the root */
-  .top.surface { left: max(var(--m), env(safe-area-inset-left, 0px)); top: max(var(--m), env(safe-area-inset-top, 0px)); width: max-content; max-width: calc(100% - var(--side) - 3 * var(--m)); flex-direction: row; align-items: center; gap: 8px; background: none; border-radius: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; pointer-events: none; }
+  .top.surface { left: max(var(--m), env(safe-area-inset-left, 0px)); top: max(var(--m), env(safe-area-inset-top, 0px)); width: max-content; max-width: calc(100% - var(--side) - var(--m) - max(var(--m), env(safe-area-inset-left, 0px)) - max(var(--m), env(safe-area-inset-right, 0px))); flex-direction: row; align-items: center; gap: 8px; background: none; border-radius: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; pointer-events: none; }
   .brandrow { display: contents; }
   .top .brand, .top .search, .top .trail { pointer-events: auto; }
   .top .brand, .search input, .top .trail { background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: var(--glass-ring); }
@@ -418,7 +418,7 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
   .brand p { display: none; }
   .search svg { left: 13px; z-index: 1; stroke: var(--glass-muted); }
   .search input { width: 220px; height: 40px; padding: 0 14px 0 35px; border: 0; border-radius: 999px; }
-  .search input:focus { width: 280px; background: var(--sheet-bg); box-shadow: inset 0 0 0 1.5px var(--accent-deep), var(--glass-shadow); }
+  .search input:focus { width: 280px; background: var(--sheet-bg); outline: 2px solid transparent; box-shadow: inset 0 0 0 1.5px var(--accent-deep), var(--glass-shadow); }
   .search input::placeholder { color: var(--glass-muted); }
   .search input::-webkit-search-cancel-button { filter: grayscale(1); opacity: .6; }
   .top .trail { position: absolute; left: 0; top: calc(100% + 8px); max-width: calc(100vw - var(--side) - 3 * var(--m)); height: 36px; padding: 0 6px; border: 0; border-radius: 999px; color: var(--ink-2); }
@@ -426,14 +426,14 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
   .trail button { color: var(--ink-2); } .trail button:hover { color: var(--ink); background: var(--glass-hover); }
   .trail .sep { color: var(--ink-2); opacity: .45; }
   /* legend: one fully rounded row at the bottom left; a sideways scroller with a soft edge when it does not fit */
-  .legend { left: max(var(--m), env(safe-area-inset-left, 0px)); bottom: calc(var(--m) + env(safe-area-inset-bottom, 0px)); height: 34px; max-width: calc(100% - var(--side) - 4 * var(--m) - 40px); padding: 0; gap: 0; border-radius: 999px; overflow: hidden; font-size: 12.5px; pointer-events: auto; }
+  .legend { left: max(var(--m), env(safe-area-inset-left, 0px)); bottom: calc(var(--m) + env(safe-area-inset-bottom, 0px)); height: 34px; max-width: calc(100% - var(--side) - 2 * var(--m) - max(var(--m), env(safe-area-inset-left, 0px)) - max(var(--m), env(safe-area-inset-right, 0px)) - 40px); padding: 0; gap: 0; border-radius: 999px; overflow: hidden; font-size: 12.5px; } /* the map keeps its wheel, drag and hover under the legend, as before */
   .legend .lgrow { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 0 22px 0 14px; overflow-x: auto; scrollbar-width: none;
     -webkit-mask-image: linear-gradient(to right, transparent, #000 10px, #000 calc(100% - 22px), transparent); mask-image: linear-gradient(to right, transparent, #000 10px, #000 calc(100% - 22px), transparent); }
   .legend .lgrow::-webkit-scrollbar { display: none; }
   .legend span:not(.ramp) i { width: 8px; height: 8px; border-radius: 50%; }
   .legend .hint { color: var(--glass-muted); margin-left: 2px; }
   /* controls: a slim glass capsule, its bottom on the legend's and the logbook's */
-  .ctl { right: calc(var(--side) + 2 * var(--m)); bottom: calc(var(--m) + env(safe-area-inset-bottom, 0px)); }
+  .ctl { right: calc(var(--side) + var(--m) + max(var(--m), env(safe-area-inset-right, 0px))); bottom: calc(var(--m) + env(safe-area-inset-bottom, 0px)); }
   .ctl .stack { width: 40px; border-radius: 999px; }
   .ctl .stack button { width: 40px; height: 40px; border-top: 0; position: relative; }
   .ctl .stack button + button::before { content: ""; position: absolute; top: 0; left: 10px; right: 10px; height: 1px; background: var(--glass-edge); }
@@ -447,13 +447,16 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
   /* the logbook: near-opaque warm paper, a soft warm shadow */
   .sheet { right: max(var(--m), env(safe-area-inset-right, 0px)); top: max(var(--m), env(safe-area-inset-top, 0px)); bottom: calc(var(--m) + env(safe-area-inset-bottom, 0px)); background: var(--sheet-bg); -webkit-backdrop-filter: none; backdrop-filter: none; border-radius: 18px; box-shadow: var(--panel-shadow); }
   .sheet .suggest button:hover { background: var(--paper-2); }
-  .panel h3 .act, .progress small .act, .textlinks .done, .textlinks button[aria-pressed="true"], .row:hover .nm, .pstamp:not(.want), .stamp.got b, .head h2 em { color: var(--accent-deep); } /* small accent text: 4.7:1 on the paper (the plain accent is 3.3:1) */
+  .panel h3 .act, .progress small .act, .textlinks .done, .textlinks button[aria-pressed="true"], .row:hover .nm, .stamp.got b, .head h2 em { color: var(--accent-deep); } /* small accent text: 4.7:1 on the paper (the plain accent is 3.3:1) */
+  .pstamp:not(.want) { color: color-mix(in srgb, var(--accent) 60%, var(--ink)); } /* the stamp prints at 86% opacity: a deeper ink keeps it at 4.5:1 */
+  .top .brand { flex: none; }
+  .progress small .act { border: 0; background: transparent; padding: 0; font: inherit; font-weight: 600; cursor: pointer; }
   .quiz .verdict.good { color: color-mix(in srgb, var(--good) 80%, var(--ink)); } /* 5:1 on the paper (the plain green is 4:1) */
   .panel h3 { justify-content: flex-start; } .panel h3 .n { margin-left: auto; } .panel h3 .n:has(+ .act) { margin-left: 0; } .panel h3 .act { margin-left: auto; } /* count beside the label, action at the right */
   /* map tooltip: a small glass label; toast: the phone's solid pill, over the middle of the map above the legend */
   .tip { background: var(--glass-strong); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); color: var(--ink); border-radius: 10px; padding: 6px 11px 7px; box-shadow: var(--glass-ring); }
   .tip small { color: var(--glass-muted); opacity: 1; }
-  .toast { top: auto; bottom: calc(var(--m) + 34px + 12px + env(safe-area-inset-bottom, 0px)); left: calc((100% - var(--side) - 2 * var(--m)) / 2); transform: translateX(-50%) translateY(8px); border-radius: 20px; padding: 10px 16px; background: var(--toast-bg, var(--ink)); color: var(--toast-ink, var(--paper)); box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow); max-width: calc(100% - var(--side) - 6 * var(--m)); }
+  .toast { top: auto; bottom: calc(var(--m) + 34px + 12px + env(safe-area-inset-bottom, 0px)); left: calc((100% - var(--side) - 2 * var(--m)) / 2); transform: translateX(-50%) translateY(8px); border-radius: 20px; padding: 10px 16px; background: var(--toast-bg, var(--ink)); color: var(--toast-ink, var(--paper)); box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow); max-width: calc(100% - var(--side) - 8 * var(--m)); }
 }
 /* ---------- phone ---------- */
 @media (max-width: 880px) {
@@ -3276,7 +3279,7 @@ window.Photos = (() => {
     setHead({ eyebrow: d.id ? 'Edit spot' : 'Log a place', title: d.id ? esc(d.name) : (d.hood ? `In ${esc(d.sub || d.hood)}` : 'Somewhere on the map'), onBack: cancelLog, tools: [] });
     panel.innerHTML = `<form id="logform" autocomplete="off">
       <div class="field"><label for="lf-q">${placed ? 'Place' : 'Find the place'}</label><input id="lf-q" placeholder="Search a restaurant, bar, park…" value="${esc(d.name)}" ${placed ? '' : 'autofocus'}>
-        ${placed ? `<small style="color:var(--muted);font-size:12.5px">${ICON.pin.replace('<svg', '<svg style="width:12px;height:12px;vertical-align:-1px;fill:none;stroke:currentColor;stroke-width:2"')} ${esc(d.where || '')}${(() => { const w = d.where || ''; const parts = [d.sub, d.hood].filter(x => x && !w.includes(x)); const tail = parts.length ? parts.join(', ') : (w ? '' : 'outside the tracked places'); return (w && tail ? ' · ' : '') + esc(tail); })()} <button type="button" class="act" id="lf-clear" style="border:0;background:none;color:var(--accent);font-weight:600;padding:0 0 0 6px">change</button></small>` : ''}</div>
+        ${placed ? `<small style="color:var(--muted);font-size:12.5px">${ICON.pin.replace('<svg', '<svg style="width:12px;height:12px;vertical-align:-1px;fill:none;stroke:currentColor;stroke-width:2"')} ${esc(d.where || '')}${(() => { const w = d.where || ''; const parts = [d.sub, d.hood].filter(x => x && !w.includes(x)); const tail = parts.length ? parts.join(', ') : (w ? '' : 'outside the tracked places'); return (w && tail ? ' · ' : '') + esc(tail); })()} <button type="button" class="act" id="lf-clear" style="border:0;background:none;color:var(--accent-deep, var(--accent));font-weight:600;padding:0 0 0 6px">change</button></small>` : ''}</div>
       <ul class="suggest" id="lf-sug" hidden></ul>
       <p class="empty" id="lf-nosearch" style="font-size:12.5px;margin:-4px 0 10px" ${state.searchDown ? '' : 'hidden'}>Live suggestions are not available here. Press Enter to search, or type the name and drop a pin.</p>
       ${placed ? '' : `<div class="actions" style="margin:0 0 14px"><button type="button" class="btn sm" id="lf-pin">${ICON.pin} Drop a pin on the map</button><button type="button" class="btn sm" id="lf-gps">Use my location</button></div>`}

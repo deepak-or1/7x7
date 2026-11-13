@@ -82,7 +82,7 @@
 
   // ---- palette from CSS variables ----
   const P = {};
-  const VARS = { water: '--water', paper: '--paper', dot: '--dot', ink: '--ink', muted: '--muted', land: '--land', landOther: '--land-other', coast: '--coast', wlbl: '--wlbl', steel: '--steel', gg: '--gg', accent: '--accent', want: '--want', label: '--label', labelHalo: '--label-halo', subLine: '--sub-line', face: '--glyph-face', shade: '--glyph-shade', roof: '--glyph-roof', line2: '--line-2', star: '--star', starInk: '--star-ink' };
+  const VARS = { water: '--water', paper: '--paper', dot: '--dot', ink: '--ink', muted: '--muted', land: '--land', landOther: '--land-other', coast: '--coast', wlbl: '--wlbl', steel: '--steel', gg: '--gg', accent: '--accent', want: '--want', label: '--label', cityLabel: '--city-label', labelHalo: '--label-halo', subLine: '--sub-line', face: '--glyph-face', shade: '--glyph-shade', roof: '--glyph-roof', line2: '--line-2', star: '--star', starInk: '--star-ink' };
   function refreshPalette() { const cs = getComputedStyle(document.documentElement); for (const k in VARS) P[k] = cs.getPropertyValue(VARS[k]).trim() || '#888'; }
   const hex2rgb = h => { h = h.replace('#', ''); if (h.length === 3) h = h.split('').map(c => c + c).join(''); const n = parseInt(h, 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; };
   const rgbStr = c => `rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0})`;
@@ -299,13 +299,13 @@
       anim = fade(sfA, 0, sfOn ? 1 : 0, dt, 160) || anim;
       let sfBox = null; const sfSize = Math.round((isPhone() ? 10.5 : 11.5) * 1.1 * 4) / 4;
       if (sfA[0] > 0.01 && SF_LBL) { // on the city if there is room, else just west of it over the ocean, or below
-        const [sx, sy] = toScreen(SF_LBL[0], SF_LBL[1]), tw = measure('SAN FRANCISCO', 600, sfSize) + 13 * sfSize * .05, th = sfSize * 1.2;
+        const [sx, sy] = toScreen(SF_LBL[0], SF_LBL[1]), tw = measure('SAN FRANCISCO', 800, sfSize) + 13 * sfSize * .05, th = sfSize * 1.2;
         sfBox = [[0, 0], [-tw / 2 - 14, 0], [-tw / 2 - 14, th], [0, th * 1.3]].map(([dx, dy]) => [sx + dx - tw / 2 - 2, sy + dy - th / 2, sx + dx + tw / 2 + 2, sy + dy + th / 2]).find(b => !clash(b)) || null;
         if (sfBox && sfOn) placed.push(sfBox); }
       const base = Math.round((isPhone() ? 10.5 : 11.5) * clamp(Math.pow(U / cam.w, 0.22), 1, 1.32) * 4) / 4;
       const prio = i => (i === sel ? 1e9 : 0) + (i === hover ? 5e8 : 0) + (STAR[i] ? 2e7 : 0) + (marks[i] ? 1e7 : 0) + HOODS[i].cells; // starred places outrank marks: the user asked for them to stand out
       const order = vis.slice().sort((a, b) => prio(b) - prio(a));
-      const labelFont = s => `600 ${s.toFixed(1)}px Figtree, system-ui, sans-serif`;
+      const labelFont = s => `800 ${s.toFixed(1)}px Figtree, system-ui, sans-serif`;
       const show = [];
       for (const i of order) {
         const h = HOODS[i], far = region !== 'all' && h.region !== region && i !== sel && i !== hover;
@@ -315,7 +315,7 @@
           ghost = subF[i] > 0.6 && (isPhone() ? i === sel : !hot); // phone: only the selected place becomes a watermark (its sections get the room); neighbours keep normal labels
           size = ghost ? base * 1.55 : hot ? base * 1.15 : base;
           st = STAR[i] ? size * (ghost ? .75 : .85) + size * .3 : 0; // a starred place: a small gold star after its name, inside the label's box
-          const tw = measure(text, 600, size) + text.length * size * (ghost ? .14 : .05) + st, th = size * 1.2;
+          const tw = measure(text, 800, size) + text.length * size * (ghost ? .14 : .05) + st, th = size * 1.2;
           const [cx, cy0] = toScreen(h.cx, h.cy); const cy = cy0 + (marks[i] && !ghost ? size * 1.25 : 0);
           const gx = isPhone() ? 4 : 2, gy = isPhone() ? 1 : 0; // phone labels keep wider clearance
           const at = y => [cx - tw / 2 - gx, y - th / 2 - gy, cx + tw / 2 + gx, y + th / 2 + gy];
@@ -337,14 +337,14 @@
       // the star after a starred place's name: centred in the room the label box saved for it
       const placeStar = (s, dy = 0) => { if (!s.st) return; const ss = s.size * (s.ghost ? .75 : .85); haloStar(s.box[2] - s.gx - ss / 2, (s.box[1] + s.box[3]) / 2 + dy - s.size * .06, ss, !s.ghost); };
       let wm = null; // phone: the selected place's watermark is placed after its section labels, in a clear spot
-      if (sfBox && sfA[0] > 0.01) { ctx.globalAlpha = sfA[0]; ctx.textAlign = 'center'; ctx.font = labelFont(sfSize); if (supportsLS) ctx.letterSpacing = '0.05em'; haloText('SAN FRANCISCO', (sfBox[0] + sfBox[2]) / 2, (sfBox[1] + sfBox[3]) / 2, sfSize, P.label); if (supportsLS) ctx.letterSpacing = '0px'; ctx.globalAlpha = 1; }
+      if (sfBox && sfA[0] > 0.01) { ctx.globalAlpha = sfA[0]; ctx.textAlign = 'center'; ctx.font = labelFont(sfSize); if (supportsLS) ctx.letterSpacing = '0.05em'; ctx.fillStyle = P.cityLabel; ctx.fillText('SAN FRANCISCO', (sfBox[0] + sfBox[2]) / 2, (sfBox[1] + sfBox[3]) / 2); if (supportsLS) ctx.letterSpacing = '0px'; ctx.globalAlpha = 1; }
       for (const key in starA) { if (key[0] === 'b' || starA[key] <= 0.01 || !starA['b' + key]) continue; const b = starA['b' + key]; ctx.globalAlpha = starA[key]; haloStar((b[0] + b[2]) / 2, (b[1] + b[3]) / 2, base * 1.1); ctx.globalAlpha = 1; }
       for (const s of show) {
         if (s.ghost && s.i === sel && isPhone()) { wm = s; continue; }
         const h = HOODS[s.i], text = (window.SHORT[h.name] || h.name).toUpperCase(), cx = (s.box[0] + s.box[2]) / 2 - s.st / 2, cy = (s.box[1] + s.box[3]) / 2;
         ctx.globalAlpha = lblA[s.i]; ctx.textAlign = 'center'; ctx.font = labelFont(s.size);
         if (supportsLS) ctx.letterSpacing = s.ghost ? '0.14em' : '0.05em';
-        if (s.ghost) { ctx.fillStyle = s.i === sel ? P.accent : P.label; ctx.fillText(text, cx, cy); } else haloText(text, cx, cy, s.size, s.hot ? P.accent : P.label);
+        if (s.ghost) { ctx.fillStyle = s.i === sel ? P.accent : P.label; ctx.fillText(text, cx, cy); } else { ctx.fillStyle = s.hot ? P.accent : P.cityLabel; ctx.fillText(text, cx, cy); }
         placeStar(s);
       }
       if (supportsLS) ctx.letterSpacing = '0px';

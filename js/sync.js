@@ -1,7 +1,7 @@
 // Shared logbook for the hosted site. One JSON record per secret key at logs/<key> in a Firebase Realtime
 // Database, read live over its REST streaming endpoint (EventSource) and written with PUT. No SDK: the
 // database rules allow reads and writes only below a key, never a listing, and the key is a long random
-// string carried in the link people bookmark. Config: js/sync-config.js.
+// string carried in the link people bookmark. Photos: Sync.photos(key), see js/photos.js. Config: js/sync-config.js.
 window.Sync = (() => {
   const base = ((window.SYNC_CONFIG && window.SYNC_CONFIG.databaseURL) || '').replace(/\/+$/, '');
   const url = key => `${base}/logs/${encodeURIComponent(key)}.json`;
@@ -29,5 +29,16 @@ window.Sync = (() => {
       close: () => { closed = true; if (es) es.close(); },
     };
   }
-  return { ready, connect, url };
+  // Photos sit in a sibling record, logs/<key>-ph/<owner>/<photoId>, so the log's live stream never carries them.
+  function photos(key) {
+    const purl = (...p) => `${base}/logs/${[key + '-ph', ...p].map(encodeURIComponent).join('/')}.json`;
+    const req = (u, o) => fetch(u, o).then(r => { if (!r.ok) throw err(r.status === 401 || r.status === 403 ? 'invalid_argument' : 'unavailable', 'photos request failed ' + r.status); return r; });
+    return {
+      list: owner => req(purl(owner)).then(r => r.json()).then(d => (d && typeof d === 'object' ? d : {})),
+      put: (owner, id, rec) => req(purl(owner, id), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rec) }).then(() => {}),
+      del: (owner, id) => req(purl(owner, id), { method: 'DELETE' }).then(() => {}),
+      delAll: owner => req(purl(owner), { method: 'DELETE' }).then(() => {}),
+    };
+  }
+  return { ready, connect, url, photos };
 })();

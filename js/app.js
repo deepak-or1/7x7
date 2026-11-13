@@ -228,9 +228,11 @@
     renderTrail(); renderLegend();
     if (state.query) { renderSearch(); return; }
     if (state.quiz) { renderQuiz(); return; }
-    const l = state.loc, v = state.view;
-    if (v === 'log') renderLogForm(); else if (v === 'spots') renderSpots(); else if (l.spot) renderSpot(l.spot); else if (l.sub) renderSub(l.hood, l.sub); else if (l.hood) renderHood(l.hood); else renderHome();
+    const l = state.loc, v = state.view; let fresh = true;
+    if (v === 'log') renderLogForm(); else if (v === 'spots') renderSpots(); else if (l.spot) fresh = renderSpot(l.spot); else if (l.sub) fresh = renderSub(l.hood, l.sub); else if (l.hood) renderHood(l.hood); else renderHome();
+    if (fresh === false) return; // the panel was left as it was, listeners and all
     wire(panel);
+    if (window.Photos) Photos.mount(panel);
   }
   function wire(root) {
     root.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => go(JSON.parse(b.dataset.go), { tap: true })));
@@ -240,6 +242,30 @@
   const rowSpot = (id, withPlace) => { const sp = state.spots[id], k = KINDS[sp.kind] || KINDS.other; const meta = [k.label, withPlace ? (sp.sub || sp.hood) : sp.sub, sp.note].filter(Boolean).join(' · '); const rt = sp.status === 'want' ? 'want to try' : (sp.rating ? '★'.repeat(sp.rating) : niceDate(sp.at)); return `<li><button type="button" class="row" data-go='${attr({ spot: id })}'><span class="ic" style="--c:${k.c};${sp.status === 'want' ? 'background:transparent;box-shadow:0 0 0 2px ' + k.c + ' inset' : ''}"></span><span class="nm">${esc(sp.name)}<small>${esc(meta)}</small></span><span class="rt">${esc(rt)}</span></button></li>`; };
   const spotsIn = (hood, sub) => Object.keys(state.spots).filter(id => state.spots[id].hood === hood && (!sub || state.spots[id].sub === sub)).sort((a, b) => (state.spots[a].at < state.spots[b].at ? 1 : -1));
   const logTool = (hood, sub) => ({ id: 'log', label: 'Log a place', icon: ICON.plus, run: () => startLog({ hood, sub }) });
+  // ---- Google Maps: a text query lands on the real place; a pinned, GPS or approximate spot keeps its coordinates
+  // (a made-up name resolves to the wrong place). From place search, `where` is 'street · district · city'; the
+  // district is unreliable, so only a street that starts with a number and the last part (the city) are used.
+  const isSF = hood => IDX[hood] != null && HOODS[IDX[hood]].region === 'sf';
+  const joinQ = parts => parts.filter((p, i, a) => p && a.indexOf(p) === i).join(', ');
+  function spotQuery(sp) {
+    if (sp.src !== 'search' || !sp.name) return `${sp.lat},${sp.lon}`;
+    const parts = String(sp.where || '').split(' · ').map(s => s.trim()).filter(Boolean), sf = isSF(sp.hood);
+    const street = /^\d/.test(parts[0] || '') ? parts[0] : null, city = parts.length > 1 ? parts[parts.length - 1] : sf ? 'San Francisco' : sp.hood;
+    return joinQ([sp.name, street || (sf ? sp.hood : null), city, 'CA']);
+  }
+  const areaQuery = (hood, sub) => joinQ([sub, hood, isSF(hood) ? 'San Francisco' : null, 'CA']);
+  const mapsLink = q => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
+  const mapsBtn = q => `<a class="btn sm quiet" href="${esc(mapsLink(q))}" target="_blank" rel="noopener">Open in Maps</a>`;
+  // the street-map preview: Google's keyless embed. Not inside the Claude artifact, whose host blocks third-party frames
+  const streetOK = () => (state.store === 'sync' || state.store === 'local') && !(window.claude && window.claude.use);
+  const streetMap = (q, z, name) => streetOK() ? `<h3>Street map</h3><div class="mapprev"><iframe src="${esc(`https://www.google.com/maps?q=${encodeURIComponent(q)}&z=${z}&output=embed`)}" loading="lazy" title="Street map of ${esc(name)}" referrerpolicy="no-referrer-when-downgrade"></iframe></div>` : '';
+  // a re-render (sync echo, a save) that would write the same HTML leaves the panel alone, so the street map does not reload
+  let painted = null;
+  function paint(html) { if (painted && painted.html === html && panel.contains(painted.el)) return false; panel.innerHTML = html; const el = panel.querySelector('.mapprev'); painted = el ? { html, el } : null; return true; }
+  // ---- photos (hosted shared log only): owner keys are Firebase-safe (no . $ # [ ] / or control characters)
+  const okey = s => String(s).replace(/[.$#[\]/\x00-\x1f\x7f]/g, '_');
+  const ownerKey = { spot: id => okey(id), place: hood => okey('h-' + slug(hood)), section: (hood, sub) => okey('h-' + slug(hood) + '--' + slug(sub)) };
+  const photosBlock = (owner, label) => state.store === 'sync' && window.Photos ? Photos.block(owner, label, state.canWrite) : '';
 
   // ---- home: Bay Area or a region ----
   const doneCount = (r = state.loc.region) => HOODS.reduce((s, h, i) => s + (inRegion(i, r) && isDone(i) ? 1 : 0), 0);
@@ -273,7 +299,7 @@
         <label class="switch"><span>Color every place, walked or not</span><input type="checkbox" id="show-all" ${state.showAll ? 'checked' : ''}></label>
         <div class="field" style="margin-top:12px"><label>Appearance</label><div class="seg">${['system', 'light', 'dark'].map(t => `<button type="button" data-theme-pick="${t}" aria-pressed="${state.theme === t}">${t === 'system' ? 'System' : t[0].toUpperCase() + t.slice(1)}</button>`).join('')}</div></div>
         <div class="actions" style="margin-top:4px"><button type="button" class="btn sm" id="export">Export log</button><button type="button" class="btn sm" id="import">Import</button><input type="file" id="import-file" accept="application/json" hidden>${state.store === 'sync' ? '<button type="button" class="btn sm primary" id="share-log">Share this log</button><button type="button" class="btn sm" id="join-log">Join a log</button>' : ''}</div>
-        <p class="fine">${state.store === 'db' ? 'Your log, list, spots and notes are saved with this artifact and shared with everyone it is shared with.' : state.store === 'sync' ? 'This log is shared: everyone who opens your link sees it and adds to it, live. Keep the link private, and bookmark it on each phone.' : 'Your log is saved in this browser. Export it now and then to keep a copy, or to move it to another device.'} San Francisco boundaries from the SF Planning Department, high points from Mapzen elevation data. Marin, East Bay and Peninsula boundaries from the US Census; their high points are approximate. Place search by Photon, © OpenStreetMap contributors.</p>
+        <p class="fine">${state.store === 'db' ? 'Your log, list, spots and notes are saved with this artifact and shared with everyone it is shared with.' : state.store === 'sync' ? 'This log is shared: everyone who opens your link sees it and adds to it, live. Keep the link private, and bookmark it on each phone. Photos are shared with the log the same way, but Export log does not include them.' : 'Your log is saved in this browser. Export it now and then to keep a copy, or to move it to another device.'} San Francisco boundaries from the SF Planning Department, high points from Mapzen elevation data. Marin, East Bay and Peninsula boundaries from the US Census; their high points are approximate. Place search by Photon, © OpenStreetMap contributors.</p>
       </details>`;
     panel.querySelector('#surprise').addEventListener('click', surprise);
     panel.querySelector('#quiz').addEventListener('click', startQuiz);
@@ -303,9 +329,11 @@
       </div>
       ${done ? `<textarea class="note" id="note" placeholder="What did you eat, see, or climb?" aria-label="Notes for ${esc(name)}">${esc(keepNote ?? done.note ?? '')}</textarea>` : ''}<div class="savestate" id="savestate">${state.canWrite ? '' : 'Sign in to keep a list'}</div>
       <div class="facts"><span><b>${ft(h.max).toLocaleString()} ft</b> high point${roof ? ' · ' + REGIONS[h.region].roof : ''}</span><span><b>Fog</b> <span class="dots">${[1, 2, 3, 4, 5].map(n => `<i class="${n <= info.fog ? 'on' : ''}"></i>`).join('')}</span> ${FOG_WORDS[info.fog - 1]}</span></div>
+      <div class="actions">${mapsBtn(areaQuery(name))}</div>
       ${secs.length ? `<h3>Sections <span class="n">${secs.length}</span></h3><ul class="rows">${secs.map((s, j) => [s, j]).sort((a, b) => !!b[0].star - !!a[0].star).map(([s, j]) => rowSub(name, s, j)).join('')}</ul>` : ''}
       <h3>Spots <span class="n">${mine.length || ''}</span><button type="button" class="act" id="log-here">+ Log a place</button></h3>
       ${mine.length ? `<ul class="rows">${mine.map(id => rowSpot(id, false)).join('')}</ul>` : `<p class="empty">Nothing logged here yet.</p>`}
+      ${photosBlock(ownerKey.place(name), name)}
       <h3>Known for</h3><ul class="plain">${info.known.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
       <h3>One thing to know</h3><p class="fact">${esc(info.fact)}</p>
       <h3>Next door</h3>${h.adj.length ? `<div class="textlinks">${h.adj.map(a => `<button type="button" class="${isDone(IDX[a]) ? 'done' : isWant(IDX[a]) ? 'want' : ''}" data-go='${attr({ hood: a })}'>${esc(a)}</button>`).join('')}</div>` : '<p class="empty">Nobody. It is an island.</p>'}`;
@@ -319,32 +347,38 @@
     const s = subByName(hood, subName), i = IDX[hood], info = INFO[hood], mine = spotsIn(hood, subName), others = subs(hood).filter(x => x.name !== subName);
     if (s.star) setHead({ eyebrow: `<span class="star"><b>★</b> Starred · ${esc(s.star)}</span>`, title: esc(subName), tools: [logTool(hood, subName)] });
     else setHead({ eyebrow: `${esc(hood)} · ${REGIONS[HOODS[i].region].label}`, dot: `var(--${VIBES[info.vibe].cls})`, title: esc(subName), tools: [logTool(hood, subName)] });
-    panel.innerHTML = `
+    const mq = areaQuery(hood, subName);
+    if (!paint(`
       ${s.star ? `<p class="starnote"><b aria-hidden="true">★</b><span>${esc(s.star)}</span></p>` : ''}
       <p class="lead">${esc(s.line)}</p>
       ${s.tags && s.tags.length ? `<div class="facts">${s.tags.map(t => `<span>${esc(t)}</span>`).join('')}</div>` : ''}
+      ${streetMap(mq, 16, subName)}<div class="actions" style="margin-top:8px">${mapsBtn(mq)}</div>
+      ${photosBlock(ownerKey.section(hood, subName), subName)}
       <h3>Spots here <span class="n">${mine.length || ''}</span><button type="button" class="act" id="log-here">+ Log a place</button></h3>
       ${mine.length ? `<ul class="rows">${mine.map(id => rowSpot(id, false)).join('')}</ul>` : `<p class="empty">Nothing logged in ${esc(subName)} yet.</p>`}
       ${s.known && s.known.length ? `<h3>Known for</h3><ul class="plain">${s.known.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
-      <h3>Also in ${esc(hood)}</h3><div class="textlinks">${others.map(x => `<button type="button" data-go='${attr({ hood, sub: x.name })}'>${esc(x.name)}</button>`).join('')}</div>`;
+      <h3>Also in ${esc(hood)}</h3><div class="textlinks">${others.map(x => `<button type="button" data-go='${attr({ hood, sub: x.name })}'>${esc(x.name)}</button>`).join('')}</div>`)) return false;
     panel.querySelector('#log-here').addEventListener('click', () => startLog({ hood, sub: subName }));
   }
   // ---- a spot ----
   function renderSpot(id) {
     const sp = state.spots[id], k = KINDS[sp.kind] || KINDS.other;
     setHead({ eyebrow: `${k.label} · ${esc(sp.sub || sp.hood)}`, dot: k.c, title: esc(sp.name), tools: [{ id: 'edit', label: 'Edit', icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16v4z"/><path d="M13 7l4 4"/></svg>', run: () => startLog({ hood: sp.hood, sub: sp.sub, edit: id }) }] });
-    const maps = `https://www.google.com/maps/search/?api=1&query=${sp.lat},${sp.lon}`;
-    panel.innerHTML = `
+    const mq = spotQuery(sp);
+    if (!paint(`
       ${sp.where ? `<p class="lead">${esc(sp.where)}</p>` : ''}
       <div class="facts">${sp.status === 'want' ? '<span><b>Want to try</b></span>' : `<span><b>Been</b> ${niceDate(sp.at)}</span>${sp.rating ? `<span class="stars">${'★'.repeat(sp.rating)}<span style="color:var(--line-2)">${'★'.repeat(5 - sp.rating)}</span></span>` : ''}`}<span>${esc(sp.hood)}${sp.sub ? ' › ' + esc(sp.sub) : ''}</span></div>
       ${sp.note ? `<h3>Notes</h3><p>${esc(sp.note)}</p>` : ''}
-      <div class="actions" style="margin-top:18px">${sp.status === 'want' ? `<button type="button" class="btn primary" id="been-now">Been here now</button>` : ''}<a class="btn" href="${maps}" target="_blank" rel="noopener">Open in Maps</a><button type="button" class="btn quiet" id="edit">Edit</button><button type="button" class="btn quiet" id="del" style="color:var(--bad)">Delete</button></div>
-      <div class="actions" id="del-confirm" hidden><span style="font-size:13.5px;align-self:center">Remove ${esc(sp.name)} from your log?</span><button type="button" class="btn sm" id="del-yes" style="color:var(--bad);border-color:var(--bad)">Delete</button><button type="button" class="btn sm quiet" id="del-no">Keep</button></div>`;
-    panel.querySelector('#edit').addEventListener('click', () => startLog({ hood: sp.hood, sub: sp.sub, edit: id }));
+      ${streetMap(mq, 17, sp.name)}
+      ${photosBlock(ownerKey.spot(id), sp.name)}
+      <div class="actions" style="margin-top:18px">${sp.status === 'want' ? `<button type="button" class="btn primary" id="been-now">Been here now</button>` : ''}<a class="btn" href="${esc(mapsLink(mq))}" target="_blank" rel="noopener">Open in Maps</a><button type="button" class="btn quiet" id="edit">Edit</button><button type="button" class="btn quiet" id="del" style="color:var(--bad)">Delete</button></div>
+      <div class="actions" id="del-confirm" hidden><span style="font-size:13.5px;align-self:center">Remove ${esc(sp.name)} from your log?</span><button type="button" class="btn sm" id="del-yes" style="color:var(--bad);border-color:var(--bad)">Delete</button><button type="button" class="btn sm quiet" id="del-no">Keep</button></div>`)) return false;
+    // listeners can outlive this render (an identical re-render keeps the panel), so they look the spot up when used
+    panel.querySelector('#edit').addEventListener('click', () => { const s = state.spots[id]; if (s) startLog({ hood: s.hood, sub: s.sub, edit: id }); });
     panel.querySelector('#del').addEventListener('click', () => { panel.querySelector('#del-confirm').hidden = false; panel.querySelector('#del').hidden = true; });
     panel.querySelector('#del-no').addEventListener('click', () => { panel.querySelector('#del-confirm').hidden = true; panel.querySelector('#del').hidden = false; });
     panel.querySelector('#del-yes').addEventListener('click', () => removeSpot(id));
-    const bn = panel.querySelector('#been-now'); if (bn) bn.addEventListener('click', async () => { sp.status = 'been'; sp.at = today(); await persist(); render(); toast(`${sp.name}: been there.`); });
+    const bn = panel.querySelector('#been-now'); if (bn) bn.addEventListener('click', async () => { const s = state.spots[id]; if (!s) return; s.status = 'been'; s.at = today(); await persist(); render(); toast(`${s.name}: been there.`); });
   }
   // ---- all spots ----
   function renderSpots() {
@@ -463,6 +497,7 @@
   function connectSync() {
     if (!window.Sync || !Sync.ready()) { state.store = 'local'; return; }
     const key = syncKey(); state.store = 'sync';
+    if (window.Photos && Sync.photos) Photos.init({ api: Sync.photos(key), toast, canWrite: () => state.canWrite });
     let seeded = false;
     docRef = Sync.connect(key, data => {
       if (data && data.updatedAt && data.updatedAt === lastSent) return; // our own write coming back
@@ -568,7 +603,7 @@
     state.draft = null; state.pending = null; state.placing = false; stage.classList.remove('placing');
     toast(d.id ? 'Saved' : `${name} logged`); setSaveState('Saving…'); const ok = await persist(); go({ spot: id }, { replace: true }); if (ok !== false) setSaveState('Saved');
   }
-  async function removeSpot(id) { const sp = state.spots[id]; if (!sp) return; delete state.spots[id]; go({ hood: sp.hood, sub: sp.sub }, { replace: true, fly: false }); map.redraw(); await persist(); toast(`${sp.name} removed`); }
+  async function removeSpot(id) { const sp = state.spots[id]; if (!sp) return; delete state.spots[id]; go({ hood: sp.hood, sub: sp.sub }, { replace: true, fly: false }); map.redraw(); if (state.store === 'sync' && window.Photos) { try { Photos.removeAll(ownerKey.spot(id)); } catch (e) {} } await persist(); toast(`${sp.name} removed`); } // its photos go too, best effort
 
   // ---------- where am I ----------
   function locate(onPos) {
@@ -643,7 +678,7 @@
   }
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { map.refreshPalette(); recolor(false); });
   window.addEventListener('resize', () => { map.resize(); map.redraw(); }); // resize() also catches a devicePixelRatio change (browser zoom)
-  window.__sbs = { map, state, go, sheet }; // for tests and the console
+  window.__sbs = { map, state, go, sheet, maps: { spotQuery, areaQuery, mapsLink }, photos: window.Photos ? Object.assign(Object.create(window.Photos), { ownerKey }) : null }; // for tests and the console
   window.claude?.hot?.snapshot?.(() => ({ loc: state.loc }));
   window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
 })();

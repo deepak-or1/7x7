@@ -8,7 +8,8 @@ window.Photos = (() => {
   let api = null, toast = () => {}, canWrite = () => true;
   const cache = {}; // owner -> { recs: {id: rec} | null, at, ver, loading, busy }
   const entry = o => cache[o] || (cache[o] = { recs: null, at: 0, ver: 0, loading: null, busy: 0 });
-  const ordered = o => { const r = (cache[o] && cache[o].recs) || {}; return Object.keys(r).sort().map(id => Object.assign({ id }, r[id])); };
+  const isImg = d => typeof d === 'string' && /^data:image\/(jpeg|png|webp);base64,/.test(d); // never a remote URL: a record is written by anyone with the link
+  const ordered = o => { const r = (cache[o] && cache[o].recs) || {}; return Object.keys(r).sort().filter(id => r[id] && isImg(r[id].d)).map(id => Object.assign({}, r[id], { id })); };
   const newId = () => 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 4).padEnd(2, '0');
   function init(o) { api = o.api || null; if (o.toast) toast = o.toast; if (o.canWrite) canWrite = o.canWrite; }
 
@@ -136,14 +137,14 @@ window.Photos = (() => {
   }
   function onKey(e) {
     if (!lb) return;
+    e.stopPropagation(); // the app's own keys (Escape goes up a level, +/- zoom) wait until the lightbox is closed
     if (e.key === 'Escape') { e.preventDefault(); close(); }
     else if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); }
     else if (e.key === 'ArrowRight') { e.preventDefault(); step(1); }
     else if (e.key === 'Tab') { // keep focus inside the dialog
       const f = [...lb.el.querySelectorAll('button')].filter(b => !b.disabled && b.offsetParent !== null); if (!f.length) return;
-      const i = f.indexOf(document.activeElement); if (e.shiftKey ? i <= 0 : i === f.length - 1 || i < 0) { e.preventDefault(); f[e.shiftKey ? f.length - 1 : 0].focus(); } else return;
-    } else return;
-    e.stopPropagation(); // the app's own keys (Escape goes up a level, +/- zoom) wait until the lightbox is closed
+      const i = f.indexOf(document.activeElement); if (e.shiftKey ? i <= 0 : i === f.length - 1 || i < 0) { e.preventDefault(); f[e.shiftKey ? f.length - 1 : 0].focus(); }
+    }
   }
   function close(quiet) {
     if (!lb) return; const { el, owner, id } = lb; lb = null;

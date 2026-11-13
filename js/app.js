@@ -258,7 +258,7 @@
   const mapsBtn = q => `<a class="btn sm quiet" href="${esc(mapsLink(q))}" target="_blank" rel="noopener">Open in Maps</a>`;
   // the street-map preview: Google's keyless embed. Not inside the Claude artifact, whose host blocks third-party frames
   const streetOK = () => (state.store === 'sync' || state.store === 'local') && !(window.claude && window.claude.use);
-  const streetMap = (q, z, name) => streetOK() ? `<h3>Street map</h3><div class="mapprev"><iframe src="${esc(`https://www.google.com/maps?q=${encodeURIComponent(q)}&z=${z}&output=embed`)}" loading="lazy" title="Street map of ${esc(name)}" referrerpolicy="no-referrer-when-downgrade"></iframe></div>` : '';
+  const streetMap = (q, z, name) => streetOK() ? `<h3>Street map</h3><a class="mapprev" href="${esc(mapsLink(q))}" target="_blank" rel="noopener" aria-label="Open ${esc(name)} in Maps"><iframe src="${esc(`https://www.google.com/maps?q=${encodeURIComponent(q)}&z=${z}&output=embed`)}" loading="lazy" title="Street map of ${esc(name)}" referrerpolicy="no-referrer-when-downgrade"></iframe></a>` : '';
   // a re-render (sync echo, a save) that would write the same HTML leaves the panel alone, so the street map does not reload
   let painted = null;
   function paint(html) { if (painted && painted.html === html && panel.contains(painted.el)) return false; panel.innerHTML = html; const el = panel.querySelector('.mapprev'); painted = el ? { html, el } : null; return true; }
@@ -603,7 +603,7 @@
     state.draft = null; state.pending = null; state.placing = false; stage.classList.remove('placing');
     toast(d.id ? 'Saved' : `${name} logged`); setSaveState('Saving…'); const ok = await persist(); go({ spot: id }, { replace: true }); if (ok !== false) setSaveState('Saved');
   }
-  async function removeSpot(id) { const sp = state.spots[id]; if (!sp) return; delete state.spots[id]; go({ hood: sp.hood, sub: sp.sub }, { replace: true, fly: false }); map.redraw(); if (state.store === 'sync' && window.Photos) { try { Photos.removeAll(ownerKey.spot(id)); } catch (e) {} } await persist(); toast(`${sp.name} removed`); } // its photos go too, best effort
+  async function removeSpot(id) { const sp = state.spots[id]; if (!sp) return; delete state.spots[id]; go({ hood: sp.hood, sub: sp.sub }, { replace: true, fly: false }); map.redraw(); const ok = await persist(); if (ok !== false && state.store === 'sync' && window.Photos) { try { Photos.removeAll(ownerKey.spot(id)); } catch (e) {} } toast(`${sp.name} removed`); } // its photos go too, best effort, once the delete is saved
 
   // ---------- where am I ----------
   function locate(onPos) {

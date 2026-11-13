@@ -281,7 +281,7 @@ details.more summary::-webkit-details-marker { display: none; }
 details.more summary::after { content: "+"; font-size: 14px; } details.more[open] summary::after { content: "−"; }
 
 /* street-map preview (section, spot) and photos (strip in the panel, lightbox over everything but the toast) */
-.mapprev { width: 100%; aspect-ratio: 16 / 10; border: 1px solid var(--line); border-radius: var(--r-sm); overflow: hidden; background: var(--paper-2); }
+.mapprev { display: block; width: 100%; aspect-ratio: 16 / 10; border: 1px solid var(--line); border-radius: var(--r-sm); overflow: hidden; background: var(--paper-2); }
 .mapprev iframe { display: block; width: 100%; height: 100%; border: 0; }
 .panel h3 .act[disabled] { color: var(--muted); cursor: default; text-decoration: none; }
 .ph-strip { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 6px; scrollbar-width: thin; overscroll-behavior-x: contain; }
@@ -409,6 +409,7 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
   /* photos: the strip runs to the sheet edges; the lightbox photo takes the full width under the arrows */
   .ph-strip { margin: 0 -16px; padding: 2px 16px 6px; scrollbar-width: none; } .ph-strip::-webkit-scrollbar { display: none; }
   .lb-stage img { left: 0; width: 100%; }
+  .mapprev iframe { pointer-events: none; } /* phone: the preview is a picture, so a drag on it moves the sheet and a tap opens Maps */
   .lb-btn { background: rgba(0, 0, 0, .45); }
   .chips button[aria-pressed="true"] { background: var(--seg-on, var(--ink)); color: var(--seg-on-ink, var(--paper)); border-color: var(--seg-on, var(--ink)); text-decoration: none; }
 }

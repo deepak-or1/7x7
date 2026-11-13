@@ -311,7 +311,7 @@ details.more summary::-webkit-details-marker { display: none; }
 details.more summary::after { content: "+"; font-size: 14px; } details.more[open] summary::after { content: "−"; }
 
 /* street-map preview (section, spot) and photos (strip in the panel, lightbox over everything but the toast) */
-.mapprev { width: 100%; aspect-ratio: 16 / 10; border: 1px solid var(--line); border-radius: var(--r-sm); overflow: hidden; background: var(--paper-2); }
+.mapprev { display: block; width: 100%; aspect-ratio: 16 / 10; border: 1px solid var(--line); border-radius: var(--r-sm); overflow: hidden; background: var(--paper-2); }
 .mapprev iframe { display: block; width: 100%; height: 100%; border: 0; }
 .panel h3 .act[disabled] { color: var(--muted); cursor: default; text-decoration: none; }
 .ph-strip { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 6px; scrollbar-width: thin; overscroll-behavior-x: contain; }
@@ -439,6 +439,7 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
   /* photos: the strip runs to the sheet edges; the lightbox photo takes the full width under the arrows */
   .ph-strip { margin: 0 -16px; padding: 2px 16px 6px; scrollbar-width: none; } .ph-strip::-webkit-scrollbar { display: none; }
   .lb-stage img { left: 0; width: 100%; }
+  .mapprev iframe { pointer-events: none; } /* phone: the preview is a picture, so a drag on it moves the sheet and a tap opens Maps */
   .lb-btn { background: rgba(0, 0, 0, .45); }
   .chips button[aria-pressed="true"] { background: var(--seg-on, var(--ink)); color: var(--seg-on-ink, var(--paper)); border-color: var(--seg-on, var(--ink)); text-decoration: none; }
 }
@@ -2354,7 +2355,8 @@ window.Photos = (() => {
   let api = null, toast = () => {}, canWrite = () => true;
   const cache = {}; // owner -> { recs: {id: rec} | null, at, ver, loading, busy }
   const entry = o => cache[o] || (cache[o] = { recs: null, at: 0, ver: 0, loading: null, busy: 0 });
-  const ordered = o => { const r = (cache[o] && cache[o].recs) || {}; return Object.keys(r).sort().map(id => Object.assign({ id }, r[id])); };
+  const isImg = d => typeof d === 'string' && /^data:image\/(jpeg|png|webp);base64,/.test(d); // never a remote URL: a record is written by anyone with the link
+  const ordered = o => { const r = (cache[o] && cache[o].recs) || {}; return Object.keys(r).sort().filter(id => r[id] && isImg(r[id].d)).map(id => Object.assign({}, r[id], { id })); };
   const newId = () => 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 4).padEnd(2, '0');
   function init(o) { api = o.api || null; if (o.toast) toast = o.toast; if (o.canWrite) canWrite = o.canWrite; }
 
@@ -2482,14 +2484,14 @@ window.Photos = (() => {
   }
   function onKey(e) {
     if (!lb) return;
+    e.stopPropagation(); // the app's own keys (Escape goes up a level, +/- zoom) wait until the lightbox is closed
     if (e.key === 'Escape') { e.preventDefault(); close(); }
     else if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); }
     else if (e.key === 'ArrowRight') { e.preventDefault(); step(1); }
     else if (e.key === 'Tab') { // keep focus inside the dialog
       const f = [...lb.el.querySelectorAll('button')].filter(b => !b.disabled && b.offsetParent !== null); if (!f.length) return;
-      const i = f.indexOf(document.activeElement); if (e.shiftKey ? i <= 0 : i === f.length - 1 || i < 0) { e.preventDefault(); f[e.shiftKey ? f.length - 1 : 0].focus(); } else return;
-    } else return;
-    e.stopPropagation(); // the app's own keys (Escape goes up a level, +/- zoom) wait until the lightbox is closed
+      const i = f.indexOf(document.activeElement); if (e.shiftKey ? i <= 0 : i === f.length - 1 || i < 0) { e.preventDefault(); f[e.shiftKey ? f.length - 1 : 0].focus(); }
+    }
   }
   function close(quiet) {
     if (!lb) return; const { el, owner, id } = lb; lb = null;
@@ -2769,7 +2771,7 @@ window.Photos = (() => {
   const mapsBtn = q => `<a class="btn sm quiet" href="${esc(mapsLink(q))}" target="_blank" rel="noopener">Open in Maps</a>`;
   // the street-map preview: Google's keyless embed. Not inside the Claude artifact, whose host blocks third-party frames
   const streetOK = () => (state.store === 'sync' || state.store === 'local') && !(window.claude && window.claude.use);
-  const streetMap = (q, z, name) => streetOK() ? `<h3>Street map</h3><div class="mapprev"><iframe src="${esc(`https://www.google.com/maps?q=${encodeURIComponent(q)}&z=${z}&output=embed`)}" loading="lazy" title="Street map of ${esc(name)}" referrerpolicy="no-referrer-when-downgrade"></iframe></div>` : '';
+  const streetMap = (q, z, name) => streetOK() ? `<h3>Street map</h3><a class="mapprev" href="${esc(mapsLink(q))}" target="_blank" rel="noopener" aria-label="Open ${esc(name)} in Maps"><iframe src="${esc(`https://www.google.com/maps?q=${encodeURIComponent(q)}&z=${z}&output=embed`)}" loading="lazy" title="Street map of ${esc(name)}" referrerpolicy="no-referrer-when-downgrade"></iframe></a>` : '';
   // a re-render (sync echo, a save) that would write the same HTML leaves the panel alone, so the street map does not reload
   let painted = null;
   function paint(html) { if (painted && painted.html === html && panel.contains(painted.el)) return false; panel.innerHTML = html; const el = panel.querySelector('.mapprev'); painted = el ? { html, el } : null; return true; }
@@ -3114,7 +3116,7 @@ window.Photos = (() => {
     state.draft = null; state.pending = null; state.placing = false; stage.classList.remove('placing');
     toast(d.id ? 'Saved' : `${name} logged`); setSaveState('Saving…'); const ok = await persist(); go({ spot: id }, { replace: true }); if (ok !== false) setSaveState('Saved');
   }
-  async function removeSpot(id) { const sp = state.spots[id]; if (!sp) return; delete state.spots[id]; go({ hood: sp.hood, sub: sp.sub }, { replace: true, fly: false }); map.redraw(); if (state.store === 'sync' && window.Photos) { try { Photos.removeAll(ownerKey.spot(id)); } catch (e) {} } await persist(); toast(`${sp.name} removed`); } // its photos go too, best effort
+  async function removeSpot(id) { const sp = state.spots[id]; if (!sp) return; delete state.spots[id]; go({ hood: sp.hood, sub: sp.sub }, { replace: true, fly: false }); map.redraw(); const ok = await persist(); if (ok !== false && state.store === 'sync' && window.Photos) { try { Photos.removeAll(ownerKey.spot(id)); } catch (e) {} } toast(`${sp.name} removed`); } // its photos go too, best effort, once the delete is saved
 
   // ---------- where am I ----------
   function locate(onPos) {

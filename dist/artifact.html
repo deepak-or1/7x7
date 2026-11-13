@@ -210,6 +210,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 
 /* buttons: flat, rectangular, hairlined */
 .btn { border: 1px solid var(--line-2); background: var(--paper); color: var(--ink); border-radius: var(--r-sm); height: 36px; padding: 0 14px; font-weight: 600; font-size: 13.5px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; transition: background .15s, border-color .15s, color .15s; }
+a.btn { text-decoration: none; }
 .btn:hover { border-color: var(--ink); }
 .btn.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
 .btn.primary:hover { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
@@ -2113,10 +2114,10 @@ window.LANDMARKS = [
     }
     // content: touch events, so native scrolling keeps working when the sheet is open and scrolled
     let touch = null;
-    panel.addEventListener('touchstart', e => { if (!isPhone() || e.touches.length !== 1) return; touch = { y: e.touches[0].clientY, took: false }; }, { passive: true });
+    panel.addEventListener('touchstart', e => { if (!isPhone() || e.touches.length !== 1) return; touch = { x: e.touches[0].clientX, y: e.touches[0].clientY, took: false, side: !!e.target.closest('.ph-strip') }; }, { passive: true }); // side: the touch began on a strip that scrolls sideways
     panel.addEventListener('touchmove', e => {
       if (!touch || e.touches.length !== 1) return; const y = e.touches[0].clientY, dy = y - touch.y;
-      if (!touch.took) { const canScroll = detent === 'full' && !(panel.scrollTop <= 0 && dy > 0); if (canScroll) { touch = null; return; } if (Math.abs(dy) < 3) return; touch.took = true; startDrag(touch.y); }
+      if (!touch.took) { const canScroll = detent === 'full' && !(panel.scrollTop <= 0 && dy > 0); if (canScroll) { touch = null; return; } if (touch.side) { const dx = e.touches[0].clientX - touch.x; if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return; if (Math.abs(dx) > Math.abs(dy)) { touch = null; return; } } if (Math.abs(dy) < 3) return; touch.took = true; startDrag(touch.y); } // a sideways swipe on the photo strip scrolls the strip, not the sheet
       e.preventDefault(); moveDrag(y);
     }, { passive: false });
     const endTouch = () => { if (touch && touch.took) endDrag(false); touch = null; };

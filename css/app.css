@@ -180,6 +180,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 
 /* buttons: flat, rectangular, hairlined */
 .btn { border: 1px solid var(--line-2); background: var(--paper); color: var(--ink); border-radius: var(--r-sm); height: 36px; padding: 0 14px; font-weight: 600; font-size: 13.5px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; transition: background .15s, border-color .15s, color .15s; }
+a.btn { text-decoration: none; }
 .btn:hover { border-color: var(--ink); }
 .btn.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
 .btn.primary:hover { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }

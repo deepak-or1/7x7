@@ -49,7 +49,7 @@
   const savePrefs = () => { try { localStorage.setItem('sbs-prefs-v3', JSON.stringify({ lens: state.lens, showAll: state.showAll, theme: state.theme })); } catch (e) {} };
   function applyTheme() { if (state.theme === 'light' || state.theme === 'dark') document.documentElement.setAttribute('data-theme', state.theme); else document.documentElement.removeAttribute('data-theme'); syncThemeColor(); }
   // the browser / PWA status band follows the theme the page actually shows: the paper tone at the top of the map
-  function syncThemeColor() { const m = document.querySelector('meta[name="theme-color"]'), c = getComputedStyle(document.documentElement).getPropertyValue('--land-other').trim(); if (m && c) m.setAttribute('content', c); }
+  function syncThemeColor() { const c = getComputedStyle(document.documentElement).getPropertyValue('--land-other').trim(); if (c) document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.setAttribute('content', c)); } // both metas (their media attributes only matter before this runs)
   applyTheme();
   const isDone = i => !!state.done[slug(HOODS[i].name)];
   const isWant = i => !!state.want[slug(HOODS[i].name)];
@@ -688,10 +688,10 @@
       const l = state.loc; const v = l.hood ? null : map.fitView(...map.regionBBox(l.region), 1.06, 0); if (v) { map.jumpTo(v); } else { const bb = map.regionBBox(l.region); map.jumpTo(map.fitView(bb[0], bb[1], bb[2], bb[3], 1.06, 0)); flyToLoc(900); }
     }
     connectStore();
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => map.redraw());
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { map.redraw(); renderTrail(); }); // the trail folds by measured width: measure again in the real font
   }
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { syncThemeColor(); map.refreshPalette(); recolor(false); });
-  window.addEventListener('resize', () => { map.resize(); map.redraw(); }); // resize() also catches a devicePixelRatio change (browser zoom)
+  window.addEventListener('resize', () => { map.resize(); map.redraw(); renderTrail(); }); // resize() also catches a devicePixelRatio change (browser zoom)
   window.__sbs = { map, state, go, sheet, maps: { spotQuery, areaQuery, mapsLink }, photos: window.Photos ? Object.assign(Object.create(window.Photos), { ownerKey }) : null }; // for tests and the console
   window.claude?.hot?.snapshot?.(() => ({ loc: state.loc }));
   window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});

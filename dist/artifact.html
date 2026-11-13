@@ -22,7 +22,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="theme-color" content="#e3dccb">
+<meta name="theme-color" content="#e3dccb" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1f2733" media="(prefers-color-scheme: dark)">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&display=swap">
@@ -407,6 +408,7 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
   .top.surface { left: max(var(--m), env(safe-area-inset-left, 0px)); right: max(var(--m), env(safe-area-inset-right, 0px)); top: max(var(--m), env(safe-area-inset-top, 0px)); width: auto; max-width: none; min-height: 44px; flex-direction: row; align-items: center; gap: 8px; background: none; border: 0; border-radius: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; pointer-events: none; }
   .brandrow { display: contents; }
   .top .brand, .top .search, .top .trail { pointer-events: auto; }
+  .sheet-full:not(.searching) .top :is(.brand, .search, .trail) { pointer-events: none; } /* hidden under the full sheet: not tappable in the strip above it */
   .top .brand { flex: none; order: 1; height: 40px; display: flex; align-items: center; padding: 0 16px 1px; border-radius: 999px; }
   .brand h1 { font-size: 17px; } .brand p { display: none; }
   .top .search { order: 3; margin: 0 -2px 0 auto; width: 44px; height: 44px; isolation: isolate; } /* -2px: the 40px disc's edge lines up with the controls' edge */
@@ -432,7 +434,7 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
   .trail .back svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
   /* legend: one capsule row at the bottom left, beside the controls; sideways scroll with soft edges when it does not fit */
   .legend { display: flex; left: max(var(--m), env(safe-area-inset-left, 0px)); right: auto; max-width: calc(100% - 2 * var(--m) - 44px - 8px); height: 34px; bottom: calc(var(--sheet-vis) + var(--m)); padding: 0; gap: 0; border-radius: 999px; overflow: hidden; font-size: 12.5px; pointer-events: auto; transition: bottom .42s var(--ease), opacity .2s; }
-  .legend .lgrow { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 0 18px 0 14px; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; touch-action: pan-x;
+  .legend .lgrow { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 0 26px 0 14px; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; touch-action: pan-x;
     -webkit-mask-image: linear-gradient(to right, transparent, #000 10px, #000 calc(100% - 26px), transparent); mask-image: linear-gradient(to right, transparent, #000 10px, #000 calc(100% - 26px), transparent); }
   .legend .lgrow::-webkit-scrollbar { display: none; }
   .legend span { gap: 6px; } .legend span:not(.ramp) i { width: 8px; height: 8px; border-radius: 50%; }
@@ -463,7 +465,7 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
   .head h2 { grid-area: 2/1/3/3; margin-top: 2px; font-size: 26px; line-height: 1.05; }
   .panel { padding: 6px max(16px, env(safe-area-inset-left, 0px)) calc(32px + var(--kb, 0px) + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
   .sheet:not(.full) .panel { overflow: hidden; }
-  .toast { top: auto; bottom: calc(var(--sheet-vis) + 60px); transform: translateX(-50%) translateY(8px); transition: opacity .25s, transform .25s var(--ease), bottom .42s var(--ease); border-radius: 20px; padding: 10px 16px; background: var(--toast-bg, var(--ink)); color: var(--toast-ink, var(--paper)); box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow); width: max-content; max-width: calc(100% - 2 * (var(--m) + 44px + 8px)); white-space: normal; text-align: center; text-overflow: clip; } /* clear of the controls; a long message wraps */
+  .toast { top: auto; bottom: calc(var(--sheet-vis) + 60px); transform: translateX(-50%) translateY(8px); transition: opacity .25s, transform .25s var(--ease), bottom .42s var(--ease); border-radius: 20px; padding: 10px 16px; background: var(--toast-bg, var(--ink)); color: var(--toast-ink, var(--paper)); box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow); width: max-content; max-width: calc(100% - 2 * (max(var(--m), env(safe-area-inset-right, 0px)) + 44px + 8px)); white-space: normal; text-align: center; text-overflow: clip; } /* clear of the controls; a long message wraps */
   .sheet-full .toast { bottom: calc(24px + env(safe-area-inset-bottom, 0px)); top: auto; }
   .tip { display: none; }
   .cols2 { columns: 1; }
@@ -2715,7 +2717,7 @@ window.Photos = (() => {
   const savePrefs = () => { try { localStorage.setItem('sbs-prefs-v3', JSON.stringify({ lens: state.lens, showAll: state.showAll, theme: state.theme })); } catch (e) {} };
   function applyTheme() { if (state.theme === 'light' || state.theme === 'dark') document.documentElement.setAttribute('data-theme', state.theme); else document.documentElement.removeAttribute('data-theme'); syncThemeColor(); }
   // the browser / PWA status band follows the theme the page actually shows: the paper tone at the top of the map
-  function syncThemeColor() { const m = document.querySelector('meta[name="theme-color"]'), c = getComputedStyle(document.documentElement).getPropertyValue('--land-other').trim(); if (m && c) m.setAttribute('content', c); }
+  function syncThemeColor() { const c = getComputedStyle(document.documentElement).getPropertyValue('--land-other').trim(); if (c) document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.setAttribute('content', c)); } // both metas (their media attributes only matter before this runs)
   applyTheme();
   const isDone = i => !!state.done[slug(HOODS[i].name)];
   const isWant = i => !!state.want[slug(HOODS[i].name)];
@@ -3354,10 +3356,10 @@ window.Photos = (() => {
       const l = state.loc; const v = l.hood ? null : map.fitView(...map.regionBBox(l.region), 1.06, 0); if (v) { map.jumpTo(v); } else { const bb = map.regionBBox(l.region); map.jumpTo(map.fitView(bb[0], bb[1], bb[2], bb[3], 1.06, 0)); flyToLoc(900); }
     }
     connectStore();
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => map.redraw());
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { map.redraw(); renderTrail(); }); // the trail folds by measured width: measure again in the real font
   }
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { syncThemeColor(); map.refreshPalette(); recolor(false); });
-  window.addEventListener('resize', () => { map.resize(); map.redraw(); }); // resize() also catches a devicePixelRatio change (browser zoom)
+  window.addEventListener('resize', () => { map.resize(); map.redraw(); renderTrail(); }); // resize() also catches a devicePixelRatio change (browser zoom)
   window.__sbs = { map, state, go, sheet, maps: { spotQuery, areaQuery, mapsLink }, photos: window.Photos ? Object.assign(Object.create(window.Photos), { ownerKey }) : null }; // for tests and the console
   window.claude?.hot?.snapshot?.(() => ({ loc: state.loc }));
   window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});

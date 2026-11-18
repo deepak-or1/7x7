@@ -147,36 +147,26 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 /* ---------- surfaces ---------- */
 .surface { background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); border: 0; border-radius: var(--r); box-shadow: var(--glass-ring); }
 
-/* ---------- top: brand, search, trail ---------- */
-.top { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); top: max(16px, env(safe-area-inset-top, 0px)); width: 372px; max-width: calc(100% - 32px); z-index: 4; display: flex; flex-direction: column; }
-.brandrow { display: flex; align-items: center; gap: 10px; padding: 10px 10px 10px 16px; }
-.brand { flex: 1; min-width: 0; }
-.brand h1 { font-family: var(--display); font-weight: 700; font-size: 20px; line-height: 1; margin: 0; letter-spacing: -.02em; font-variation-settings: "opsz" 72; white-space: nowrap; }
-.brand h1 span { color: var(--accent); }
-.brand p { margin: 2px 0 0; color: var(--muted); font-size: 12px; line-height: 1.3; }
+/* ---------- top: the search field (desktop: top left of the map; phone: in the capsule's top slot) ---------- */
+.sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.top { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); top: max(16px, env(safe-area-inset-top, 0px)); z-index: 4; display: flex; flex-direction: column; }
 .search { position: relative; flex: none; }
 .search svg { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; fill: none; stroke: var(--muted); stroke-width: 2; stroke-linecap: round; pointer-events: none; }
 .search input { width: 136px; height: 34px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--paper); padding: 0 10px 0 29px; font-size: 13.5px; color: var(--ink); transition: width .2s var(--ease), border-color .15s; }
 .search input:focus { outline: none; border-color: var(--ink); width: 196px; }
 .search input::placeholder { color: var(--muted); }
-.trail { display: flex; align-items: center; gap: 2px; padding: 8px 10px 8px 8px; border-top: 1px solid var(--line); font-size: 13px; font-weight: 500; color: var(--muted); overflow-x: auto; scrollbar-width: none; white-space: nowrap; }
-.trail::-webkit-scrollbar { display: none; }
-.trail button { border: 0; background: transparent; padding: 4px 6px; border-radius: 6px; color: var(--muted); font-weight: 500; font-size: 13px; line-height: 1.2; }
-.trail button:hover { color: var(--ink); background: var(--paper-2); }
-.trail button[aria-current="true"] { color: var(--ink); font-weight: 600; }
-.trail .sep { color: var(--line-2); font-size: 12px; padding: 0 1px; }
-.trail .back { display: none; }
 
-/* ---------- camera controls ---------- */
-.ctl { position: absolute; right: calc(var(--side) + 16px + max(16px, env(safe-area-inset-right, 0px))); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; z-index: 4; overflow: visible; }
+/* ---------- the control capsule: top right of the map (search on the phone), locate, layers (the menu holds the legend), zoom ---------- */
+.ctl { position: absolute; right: calc(var(--side) + 16px + max(16px, env(safe-area-inset-right, 0px))); top: max(16px, env(safe-area-inset-top, 0px)); display: flex; flex-direction: column; z-index: 4; overflow: visible; }
 .ctl .stack { display: flex; flex-direction: column; overflow: hidden; border-radius: var(--r-sm); }
+.ctl .qslot { display: none; }
 .ctl button { width: 40px; height: 40px; border: 0; border-top: 1px solid var(--line); background: transparent; display: grid; place-items: center; color: var(--ink); font-weight: 600; font-size: 18px; }
 .ctl button:first-child { border-top: 0; }
 .ctl button:hover { background: var(--paper-2); }
 .ctl button[aria-pressed="true"] { color: var(--accent); }
 .ctl button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .ctl button.busy { opacity: .5; }
-.lenses { position: absolute; right: 48px; bottom: 0; width: 258px; padding: 6px; display: none; }
+.lenses { position: absolute; right: calc(100% + 8px); top: 0; width: 258px; padding: 6px; display: none; }
 .lenses.on { display: block; }
 .lenses button { width: 100%; height: auto; display: grid; grid-template-columns: 1fr auto; align-items: center; text-align: left; padding: 9px 10px; border: 0; border-radius: 6px; font-size: 13.5px; font-weight: 500; gap: 10px; }
 .lenses button b { font-weight: 600; display: block; }
@@ -184,13 +174,12 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .lenses button[aria-pressed="true"] { background: var(--paper-2); color: var(--ink); }
 .lenses button[aria-pressed="true"] b::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-right: 7px; vertical-align: 2px; }
 .lenses .sw { display: inline-flex; gap: 2px; } .lenses .sw i { width: 9px; height: 9px; display: inline-block; background: var(--c); border-radius: 2px; }
-.legend { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 3; display: flex; align-items: center; gap: 14px; padding: 7px 12px; font-size: 12px; font-weight: 500; color: var(--ink-2); pointer-events: none; border-radius: var(--r-sm); }
-.legend:empty { display: none; }
-.legend span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-.legend i { width: 9px; height: 9px; display: inline-block; background: var(--c); border-radius: 2px; }
-.legend .ramp { gap: 1px; } .legend .ramp i { border-radius: 0; } .legend .ramp i:first-child { border-radius: 2px 0 0 2px; } .legend .ramp i:last-child { border-radius: 0 2px 2px 0; }
-.legend .hint { color: var(--muted); font-weight: 400; }
-.lgrow { display: contents; } /* desktop: the items sit straight in the legend's row; the phone makes it a sideways scroller */
+/* the legend of the lens in use, under the lenses */
+.lgd { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 4px 4px 0; padding: 9px 6px 5px; border-top: 1px solid var(--glass-edge); font-size: 12.5px; font-weight: 500; color: var(--ink-2); }
+.lgd:empty { display: none; }
+.lgd span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.lgd i { width: 8px; height: 8px; display: inline-block; background: var(--c); border-radius: 50%; }
+.lgd .ramp { gap: 0; } .lgd .ramp i { width: 12px; border-radius: 0; } .lgd .ramp i:first-child { border-radius: 2px 0 0 2px; } .lgd .ramp i:last-child { border-radius: 0 2px 2px 0; }
 
 /* ---------- the logbook (desktop: right panel; phone: bottom sheet) ---------- */
 .sheet { position: absolute; right: max(16px, env(safe-area-inset-right, 0px)); top: max(16px, env(safe-area-inset-top, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); width: var(--side); z-index: 5; display: flex; flex-direction: column; overflow: hidden; }
@@ -208,6 +197,31 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .head .tools button { width: 32px; height: 32px; border: 0; background: transparent; border-radius: 6px; display: grid; place-items: center; color: var(--muted); }
 .head .tools button:hover { background: var(--paper-2); color: var(--ink); }
 .head .tools button svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.head.compact { min-height: 0; align-items: center; } .head.compact .ttl { padding-top: 0; }
+/* the path: the small line names where you are, each crumb a button to that level. The crumb is the line's height; a pseudo-element
+   gives it a 44px-tall target without making the header taller. app.js folds it to fit (fitHead) */
+.eyebrow { white-space: nowrap; min-width: 0; }
+.eyebrow .path { display: inline-flex; align-items: center; flex: none; } .eyebrow .path.squeeze { flex: 0 1 auto; min-width: 0; } /* unshrunk, so an overflow shows in the line's scrollWidth (fitHead) */
+.eyebrow .path button { position: relative; flex: none; border: 0; background: none; padding: 0; margin: 0; font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; line-height: inherit; cursor: pointer; }
+.eyebrow .path button::before { content: ""; position: absolute; inset: -14px -5px -13px; }
+.eyebrow .path .fold { padding: 0 6px; margin: 0 -6px; } .eyebrow .path .fold::before { inset: -14px -4px -13px; } /* the folded '…': a target as wide as a short word */
+.eyebrow .path button:first-child { color: var(--accent-deep, color-mix(in srgb, var(--accent) 78%, var(--ink))); }
+.eyebrow .path button:hover span { text-decoration: underline; text-underline-offset: 3px; }
+.eyebrow .path .sep, .eyebrow .ktag .sep { opacity: .5; margin: 0 5px; }
+.eyebrow .path.squeeze button:last-child { flex: 0 1 auto; min-width: 0; } .eyebrow .path.squeeze button:last-child span { display: block; overflow: hidden; text-overflow: ellipsis; }
+.eyebrow .ktag { display: inline-flex; align-items: center; gap: 6px; flex: none; } .eyebrow .ktag .sep { margin: 0 -1px 0 0; }
+.panel .lead .kbody, .panel .lead.kbody { color: var(--ink); font-weight: 600; } /* a spot's kind, when it does not fit on the path line */
+.kbody i { display: inline-block; width: 8px; height: 8px; margin: 0 6px 1px 0; border-radius: 2px; background: var(--c); vertical-align: middle; }
+/* the first screen: the most recent spots, one tap each, scrolling sideways */
+.recent { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; margin: 0 0 14px; }
+.recent::-webkit-scrollbar { display: none; }
+.recent > span { flex: none; display: flex; }
+.recent button { display: inline-flex; align-items: center; gap: 7px; height: 36px; padding: 0 13px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--sheet-bg, var(--paper)); font: 600 14px/1 var(--sans); color: var(--ink); white-space: nowrap; }
+.recent button:hover { border-color: var(--ink); }
+.recent i { width: 9px; height: 9px; border-radius: 50%; background: var(--c); flex: none; } .recent i.want { background: transparent; box-shadow: 0 0 0 2px var(--c) inset; }
+.recent .all { color: var(--ink-2); font-weight: 500; }
+.facts .vibe { display: inline-flex; align-items: center; gap: 6px; } .facts .vibe i { width: 8px; height: 8px; border-radius: 2px; background: var(--c); }
+dialog.who .err { margin: -2px 0 10px; color: var(--bad); font-size: 13.5px; font-weight: 500; }
 .panel { flex: 1; min-height: 0; overflow: auto; padding: 14px 18px 24px; scrollbar-width: thin; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 .eyebrow { font-size: 11.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 7px; margin: 0; }
 .eyebrow i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; background: var(--c, var(--accent)); }
@@ -448,39 +462,23 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
 /* ---------- desktop: the phone's warm paper glass, at desktop scale ---------- */
 @media not all and (max-width: 880px) {
   :root { --accent-deep: color-mix(in srgb, var(--accent) 78%, var(--ink)); --focus: var(--accent-deep); } /* accent that holds 3:1 on glass, light and dark */
-  /* top left: phone-like pieces. A wordmark pill and a search pill in one row; the trail pill below them under the root */
-  .top.surface { left: max(var(--m), env(safe-area-inset-left, 0px)); top: max(var(--m), env(safe-area-inset-top, 0px)); width: max-content; max-width: calc(100% - var(--side) - var(--m) - max(var(--m), env(safe-area-inset-left, 0px)) - max(var(--m), env(safe-area-inset-right, 0px))); flex-direction: row; align-items: center; gap: 8px; background: none; border-radius: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; pointer-events: none; }
-  .brandrow { display: contents; }
-  .top .brand, .top .search, .top .trail { pointer-events: auto; }
-  .top .brand, .search input, .top .trail { background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: var(--glass-ring); }
-  .top .brand { height: 40px; display: flex; align-items: center; padding: 0 16px 1px; border-radius: 999px; }
-  .brand h1 { font-size: 18px; } .brand h1 span { color: var(--accent-deep); }
-  .brand p { display: none; }
+  /* top left: the search pill, alone (the path and the wordmark are in the logbook's header) */
+  .top.surface { left: max(var(--m), env(safe-area-inset-left, 0px)); top: max(var(--m), env(safe-area-inset-top, 0px)); width: max-content; background: none; border-radius: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .search input { background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: var(--glass-ring); }
   .search svg { left: 13px; z-index: 1; stroke: var(--glass-muted); }
   .search input { width: 220px; height: 40px; padding: 0 14px 0 35px; border: 0; border-radius: 999px; }
   .search input:focus { width: 280px; background: var(--sheet-bg); outline: 2px solid transparent; box-shadow: inset 0 0 0 1.5px var(--accent-deep), var(--glass-shadow); }
   .search input::placeholder { color: var(--glass-muted); }
   .search input::-webkit-search-cancel-button { filter: grayscale(1); opacity: .6; }
-  .top .trail { position: absolute; left: 0; top: calc(100% + 8px); max-width: calc(100vw - var(--side) - 3 * var(--m)); height: 36px; padding: 0 6px; border: 0; border-radius: 999px; color: var(--ink-2); }
-  .trail:not(.deep) { display: none; }
-  .trail button { color: var(--ink-2); } .trail button:hover { color: var(--ink); background: var(--glass-hover); }
-  .trail .sep { color: var(--ink-2); opacity: .45; }
-  /* legend: one fully rounded row at the bottom left; a sideways scroller with a soft edge when it does not fit */
-  .legend { left: max(var(--m), env(safe-area-inset-left, 0px)); bottom: calc(var(--m) + env(safe-area-inset-bottom, 0px)); height: 34px; max-width: calc(100% - var(--side) - 2 * var(--m) - max(var(--m), env(safe-area-inset-left, 0px)) - max(var(--m), env(safe-area-inset-right, 0px)) - 40px); padding: 0; gap: 0; border-radius: 999px; overflow: hidden; font-size: 12.5px; } /* the map keeps its wheel, drag and hover under the legend, as before */
-  .legend .lgrow { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 0 22px 0 14px; overflow-x: auto; scrollbar-width: none;
-    -webkit-mask-image: linear-gradient(to right, transparent, #000 10px, #000 calc(100% - 22px), transparent); mask-image: linear-gradient(to right, transparent, #000 10px, #000 calc(100% - 22px), transparent); }
-  .legend .lgrow::-webkit-scrollbar { display: none; }
-  .legend span:not(.ramp) i { width: 8px; height: 8px; border-radius: 50%; }
-  .legend .hint { color: var(--glass-muted); margin-left: 2px; }
-  /* controls: a slim glass capsule, its bottom on the legend's and the logbook's */
-  .ctl { right: calc(var(--side) + var(--m) + max(var(--m), env(safe-area-inset-right, 0px))); bottom: calc(var(--m) + env(safe-area-inset-bottom, 0px)); }
+  /* controls: a slim glass capsule at the top right of the map, beside the logbook */
+  .ctl { right: calc(var(--side) + var(--m) + max(var(--m), env(safe-area-inset-right, 0px))); top: max(var(--m), env(safe-area-inset-top, 0px)); }
   .ctl .stack { width: 40px; border-radius: 999px; }
   .ctl .stack button { width: 40px; height: 40px; border-top: 0; position: relative; }
   .ctl .stack button + button::before { content: ""; position: absolute; top: 0; left: 10px; right: 10px; height: 1px; background: var(--glass-edge); }
   .ctl .stack button:hover { background: var(--glass-hover); }
   .ctl .stack button:focus-visible { outline-offset: -4px; border-radius: 999px; }
   .ctl .stack button[aria-pressed="true"] { color: var(--accent-deep); }
-  .lenses { right: calc(100% + 8px); bottom: 0; width: 272px; padding: 6px; border-radius: 18px; background: var(--glass-strong); }
+  .lenses { right: calc(100% + 8px); top: 0; width: 272px; padding: 6px; border-radius: 18px; background: var(--glass-strong); }
   .lenses button { border-radius: 12px; justify-items: stretch; } .lenses .sw { justify-self: end; } .lenses button:hover { background: var(--glass-hover); }
   .lenses button small { color: var(--glass-muted); }
   .lenses button[aria-pressed="true"] { background: var(--glass-hover); }
@@ -489,66 +487,44 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
   .sheet .suggest button:hover { background: var(--paper-2); }
   .panel h3 .act, .progress small .act, .textlinks .done, .textlinks button[aria-pressed="true"], .row:hover .nm, .stamp.got b, .head h2 em { color: var(--accent-deep); } /* small accent text: 4.7:1 on the paper (the plain accent is 3.3:1) */
   .pstamp:not(.want) { color: color-mix(in srgb, var(--accent) 60%, var(--ink)); } /* the stamp prints at 86% opacity: a deeper ink keeps it at 4.5:1 */
-  .top .brand { flex: none; }
   .progress small .act { border: 0; background: transparent; padding: 0; font: inherit; font-weight: 600; cursor: pointer; }
   .quiz .verdict.good { color: color-mix(in srgb, var(--good) 80%, var(--ink)); } /* 5:1 on the paper (the plain green is 4:1) */
   .panel h3 { justify-content: flex-start; } .panel h3 .n { margin-left: auto; } .panel h3 .n:has(+ .act) { margin-left: 0; } .panel h3 .act { margin-left: auto; } /* count beside the label, action at the right */
   .smap-link { display: none; } /* the street map is for dragging here; the buttons under it open Maps */
-  /* map tooltip: a small glass label; toast: the phone's solid pill, over the middle of the map above the legend */
+  /* map tooltip: a small glass label; toast: the phone's solid pill, low over the middle of the map */
   .tip { background: var(--glass-strong); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); color: var(--ink); border-radius: 10px; padding: 6px 11px 7px; box-shadow: var(--glass-ring); }
   .tip small { color: var(--glass-muted); opacity: 1; }
-  .toast { top: auto; bottom: calc(var(--m) + 34px + 12px + env(safe-area-inset-bottom, 0px)); left: calc((100% - var(--side) - 2 * var(--m)) / 2); transform: translateX(-50%) translateY(8px); border-radius: 20px; padding: 10px 16px; background: var(--toast-bg, var(--ink)); color: var(--toast-ink, var(--paper)); box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow); max-width: calc(100% - var(--side) - 8 * var(--m)); }
+  .toast { top: auto; bottom: calc(var(--m) + 16px + env(safe-area-inset-bottom, 0px)); left: calc((100% - var(--side) - 2 * var(--m)) / 2); transform: translateX(-50%) translateY(8px); border-radius: 20px; padding: 10px 16px; background: var(--toast-bg, var(--ink)); color: var(--toast-ink, var(--paper)); box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow); max-width: calc(100% - var(--side) - 8 * var(--m)); }
 }
 /* ---------- phone ---------- */
 @media (max-width: 880px) {
   /* warm paper glass: the floating chrome is translucent paper over the map (tokens on :root) */
-  :root { --side: 0px; --m: 12px; }
-  .top .brand, .search::before, .top .trail::before, .legend, .ctl .stack, .lenses { background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); border: 0; box-shadow: inset 0 0 0 1px var(--glass-edge), inset 0 1px 0 var(--glass-hi), var(--glass-shadow); }
-  /* top: no card. A brand pill at the left, a round search button at the right, the map between them. Deeper screens swap
-     the brand for the trail pill; search takes the row when active. The only back control is the sheet's, in thumb reach. */
-  .top.surface { left: max(var(--m), env(safe-area-inset-left, 0px)); right: max(var(--m), env(safe-area-inset-right, 0px)); top: max(var(--m), env(safe-area-inset-top, 0px)); width: auto; max-width: none; min-height: 44px; flex-direction: row; align-items: center; gap: 8px; background: none; border: 0; border-radius: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; pointer-events: none; }
-  .brandrow { display: contents; }
-  .top .brand, .top .search, .top .trail { pointer-events: auto; }
-  .sheet-full:not(.searching) .top :is(.brand, .search, .trail) { pointer-events: none; } /* hidden under the full sheet: not tappable in the strip above it */
-  .top .brand { flex: none; order: 1; height: 40px; display: flex; align-items: center; padding: 0 16px 1px; border-radius: 999px; }
-  .brand h1 { font-size: 17px; } .brand p { display: none; }
-  .top .search { order: 3; margin: 0 -2px 0 auto; width: 44px; height: 44px; isolation: isolate; } /* -2px: the 40px disc's edge lines up with the controls' edge */
-  .search::before { content: ""; position: absolute; inset: 2px; border-radius: 999px; z-index: -1; transition: background .2s; }
-  .search input { display: block; width: 44px; height: 44px; padding: 0; font-size: 16px; color: transparent; border: 0; border-radius: 999px; background: transparent; }
+  .ctl .stack, .lenses { background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); border: 0; box-shadow: inset 0 0 0 1px var(--glass-edge), inset 0 1px 0 var(--glass-hi), var(--glass-shadow); }
+  /* one capsule at the top right: search, locate, layers. It stays put at every sheet position (the full sheet covers it). The
+     search field is the capsule's first slot: .top lays the real input over the capsule's empty .qslot (pointer-events: none),
+     above it (z-index), so a tap focuses the input directly and the keyboard opens. Searching, the field takes the top row and the
+     capsule hides. */
+  .top.surface { left: max(var(--m), env(safe-area-inset-left, 0px)); right: max(var(--m), env(safe-area-inset-right, 0px)); top: max(var(--m), env(safe-area-inset-top, 0px)); width: auto; max-width: none; min-height: 44px; flex-direction: row; align-items: center; justify-content: flex-end; background: none; border: 0; border-radius: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; pointer-events: none; }
+  .top .search { pointer-events: auto; width: 44px; height: 44px; isolation: isolate; }
+  .sheet-full:not(.searching) .top .search { pointer-events: none; } /* hidden under the full sheet: not tappable in the strip above it */
+  .search::before { content: ""; position: absolute; inset: 0; border-radius: 999px; z-index: -1; transition: background .2s; }
+  .search input { display: block; width: 44px; height: 44px; padding: 0; font-size: 16px; color: transparent; border: 0; border-radius: 999px; background: transparent; cursor: pointer; }
   .search svg { left: 13px; width: 18px; height: 18px; stroke: var(--ink); }
-  .search input:focus, .search input.has { width: 100%; padding: 0 14px 0 40px; color: var(--ink); background: transparent; }
+  .search input:focus, .search input.has { width: 100%; padding: 0 14px 0 40px; color: var(--ink); background: transparent; cursor: text; }
+  .search input:focus-visible { outline: 2px solid var(--focus, var(--accent)); outline-offset: -2px; }
   .search input::placeholder { color: transparent; } .search input:focus::placeholder { color: var(--muted); }
   .search input::-webkit-search-cancel-button { filter: grayscale(1); opacity: .6; } /* Chrome's blue clear button, in ink grey */
-  .top:has(#q:focus, #q.has) .brand, .top:has(#q:focus, #q.has) .trail { display: none; }
-  .top:has(#q:focus, #q.has) .search { flex: 1; margin-left: 0; width: auto; }
-  .top:has(#q:focus, #q.has) .search::before { background: var(--sheet-bg); } /* the sheet opens full under it: one paper surface */
-  /* trail pill: hugs its crumbs, never wider than the room left of the search button; app.js folds leading crumbs into '…'
-     and, if the last crumb alone is still too long, adds .squeeze so it ends in an ellipsis. The row is 44px (the crumb
-     targets) and does not clip or scroll, so its 40px glass pill (the ::before) keeps its shadow and blur. */
-  .top .trail { order: 2; flex: 0 1 auto; min-width: 0; height: 44px; padding: 0 8px; gap: 0; border: 0; position: relative; isolation: isolate; overflow: visible; font-size: 14px; }
-  .top .trail::before { content: ""; position: absolute; inset: 2px 0; border-radius: 999px; z-index: -1; }
-  .trail button { flex: none; } .trail.squeeze [aria-current="true"] { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-  .trail button { font-size: 14px; padding: 0 6px; min-height: 44px; color: var(--ink-2); } /* ink-2, not muted: 4.5:1 on glass over any place colour */
-  .trail .sep { color: var(--ink-2); opacity: .45; }
-  .trail:not(.deep) { display: none; }
-  .top:has(.trail.deep) .brand { display: none; }
-  .trail .back svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-  /* legend: one capsule row at the bottom left, beside the controls; sideways scroll with soft edges when it does not fit */
-  .legend { display: flex; left: max(var(--m), env(safe-area-inset-left, 0px)); right: auto; max-width: calc(100% - 2 * var(--m) - 44px - 8px); height: 34px; bottom: calc(var(--sheet-vis) + var(--m)); padding: 0; gap: 0; border-radius: 999px; overflow: hidden; font-size: 12.5px; pointer-events: auto; transition: bottom .42s var(--ease), opacity .2s; }
-  .legend .lgrow { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 0 26px 0 14px; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; touch-action: pan-x;
-    -webkit-mask-image: linear-gradient(to right, transparent, #000 10px, #000 calc(100% - 26px), transparent); mask-image: linear-gradient(to right, transparent, #000 10px, #000 calc(100% - 26px), transparent); }
-  .legend .lgrow::-webkit-scrollbar { display: none; }
-  .legend span { gap: 6px; } .legend span:not(.ramp) i { width: 8px; height: 8px; border-radius: 50%; }
-  .legend.lifting { transition: none; } .legend .hint { display: none; } .sheet-full .legend { opacity: 0; pointer-events: none; }
-  /* controls: a slim capsule at the bottom right, its bottom on the legend's */
-  .ctl .stack { width: 44px; border-radius: 16px; }
+  .top:has(#q:focus, #q.has) .search { flex: 1; width: auto; }
+  .top:has(#q:focus, #q.has) .search::before { background: var(--sheet-bg); box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow); } /* the sheet opens full under it: one paper surface */
+  .ctl { z-index: 3; right: max(var(--m), env(safe-area-inset-right, 0px)); top: max(var(--m), env(safe-area-inset-top, 0px)); transition: opacity .2s; }
+  .ctl .qslot { display: block; height: 44px; pointer-events: none; }
+  .ctl .stack { width: 44px; border-radius: 999px; }
   .ctl .stack button { width: 44px; height: 44px; border-top: 0; position: relative; }
-  .ctl .stack button + button::before { content: ""; position: absolute; top: 0; left: 10px; right: 10px; height: 1px; background: var(--glass-edge); }
+  .ctl .stack > * + button::before { content: ""; position: absolute; top: 0; left: 10px; right: 10px; height: 1px; background: var(--glass-edge); }
   .ctl .stack button:hover { background: transparent; }
-  .lenses { right: 0; bottom: calc(100% + 8px); width: min(340px, calc(100vw - 2 * var(--m))); padding: 6px; border-radius: 18px; background: var(--glass-strong); }
+  .lenses { right: calc(100% + 8px); top: 0; width: min(300px, calc(100vw - 2 * var(--m) - 52px)); max-height: calc(100vh - var(--sheet-vis) - 2 * var(--m) - max(var(--m), env(safe-area-inset-top, 0px))); overflow-y: auto; overscroll-behavior: contain; padding: 6px; border-radius: 18px; background: var(--glass-strong); } /* never under the sheet: a phone on its side scrolls the menu */
   .lenses button { min-height: 52px; padding: 10px 12px; font-size: 15px; border-radius: 12px; } .lenses button small { font-size: 13px; } .lenses .sw i { width: 11px; height: 11px; }
-  .ctl { right: max(var(--m), env(safe-area-inset-right, 0px)); bottom: calc(var(--sheet-vis) + var(--m)); transition: bottom .42s var(--ease), opacity .2s; }
-  .ctl.lifting { transition: none; }
+  .lgd { font-size: 13.5px; gap: 6px 14px; padding: 10px 8px 6px; }
   #zoom-in, #zoom-out { display: none; }
   .sheet-full .ctl, .sheet-full .top { opacity: 0; pointer-events: none; transition: opacity .2s; }
   .searching.sheet-full .top { opacity: 1; pointer-events: auto; } .searching .ctl { opacity: 0; pointer-events: none; } /* search: card pinned, sheet full under it */
@@ -557,16 +533,19 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
   .grip { display: block; flex: none; height: 18px; position: relative; touch-action: none; }
   .grip::after { content: ""; position: absolute; left: 50%; top: 7px; width: 36px; height: 4px; border-radius: 2px; background: var(--line-2); transform: translateX(-50%); }
   /* head: chevron on the eyebrow row, the title on its own row at the panel's 16px edge */
-  .head { display: grid; grid-template-columns: auto 1fr auto; gap: 0; align-items: center; padding: 0 8px 10px max(16px, env(safe-area-inset-left, 0px)); min-height: 52px; border-bottom-color: transparent; transition: border-color .2s; touch-action: none; }
+  .head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 0; align-items: center; padding: 0 8px 10px max(16px, env(safe-area-inset-left, 0px)); min-height: 52px; border-bottom-color: transparent; transition: border-color .2s; touch-action: none; }
   .head .ttl { display: contents; }
   .head .up { grid-area: 1/1/2/2; margin: -10px 2px -10px -14px; } .head .up[hidden] { display: none; }
   .head .eyebrow { grid-area: 1/2/2/3; }
   .head .tools { grid-area: 1/3/3/4; align-self: start; margin: -6px -4px 0 0; }
   .sheet.scrolled .head { border-bottom-color: var(--line); }
   .head h2 { grid-area: 2/1/3/3; margin-top: 2px; font-size: 26px; line-height: 1.05; }
+  .head.compact { min-height: 0; padding-bottom: 6px; } .head.compact .tools { grid-row: 1; }
+  .head .recent { grid-column: 1 / -1; grid-row: 3; margin: 12px -8px 2px calc(-1 * max(16px, env(safe-area-inset-left, 0px))); padding: 0 max(16px, env(safe-area-inset-left, 0px)); touch-action: pan-x; } /* full bleed; sideways drags scroll it (js/sheet.js leaves them alone) */
+  .recent button { height: 40px; padding: 0 14px; font-size: 15px; } .recent > span { position: relative; } .recent button::after { content: ""; position: absolute; inset: -2px 0; } /* a 44pt target */
   .panel { padding: 6px max(16px, env(safe-area-inset-left, 0px)) calc(32px + var(--kb, 0px) + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
   .sheet:not(.full) .panel { overflow: hidden; }
-  .toast { top: auto; bottom: calc(var(--sheet-vis) + 60px); transform: translateX(-50%) translateY(8px); transition: opacity .25s, transform .25s var(--ease), bottom .42s var(--ease); border-radius: 20px; padding: 10px 16px; background: var(--toast-bg, var(--ink)); color: var(--toast-ink, var(--paper)); box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow); width: max-content; max-width: calc(100% - 2 * (max(var(--m), env(safe-area-inset-right, 0px)) + 44px + 8px)); white-space: normal; text-align: center; text-overflow: clip; } /* clear of the controls; a long message wraps */
+  .toast { top: auto; bottom: calc(var(--sheet-vis) + 16px); transform: translateX(-50%) translateY(8px); transition: opacity .25s, transform .25s var(--ease), bottom .42s var(--ease); border-radius: 20px; padding: 10px 16px; background: var(--toast-bg, var(--ink)); color: var(--toast-ink, var(--paper)); box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow); width: max-content; max-width: calc(100% - 2 * max(var(--m), env(safe-area-inset-right, 0px)) - 16px); white-space: normal; text-align: center; text-overflow: clip; } /* just above the sheet; a long message wraps */
   .sheet-full .toast { bottom: calc(24px + env(safe-area-inset-bottom, 0px)); top: auto; }
   .tip { display: none; }
   .cols2 { columns: 1; }
@@ -588,14 +567,12 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
   .progress small .act { border: 0; background: transparent; font: inherit; font-weight: 600; color: var(--accent); cursor: pointer; padding: 10px 0; margin: -10px 0; }
   .lenses button { justify-items: stretch; } .lenses .sw { justify-self: end; } /* labels share one left edge */
   .panel h3 { justify-content: flex-start; } .panel h3 .n { margin-left: auto; } .panel h3 .n:has(+ .act) { margin-left: 0; } .panel h3 .act { margin-left: auto; } /* count beside the label, action at the right */
-  /* the legend is for the overview: hidden at place/section/spot depth and while dropping a pin */
-  .loc-deep .legend, .app:has(.stage.placing) .legend { display: none; }
   .app:has(.stage.placing) #lf-actions { display: none; } /* while dropping a pin the peek sheet shows 'Tap the map', not Save */
   /* half detent: one-line row subtitles and tighter spacing so the list starts above the fold (two lines at full) */
   .sheet:not(.full) .row .nm small { -webkit-line-clamp: 1; }
   .sheet:not(.full) .panel h3 { margin-top: 14px; } .sheet:not(.full) .panel .lead { margin-bottom: 10px; }
   .sheet:not(.full) .marks + .savestate:empty + .facts, .sheet:not(.full) .marks + .facts { margin-top: 10px; }
-  .row:active, .mark:not([disabled]):active, .textlinks button:active, .head .up:active, .head .tools button:active, .trail button:active, .suggest button:active { background: var(--paper-2); }
+  .row:active, .mark:not([disabled]):active, .textlinks button:active, .head .up:active, .head .tools button:active, .recent button:active, .suggest button:active { background: var(--paper-2); }
   .savestate:empty { display: none; } .marks + .savestate:empty + .facts, .marks + .facts { margin-top: 14px; }
 }
 /* surfaces, phone and desktop (outside the phone block, in its cascade position): the logbook's controls sit on its paper; in dark the
@@ -651,25 +628,22 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
   </div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <div class="top surface">
-    <div class="brandrow">
-      <div class="brand"><h1>Seven by Seven<span>.</span></h1><p>166 places between the ocean and the hills.</p></div>
-      <div class="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg><input type="search" id="q" placeholder="Find a place" autocomplete="off" aria-label="Find a place" enterkeyhint="search"></div>
-    </div>
-    <nav class="trail" id="trail" aria-label="Where you are"></nav>
-  </div>
-
-  <div class="legend surface" id="legend"></div>
-
+  <h1 class="sr">Seven by Seven</h1>
+  <!-- one capsule of map controls: top right of the map (desktop: left of the logbook). On the phone its first slot is where the search
+       button below sits, so search, locate and layers read as one capsule; the search field is a real input there so a tap opens the keyboard -->
   <div class="ctl" id="ctl">
     <div class="stack surface">
+      <span class="qslot" aria-hidden="true"></span>
       <button type="button" id="locate" title="Where am I?" aria-label="Where am I?"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"></circle><path d="M12 2v4M12 18v4M2 12h4M18 12h4"></path></svg></button>
-      <button type="button" id="lens-btn" title="Color the map by" aria-label="Color the map by" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5z"></path><path d="M3 12l9 5 9-5"></path><path d="M3 16l9 5 9-5"></path></svg></button>
+      <button type="button" id="lens-btn" title="Color the map by" aria-label="Color the map by" aria-controls="lenses" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5z"></path><path d="M3 12l9 5 9-5"></path><path d="M3 16l9 5 9-5"></path></svg></button>
       <button type="button" id="zoom-in" title="Zoom in" aria-label="Zoom in">+</button>
       <button type="button" id="zoom-out" title="Zoom out" aria-label="Zoom out">−</button>
-      <button type="button" id="home" title="Whole area" aria-label="Whole area"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"></path></svg></button>
     </div>
-    <div class="lenses surface" id="lenses" role="menu" aria-label="Color the map by"></div>
+    <div class="lenses surface" id="lenses" role="group" aria-label="Color the map by"></div>
+  </div>
+
+  <div class="top surface">
+    <div class="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg><input type="search" id="q" placeholder="Find a place" autocomplete="off" aria-label="Find a place" enterkeyhint="search"></div>
   </div>
 
   <aside class="sheet surface" id="sheet">
@@ -2301,7 +2275,8 @@ window.LANDMARKS = [
 </script>
 <script>
 // The phone sheet: translateY only (no layout work), three detents, drag from the handle, the header,
-// or the content when it is scrolled to the top; velocity decides where it settles.
+// or the content when it is scrolled to the top; velocity decides where it settles. With something open (opt.canDismiss),
+// a deliberate swipe down steps full → half, then from half closes it (opt.onDismiss) instead of parking it at the peek.
 (function () {
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
   window.Sheet = function (el, opt) {
@@ -2323,7 +2298,7 @@ window.LANDMARKS = [
     }
     function apply(v, animate) {
       vis = v; const y = fullPx - v;
-      el.classList.toggle('lifting', !animate); opt.ctl && opt.ctl.classList.toggle('lifting', !animate); opt.legend && opt.legend.classList.toggle('lifting', !animate);
+      el.classList.toggle('lifting', !animate);
       root.style.setProperty('--sheet-y', y.toFixed(1) + 'px'); root.style.setProperty('--sheet-vis', v.toFixed(1) + 'px');
     }
     function set(d, o = {}) {
@@ -2341,20 +2316,43 @@ window.LANDMARKS = [
       set(best);
     }
     // handle + header: pointer events
-    function startDrag(y) { dragging = { y0: y, y: y, v0: vis, t: performance.now(), v: 0, moved: 0 }; }
+    function startDrag(y) { dragging = { y0: y, y: y, v0: vis, t: performance.now(), v: 0, moved: 0, from: detent }; }
     function moveDrag(y) { if (!dragging) return; const t = performance.now(), dt = Math.max(1, t - dragging.t), dy = dragging.y - y; dragging.v = dragging.v * .6 + (dy / dt) * .4; dragging.moved += Math.abs(dy); dragging.y = y; dragging.t = t; const h = heights(); let nv = dragging.v0 + (dragging.y0 - y); if (nv > h.full) nv = h.full + (nv - h.full) * .25; if (nv < h.peek) nv = h.peek - (h.peek - nv) * .35; apply(nv, false); }
-    function endDrag(tap) { if (!dragging) return; const d = dragging; dragging = null; if (d.moved < 6) { if (tap !== false) set(detent === 'peek' ? 'half' : detent === 'half' ? 'full' : 'half'); else set(detent); } else settle(vis, performance.now() - d.t > 80 ? 0 : d.v); }
+    // down: px the sheet came down since the drag began. Past 80 px, or a flick, counts; less springs back, so a small drag to see
+    // more map never closes anything
+    function endDrag(tap) {
+      if (!dragging) return; const d = dragging; dragging = null;
+      if (d.moved < 6) { if (tap !== false) set(detent === 'peek' ? 'half' : detent === 'half' ? 'full' : 'half'); else set(detent); return; }
+      const v = performance.now() - d.t > 80 ? 0 : d.v, down = d.v0 - vis;
+      if (down > 0 && opt.canDismiss && opt.canDismiss()) {
+        const far = down > 80 || (v < -0.6 && down > 24);
+        if (d.from === 'full') set(far ? 'half' : 'full'); else if (far) opt.onDismiss(); else set(d.from);
+        return;
+      }
+      settle(vis, v);
+    }
+    // a drag that starts on a control in the header (a path crumb, whose target is taller than its line; the root's row of recent
+    // spots, which scrolls sideways with touch-action: pan-x) moves the sheet only once it is clearly vertical, and takes no pointer
+    // capture until then, so a tap still lands on the control
+    let side = null;
     for (const h of [grip, head]) {
-      h.addEventListener('pointerdown', e => { if (!isPhone() || e.target.closest('button, a, input')) return; try { h.setPointerCapture(e.pointerId); } catch (err) {} startDrag(e.clientY); });
-      h.addEventListener('pointermove', e => dragging && moveDrag(e.clientY));
-      h.addEventListener('pointerup', () => endDrag(true)); h.addEventListener('pointercancel', () => endDrag(false));
+      h.addEventListener('pointerdown', e => {
+        if (!isPhone()) return;
+        if (e.target.closest('button, a, input, .recent')) { side = { id: e.pointerId, x: e.clientX, y: e.clientY }; return; }
+        try { h.setPointerCapture(e.pointerId); } catch (err) {} startDrag(e.clientY);
+      });
+      h.addEventListener('pointermove', e => {
+        if (side && e.pointerId === side.id && !dragging) { const dx = e.clientX - side.x, dy = e.clientY - side.y; if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return; const s = side; side = null; if (Math.abs(dx) > Math.abs(dy)) return; try { h.setPointerCapture(e.pointerId); } catch (err) {} startDrag(s.y); }
+        if (dragging) moveDrag(e.clientY);
+      });
+      h.addEventListener('pointerup', () => { side = null; endDrag(true); }); h.addEventListener('pointercancel', () => { side = null; endDrag(false); });
     }
     // content: touch events, so native scrolling keeps working when the sheet is open and scrolled
     let touch = null;
-    panel.addEventListener('touchstart', e => { if (!isPhone() || e.touches.length !== 1) return; touch = { x: e.touches[0].clientX, y: e.touches[0].clientY, took: false, side: !!e.target.closest('.hero-track') }; }, { passive: true }); // side: the touch began on the photo carousel, which scrolls sideways
+    panel.addEventListener('touchstart', e => { if (!isPhone() || e.touches.length !== 1) return; touch = { x: e.touches[0].clientX, y: e.touches[0].clientY, took: false, side: !!e.target.closest('.hero-track, .chips') }; }, { passive: true }); // side: the touch began on a sideways scroller (the photo carousel, a chip row)
     panel.addEventListener('touchmove', e => {
       if (!touch || e.touches.length !== 1) return; const y = e.touches[0].clientY, dy = y - touch.y;
-      if (!touch.took) { const canScroll = detent === 'full' && !(panel.scrollTop <= 0 && dy > 0); if (canScroll) { touch = null; return; } if (touch.side) { const dx = e.touches[0].clientX - touch.x; if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return; if (Math.abs(dx) > Math.abs(dy)) { touch = null; return; } } if (Math.abs(dy) < 3) return; touch.took = true; startDrag(touch.y); } // a sideways swipe on the photo carousel pages the photos, not the sheet
+      if (!touch.took) { const canScroll = detent === 'full' && !(panel.scrollTop <= 0 && dy > 0); if (canScroll) { touch = null; return; } if (touch.side) { const dx = e.touches[0].clientX - touch.x; if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return; if (Math.abs(dx) > Math.abs(dy)) { touch = null; return; } } if (Math.abs(dy) < 3) return; touch.took = true; startDrag(touch.y); } // a sideways swipe there scrolls it, not the sheet
       e.preventDefault(); moveDrag(y);
     }, { passive: false });
     const endTouch = () => { if (touch && touch.took) endDrag(false); touch = null; };
@@ -3174,7 +3172,6 @@ window.Photos = (() => {
   const IDX = Object.fromEntries(HOODS.map((h, i) => [h.name, i]));
   const NAMES = HOODS.map(h => h.name).sort((a, b) => a.localeCompare(b));
   const REGION_N = Object.fromEntries(Object.keys(REGIONS).map(r => [r, HOODS.filter(h => r === 'all' || h.region === r).length]));
-  { const tag = document.querySelector('.brand p'); if (tag) tag.textContent = `${REGION_N.all} places between the ocean and the hills.`; } // the static copy in index.html says the same
   const slug = n => String(n).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   const BY_SLUG = Object.fromEntries(NAMES.map(n => [slug(n), n]));
   const ft = m => Math.round(m * 3.28084);
@@ -3187,7 +3184,7 @@ window.Photos = (() => {
   const KINDS = { food: { label: 'Food', c: 'var(--k-food)', e: '🍜' }, drink: { label: 'Drinks', c: 'var(--k-drink)', e: '🍸' }, coffee: { label: 'Coffee', c: 'var(--k-coffee)', e: '☕' }, view: { label: 'View', c: 'var(--k-view)', e: '🌄' }, shop: { label: 'Shop', c: 'var(--k-shop)', e: '🛍️' }, park: { label: 'Park', c: 'var(--k-park)', e: '🌳' }, other: { label: 'Other', c: 'var(--k-other)', e: '📍' } };
   const VIBE_E = { fog: '🌫️', hills: '⛰️', water: '🌊', sun: '☀️', buzz: '✨', green: '🌿' }; // the cover emoji of a place and its sections
   const VERDICT = ['', 'Skip it', 'Meh', 'Solid', 'Great', 'Loved it']; // a spot's rating, in words
-  const LENSES = { vibe: { label: 'Character', sub: 'Six kinds of place' }, fog: { label: 'Fog', sub: 'Sunbelt to permanent cloud' }, elev: { label: 'Hills', sub: 'Sea level to the summits' }, done: { label: 'Walked', sub: 'Where you have been' } };
+  const LENSES = { vibe: { label: 'Character', sub: 'Six kinds of place' }, fog: { label: 'Fog', sub: 'Sunbelt to permanent cloud' }, elev: { label: 'Hills', sub: 'Sea level to the summits' }, done: { label: 'Been', sub: 'Where you have been' } };
   const STAMPS = [
     { id: 'first', label: 'First steps', test: s => s.n >= 1, icon: '1' }, { id: 'ten', label: 'Ten down', test: s => s.n >= 10, icon: '10' },
     { id: 'half', label: 'Half the city', test: s => s.sf >= Math.ceil(REGION_N.sf / 2), icon: '½' }, { id: 'all', label: 'Whole city', test: s => s.sf >= REGION_N.sf, icon: String(REGION_N.sf) },
@@ -3234,17 +3231,20 @@ window.Photos = (() => {
   const deviceId = (() => { let d = null; try { d = localStorage.getItem('sbs-dev'); } catch (e) {} if (!d || !/^[a-z0-9]{8,40}$/.test(d)) { d = (crypto.randomUUID ? crypto.randomUUID().replace(/-/g, '') : Math.random().toString(36).slice(2) + Date.now().toString(36)).slice(0, 24); try { localStorage.setItem('sbs-dev', d); } catch (e) {} } return d; })();
 
   // ---------- map ----------
-  const stage = $('stage'), canvas = $('map'), panel = $('panel'), head = $('head'), sheetEl = $('sheet'), trailEl = $('trail'), tip = $('tip');
+  const stage = $('stage'), canvas = $('map'), panel = $('panel'), head = $('head'), sheetEl = $('sheet'), tip = $('tip');
   const spotList = () => { const out = []; for (const id in state.spots) { const sp = state.spots[id]; if (!sp._xy) sp._xy = Geom.proj([sp.lon, sp.lat]); out.push({ id, x: sp._xy[0], y: sp._xy[1], c: (KINDS[sp.kind] || KINDS.other).c, name: sp.name, status: sp.status || 'been', hood: sp.hood }); } if (state.pending) out.push({ id: 'pending', x: state.pending.x, y: state.pending.y, c: 'var(--accent)', name: '', status: 'pending' }); return out; };
   const marksFor = () => HOODS.map((h, i) => isDone(i) ? 'flag' : isWant(i) ? 'star' : null);
   const matches = i => { if (!inRegion(i)) return false; const info = INFO[HOODS[i].name]; for (const t of state.filters) if (!info.tags.includes(t)) return false; return true; };
   const map = window.MapView(canvas, {
-    insets() { const tr = $('trail'), top = Math.max(document.querySelector('.top').getBoundingClientRect().bottom, !isPhone() && tr.offsetParent ? tr.getBoundingClientRect().bottom : 0), lg = isPhone() ? $('legend').offsetHeight : 0; return { top: (isPhone() && sheet && sheet.detent === 'full') ? 0 : top + 10, right: isPhone() ? 0 : 400 + 32, bottom: (isPhone() ? (sheet ? sheet.visible : 0) + (lg ? lg + 12 : 0) : 0) + 12, left: 0 }; }, // phone: frame above the legend too
+    // framing: above the phone sheet; the desktop clear of the search pill (top left) and the control capsule (a column beside the
+    // logbook). The phone frames across the full width, and in the column left of its capsule only when the shape would run under
+    // it (insetClear, set by frame())
+    insets() { const c = document.querySelector('#ctl .stack').getBoundingClientRect(), right = Math.max(0, window.innerWidth - c.left) + 8; if (isPhone()) return { top: sheet && sheet.detent === 'full' ? 0 : c.top + 4, right: insetClear ? right : 0, bottom: (sheet ? sheet.visible : 0) + 12, left: 0 }; return { top: document.querySelector('.top .search').getBoundingClientRect().bottom + 10, right, bottom: 12, left: 0 }; },
     spots: spotList, marks: marksFor, selectedSpot: () => state.loc.spot,
     alphaFor(i) { if (state.quiz) return 1; const filtered = state.filters.size > 0 && !matches(i) ? .25 : 1; const veil = !state.showAll && state.lens !== 'done' && !isDone(i) ? .35 : 1; return filtered * veil; },
     onTap, onHover, onGestureStart() { closeLenses(); },
-    // the floating chrome (brand and trail pills, search, control capsule, legend) reserves its footprint so map labels avoid it
-    occluders() { if (isPhone() && document.documentElement.classList.contains('sheet-full')) return []; return ['.top .brand', '.top .search', '#trail', '#ctl .stack', '#legend'].map(s => document.querySelector(s)).filter(el => el && el.offsetParent !== null && getComputedStyle(el).opacity !== '0').map(el => el.getBoundingClientRect()).filter(b => b.height > 0).map(b => [b.left - 4, b.top - 4, b.right + 4, b.bottom + 4]); },
+    // the floating chrome (the control capsule; the search field, which on the phone sits in the capsule's top slot) reserves its footprint so map labels avoid it
+    occluders() { if (isPhone() && document.documentElement.classList.contains('sheet-full')) return []; return ['.top .search', '#ctl .stack'].map(s => document.querySelector(s)).filter(el => el && el.offsetParent !== null && getComputedStyle(el).opacity !== '0').map(el => el.getBoundingClientRect()).filter(b => b.height > 0).map(b => [b.left - 4, b.top - 4, b.right + 4, b.bottom + 4]); },
   });
 
   function colorFor(i) {
@@ -3258,7 +3258,10 @@ window.Photos = (() => {
   const recolor = animate => map.setColors(HOODS.map((h, i) => colorFor(i)), animate && !reduceMotion);
 
   // ---------- sheet ----------
-  const sheet = window.Sheet(sheetEl, { grip: $('grip'), head, panel, ctl: $('ctl'), legend: $('legend'), onChange(detent, vis, o) { if (o && (o.resize || o.quiet)) return; if (isPhone() && detent !== 'full' && document.documentElement.classList.contains('searching')) { q.blur(); endSearch(); } if (isPhone() && detent !== 'full' && !map.userMoved) flyToLoc(); } }); // dragging the sheet down leaves search mode so the controls come back
+  // canDismiss: something is open that a swipe down may close (never the log form, a pin drop, the name or join dialog, search or the quiz)
+  const dialogOpen = () => !!document.querySelector('dialog[open]');
+  const canDismiss = () => isPhone() && !state.quiz && !state.query && !state.placing && state.view !== 'log' && !dialogOpen() && (!!state.view || level(state.loc) > 0);
+  const sheet = window.Sheet(sheetEl, { grip: $('grip'), head, panel, canDismiss, onDismiss: () => dismiss(), onChange(detent, vis, o) { if (o && (o.resize || o.quiet)) return; if (isPhone() && detent !== 'full' && document.documentElement.classList.contains('searching')) { q.blur(); endSearch(); } if (isPhone() && detent !== 'full' && !map.userMoved) flyToLoc(); } }); // dragging the sheet down leaves search mode so the controls come back
 
   // ---------- navigation ----------
   const hoodOfSpot = id => state.spots[id] ? state.spots[id].hood : null;
@@ -3290,15 +3293,19 @@ window.Photos = (() => {
     if (REGIONS[parts[0]]) return { region: parts[0] };
     return { region: 'all' };
   }
+  // history entries this page pushed carry this load's id and their depth, so a swipe down can step back to the screen the person
+  // came from, and only when that screen is this app's (a deep link or a reload has nothing of ours behind it: one level up instead)
+  const SESSION = Math.random().toString(36).slice(2), hDepth = () => history.state && history.state.s === SESSION ? history.state.n | 0 : 0;
+  let goFly = false; // inside go(), before its camera fly: a street map mounts once the fly has landed
   function go(l, opts = {}) {
     const next = normalize(l), prev = state.loc;
     if (state.quiz && !opts.keepQuiz) endQuiz(true);
     if (state.placing && !opts.keepPlacing) stopPlacing();
     state.loc = next; state.view = opts.view || null;
-    if (opts.push !== false) { try { const url = location.pathname + location.search + hashOf(next); if (opts.replace || level(next) === level(prev) && next.hood === prev.hood && next.sub === prev.sub) history.replaceState({ loc: next }, '', url); else history.pushState({ loc: next }, '', url); } catch (e) {} }
+    if (opts.push !== false) { try { const url = location.pathname + location.search + hashOf(next), n = hDepth(); if (opts.replace || level(next) === level(prev) && next.hood === prev.hood && next.sub === prev.sub) history.replaceState({ loc: next, s: SESSION, n }, '', url); else history.pushState({ loc: next, s: SESSION, n: n + 1 }, '', url); } catch (e) {} }
     map.setState({ region: next.region, sel: next.hood ? IDX[next.hood] : -1, selSub: next.sub ? subIndex(next.hood, next.sub) : -1 });
     if (state.lens === 'done' || state.quiz) recolor(false);
-    render();
+    goFly = opts.fly !== false; render(); goFly = false;
     // settle the sheet first so the camera frames the place in the space that is left
     if (isPhone()) { const lv = level(next); if (opts.sheet) sheet.set(opts.sheet, { quiet: true }); else if (lv >= 2) { if (!opts.fromMap || sheet.detent === 'peek') sheet.set('half', { quiet: true }); } else if (opts.fromMap || lv < level(prev)) sheet.set('peek', { quiet: true }); } // up to a region or the whole map: back to map-first
     else panel.scrollTop = 0;
@@ -3307,11 +3314,31 @@ window.Photos = (() => {
     if ((opts.fromMap || opts.tap) && !opts.view && next.sub && !next.spot && !(prev.hood === next.hood && prev.sub === next.sub)) { const s = subByName(next.hood, next.sub); if (s && s.star) celebrate(s); }
   }
   function up() { const l = state.loc; if (state.view) { go(l, { replace: true, fly: false }); return; } if (l.spot) go({ hood: l.hood, sub: l.sub }); else if (l.sub) go({ hood: l.hood }); else if (l.hood) go({ region: l.region }); else if (l.region !== 'all') go({ region: 'all' }); }
+  // the phone's swipe down from half: back to the previous screen when it is ours, else one level up. go() then settles the sheet
+  // where that screen wants it (the first screen and a region at the peek)
+  function dismiss() {
+    if (state.view || hDepth() < 1) { up(); return; }
+    const was = state.loc; history.back();
+    setTimeout(() => { if (state.loc === was) up(); }, 600); // no popstate came (the entry was not ours after all): up, so the sheet never stays mid-drag
+  }
+  // phone: frame the selection across the full width, unless a vertex of its shape (or a corner of the capsule inside the shape)
+  // would land under the capsule: then frame it again in the column left of the capsule
+  let insetClear = false;
+  function frame(bb, pad, minW, dur, polys) {
+    let v = map.fitView(bb[0], bb[1], bb[2], bb[3], pad, minW);
+    if (isPhone() && polys) {
+      const c = document.querySelector('#ctl .stack').getBoundingClientRect(), k = map.W / v.w, x0 = c.left - 6, y0 = c.top - 6, x1 = c.right + 6, y1 = c.bottom + 6;
+      const under = polys.some(poly => poly.some(ring => ring.some(([x, y]) => { const sx = (x - v.x) * k, sy = (y - v.y) * k; return sx > x0 && sx < x1 && sy > y0 && sy < y1; })))
+        || [[x0, y0], [x0, y1], [x1, y0], [x1, y1]].some(([sx, sy]) => Geom.inPolys(polys, v.x + sx / k, v.y + sy / k));
+      if (under) { insetClear = true; v = map.fitView(bb[0], bb[1], bb[2], bb[3], pad, minW); insetClear = false; }
+    }
+    map.flyToView(v, dur);
+  }
   function flyToLoc(dur) {
     const l = state.loc;
-    if (l.spot && state.spots[l.spot]) { const sp = state.spots[l.spot], [x, y] = sp._xy || Geom.proj([sp.lon, sp.lat]); map.flyTo([x - .01, y - .01, x + .01, y + .01], 1, U * 0.028, dur); return; }
-    if (l.sub) { const s = subByName(l.hood, l.sub); if (s) { const pb = map.hoodBBox(IDX[l.hood]); map.flyTo(s.bbox, isPhone() ? 1.3 : 1.5, Math.max(U * 0.03, (s.bbox[2] - s.bbox[0]) * 3, (pb[2] - pb[0]) * .5), dur); return; } } // keep the parent place in view around a small section
-    if (l.hood) { const ph = isPhone(); map.flyTo(map.hoodBBox(IDX[l.hood]), ph ? 1.25 : 1.75, U * (ph ? 0.06 : 0.08), dur); return; }
+    if (l.spot && state.spots[l.spot]) { const sp = state.spots[l.spot], [x, y] = sp._xy || Geom.proj([sp.lon, sp.lat]); frame([x - .01, y - .01, x + .01, y + .01], 1, U * 0.028, dur, [[[[x, y]]]]); return; }
+    if (l.sub) { const s = subByName(l.hood, l.sub); if (s) { const pb = map.hoodBBox(IDX[l.hood]); frame(s.bbox, isPhone() ? 1.3 : 1.5, Math.max(U * 0.03, (s.bbox[2] - s.bbox[0]) * 3, (pb[2] - pb[0]) * .5), dur, (s.rings || []).map(r => [r])); return; } } // keep the parent place in view around a small section
+    if (l.hood) { const ph = isPhone(); frame(map.hoodBBox(IDX[l.hood]), ph ? 1.25 : 1.75, U * (ph ? 0.06 : 0.08), dur, window.HPP[IDX[l.hood]]); return; }
     map.flyTo(map.regionBBox(l.region), 1.06, 0, dur); // 'all' is the bay core box, padded like a region
   }
   window.addEventListener('popstate', e => { const l = (e.state && e.state.loc) || parseHash(location.hash); go(l, { push: false }); });
@@ -3343,7 +3370,7 @@ window.Photos = (() => {
       map.setHover(i, hit.sub, null); stage.classList.add('pointing');
       if (state.quiz) { tip.classList.remove('on'); return; }
       if (s && (l.hood === name || map.hoodPx(i) > 420)) showTip(sx, sy, s.name, name);
-      else showTip(sx, sy, name, isDone(i) ? 'Walked ✓' : isWant(i) ? 'On your list ★' : INFO[name].line);
+      else showTip(sx, sy, name, isDone(i) ? 'Been ✓' : isWant(i) ? 'Want to go' : INFO[name].line);
       return;
     }
     map.setHover(-1, -1, null); tip.classList.remove('on'); stage.classList.remove('pointing');
@@ -3357,78 +3384,93 @@ window.Photos = (() => {
     el.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('on'), ms);
   }
 
-  // ---------- chrome: trail, lenses, legend, search ----------
-  function renderTrail() {
-    const l = state.loc, crumbs = [{ label: 'Bay Area', loc: { region: 'all' } }];
-    if (l.region !== 'all') crumbs.push({ label: REGIONS[l.region].label, loc: { region: l.region } });
-    if (l.hood) crumbs.push({ label: l.hood, loc: { hood: l.hood } });
-    if (l.sub) crumbs.push({ label: l.sub, loc: { hood: l.hood, sub: l.sub } });
-    if (l.spot && state.spots[l.spot]) crumbs.push({ label: state.spots[l.spot].name, loc: { spot: l.spot } });
-    trailEl.classList.toggle('deep', crumbs.length > 1);
-    trailEl.innerHTML = `<button type="button" class="back" aria-label="Back">${ICON.back}</button>` + crumbs.map((c, i) => `${i ? '<span class="sep">›</span>' : ''}<button type="button" data-crumb="${i}" aria-current="${i === crumbs.length - 1}">${esc(c.label)}</button>`).join('');
-    trailEl.querySelector('.back').addEventListener('click', up);
-    trailEl.querySelectorAll('[data-crumb]').forEach(b => b.addEventListener('click', () => { const c = crumbs[+b.dataset.crumb]; if (+b.dataset.crumb === crumbs.length - 1) flyToLoc(); else go(c.loc); }));
-    trailEl.scrollLeft = 1e6;
-    document.documentElement.classList.toggle('loc-deep', crumbs.length > 2); // phone: the legend is for the overview (landing, region)
-    trailEl.classList.remove('squeeze');
-    // phone: when the trail does not fit, fold its leading crumbs into a '…' crumb instead of clipping a word
-    if (isPhone() && crumbs.length > 2) {
-      const bs = [...trailEl.querySelectorAll('[data-crumb]')];
-      for (let h = 1; trailEl.scrollWidth > trailEl.clientWidth + 1 && h <= bs.length - 2; h++) bs.forEach((b, j) => { const sep = b.nextElementSibling; if (j < h - 1) { b.hidden = true; if (sep) sep.hidden = true; } else if (j === h - 1) { b.textContent = '…'; b.setAttribute('aria-label', crumbs[j].label); } });
-      if (trailEl.scrollWidth > trailEl.clientWidth + 1) trailEl.classList.add('squeeze'); // still too long: the last crumb ends in an ellipsis
-      trailEl.scrollLeft = 1e6;
-    }
+  // ---------- chrome: the path, lenses and their legend, search ----------
+  // the path to where you are, the current item left out (it is the title under it): each crumb opens its level
+  function crumbsOf(l) {
+    const c = [{ label: 'Bay Area', loc: { region: 'all' } }];
+    if (l.region !== 'all') c.push({ label: REGIONS[l.region].label, loc: { region: l.region } });
+    if (l.hood) c.push({ label: l.hood, loc: { hood: l.hood } });
+    if (l.sub) c.push({ label: l.sub, loc: { hood: l.hood, sub: l.sub } });
+    if (l.spot && state.spots[l.spot]) c.push({ label: state.spots[l.spot].name, loc: { spot: l.spot } });
+    return c.slice(0, -1);
+  }
+  // the header's small line, built to fit by measuring: more than three crumbs keep the first and the last two; the kind tag after
+  // the path (a spot's kind, a section's star) moves to the panel's .kbody line when it does not fit; then middle crumbs fold into
+  // a '…' crumb (it opens the first level it hides); last, the last crumb ends in an ellipsis. Run after every render and resize.
+  function fitHead() {
+    const eb = head.querySelector('.eyebrow'), P = head._path; if (!eb || !P) return;
+    const cr = P.crumbs, body = panel.querySelector('.kbody'), over = () => eb.scrollWidth > eb.clientWidth + 1;
+    let idx = cr.length > 3 ? [0, cr.length - 2, cr.length - 1] : cr.map((c, i) => i), tag = !!P.tag;
+    const draw = (fold, squeeze) => {
+      eb.innerHTML = `<span class="path${squeeze ? ' squeeze' : ''}">${idx.map((i, j) => (j ? '<span class="sep" aria-hidden="true">›</span>' : '') + (fold && j === 1 ? `<button type="button" class="fold" data-crumb="${i}" aria-label="${esc(cr[i].label)}"><span>…</span></button>` : `<button type="button" data-crumb="${i}"><span>${esc(cr[i].label)}</span></button>`)).join('')}</span>${tag ? `<span class="ktag"><span class="sep" aria-hidden="true">·</span>${P.tag}</span>` : ''}`;
+    };
+    draw(false);
+    if (over() && tag) { tag = false; draw(false); }
+    if (over() && idx.length > 2) { idx = [idx[0], idx[1], idx[idx.length - 1]]; draw(true); } // Bay Area › … › the parent
+    if (over()) draw(idx.length > 2, true);
+    if (body) body.hidden = tag || !P.tag;
+    eb.querySelectorAll('[data-crumb]').forEach(b => b.addEventListener('click', () => go(cr[+b.dataset.crumb].loc, { tap: true })));
   }
   const lensesEl = $('lenses'), lensBtn = $('lens-btn');
   function swatches(lens) { if (lens === 'vibe') return Object.values(VIBES).map(v => `<i style="--c:var(--${v.cls})"></i>`).join(''); if (lens === 'fog') return [1, 2, 3, 4, 5].map(n => `<i style="--c:var(--fog${n})"></i>`).join(''); if (lens === 'elev') return [1, 2, 3, 4, 5].map(n => `<i style="--c:var(--hill${n})"></i>`).join(''); return `<i style="--c:var(--accent)"></i><i style="--c:var(--grey-fill)"></i>`; }
-  function renderLenses() { lensesEl.innerHTML = Object.entries(LENSES).map(([k, v]) => `<button type="button" role="menuitemradio" data-lens="${k}" aria-pressed="${state.lens === k}"><span><b>${v.label}</b><small>${v.sub}</small></span><span class="sw">${swatches(k)}</span></button>`).join(''); lensesEl.querySelectorAll('[data-lens]').forEach(b => b.addEventListener('click', () => { setLens(b.dataset.lens); closeLenses(); })); }
-  function setLens(k) { state.lens = k; savePrefs(); renderLenses(); renderLegend(); recolor(true); }
+  // the layers menu: the four lenses, and under them the legend of the one in use (the map has no legend of its own)
+  function renderLenses() { lensesEl.innerHTML = Object.entries(LENSES).map(([k, v]) => `<button type="button" data-lens="${k}" aria-pressed="${state.lens === k}"><span><b>${v.label}</b><small>${v.sub}</small></span><span class="sw">${swatches(k)}</span></button>`).join('') + '<div class="lgd" id="legend"></div>'; lensesEl.querySelectorAll('[data-lens]').forEach(b => b.addEventListener('click', () => { setLens(b.dataset.lens); closeLenses(); })); renderLegend(); }
+  function setLens(k) { state.lens = k; savePrefs(); renderLenses(); recolor(true); }
   function renderLegend() {
-    const el = $('legend'), k = state.lens;
+    const el = $('legend'), k = state.lens; if (!el) return;
     if (state.quiz) { el.innerHTML = ''; return; }
     if (k === 'vibe') el.innerHTML = Object.values(VIBES).map(v => `<span><i style="--c:var(--${v.cls})"></i>${v.label}</span>`).join('');
     else if (k === 'fog') el.innerHTML = `<span>Sunny</span><span class="ramp">${swatches('fog')}</span><span>Always foggy</span>`;
     else if (k === 'elev') el.innerHTML = `<span>Sea level</span><span class="ramp">${swatches('elev')}</span><span>${ft(MAXM).toLocaleString()} ft</span>`;
-    else el.innerHTML = `<span><i style="--c:var(--accent)"></i>Walked</span><span><i style="--c:var(--grey-fill)"></i>Not yet</span>`;
-    el.innerHTML = `<div class="lgrow">${el.innerHTML}<span class="hint">Tap a place · drag · scroll to zoom</span></div>`; // the row: display: contents on desktop, the phone's sideways scroller
+    else el.innerHTML = `<span><i style="--c:var(--accent)"></i>Been</span><span><i style="--c:var(--grey-fill)"></i>Everywhere else</span>`;
+    el.setAttribute('aria-label', 'Legend: ' + LENSES[k].label);
   }
   function closeLenses() { lensesEl.classList.remove('on'); lensBtn.setAttribute('aria-expanded', 'false'); }
   lensBtn.addEventListener('click', e => { e.stopPropagation(); const on = !lensesEl.classList.contains('on'); lensesEl.classList.toggle('on', on); lensBtn.setAttribute('aria-expanded', String(on)); });
   document.addEventListener('pointerdown', e => { if (!e.target.closest('#lenses, #lens-btn')) closeLenses(); });
   $('zoom-in').addEventListener('click', () => map.zoom(1 / 1.6)); $('zoom-out').addEventListener('click', () => map.zoom(1.6));
-  $('home').addEventListener('click', () => { if (level(state.loc) === 0) flyToLoc(); else go({ region: 'all' }); });
   document.addEventListener('keydown', e => { if (e.target.matches('input, textarea, select')) { if (e.key === 'Escape') e.target.blur(); return; } if (e.key === 'Escape') { if (state.view || level(state.loc) > 0) up(); } else if (e.key === '+' || e.key === '=') map.zoom(1 / 1.6); else if (e.key === '-') map.zoom(1.6); });
   const q = $('q');
   q.addEventListener('input', () => { state.query = q.value.trim().toLowerCase(); q.classList.toggle('has', !!q.value); if (state.query) renderSearch(); else render(); });
   q.addEventListener('keydown', e => { if (e.key === 'Enter') { const first = panel.querySelector('[data-first]'); if (first) first.click(); } });
   // phone search mode: the card stays pinned and the sheet opens to full right under it, so results sit above the keyboard
-  function endSearch(d) { document.documentElement.classList.remove('searching'); if (isPhone() && d) sheet.set(d, { quiet: true }); renderTrail(); } // the trail was display:none while searching, so fold it again now
+  function endSearch(d) { document.documentElement.classList.remove('searching'); if (isPhone() && d) sheet.set(d, { quiet: true }); }
   q.addEventListener('focus', () => { if (isPhone()) { document.documentElement.classList.add('searching'); sheet.set('full', { quiet: true }); } if (state.query) renderSearch(); });
   q.addEventListener('blur', () => { if (isPhone() && !q.value) endSearch('peek'); });
 
   // ---------- head + panel ----------
+  // o: { eyebrow (text) or path: { crumbs, tag } (the tappable path, fitted by fitHead), title, tools, back, onBack, extra (phone root:
+  // the recent spots row), compact (the title is for assistive tech only) }
   function setHead(o) {
-    head.innerHTML = `<button type="button" class="up" aria-label="Back" ${o.back === false ? 'hidden' : ''}>${ICON.back}</button><div class="ttl"><p class="eyebrow">${o.dot ? `<i style="--c:${o.dot}"></i>` : ''}${o.eyebrow || ''}</p><h2>${o.title}</h2></div><div class="tools">${(o.tools || []).map(t => `<button type="button" data-tool="${t.id}" title="${esc(t.label)}" aria-label="${esc(t.label)}">${t.icon}</button>`).join('')}</div>`;
+    head._path = o.path || null;
+    head.innerHTML = `<button type="button" class="up" aria-label="Back" ${o.back === false ? 'hidden' : ''}>${ICON.back}</button><div class="ttl"><p class="eyebrow">${o.path ? '' : (o.dot ? `<i style="--c:${o.dot}"></i>` : '') + (o.eyebrow || '')}</p><h2${o.compact ? ' class="sr"' : ''}>${o.title}</h2></div><div class="tools">${(o.tools || []).map(t => `<button type="button" data-tool="${t.id}" title="${esc(t.label)}" aria-label="${esc(t.label)}">${t.icon}</button>`).join('')}</div>${o.extra || ''}`;
+    head.classList.toggle('compact', !!o.compact);
     head.querySelector('.up').addEventListener('click', o.onBack || up);
     (o.tools || []).forEach(t => head.querySelector(`[data-tool="${t.id}"]`).addEventListener('click', t.run));
+    if (o.extra) wire(head);
   }
+  let headH = 0;
   function render() {
-    renderTrail(); renderLegend();
-    if (state.query) { renderSearch(); return; }
-    if (state.quiz) { renderQuiz(); return; }
-    const l = state.loc, v = state.view; let fresh = true;
-    if (!l.spot) stamped = null; // back on this spot later, the stamp lands again
-    if (v === 'log') renderLogForm(); else if (v === 'spots') renderSpots(); else if (l.spot) fresh = renderSpot(l.spot); else if (l.sub) fresh = renderSub(l.hood, l.sub); else if (l.hood) renderHood(l.hood); else renderHome();
-    if (fresh === false) return; // the panel was left as it was, listeners and all
-    wire(panel);
-    if (window.Photos) Photos.mount(panel);
+    renderLegend();
+    if (state.query) renderSearch();
+    else if (state.quiz) renderQuiz();
+    else {
+      const l = state.loc, v = state.view; let fresh = true;
+      if (!l.spot) stamped = null; // back on this spot later, the stamp lands again
+      if (v === 'log') renderLogForm(); else if (v === 'spots') renderSpots(); else if (l.spot) fresh = renderSpot(l.spot); else if (l.sub) fresh = renderSub(l.hood, l.sub); else if (l.hood) renderHood(l.hood); else renderHome();
+      if (fresh !== false) { wire(panel); if (window.Photos) Photos.mount(panel); } // fresh false: the panel was left as it was, listeners and all
+      if (!v && level(l) >= 2) streetSoon();
+    }
+    fitHead();
+    // the peek is the header's height: when that changes (the recent spots row comes or goes) the peek follows
+    const hh = head.offsetHeight; if (hh !== headH) { headH = hh; if (isPhone() && sheet.detent === 'peek') sheet.set('peek', { quiet: true }); }
   }
   function wire(root) {
     root.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => go(JSON.parse(b.dataset.go), { tap: true })));
     root.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => go(state.loc, { view: b.dataset.view, fly: false, replace: true, sheet: isPhone() ? 'full' : undefined })));
   }
   const rowSub = (hood, s, j) => { const n = Object.values(state.spots).filter(sp => sp.hood === hood && sp.sub === s.name).length; return `<li><button type="button" class="row" data-go='${attr({ hood, sub: s.name })}'>${s.star ? '<span class="ic starb" aria-label="Starred"></span>' : `<span class="ic sq" style="--c:${colorFor(IDX[hood])};opacity:${[1, .75, .5][j % 3]}"></span>`}<span class="nm">${esc(s.name)}<small>${s.star ? `<span class="why">${esc(s.star)}</span> · ` : ''}${esc(s.line)}</small></span><span class="rt">${n ? n + (n === 1 ? ' spot' : ' spots') : ''}<span class="chev"></span></span></button></li>`; };
-  const rowSpot = (id, withPlace) => { const sp = state.spots[id], k = KINDS[sp.kind] || KINDS.other; const meta = [k.label, withPlace ? (sp.sub || sp.hood) : sp.sub, sp.note].filter(Boolean).join(' · '); const rt = sp.status === 'want' ? 'want to try' : (sp.rating ? '★'.repeat(sp.rating) : niceDate(sp.at)); return `<li><button type="button" class="row" data-go='${attr({ spot: id })}'><span class="ic" style="--c:${k.c};${sp.status === 'want' ? 'background:transparent;box-shadow:0 0 0 2px ' + k.c + ' inset' : ''}"></span><span class="nm">${esc(sp.name)}<small>${esc(meta)}</small></span><span class="rt">${esc(rt)}</span></button></li>`; };
+  const rowSpot = (id, withPlace) => { const sp = state.spots[id], k = KINDS[sp.kind] || KINDS.other; const meta = [k.label, withPlace ? (sp.sub || sp.hood) : sp.sub, sp.note].filter(Boolean).join(' · '); const rt = sp.status === 'want' ? 'want to go' : (sp.rating ? '★'.repeat(sp.rating) : niceDate(sp.at)); return `<li><button type="button" class="row" data-go='${attr({ spot: id })}'><span class="ic" style="--c:${k.c};${sp.status === 'want' ? 'background:transparent;box-shadow:0 0 0 2px ' + k.c + ' inset' : ''}"></span><span class="nm">${esc(sp.name)}<small>${esc(meta)}</small></span><span class="rt">${esc(rt)}</span></button></li>`; };
   const spotsIn = (hood, sub) => Object.keys(state.spots).filter(id => state.spots[id].hood === hood && (!sub || state.spots[id].sub === sub)).sort((a, b) => (state.spots[a].at < state.spots[b].at ? 1 : -1));
   const logTool = (hood, sub) => ({ id: 'log', label: 'Log a place', icon: ICON.plus, run: () => startLog({ hood, sub }) });
   // ---- Google Maps: a text query lands on the real place; a pinned, GPS or approximate spot keeps its coordinates
@@ -3457,7 +3499,21 @@ window.Photos = (() => {
   // the street-map preview (js/streetmap.js). Not inside the Claude artifact, whose host blocks third-party content
   const streetOK = () => (state.store === 'sync' || state.store === 'local') && !(window.claude && window.claude.use);
   const streetMap = v => streetOK() && window.StreetMap ? `<h3>Street map</h3>${StreetMap.box(v)}` : '';
-  const mountStreet = v => { const el = panel.querySelector('.mapprev'); if (el && window.StreetMap) StreetMap.mount(el, v); };
+  // the street map mounts once the camera has landed (mounting during the fly cost a 60-365 ms hitch); a re-render with no fly
+  // (a sync echo, a save) mounts at once, so the same view stays drawn without a blink
+  const mountStreet = v => { const now = () => { const el = panel.querySelector('.mapprev'); if (el && el.dataset.key === v.key && window.StreetMap) StreetMap.mount(el, v); }; if (goFly || flyQ.length) afterFly(now); else now(); };
+  // the camera has been still for three frames (or 2.5 s passed): the fly is over
+  const flyQ = [];
+  function afterFly(fn) {
+    flyQ.push(fn); if (flyQ.length > 1) return;
+    let last = '', still = 0; const t0 = performance.now();
+    const tick = () => { const c = map.cam, k = c.x + ',' + c.y + ',' + c.w, t = performance.now(); still = k === last ? still + 1 : 0; last = k; if ((still >= 3 && t - t0 > 90) || t - t0 > 2500) flyQ.splice(0).forEach(f => f()); else requestAnimationFrame(tick); };
+    requestAnimationFrame(tick);
+  }
+  // the street-map library (about 376 KB) is not loaded at boot: the first place, section or spot asks for it, once its fly is over,
+  // so the download and its parse never share the main thread with the camera or a first photo
+  let streetAsked = false;
+  function streetSoon() { if (streetAsked || !window.StreetMap || !streetOK()) return; streetAsked = true; afterFly(() => StreetMap.preload()); }
   const okLL = (lat, lon) => typeof lat === 'number' && typeof lon === 'number' && isFinite(lat) && isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180; // a log is anyone's to write: a spot without real coordinates gets no map and no dot
   const spotDots = skip => Object.keys(state.spots).filter(id => id !== skip && okLL(state.spots[id].lat, state.spots[id].lon)).map(id => { const s = state.spots[id]; return [s.lon, s.lat, KINDS[s.kind] ? s.kind : 'other']; });
   // a re-render (sync echo, a save) that would write the same HTML leaves the panel alone, so the street map stays as drawn
@@ -3481,29 +3537,32 @@ window.Photos = (() => {
   function renderHome() {
     const r = state.loc.region, n = doneCount(), total = REGION_N[r], s = stampState(), earned = STAMPS.filter(st => st.test(s)), next = STAMPS.find(st => !st.test(s));
     const news = r === 'all' ? state.news.length : 0; // the only sign of news, in the sheet's own eyebrow: it shows at the peek too
-    setHead({ back: r !== 'all', eyebrow: r === 'all' ? 'Logbook' + (news ? ` · ${news} new` : '') : 'Logbook · Bay Area', title: r === 'all' ? 'The Bay Area' : REGIONS[r].label, tools: [logTool(null, null)] });
+    const recent = Object.keys(state.spots).filter(id => IDX[state.spots[id].hood] != null && inRegion(IDX[state.spots[id].hood])).sort((a, b) => (state.spots[a].at < state.spots[b].at ? 1 : -1));
+    // the first screen: the wordmark is the title, and the most recent spots are one tap away (in the phone's header, so the peek shows them)
+    const chips = r === 'all' && recent.length ? `<div class="recent" role="list" aria-label="Recent spots">${recent.slice(0, 5).map(id => { const sp = state.spots[id], k = KINDS[sp.kind] || KINDS.other; return `<span role="listitem"><button type="button" data-go='${attr({ spot: id })}'><i class="${sp.status === 'want' ? 'want' : ''}" style="--c:${k.c}"></i>${esc(sp.name)}</button></span>`; }).join('')}${recent.length > 5 ? `<span role="listitem"><button type="button" class="all" data-view="spots">All ${recent.length} ›</button></span>` : ''}</div>` : '';
+    if (r === 'all') setHead({ back: false, eyebrow: 'Logbook · ' + (news ? `${news} new` : `${n} of ${total} walked`), title: 'Seven by Seven<em>.</em>', tools: [logTool(null, null)], extra: isPhone() ? chips : '' });
+    else setHead({ path: { crumbs: crumbsOf(state.loc) }, title: REGIONS[r].label, tools: [logTool(null, null)] });
     const entries = NAMES.filter(x => inRegion(IDX[x]) && state.done[slug(x)]).sort((a, b) => (state.done[slug(b)].at || '').localeCompare(state.done[slug(a)].at || '') || a.localeCompare(b));
     const wantList = NAMES.filter(x => inRegion(IDX[x]) && state.want[slug(x)] && !state.done[slug(x)]);
-    const recent = Object.keys(state.spots).filter(id => IDX[state.spots[id].hood] != null && inRegion(IDX[state.spots[id].hood])).sort((a, b) => (state.spots[a].at < state.spots[b].at ? 1 : -1));
     const active = state.filters.size > 0, hits = active ? NAMES.filter(x => matches(IDX[x])) : [];
     const places = r === 'all'
       ? Object.keys(REGIONS).filter(k => k !== 'all').map(k => `<li><button type="button" class="row" data-go='${attr({ region: k })}'><span class="ic ${doneCount(k) === REGION_N[k] ? 'flag' : doneCount(k) ? 'sq' : 'none'}" style="--c:var(--accent)"></span><span class="nm">${REGIONS[k].label}</span><span class="rt">${doneCount(k)} of ${REGION_N[k]}<span class="chev"></span></span></button></li>`).join('')
       : NAMES.filter(x => inRegion(IDX[x])).map(x => `<li><button type="button" class="row" data-go='${attr({ hood: x })}'><span class="ic ${isDone(IDX[x]) ? 'flag' : isWant(IDX[x]) ? 'star' : 'none'}"></span><span class="nm">${esc(x)}${starOf(x) ? '<span class="st" role="img" aria-label="Starred"></span>' : ''}</span><span class="rt">${ft(HOODS[IDX[x]].max).toLocaleString()} ft</span></button></li>`).join('');
     // the phone puts the tappable list right under the progress bar, so the half sheet shows rows, not instructions
     const progress = `<div class="progress"><div class="bar"><i style="width:${(n / total * 100).toFixed(1)}%"></i></div><small>${n === 0 ? (state.store === 'sync' && !Object.keys(state.spots).length ? 'Nothing walked yet · <button type="button" class="act" id="join-log-hint">Already have a log? Join it</button>' : 'Nothing walked yet') : `<b>${n}</b> of ${total} walked · ${Math.round(areaPct() * 100)}% by area · ${climbedFt().toLocaleString()} ft climbed`}</small></div>`;
-    const lead = `<p class="lead">${n === 0 ? `Tap a place on the map, or pick one ${isPhone() ? 'above' : 'below'}. When you have set foot in it, log it and it gets a flag.` : n === total ? `All ${total}. You have walked ${REGIONS[r].the}.` : `${total - n} to go.${next ? ' Next stamp: ' + next.label + '.' : ''}`}</p>`;
+    const lead = `<p class="lead">${n === 0 ? `Tap a place on the map, or pick one ${isPhone() ? 'above' : 'below'}. When you have set foot in it, log it and it gets a flag.` : n === total ? `All ${total}. You have been all over ${REGIONS[r].the}.` : `${total - n} to go.${next ? ' Next stamp: ' + next.label + '.' : ''}`}</p>`;
     const links = `<div class="textlinks"><button type="button" id="surprise">Suggest a place</button><button type="button" id="quiz">Quiz me</button><button type="button" data-mood-toggle>Find by mood${active ? ' (' + state.filters.size + ')' : ''}</button></div>
       <div id="moods" ${active ? '' : 'hidden'}><h3>Mood</h3><div class="textlinks">${MOODS.map(t => `<button type="button" data-mood="${t}" aria-pressed="${state.filters.has(t)}">${t}</button>`).join('')}</div>
         ${active ? `<h3>${hits.length ? hits.length + ' match' + (hits.length === 1 ? '' : 'es') : 'No matches'}</h3><div class="textlinks">${hits.map(a => `<button type="button" class="${isDone(IDX[a]) ? 'done' : isWant(IDX[a]) ? 'want' : ''}" data-go='${attr({ hood: a })}'>${esc(a)}</button>`).join('')}</div>` : ''}</div>`;
     const list = `<h3>${r === 'all' ? 'Regions' : 'Places'} <span class="n">${r === 'all' ? '' : total}</span></h3><ul class="rows ${r === 'all' ? '' : 'cols2'}">${places}</ul>`;
-    panel.innerHTML = (news ? newsBlock() : '') + progress + (isPhone() ? list + lead + links : lead + links + list) + `
-      ${entries.length ? `<h3>Walked <span class="n">${entries.length}</span></h3><ul class="rows">${entries.map(x => `<li><button type="button" class="row" data-go='${attr({ hood: x })}'><span class="ic flag"></span><span class="nm">${esc(x)}${state.done[slug(x)].note ? `<small>${esc(state.done[slug(x)].note)}</small>` : ''}</span><span class="rt">${niceDate(state.done[slug(x)].at)}</span></button></li>`).join('')}</ul>` : ''}
+    panel.innerHTML = (news ? newsBlock() : '') + progress + (isPhone() ? list + lead + links : chips + lead + links + list) + `
+      ${entries.length ? `<h3>Been <span class="n">${entries.length}</span></h3><ul class="rows">${entries.map(x => `<li><button type="button" class="row" data-go='${attr({ hood: x })}'><span class="ic flag"></span><span class="nm">${esc(x)}${state.done[slug(x)].note ? `<small>${esc(state.done[slug(x)].note)}</small>` : ''}</span><span class="rt">${niceDate(state.done[slug(x)].at)}</span></button></li>`).join('')}</ul>` : ''}
       ${wantList.length ? `<h3>Want to go <span class="n">${wantList.length}</span></h3><div class="textlinks">${wantList.map(a => `<button type="button" class="want" data-go='${attr({ hood: a })}'>${esc(a)}</button>`).join('')}</div>` : ''}
-      <h3>Spots <span class="n">${recent.length || ''}</span>${recent.length > 6 ? `<button type="button" class="act" data-view="spots">All ${recent.length}</button>` : `<button type="button" class="act" id="log-home">+ Log a place</button>`}</h3>
+      <h3>Spots <span class="n">${recent.length || ''}</span>${recent.length > 6 ? `<button type="button" class="act" data-view="spots">All ${recent.length}</button>` : ''}</h3>
       ${recent.length ? `<ul class="rows">${recent.slice(0, 6).map(id => rowSpot(id, true)).join('')}</ul>` : `<p class="empty">Restaurants, bars, views, shops: search a name or drop a pin, then rate it.</p>`}
       <h3>Stamps <span class="n">${earned.length} of ${STAMPS.length}</span></h3><div class="stamps">${STAMPS.map(st => `<div class="stamp ${st.test(s) ? 'got' : ''}"><b>${st.icon}</b>${st.label}</div>`).join('')}</div>
       <details class="more"><summary>Settings</summary>
-        <label class="switch"><span>Color every place, walked or not</span><input type="checkbox" id="show-all" ${state.showAll ? 'checked' : ''}></label>
+        <label class="switch"><span>Color every place, been or not</span><input type="checkbox" id="show-all" ${state.showAll ? 'checked' : ''}></label>
         <div class="field" style="margin-top:12px"><label>Appearance</label><div class="seg">${['system', 'light', 'dark'].map(t => `<button type="button" data-theme-pick="${t}" aria-pressed="${state.theme === t}">${t === 'system' ? 'System' : t[0].toUpperCase() + t.slice(1)}</button>`).join('')}</div></div>
         ${state.store === 'sync' ? `<div class="field"><label for="who-in">Your name on this device</label><input id="who-in" maxlength="${WHO_MAX}" autocomplete="given-name" enterkeyhint="done" placeholder="Shown on what you add" value="${esc(who())}"></div>` : ''}
         <div class="actions" style="margin-top:4px"><button type="button" class="btn sm" id="export">Export log</button><button type="button" class="btn sm" id="import">Import</button><input type="file" id="import-file" accept="application/json" hidden>${state.store === 'sync' ? '<button type="button" class="btn sm primary" id="share-log">Share this log</button><button type="button" class="btn sm" id="join-log">Join a log</button>' : ''}</div>
@@ -3511,7 +3570,6 @@ window.Photos = (() => {
       </details>`;
     panel.querySelector('#surprise').addEventListener('click', surprise);
     panel.querySelector('#quiz').addEventListener('click', startQuiz);
-    const lg = panel.querySelector('#log-home'); if (lg) lg.addEventListener('click', () => startLog({}));
     panel.querySelector('[data-mood-toggle]').addEventListener('click', () => { const m = panel.querySelector('#moods'); m.hidden = !m.hidden; });
     panel.querySelectorAll('[data-mood]').forEach(b => b.addEventListener('click', () => { const t = b.dataset.mood; state.filters.has(t) ? state.filters.delete(t) : state.filters.add(t); map.invalidate(); render(); panel.querySelector('#moods').hidden = false; }));
     panel.querySelectorAll('[data-theme-pick]').forEach(b => b.addEventListener('click', () => { state.theme = b.dataset.themePick; savePrefs(); applyTheme(); map.refreshPalette(); recolor(false); render(); }));
@@ -3531,34 +3589,32 @@ window.Photos = (() => {
     const i = IDX[name], info = INFO[name], h = HOODS[i], k = slug(name), done = state.done[k], want = state.want[k], secs = subs(name), mine = spotsIn(name);
     const roof = h.max === Math.max(...HOODS.filter(x => x.region === h.region).map(x => x.max)), dis = state.canWrite ? '' : 'disabled';
     const keepNote = panel.dataset.name === name && panel.querySelector('#note') ? panel.querySelector('#note').value : null; panel.dataset.name = name;
-    setHead({ eyebrow: `${REGIONS[h.region].label} · ${VIBES[info.vibe].label}`, dot: `var(--${VIBES[info.vibe].cls})`, title: esc(name), tools: [logTool(name, null)] });
+    setHead({ path: { crumbs: crumbsOf(state.loc) }, title: esc(name), tools: [logTool(name, null)] }); // the vibe is the first of the facts
     const extras = mine.map(spotSrc).concat(secs.slice().sort((a, b) => !!b.star - !!a.star).map(s => ({ owner: ownerKey.section(name, s.name), label: s.name }))); // spots first, newest first (photos mostly live there and the hero caps its sources), then sections in list order
     panel.innerHTML = `
       ${hero(ownerKey.place(name), name, Object.assign(vibeLook(name), { extras }))}
       <p class="lead">${esc(info.line)}</p>
       <div class="marks">
-        <button type="button" class="mark done ${done ? 'on' : ''}" id="explore" aria-pressed="${!!done}" ${dis}><span class="box">${ICON.check}</span><span><b>${done ? 'Walked' : 'Been here'}</b><small>${done ? niceDate(done.at) + ' · tap to undo' : 'Logs it with a flag'}</small></span></button>
-        <button type="button" class="mark want ${want ? 'on' : ''}" id="want" aria-pressed="${!!want}" ${dis || (done ? 'disabled' : '')}><span class="box">${ICON.star}</span><span><b>${want ? 'On the list' : 'Want to go'}</b><small>${done ? 'Already walked' : want ? 'Tap to remove' : 'Save for later'}</small></span></button>
+        <button type="button" class="mark done ${done ? 'on' : ''}" id="explore" aria-pressed="${!!done}" ${dis}><span class="box">${ICON.check}</span><span><b>Been</b><small>${done ? niceDate(done.at) + ' · tap to undo' : 'Plants a flag'}</small></span></button>
+        <button type="button" class="mark want ${want ? 'on' : ''}" id="want" aria-pressed="${!!want}" ${dis || (done ? 'disabled' : '')}><span class="box">${ICON.star}</span><span><b>Want to go</b><small>${done ? 'Already been' : want ? 'Tap to remove' : 'Save for later'}</small></span></button>
       </div>
       ${done ? `<textarea class="note" id="note" placeholder="What did you eat, see, or climb?" aria-label="Notes for ${esc(name)}">${esc(keepNote ?? done.note ?? '')}</textarea>` : ''}<div class="savestate" id="savestate">${state.canWrite ? '' : 'Sign in to keep a list'}</div>
-      <div class="facts"><span><b>${ft(h.max).toLocaleString()} ft</b> high point${roof ? ' · ' + REGIONS[h.region].roof : ''}</span><span><b>Fog</b> <span class="dots">${[1, 2, 3, 4, 5].map(n => `<i class="${n <= info.fog ? 'on' : ''}"></i>`).join('')}</span> ${FOG_WORDS[info.fog - 1]}</span></div>
-      ${mapBtns(areaQuery(name), areaApple(name))}
       ${secs.length ? `<h3>Sections <span class="n">${secs.length}</span></h3><ul class="rows">${secs.map((s, j) => [s, j]).sort((a, b) => !!b[0].star - !!a[0].star).map(([s, j]) => rowSub(name, s, j)).join('')}</ul>` : ''}
-      <h3>Spots <span class="n">${mine.length || ''}</span><button type="button" class="act" id="log-here">+ Log a place</button></h3>
+      <div class="facts"><span class="vibe"><i style="--c:var(--${VIBES[info.vibe].cls})"></i><b>${VIBES[info.vibe].label}</b></span><span><b>${ft(h.max).toLocaleString()} ft</b> high point${roof ? ' · ' + REGIONS[h.region].roof : ''}</span><span><b>Fog</b> <span class="dots">${[1, 2, 3, 4, 5].map(n => `<i class="${n <= info.fog ? 'on' : ''}"></i>`).join('')}</span> ${FOG_WORDS[info.fog - 1]}</span></div>
+      ${mapBtns(areaQuery(name), areaApple(name))}
+      <h3>Spots <span class="n">${mine.length || ''}</span></h3>
       ${mine.length ? `<ul class="rows">${mine.map(id => rowSpot(id, false)).join('')}</ul>` : `<p class="empty">Nothing logged here yet.</p>`}
       <h3>Known for</h3><ul class="plain">${info.known.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
       <h3>One thing to know</h3><p class="fact">${esc(info.fact)}</p>
       <h3>Next door</h3>${h.adj.length ? `<div class="textlinks">${h.adj.map(a => `<button type="button" class="${isDone(IDX[a]) ? 'done' : isWant(IDX[a]) ? 'want' : ''}" data-go='${attr({ hood: a })}'>${esc(a)}</button>`).join('')}</div>` : '<p class="empty">Nobody. It is an island.</p>'}`;
     panel.querySelector('#explore').addEventListener('click', () => toggleDone(name));
     panel.querySelector('#want').addEventListener('click', () => toggleWant(name));
-    panel.querySelector('#log-here').addEventListener('click', () => startLog({ hood: name }));
     const n = panel.querySelector('#note'); if (n) n.addEventListener('input', e => noteInput(name, e.target.value));
   }
   // ---- a section of a neighborhood ----
   function renderSub(hood, subName) {
     const s = subByName(hood, subName), i = IDX[hood], info = INFO[hood], mine = spotsIn(hood, subName), others = subs(hood).filter(x => x.name !== subName);
-    if (s.star) setHead({ eyebrow: `<span class="star"><b>★</b> Starred · ${esc(s.star)}</span>`, title: esc(subName), tools: [logTool(hood, subName)] });
-    else setHead({ eyebrow: `${esc(hood)} · ${REGIONS[HOODS[i].region].label}`, dot: `var(--${VIBES[info.vibe].cls})`, title: esc(subName), tools: [logTool(hood, subName)] });
+    setHead({ path: { crumbs: crumbsOf(state.loc), tag: s.star ? '<span class="star"><b>★</b> Starred</span>' : null }, title: esc(subName), tools: [logTool(hood, subName)] }); // the reason for the star is the note at the top of the panel
     const mq = areaQuery(hood, subName), aq = areaApple(hood, subName);
     const sv = { key: 'sub:' + hood + '/' + subName, name: subName, href: tapLink(mq, aq), q: mq, z: 16, seed: [s.lon, s.lat], zoom: 15 };
     if (!paint(`
@@ -3567,32 +3623,30 @@ window.Photos = (() => {
       <p class="lead">${esc(s.line)}</p>
       ${s.tags && s.tags.length ? `<div class="tags">${s.tags.map(t => `<span>${esc(t)}</span>`).join('')}</div>` : ''}
       ${streetMap(sv)}${mapBtns(mq, aq)}
-      <h3>Spots here <span class="n">${mine.length || ''}</span><button type="button" class="act" id="log-here">+ Log a place</button></h3>
+      <h3>Spots here <span class="n">${mine.length || ''}</span></h3>
       ${mine.length ? `<ul class="rows">${mine.map(id => rowSpot(id, false)).join('')}</ul>` : `<p class="empty">Nothing logged in ${esc(subName)} yet.</p>`}
       ${s.known && s.known.length ? `<h3>Known for</h3><ul class="plain">${s.known.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
       <h3>Also in ${esc(hood)}</h3><div class="textlinks">${others.map(x => `<button type="button" data-go='${attr({ hood, sub: x.name })}'>${esc(x.name)}</button>`).join('')}</div>`)) return false;
     mountStreet(Object.assign(sv, { rings: (s.rings || []).map(r => r.map(([x, y]) => Geom.unproj(x, y).map(n => +n.toFixed(5)))), dots: spotDots(null) })); // the section's cell, outlined
-    panel.querySelector('#log-here').addEventListener('click', () => startLog({ hood, sub: subName }));
   }
   // ---- a spot ----
   function renderSpot(id) {
     const sp = state.spots[id], k = KINDS[sp.kind] || KINDS.other;
-    setHead({ eyebrow: `${k.label} · ${esc(sp.sub || sp.hood)}`, dot: k.c, title: esc(sp.name), tools: [{ id: 'edit', label: 'Edit', icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16v4z"/><path d="M13 7l4 4"/></svg>', run: () => startLog({ hood: sp.hood, sub: sp.sub, edit: id }) }] });
+    setHead({ path: { crumbs: crumbsOf(state.loc), tag: `<i style="--c:${k.c}"></i>${k.label}` }, title: esc(sp.name), tools: [{ id: 'edit', label: 'Edit', icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16v4z"/><path d="M13 7l4 4"/></svg>', run: () => { const s = state.spots[id]; if (s) startLog({ hood: s.hood, sub: s.sub, edit: id }); } }] });
     const mq = spotQuery(sp), aq = spotApple(sp), want = sp.status === 'want', r = want ? 0 : Math.max(0, Math.min(5, sp.rating | 0)), by = cleanName(sp.by);
     const sv = { key: 'spot:' + id + '@' + ll(sp.lat, sp.lon), name: sp.name, href: tapLink(mq, aq), q: mq, z: 17, lat: sp.lat, lon: sp.lon, zoom: 16, pin: { c: k.c, e: k.e } };
     if (!paint(`
       ${hero(ownerKey.spot(id), sp.name, { c: k.c, e: k.e, badge: { e: k.e, t: k.label } })}
-      ${sp.where ? `<p class="lead">${esc(sp.where)}</p>` : ''}
-      <div class="vrow">${r ? `<span class="vstars" role="img" aria-label="${r} of 5 stars"><span aria-hidden="true">${'★'.repeat(r)}<i>${'★'.repeat(5 - r)}</i></span></span><b class="vword">${VERDICT[r]}</b>` : ''}<span class="pstamp ${want ? 'want' : 'been'}">${want ? 'Want to try' : `Been${sp.at ? ' · ' + esc(niceDate(sp.at)) : ''}`}</span></div>
+      ${sp.where ? `<p class="lead"><span class="kbody" hidden><i style="--c:${k.c}"></i>${esc(k.label)} · </span>${esc(sp.where)}</p>` : `<p class="lead kbody" hidden><i style="--c:${k.c}"></i>${esc(k.label)}</p>`}
+      <div class="vrow">${r ? `<span class="vstars" role="img" aria-label="${r} of 5 stars"><span aria-hidden="true">${'★'.repeat(r)}<i>${'★'.repeat(5 - r)}</i></span></span><b class="vword">${VERDICT[r]}</b>` : ''}<span class="pstamp ${want ? 'want' : 'been'}">${want ? 'Want to go' : `Been${sp.at ? ' · ' + esc(niceDate(sp.at)) : ''}`}</span></div>
       ${by ? `<p class="vby">Logged by ${esc(by)}</p>` : ''}
       ${sp.note ? `<p class="pull">${esc(sp.note)}</p>` : ''}
       ${okLL(sp.lat, sp.lon) ? streetMap(sv) : ''}${mapBtns(mq, aq)}
-      <div class="actions" style="margin-top:18px">${sp.status === 'want' ? `<button type="button" class="btn primary" id="been-now">Been here now</button>` : ''}<button type="button" class="btn quiet" id="edit">Edit</button><button type="button" class="btn quiet" id="del" style="color:var(--bad)">Delete</button></div>
+      <div class="actions" style="margin-top:18px">${sp.status === 'want' ? `<button type="button" class="btn primary" id="been-now">Mark as been</button>` : ''}<button type="button" class="btn quiet" id="del" style="color:var(--bad)">Delete</button></div>
       <div class="actions" id="del-confirm" hidden><span style="font-size:13.5px;align-self:center">Remove ${esc(sp.name)} from your log?</span><button type="button" class="btn sm" id="del-yes" style="color:var(--bad);border-color:var(--bad)">Delete</button><button type="button" class="btn sm quiet" id="del-no">Keep</button></div>`)) return false;
     mountStreet(Object.assign(sv, { dots: spotDots(id) })); // the other spots in the log, as small dots
     { const st = panel.querySelector('.pstamp'), key = id + ':' + sp.status; if (st && stamped !== key) { st.classList.add('thunk'); st.addEventListener('animationend', () => st.classList.remove('thunk'), { once: true }); } stamped = key; } // a fresh spot (or a new status): the stamp lands
     // listeners can outlive this render (an identical re-render keeps the panel), so they look the spot up when used
-    panel.querySelector('#edit').addEventListener('click', () => { const s = state.spots[id]; if (s) startLog({ hood: s.hood, sub: s.sub, edit: id }); });
     panel.querySelector('#del').addEventListener('click', () => { panel.querySelector('#del-confirm').hidden = false; panel.querySelector('#del').hidden = true; });
     panel.querySelector('#del-no').addEventListener('click', () => { panel.querySelector('#del-confirm').hidden = true; panel.querySelector('#del').hidden = false; });
     panel.querySelector('#del-yes').addEventListener('click', () => removeSpot(id));
@@ -3605,18 +3659,25 @@ window.Photos = (() => {
     if (f.kind) ids = ids.filter(id => state.spots[id].kind === f.kind); if (f.status) ids = ids.filter(id => (state.spots[id].status || 'been') === f.status);
     ids.sort((a, b) => (state.spots[a].at < state.spots[b].at ? 1 : -1));
     setHead({ eyebrow: 'Logbook', title: 'Spots', onBack: () => go(state.loc, { replace: true, fly: false }), tools: [logTool(null, null)] });
-    panel.innerHTML = `<div class="textlinks chips"><button type="button" data-sf="status:" aria-pressed="${!f.status}">All</button><button type="button" data-sf="status:been" aria-pressed="${f.status === 'been'}">Been</button><button type="button" data-sf="status:want" aria-pressed="${f.status === 'want'}">Want to try</button></div>
+    panel.innerHTML = `<div class="textlinks chips"><button type="button" data-sf="status:" aria-pressed="${!f.status}">All</button><button type="button" data-sf="status:been" aria-pressed="${f.status === 'been'}">Been</button><button type="button" data-sf="status:want" aria-pressed="${f.status === 'want'}">Want to go</button></div>
       <div class="textlinks chips"><button type="button" data-sf="kind:" aria-pressed="${!f.kind}">Any kind</button>${Object.entries(KINDS).map(([k, v]) => `<button type="button" data-sf="kind:${k}" aria-pressed="${f.kind === k}">${v.label}</button>`).join('')}</div>
       <h3>${ids.length} ${ids.length === 1 ? 'spot' : 'spots'}</h3>${ids.length ? `<ul class="rows">${ids.map(id => rowSpot(id, true)).join('')}</ul>` : '<p class="empty">Nothing matches.</p>'}`;
     panel.querySelectorAll('[data-sf]').forEach(b => b.addEventListener('click', () => { const [k, v] = b.dataset.sf.split(':'); state.spotFilter = Object.assign({}, f, { [k]: v || null }); renderSpots(); wire(panel); }));
   }
   // ---- search ----
+  // how well a name matches: 0 it starts with the query, 1 a word in it does, 2 it contains it, 9 not at all
+  function rankOf(text, qq) { const t = String(text || '').toLowerCase(); let j = t.indexOf(qq); if (j < 0) return 9; if (j === 0) return 0; for (; j >= 0; j = t.indexOf(qq, j + 1)) if (!/[\p{L}\p{N}]/u.test(t[j - 1])) return 1; return 2; }
+  // the matches, best rank first, ties alphabetical; names: the texts that count (an alias, a note: the note only as 'contains')
+  const ranked = (items, names, label) => items.map(x => [x, Math.min(...names(x).map(([t, floor]) => Math.max(floor || 0, rankOf(t, state.query))))]).filter(a => a[1] < 9).sort((a, b) => a[1] - b[1] || label(a[0]).localeCompare(label(b[0]))).map(a => a[0]);
   function renderSearch() {
-    const qq = state.query, hoods = NAMES.filter(n => n.toLowerCase().includes(qq) || (SHORT[n] || '').toLowerCase().includes(qq));
-    const secs = []; HOODS.forEach(h => subs(h.name).forEach(s => { if (s.name.toLowerCase().includes(qq)) secs.push({ hood: h.name, sub: s.name }); }));
-    const spots = Object.keys(state.spots).filter(id => state.spots[id].name.toLowerCase().includes(qq) || (state.spots[id].note || '').toLowerCase().includes(qq));
-    const lms = map.landmarks.filter(l => l.name.toLowerCase().includes(qq));
-    setHead({ eyebrow: 'Search', title: esc(q.value), onBack: () => { q.value = ''; state.query = ''; q.classList.remove('has'); q.blur(); endSearch('peek'); render(); } });
+    const hoods = ranked(NAMES, n => [[n], [SHORT[n]]], n => n);
+    const allSecs = []; HOODS.forEach(h => subs(h.name).forEach(s => allSecs.push({ hood: h.name, sub: s.name })));
+    const secs = ranked(allSecs, x => [[x.sub]], x => x.sub);
+    const spots = ranked(Object.keys(state.spots), id => [[state.spots[id].name], [state.spots[id].note, 2]], id => state.spots[id].name);
+    const lms = ranked(map.landmarks, l => [[l.name]], l => l.name);
+    const total = hoods.length + secs.length + spots.length + lms.length;
+    // the query is already in the field above: the header says how many, and its heading names the panel for assistive tech
+    setHead({ eyebrow: total ? `Search · ${total} ${total === 1 ? 'result' : 'results'}` : 'Search', title: 'Search results', compact: true, onBack: () => { q.value = ''; state.query = ''; q.classList.remove('has'); q.blur(); endSearch('peek'); render(); } });
     let first = true; const F = () => { const f = first ? 'data-first' : ''; first = false; return f; };
     panel.innerHTML = `
       ${hoods.length ? `<h3>Places <span class="n">${hoods.length}</span></h3><ul class="rows">${hoods.map(n => `<li><button type="button" class="row" ${F()} data-go='${attr({ hood: n })}'><span class="ic ${isDone(IDX[n]) ? 'flag' : isWant(IDX[n]) ? 'star' : 'none'}"></span><span class="nm">${esc(n)}<small>${esc(REGIONS[HOODS[IDX[n]].region].label)}</small></span><span class="rt"><span class="chev"></span></span></button></li>`).join('')}</ul>` : ''}
@@ -3651,7 +3712,7 @@ window.Photos = (() => {
     const before = stampState(), walking = !state.done[k];
     if (state.done[k]) delete state.done[k]; else { state.done[k] = { at: today(), note: '' }; delete state.want[k]; map.pop(i); }
     if (state.lens === 'done') recolor(true); map.redraw(); render();
-    if (state.done[k]) { const after = stampState(); const newStamp = STAMPS.find(s => !s.test(before) && s.test(after)); toast(newStamp ? `Stamp earned: ${newStamp.label}` : `${name} walked. +${ft(HOODS[i].max).toLocaleString()} ft`); }
+    if (state.done[k]) { const after = stampState(); const newStamp = STAMPS.find(s => !s.test(before) && s.test(after)); toast(newStamp ? `Stamp earned: ${newStamp.label}` : `Been to ${name}. +${ft(HOODS[i].max).toLocaleString()} ft`); }
     setSaveState('Saving…'); const ok = await persist(); if (ok !== false) { setSaveState(state.done[k] ? 'Saved' : ''); if (walking && state.done[k] && !walkedEv.has(k)) { walkedEv.add(k); logEvent('place', { id: k, name, hood: name }); } } // still walked once saved (no undo meanwhile), and one event a place a session however often it is toggled
   }
   const walkedEv = new Set();
@@ -3695,9 +3756,12 @@ window.Photos = (() => {
   }
   // ---------- hosted site: one shared logbook per secret link ----------
   // The key rides in ?log= so a bookmark or a shared link carries it; a link with a key adopts that log on this device.
+  const KEY_RE = /^[A-Za-z0-9_-]{16,80}$/;
+  // a log this device leaves is never lost: its key is kept as sbs-log-key-prev
+  function keepPrevKey(next) { try { const cur = localStorage.getItem('sbs-log-key'); if (cur && cur !== next && KEY_RE.test(cur)) localStorage.setItem('sbs-log-key-prev', cur); } catch (e) {} }
   function syncKey() {
     let k = null; try { k = new URLSearchParams(location.search).get('log'); } catch (e) {}
-    if (k && /^[A-Za-z0-9_-]{16,80}$/.test(k)) { try { localStorage.setItem('sbs-log-key', k); } catch (e) {} return k; }
+    if (k && KEY_RE.test(k)) { keepPrevKey(k); try { localStorage.setItem('sbs-log-key', k); } catch (e) {} return k; }
     try { k = localStorage.getItem('sbs-log-key'); } catch (e) {}
     if (!k) { k = (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)).replace(/-/g, ''); try { localStorage.setItem('sbs-log-key', k); } catch (e) {} }
     try { const u = new URL(location.href); u.searchParams.set('log', k); history.replaceState(history.state, '', u.pathname + u.search + u.hash); } catch (e) {}
@@ -3709,12 +3773,32 @@ window.Photos = (() => {
     try { if (navigator.share) { await navigator.share({ title: 'Seven by Seven', text: 'Our logbook', url: link }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
     try { await navigator.clipboard.writeText(link); toast('Link copied'); } catch (e) { prompt('Copy this link', link); }
   }
+  const keyOf = raw => { let k = String(raw || '').trim(); try { const u = new URL(k); k = u.searchParams.get('log') || ''; } catch (e) { const m = k.match(/log=([A-Za-z0-9_-]+)/); if (m) k = m[1]; } return KEY_RE.test(k) ? k : null; };
+  function switchLog(k) { keepPrevKey(k); try { localStorage.setItem('sbs-log-key', k); localStorage.removeItem('sbs-explored'); } catch (e) {} location.href = location.pathname + '?log=' + k; }
+  // joining another log: the link goes in an in-page dialog that says first that this device switches logs, and that the log it
+  // leaves keeps its key here (sbs-log-key-prev). Nothing is replaced until Switch logs is tapped.
   function joinLog() {
-    const raw = prompt('Paste the shared link (or just its key)'); if (!raw) return;
-    let k = raw.trim(); try { const u = new URL(k); k = u.searchParams.get('log') || ''; } catch (e) { const m = k.match(/log=([A-Za-z0-9_-]+)/); if (m) k = m[1]; }
-    if (!/^[A-Za-z0-9_-]{16,80}$/.test(k)) { toast('That is not a Seven by Seven link', 3000); return; }
-    try { localStorage.setItem('sbs-log-key', k); localStorage.removeItem('sbs-explored'); } catch (e) {}
-    location.href = location.pathname + '?log=' + k;
+    let dlg = $('join');
+    if (!dlg) {
+      dlg = document.createElement('dialog'); dlg.id = 'join'; dlg.className = 'who'; dlg.setAttribute('aria-labelledby', 'join-t');
+      dlg.innerHTML = `<form method="dialog" id="join-form" novalidate><h2 id="join-t">Join another log?</h2><p>This device will switch to that log: you will see and add to it instead of the one open now. Nothing is deleted, and this device keeps the current log's key so it can come back to it.</p>
+        <div class="field"><label for="join-in">The shared link, or its key</label><input id="join-in" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go" placeholder="Paste the link"></div>
+        <p class="err" id="join-err" role="alert" hidden></p>
+        <div class="actions"><button type="button" class="btn quiet" id="join-cancel">Cancel</button><button type="submit" class="btn primary">Switch logs</button></div></form>`;
+      document.body.appendChild(dlg);
+    }
+    if (typeof dlg.showModal !== 'function') { const k = keyOf(prompt('Paste the shared link (or just its key)')); if (k) switchLog(k); return; } // a browser without the dialog: the old prompt
+    const inp = dlg.querySelector('#join-in'), err = dlg.querySelector('#join-err'), form = dlg.querySelector('#join-form');
+    inp.value = ''; err.hidden = true;
+    form.onsubmit = e => {
+      e.preventDefault(); const k = keyOf(inp.value);
+      if (!k) { err.textContent = 'That is not a Seven by Seven link.'; err.hidden = false; inp.focus(); return; }
+      let cur = null; try { cur = localStorage.getItem('sbs-log-key'); } catch (x) {}
+      dlg.close(); if (k === cur) { toast('This device already uses that log'); return; }
+      switchLog(k);
+    };
+    dlg.querySelector('#join-cancel').onclick = () => dlg.close();
+    dlg.showModal(); inp.focus();
   }
   // ---- the name prompt: an in-page dialog. done(name) runs inside the Save / Skip tap, so a file picker it opens counts as tapped
   function askName(done) {
@@ -3775,7 +3859,7 @@ window.Photos = (() => {
   }
   const seenId = () => { let s = null; try { s = localStorage.getItem('sbs-seen-' + feedKey); } catch (e) {} return s === '' || EV_KEY.test(s) ? s : null; }; // '': before every event; anything else unknown: never seen
   const setSeen = id => { if (id !== '' && !EV_KEY.test(id)) return; try { localStorage.setItem('sbs-seen-' + feedKey, id); } catch (e) {} };
-  function evLine(e) { const by = e.by || 'Someone', nm = e.name || 'a spot'; return e.k === 'photo' ? `${by} added ${e.n === 1 ? 'a photo' : e.n + ' photos'} to ${nm}` : e.k === 'place' ? `${by} walked ${nm}` : e.k === 'been' ? `${by} went to ${nm}` : `${by} logged ${nm}`; }
+  function evLine(e) { const by = e.by || 'Someone', nm = e.name || 'a spot'; return e.k === 'photo' ? `${by} added ${e.n === 1 ? 'a photo' : e.n + ' photos'} to ${nm}` : e.k === 'place' ? `${by} has been to ${nm}` : e.k === 'been' ? `${by} went to ${nm}` : `${by} logged ${nm}`; }
   function ago(t) { const d = Date.parse(t), m = (Date.now() - d) / 60000; if (!isFinite(m) || m < -5) return ''; return m < 1 ? 'just now' : m < 60 ? Math.round(m) + ' min ago' : m < 1440 ? Math.round(m / 60) + ' h ago' : m < 10080 ? Math.round(m / 1440) + (Math.round(m / 1440) === 1 ? ' day ago' : ' days ago') : niceDate(new Date(d).toISOString().slice(0, 10)); }
   // where a photo owner key points: a spot, a place, or a section
   function ownerLoc(owner) {
@@ -3873,7 +3957,20 @@ window.Photos = (() => {
   function startLog(ctx) {
     const sp = ctx.edit ? state.spots[ctx.edit] : null;
     state.draft = sp ? Object.assign({}, sp, { id: ctx.edit, x: sp._xy ? sp._xy[0] : null, y: sp._xy ? sp._xy[1] : null }) : { id: null, name: '', kind: 'food', status: 'been', rating: 0, note: '', at: today(), hood: ctx.hood || state.loc.hood || null, sub: ctx.sub || (ctx.hood ? null : state.loc.sub) || null, lon: null, lat: null, x: null, y: null, where: '', src: null };
+    // no place chosen (the first screen, a region): most likely it is where you stand, so the location lookup starts at once. With no
+    // location (refused, unavailable, timed out, off the map) the form simply stays as it is, with no message
+    const d = state.draft; if (!sp && !d.hood && navigator.geolocation) d.locating = true;
     go(state.loc, { view: 'log', fly: false, replace: true, sheet: isPhone() ? 'full' : undefined });
+    if (!sp) { const qi = panel.querySelector('#lf-q'); if (qi) qi.focus({ preventScroll: true }); } // the name first, still inside the + tap (iOS opens the keyboard only for a focus in a tap)
+    if (d.locating) locate(pos => { d.locating = false; if (state.draft === d && d.lon == null) fillGps(d, pos); else if (state.draft === d) refreshForm(); }, { quiet: true, fail: () => { d.locating = false; if (state.draft === d) refreshForm(); } });
+  }
+  function fillGps(d, pos) { const [x, y] = Geom.proj(pos), w = locateXY(x, y); Object.assign(d, { lon: pos[0], lat: pos[1], x, y, hood: w.hood || d.hood, sub: w.sub, src: 'gps', where: 'Your location' }); refreshForm(); }
+  // redraw the form from the draft (which every field writes as it changes); a field being typed in keeps the focus and the caret
+  function refreshForm() {
+    if (state.view !== 'log' || state.placing) return;
+    const a = document.activeElement, id = a && panel.contains(a) && a.id, at = id && typeof a.selectionStart === 'number' ? a.selectionStart : null;
+    renderLogForm();
+    const n = id && panel.querySelector('#' + id); if (n) { n.focus({ preventScroll: true }); if (at != null) try { n.setSelectionRange(at, at); } catch (e) {} }
   }
   let sugTimer = null, sugCtrl = 0;
   function renderLogForm() {
@@ -3885,9 +3982,9 @@ window.Photos = (() => {
         ${placed ? `<small style="color:var(--muted);font-size:12.5px">${ICON.pin.replace('<svg', '<svg style="width:12px;height:12px;vertical-align:-1px;fill:none;stroke:currentColor;stroke-width:2"')} ${esc(d.where || '')}${(() => { const w = d.where || ''; const parts = [d.sub, d.hood].filter(x => x && !w.includes(x)); const tail = parts.length ? parts.join(', ') : (w ? '' : 'outside the tracked places'); return (w && tail ? ' · ' : '') + esc(tail); })()} <button type="button" class="act" id="lf-clear" style="border:0;background:none;color:var(--accent-deep, var(--accent));font-weight:600;padding:0 0 0 6px">change</button></small>` : ''}</div>
       <ul class="suggest" id="lf-sug" hidden></ul>
       <p class="empty" id="lf-nosearch" style="font-size:12.5px;margin:-4px 0 10px" ${state.searchDown ? '' : 'hidden'}>Live suggestions are not available here. Press Enter to search, or type the name and drop a pin.</p>
-      ${placed ? '' : `<div class="actions" style="margin:0 0 14px"><button type="button" class="btn sm" id="lf-pin">${ICON.pin} Drop a pin on the map</button><button type="button" class="btn sm" id="lf-gps">Use my location</button></div>`}
+      ${placed ? '' : `<div class="actions" style="margin:0 0 14px"><button type="button" class="btn sm" id="lf-pin">${ICON.pin} Drop a pin on the map</button><button type="button" class="btn sm" id="lf-gps" ${d.locating ? 'disabled aria-busy="true"' : ''}>${d.locating ? 'Finding your location…' : 'Use my location'}</button></div>`}
       <div class="field"><label>Kind</label><div class="seg" id="lf-kind">${Object.entries(KINDS).filter(([k]) => k !== 'other').map(([k, v]) => `<button type="button" data-k="${k}" aria-pressed="${d.kind === k}">${v.label}</button>`).join('')}</div></div>
-      <div class="field"><label>Status</label><div class="seg" id="lf-status"><button type="button" data-s="been" aria-pressed="${d.status === 'been'}">Been</button><button type="button" data-s="want" aria-pressed="${d.status === 'want'}">Want to try</button></div></div>
+      <div class="field"><label>Status</label><div class="seg" id="lf-status"><button type="button" data-s="been" aria-pressed="${d.status === 'been'}">Been</button><button type="button" data-s="want" aria-pressed="${d.status === 'want'}">Want to go</button></div></div>
       <div class="two lf-been" id="lf-been" ${d.status === 'been' ? '' : 'hidden'}>
         <div class="field" style="margin:0"><label>Rating</label><div class="rate" id="lf-rate">${[1, 2, 3, 4, 5].map(n => `<button type="button" data-r="${n}" class="${n <= d.rating ? 'on' : ''}" aria-label="${n} star${n > 1 ? 's' : ''}">★</button>`).join('')}</div></div>
         <div class="field lf-when" style="margin:0"><label for="lf-date">When</label><input type="date" id="lf-date" value="${esc(d.at || today())}"></div>
@@ -3907,11 +4004,11 @@ window.Photos = (() => {
     panel.querySelector('#lf-cancel').addEventListener('click', cancelLog);
     const clr = panel.querySelector('#lf-clear'); if (clr) clr.addEventListener('click', () => { d.lon = d.lat = d.x = d.y = null; d.where = ''; d.src = null; renderLogForm(); });
     const pin = panel.querySelector('#lf-pin'); if (pin) pin.addEventListener('click', () => { state.placing = true; state.pending = null; stage.classList.add('placing'); if (isPhone()) sheet.set('peek'); setHead({ eyebrow: 'Drop a pin', title: 'Tap the map', onBack: () => { stopPlacing(); renderLogForm(); if (isPhone()) sheet.set('full'); }, tools: [] }); toast('Tap the map where it is', 3200); map.redraw(); });
-    const gps = panel.querySelector('#lf-gps'); if (gps) gps.addEventListener('click', () => locate(pos => { const [x, y] = Geom.proj(pos); const w = locateXY(x, y); Object.assign(d, { lon: pos[0], lat: pos[1], x, y, hood: w.hood || d.hood, sub: w.sub, src: 'gps', where: 'Your location' }); renderLogForm(); }));
+    const gps = panel.querySelector('#lf-gps'); if (gps) gps.addEventListener('click', () => locate(pos => { if (state.draft === d) fillGps(d, pos); }));
     form.addEventListener('submit', e => { e.preventDefault(); saveDraft(); });
   }
   async function suggest(v, sug, qi, explicit) {
-    const my = ++sugCtrl, d = state.draft; let res = [];
+    const my = ++sugCtrl, d = state.draft; let res = []; if (!d) return; // the form was saved or left before the typing pause ended
     const bias = d.hood ? (() => { const bb = map.hoodBBox(IDX[d.hood]); return Geom.unproj((bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2); })() : null;
     try { res = await window.Places.search(v, bias, { explicit }); } catch (e) { if (e.name === 'AbortError') return; sug.hidden = true; if (!state.searchDown) { state.searchDown = true; const n = panel.querySelector('#lf-nosearch'); if (n) n.hidden = false; } return; }
     if (window.Places.search.photonDown && !state.searchDown) { state.searchDown = true; const n = panel.querySelector('#lf-nosearch'); if (n) n.hidden = false; }
@@ -3950,22 +4047,23 @@ window.Photos = (() => {
   async function removeSpot(id) { const sp = state.spots[id]; if (!sp) return; delete state.spots[id]; go({ hood: sp.hood, sub: sp.sub }, { replace: true, fly: false }); map.redraw(); const ok = await persist(); if (ok !== false && state.store === 'sync' && window.Photos) { try { Photos.removeAll(ownerKey.spot(id)); } catch (e) {} } toast(`${sp.name} removed`); } // its photos go too, best effort, once the delete is saved
 
   // ---------- where am I ----------
-  function locate(onPos) {
+  // o.quiet: no message on failure, o.fail() instead (the log form's own lookup)
+  function locate(onPos, o = {}) {
     const btn = $('locate');
-    if (!navigator.geolocation) { toast('Location is not available here', 3000); return; }
+    if (!navigator.geolocation) { if (o.quiet) { if (o.fail) o.fail(); } else toast('Location is not available here', 3000); return; }
     btn.classList.add('busy');
     navigator.geolocation.getCurrentPosition(pos => {
       btn.classList.remove('busy'); const lon = pos.coords.longitude, lat = pos.coords.latitude, [LON0, LAT0, LON1, LAT1] = G.bbox;
-      if (lon < LON0 || lon > LON1 || lat < LAT0 || lat > LAT1) { toast('You are outside the map', 3000); return; }
+      if (lon < LON0 || lon > LON1 || lat < LAT0 || lat > LAT1) { if (o.quiet) { if (o.fail) o.fail(); } else toast('You are outside the map', 3000); return; }
       const [x, y] = Geom.proj([lon, lat]); map.setMe([x, y]);
       if (onPos) { onPos([lon, lat]); return; }
       const w = locateXY(x, y);
       if (w.hood) { toast('You are in ' + (w.sub ? w.sub + ', ' + w.hood : w.hood), 3000); go(w.sub ? { hood: w.hood, sub: w.sub } : { hood: w.hood }, { fromMap: true }); }
       else { toast('You are here', 3000); map.flyTo([x - .01, y - .01, x + .01, y + .01], 1, U * 0.08); }
     }, err => {
-      btn.classList.remove('busy'); const framed = window.top !== window.self;
+      btn.classList.remove('busy'); if (o.quiet) { if (o.fail) o.fail(); return; } const framed = window.top !== window.self;
       if (err.code === 1 && framed) toast('Location is blocked inside this frame. Open the app on its own.', 3600); else toast(err.code === 1 ? 'Location permission was refused' : 'Could not get a location', 3000);
-    }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 });
+    }, { enableHighAccuracy: true, timeout: o.quiet ? 10000 : 12000, maximumAge: 60000 });
   }
   $('locate').addEventListener('click', () => locate());
 
@@ -4012,17 +4110,18 @@ window.Photos = (() => {
     state.loc = normalize(fromHash); state.bootLoc = fromHash.spot && !state.loc.spot ? fromHash : null;
     sheet.set(isPhone() ? (level(state.loc) >= 2 ? 'half' : 'peek') : 'full', { instant: true, quiet: true });
     map.setState({ region: state.loc.region, sel: state.loc.hood ? IDX[state.loc.hood] : -1, selSub: state.loc.sub ? subIndex(state.loc.hood, state.loc.sub) : -1 });
-    try { if (!state.bootLoc) history.replaceState({ loc: state.loc }, '', location.pathname + location.search + hashOf(state.loc)); } catch (e) {}
-    render();
+    try { if (!state.bootLoc) history.replaceState({ loc: state.loc, s: SESSION, n: 0 }, '', location.pathname + location.search + hashOf(state.loc)); } catch (e) {}
+    goFly = level(state.loc) >= 2; render(); goFly = false; // a deep link flies in below: its street map waits for that
+    if (isPhone()) sheet.set(sheet.detent, { instant: true, quiet: true }); // the peek is the header's height, known only now
     { // synchronously, so the very first frame is already the fitted view
       const l = state.loc; const v = l.hood ? null : map.fitView(...map.regionBBox(l.region), 1.06, 0); if (v) { map.jumpTo(v); } else { const bb = map.regionBBox(l.region); map.jumpTo(map.fitView(bb[0], bb[1], bb[2], bb[3], 1.06, 0)); flyToLoc(900); }
     }
     connectStore();
-    if (window.StreetMap && streetOK()) StreetMap.idle(); // the street-map library, once the page has loaded and the browser is idle
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { map.redraw(); renderTrail(); }); // the trail folds by measured width: measure again in the real font
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { map.redraw(); fitHead(); }); // the path folds by measured width: measure again in the real font
   }
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { syncThemeColor(); map.refreshPalette(); recolor(false); if (window.StreetMap) StreetMap.restyle(); });
-  window.addEventListener('resize', () => { map.resize(); map.redraw(); renderTrail(); }); // resize() also catches a devicePixelRatio change (browser zoom)
+  let wasPhone = isPhone();
+  window.addEventListener('resize', () => { map.resize(); map.redraw(); if (isPhone() !== wasPhone) { wasPhone = isPhone(); render(); } else fitHead(); }); // across the breakpoint the recent spots move between the header and the panel // resize() also catches a devicePixelRatio change (browser zoom)
   window.__sbs = { map, state, go, sheet, maps: { spotQuery, areaQuery, mapsLink, appleLink, spotApple, areaApple }, photos: window.Photos ? Object.assign(Object.create(window.Photos), { ownerKey }) : null, get photoOpts() { return photoOpts; }, feed: { read: readFeed, get news() { return state.news; } } }; // for tests and the console
   window.claude?.hot?.snapshot?.(() => ({ loc: state.loc }));
   window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});

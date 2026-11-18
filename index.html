@@ -43,8 +43,13 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <h1 class="sr">Seven by Seven</h1>
+  <div class="top surface">
+    <div class="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg><input type="search" id="q" placeholder="Find a place" autocomplete="off" aria-label="Find a place" enterkeyhint="search"></div>
+  </div>
+
   <!-- one capsule of map controls: top right of the map (desktop: left of the logbook). On the phone its first slot is where the search
-       button below sits, so search, locate and layers read as one capsule; the search field is a real input there so a tap opens the keyboard -->
+       field above sits (laid over it by z-index), so search, locate and layers read as one capsule; the search field is a real input there
+       so a tap opens the keyboard. Search comes first in the page so Tab reaches it before the controls -->
   <div class="ctl" id="ctl">
     <div class="stack surface">
       <span class="qslot" aria-hidden="true"></span>
@@ -54,10 +59,6 @@
       <button type="button" id="zoom-out" title="Zoom out" aria-label="Zoom out">−</button>
     </div>
     <div class="lenses surface" id="lenses" role="group" aria-label="Color the map by"></div>
-  </div>
-
-  <div class="top surface">
-    <div class="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg><input type="search" id="q" placeholder="Find a place" autocomplete="off" aria-label="Find a place" enterkeyhint="search"></div>
   </div>
 
   <aside class="sheet surface" id="sheet">

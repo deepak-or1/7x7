@@ -1,6 +1,6 @@
 // The phone sheet: translateY only (no layout work), three detents, drag from the handle, the header,
 // or the content when it is scrolled to the top; velocity decides where it settles. With something open (opt.canDismiss),
-// a deliberate swipe down steps full → half, then from half closes it (opt.onDismiss) instead of parking it at the peek.
+// a deliberate swipe down steps full → half, then from half closes it (opt.onDismiss) instead of parking it at the peek; from the peek it does nothing.
 (function () {
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
   window.Sheet = function (el, opt) {
@@ -50,7 +50,7 @@
       const v = performance.now() - d.t > 80 ? 0 : d.v, down = d.v0 - vis;
       if (down > 0 && opt.canDismiss && opt.canDismiss()) {
         const far = down > 80 || (v < -0.6 && down > 24);
-        if (d.from === 'full') set(far ? 'half' : 'full'); else if (far) opt.onDismiss(); else set(d.from);
+        if (d.from === 'full') set(far ? 'half' : 'full'); else if (far && d.from === 'half') opt.onDismiss(); else set(d.from); // from the peek: nothing to close, it springs back
         return;
       }
       settle(vis, v);
@@ -66,11 +66,13 @@
         try { h.setPointerCapture(e.pointerId); } catch (err) {} startDrag(e.clientY);
       });
       h.addEventListener('pointermove', e => {
-        if (side && e.pointerId === side.id && !dragging) { const dx = e.clientX - side.x, dy = e.clientY - side.y; if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return; const s = side; side = null; if (Math.abs(dx) > Math.abs(dy)) return; try { h.setPointerCapture(e.pointerId); } catch (err) {} startDrag(s.y); }
+        if (side && e.pointerId === side.id && !dragging) { if (!e.buttons) { side = null; return; } const dx = e.clientX - side.x, dy = e.clientY - side.y; if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return; const s = side; side = null; if (Math.abs(dx) > Math.abs(dy)) return; try { h.setPointerCapture(e.pointerId); } catch (err) {} startDrag(s.y); }
         if (dragging) moveDrag(e.clientY);
       });
       h.addEventListener('pointerup', () => { side = null; endDrag(true); }); h.addEventListener('pointercancel', () => { side = null; endDrag(false); });
     }
+    // a mouse released off the header never ends the wait above there: without this, plain hovering over the header later dragged the sheet
+    for (const t of ['pointerup', 'pointercancel']) document.addEventListener(t, () => { side = null; });
     // content: touch events, so native scrolling keeps working when the sheet is open and scrolled
     let touch = null;
     panel.addEventListener('touchstart', e => { if (!isPhone() || e.touches.length !== 1) return; touch = { x: e.touches[0].clientX, y: e.touches[0].clientY, took: false, side: !!e.target.closest('.hero-track, .chips') }; }, { passive: true }); // side: the touch began on a sideways scroller (the photo carousel, a chip row)

@@ -585,12 +585,13 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
   .search::before { content: ""; position: absolute; inset: 0; border-radius: 999px; z-index: -1; transition: background .2s; }
   .search input { display: block; width: 44px; height: 44px; padding: 0; font-size: 16px; color: transparent; border: 0; border-radius: 999px; background: transparent; cursor: pointer; }
   .search svg { left: 13px; width: 18px; height: 18px; stroke: var(--ink); }
-  .search input:focus, .search input.has { width: 100%; padding: 0 14px 0 40px; color: var(--ink); background: transparent; cursor: text; }
+  .search input:focus, .searching .search input { width: 100%; padding: 0 14px 0 40px; color: var(--ink); background: transparent; cursor: text; }
   .search input:focus-visible { outline: 2px solid var(--focus, var(--accent)); outline-offset: -2px; }
   .search input::placeholder { color: transparent; } .search input:focus::placeholder { color: var(--muted); }
   .search input::-webkit-search-cancel-button { filter: grayscale(1); opacity: .6; } /* Chrome's blue clear button, in ink grey */
-  .top:has(#q:focus, #q.has) .search { flex: 1; width: auto; }
-  .top:has(#q:focus, #q.has) .search::before { background: var(--sheet-bg); box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow); } /* the sheet opens full under it: one paper surface */
+  :root:not(.searching) .search input::-webkit-search-cancel-button { -webkit-appearance: none; display: none; } /* folded into its slot with text kept: no clear button beside the magnifier */
+  .searching .top .search, .top:has(#q:focus) .search { flex: 1; width: auto; } /* only while searching: when search mode ends the field folds back into its slot, text and all (kept for the next open); left open, it covered the layers menu */
+  .searching .top .search::before, .top:has(#q:focus) .search::before { background: var(--sheet-bg); box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow); } /* the sheet opens full under it: one paper surface */
   .ctl { z-index: 3; right: max(var(--m), env(safe-area-inset-right, 0px)); top: max(var(--m), env(safe-area-inset-top, 0px)); transition: opacity .2s; }
   .ctl .qslot { display: block; height: 44px; pointer-events: none; }
   .ctl .stack { width: 44px; border-radius: 999px; }
@@ -703,8 +704,13 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <h1 class="sr">Seven by Seven</h1>
+  <div class="top surface">
+    <div class="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg><input type="search" id="q" placeholder="Find a place" autocomplete="off" aria-label="Find a place" enterkeyhint="search"></div>
+  </div>
+
   <!-- one capsule of map controls: top right of the map (desktop: left of the logbook). On the phone its first slot is where the search
-       button below sits, so search, locate and layers read as one capsule; the search field is a real input there so a tap opens the keyboard -->
+       field above sits (laid over it by z-index), so search, locate and layers read as one capsule; the search field is a real input there
+       so a tap opens the keyboard. Search comes first in the page so Tab reaches it before the controls -->
   <div class="ctl" id="ctl">
     <div class="stack surface">
       <span class="qslot" aria-hidden="true"></span>
@@ -714,10 +720,6 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
       <button type="button" id="zoom-out" title="Zoom out" aria-label="Zoom out">−</button>
     </div>
     <div class="lenses surface" id="lenses" role="group" aria-label="Color the map by"></div>
-  </div>
-
-  <div class="top surface">
-    <div class="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg><input type="search" id="q" placeholder="Find a place" autocomplete="off" aria-label="Find a place" enterkeyhint="search"></div>
   </div>
 
   <aside class="sheet surface" id="sheet">
@@ -2350,7 +2352,7 @@ window.LANDMARKS = [
 <script>
 // The phone sheet: translateY only (no layout work), three detents, drag from the handle, the header,
 // or the content when it is scrolled to the top; velocity decides where it settles. With something open (opt.canDismiss),
-// a deliberate swipe down steps full → half, then from half closes it (opt.onDismiss) instead of parking it at the peek.
+// a deliberate swipe down steps full → half, then from half closes it (opt.onDismiss) instead of parking it at the peek; from the peek it does nothing.
 (function () {
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
   window.Sheet = function (el, opt) {
@@ -2400,7 +2402,7 @@ window.LANDMARKS = [
       const v = performance.now() - d.t > 80 ? 0 : d.v, down = d.v0 - vis;
       if (down > 0 && opt.canDismiss && opt.canDismiss()) {
         const far = down > 80 || (v < -0.6 && down > 24);
-        if (d.from === 'full') set(far ? 'half' : 'full'); else if (far) opt.onDismiss(); else set(d.from);
+        if (d.from === 'full') set(far ? 'half' : 'full'); else if (far && d.from === 'half') opt.onDismiss(); else set(d.from); // from the peek: nothing to close, it springs back
         return;
       }
       settle(vis, v);
@@ -2416,11 +2418,13 @@ window.LANDMARKS = [
         try { h.setPointerCapture(e.pointerId); } catch (err) {} startDrag(e.clientY);
       });
       h.addEventListener('pointermove', e => {
-        if (side && e.pointerId === side.id && !dragging) { const dx = e.clientX - side.x, dy = e.clientY - side.y; if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return; const s = side; side = null; if (Math.abs(dx) > Math.abs(dy)) return; try { h.setPointerCapture(e.pointerId); } catch (err) {} startDrag(s.y); }
+        if (side && e.pointerId === side.id && !dragging) { if (!e.buttons) { side = null; return; } const dx = e.clientX - side.x, dy = e.clientY - side.y; if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return; const s = side; side = null; if (Math.abs(dx) > Math.abs(dy)) return; try { h.setPointerCapture(e.pointerId); } catch (err) {} startDrag(s.y); }
         if (dragging) moveDrag(e.clientY);
       });
       h.addEventListener('pointerup', () => { side = null; endDrag(true); }); h.addEventListener('pointercancel', () => { side = null; endDrag(false); });
     }
+    // a mouse released off the header never ends the wait above there: without this, plain hovering over the header later dragged the sheet
+    for (const t of ['pointerup', 'pointercancel']) document.addEventListener(t, () => { side = null; });
     // content: touch events, so native scrolling keeps working when the sheet is open and scrolled
     let touch = null;
     panel.addEventListener('touchstart', e => { if (!isPhone() || e.touches.length !== 1) return; touch = { x: e.touches[0].clientX, y: e.touches[0].clientY, took: false, side: !!e.target.closest('.hero-track, .chips') }; }, { passive: true }); // side: the touch began on a sideways scroller (the photo carousel, a chip row)
@@ -3946,10 +3950,20 @@ window.Photos = (() => {
   function up() { const l = state.loc; if (state.view) { go(l, { replace: true, fly: false }); return; } if (l.spot) go({ hood: l.hood, sub: l.sub }); else if (l.sub) go({ hood: l.hood }); else if (l.hood) go({ region: l.region }); else if (l.region !== 'all') go({ region: 'all' }); }
   // the phone's swipe down from half: back to the previous screen when it is ours, else one level up. go() then settles the sheet
   // where that screen wants it (the first screen and a region at the peek)
+  // (a list opened from the same screen, like all spots, is not a step down: go() leaves the sheet as the drag left it, so it is set here)
+  let backing = null; // dismiss() went back and waits for the popstate that answers it
   function dismiss() {
-    if (state.view || hDepth() < 1) { up(); return; }
-    const was = state.loc; history.back();
-    setTimeout(() => { if (state.loc === was) up(); }, 600); // no popstate came (the entry was not ours after all): up, so the sheet never stays mid-drag
+    if (state.view) { up(); if (isPhone()) sheet.set(level(state.loc) >= 2 ? 'half' : 'peek', { quiet: true }); return; }
+    if (hDepth() < 1) { up(); return; }
+    const was = state.loc, n = hDepth(), b = backing = { late: false }; history.back();
+    // the popstate is late (else two navigations, and a history that no longer matches the panel). The history has stepped back
+    // already: go where it is now, and the popstate that still comes moves nothing (after 5 s it is not waited for). It has not: only
+    // settle the sheet, so it never stays mid-drag, and the popstate navigates when it comes. Either way one navigation.
+    b.t = setTimeout(() => {
+      if (state.loc !== was) return;
+      if (hDepth() < n) { b.late = true; go((history.state && history.state.loc) || parseHash(location.hash), { push: false }); setTimeout(() => { if (backing === b) backing = null; }, 5000); }
+      else sheet.set('half', { quiet: true });
+    }, 600);
   }
   // phone: frame the selection across the full width, unless a vertex of its shape (or a corner of the capsule inside the shape)
   // would land under the capsule: then frame it again in the column left of the capsule
@@ -3971,7 +3985,7 @@ window.Photos = (() => {
     if (l.hood) { const ph = isPhone(); frame(map.hoodBBox(IDX[l.hood]), ph ? 1.25 : 1.75, U * (ph ? 0.06 : 0.08), dur, window.HPP[IDX[l.hood]]); return; }
     map.flyTo(map.regionBBox(l.region), 1.06, 0, dur); // 'all' is the bay core box, padded like a region
   }
-  window.addEventListener('popstate', e => { const l = (e.state && e.state.loc) || parseHash(location.hash); go(l, { push: false }); });
+  window.addEventListener('popstate', e => { const b = backing; backing = null; if (b) { clearTimeout(b.t); if (b.late) return; } const l = (e.state && e.state.loc) || parseHash(location.hash); go(l, { push: false }); });
 
   // ---------- map callbacks ----------
   function onTap(hit, sx, sy) {
@@ -4032,7 +4046,7 @@ window.Photos = (() => {
     const cr = P.crumbs, body = panel.querySelector('.kbody'), over = () => eb.scrollWidth > eb.clientWidth + 1;
     let idx = cr.length > 3 ? [0, cr.length - 2, cr.length - 1] : cr.map((c, i) => i), tag = !!P.tag;
     const draw = (fold, squeeze) => {
-      eb.innerHTML = `<span class="path${squeeze ? ' squeeze' : ''}">${idx.map((i, j) => (j ? '<span class="sep" aria-hidden="true">›</span>' : '') + (fold && j === 1 ? `<button type="button" class="fold" data-crumb="${i}" aria-label="${esc(cr[i].label)}"><span>…</span></button>` : `<button type="button" data-crumb="${i}"><span>${esc(cr[i].label)}</span></button>`)).join('')}</span>${tag ? `<span class="ktag"><span class="sep" aria-hidden="true">·</span>${P.tag}</span>` : ''}`;
+      eb.innerHTML = `<span class="path${squeeze ? ' squeeze' : ''}">${idx.map((i, j) => (j ? '<span class="sep" aria-hidden="true">›</span>' : '') + (fold && j === 1 ? `<button type="button" class="fold" data-crumb="1" aria-label="${esc(cr[1].label)}"><span>…</span></button>` : `<button type="button" data-crumb="${i}"><span>${esc(cr[i].label)}</span></button>`)).join('')}</span>${tag ? `<span class="ktag"><span class="sep" aria-hidden="true">·</span>${P.tag}</span>` : ''}`;
     };
     draw(false);
     if (over() && tag) { tag = false; draw(false); }
@@ -4059,7 +4073,7 @@ window.Photos = (() => {
   lensBtn.addEventListener('click', e => { e.stopPropagation(); const on = !lensesEl.classList.contains('on'); lensesEl.classList.toggle('on', on); lensBtn.setAttribute('aria-expanded', String(on)); });
   document.addEventListener('pointerdown', e => { if (!e.target.closest('#lenses, #lens-btn')) closeLenses(); });
   $('zoom-in').addEventListener('click', () => map.zoom(1 / 1.6)); $('zoom-out').addEventListener('click', () => map.zoom(1.6));
-  document.addEventListener('keydown', e => { if (e.target.matches('input, textarea, select')) { if (e.key === 'Escape') e.target.blur(); return; } if (e.key === 'Escape') { if (state.view || level(state.loc) > 0) up(); } else if (e.key === '+' || e.key === '=') map.zoom(1 / 1.6); else if (e.key === '-') map.zoom(1.6); });
+  document.addEventListener('keydown', e => { if (dialogOpen()) return; if (e.target.matches('input, textarea, select')) { if (e.key === 'Escape') e.target.blur(); return; } if (e.key === 'Escape') { if (state.view || level(state.loc) > 0) up(); } else if (e.key === '+' || e.key === '=') map.zoom(1 / 1.6); else if (e.key === '-') map.zoom(1.6); });
   const q = $('q');
   q.addEventListener('input', () => { state.query = q.value.trim().toLowerCase(); q.classList.toggle('has', !!q.value); if (state.query) renderSearch(); else render(); });
   q.addEventListener('keydown', e => { if (e.key === 'Enter') { const first = panel.querySelector('[data-first]'); if (first) first.click(); } });
@@ -4195,7 +4209,7 @@ window.Photos = (() => {
         <label class="switch"><span>Color every place, been or not</span><input type="checkbox" id="show-all" ${state.showAll ? 'checked' : ''}></label>
         <div class="field" style="margin-top:12px"><label>Appearance</label><div class="seg">${['system', 'light', 'dark'].map(t => `<button type="button" data-theme-pick="${t}" aria-pressed="${state.theme === t}">${t === 'system' ? 'System' : t[0].toUpperCase() + t.slice(1)}</button>`).join('')}</div></div>
         ${state.store === 'sync' ? `<div class="field"><label for="who-in">Your name on this device</label><input id="who-in" maxlength="${WHO_MAX}" autocomplete="given-name" enterkeyhint="done" placeholder="Shown on what you add" value="${esc(who())}"></div>` : ''}
-        <div class="actions" style="margin-top:4px"><button type="button" class="btn sm" id="export">Export log</button><button type="button" class="btn sm" id="import">Import</button><input type="file" id="import-file" accept="application/json" hidden>${state.store === 'sync' ? '<button type="button" class="btn sm primary" id="share-log">Share this log</button><button type="button" class="btn sm" id="join-log">Join a log</button>' : ''}</div>
+        <div class="actions" style="margin-top:4px"><button type="button" class="btn sm" id="export">Export log</button><button type="button" class="btn sm" id="import">Import</button><input type="file" id="import-file" accept="application/json" hidden>${state.store === 'sync' ? '<button type="button" class="btn sm primary" id="share-log">Share this log</button><button type="button" class="btn sm" id="join-log">Join a log</button>' + (prevKeys().length ? '<button type="button" class="btn sm quiet" id="back-log">Back to the previous log</button>' : '') : ''}</div>
         <p class="fine">${state.store === 'db' ? 'Your log, list, spots and notes are saved with this artifact and shared with everyone it is shared with.' : state.store === 'sync' ? 'This log is shared: everyone who opens your link sees it and adds to it, live. Keep the link private, and bookmark it on each phone. Photos are shared with the log the same way, but Export log does not include them.' : 'Your log is saved in this browser. Export it now and then to keep a copy, or to move it to another device.'} San Francisco boundaries from the SF Planning Department, high points from Mapzen elevation data. Marin, East Bay and Peninsula boundaries from the US Census; their high points are approximate. Place search by Photon, © OpenStreetMap contributors.</p>
       </details>`;
     panel.querySelector('#surprise').addEventListener('click', surprise);
@@ -4209,6 +4223,7 @@ window.Photos = (() => {
     panel.querySelector('#import-file').addEventListener('change', e => importLog(e.target.files[0]));
     const sh = panel.querySelector('#share-log'); if (sh) sh.addEventListener('click', shareLog);
     panel.querySelectorAll('#join-log, #join-log-hint').forEach(b => b.addEventListener('click', joinLog));
+    const bl = panel.querySelector('#back-log'); if (bl) bl.addEventListener('click', () => joinLog(true));
     const wi = panel.querySelector('#who-in'); if (wi) { wi.addEventListener('keydown', e => { if (e.key === 'Enter') wi.blur(); }); wi.addEventListener('change', () => { setWho(wi.value); wi.value = who(); toast(who() ? `You are ${who()} on this device` : 'No name on this device'); }); }
     const ns = panel.querySelector('#news-seen'); if (ns) ns.addEventListener('click', markSeen);
     panel.querySelectorAll('[data-news]').forEach(b => b.addEventListener('click', () => { const e = newsShown.find(x => x.key === b.dataset.news); if (e) openEv(e); }));
@@ -4297,8 +4312,9 @@ window.Photos = (() => {
   // ---- search ----
   // how well a name matches: 0 it starts with the query, 1 a word in it does, 2 it contains it, 9 not at all
   function rankOf(text, qq) { const t = String(text || '').toLowerCase(); let j = t.indexOf(qq); if (j < 0) return 9; if (j === 0) return 0; for (; j >= 0; j = t.indexOf(qq, j + 1)) if (!/[\p{L}\p{N}]/u.test(t[j - 1])) return 1; return 2; }
-  // the matches, best rank first, ties alphabetical; names: the texts that count (an alias, a note: the note only as 'contains')
-  const ranked = (items, names, label) => items.map(x => [x, Math.min(...names(x).map(([t, floor]) => Math.max(floor || 0, rankOf(t, state.query))))]).filter(a => a[1] < 9).sort((a, b) => a[1] - b[1] || label(a[0]).localeCompare(label(b[0]))).map(a => a[0]);
+  // the matches, best rank first, ties alphabetical; names: the texts that count (an alias, a note: the note only as 'contains'). A synced
+  // spot's name is anyone's to write (a number, nothing): the labels compare as strings
+  const ranked = (items, names, label) => items.map(x => [x, Math.min(...names(x).map(([t, floor]) => Math.max(floor || 0, rankOf(t, state.query))))]).filter(a => a[1] < 9).sort((a, b) => a[1] - b[1] || String(label(a[0]) ?? '').localeCompare(String(label(b[0]) ?? ''))).map(a => a[0]);
   function renderSearch() {
     const hoods = ranked(NAMES, n => [[n], [SHORT[n]]], n => n);
     const allSecs = []; HOODS.forEach(h => subs(h.name).forEach(s => allSecs.push({ hood: h.name, sub: s.name })));
@@ -4387,8 +4403,16 @@ window.Photos = (() => {
   // ---------- hosted site: one shared logbook per secret link ----------
   // The key rides in ?log= so a bookmark or a shared link carries it; a link with a key adopts that log on this device.
   const KEY_RE = /^[A-Za-z0-9_-]{16,80}$/;
-  // a log this device leaves is never lost: its key is kept as sbs-log-key-prev
-  function keepPrevKey(next) { try { const cur = localStorage.getItem('sbs-log-key'); if (cur && cur !== next && KEY_RE.test(cur)) localStorage.setItem('sbs-log-key-prev', cur); } catch (e) {} }
+  // a log this device leaves is never lost: its key goes to the front of sbs-log-keys-prev (most recent first, distinct, at most 5, never
+  // the log open now), whether it is left by Join or by opening a link with another key. The older single slot (sbs-log-key-prev) is
+  // read into the list once, then removed. Keys are never shown in the page.
+  function prevKeys() {
+    let a = null, cur = null, old = null; try { cur = localStorage.getItem('sbs-log-key'); old = localStorage.getItem('sbs-log-key-prev'); a = JSON.parse(localStorage.getItem('sbs-log-keys-prev')); } catch (e) {}
+    a = [old, ...(Array.isArray(a) ? a : [])].filter((k, i, s) => typeof k === 'string' && KEY_RE.test(k) && k !== cur && s.indexOf(k) === i).slice(0, 5);
+    if (old !== null) try { localStorage.setItem('sbs-log-keys-prev', JSON.stringify(a)); localStorage.removeItem('sbs-log-key-prev'); } catch (e) {}
+    return a;
+  }
+  function keepPrevKey(next) { try { const a = [localStorage.getItem('sbs-log-key'), ...prevKeys()].filter((k, i, s) => k && KEY_RE.test(k) && k !== next && s.indexOf(k) === i).slice(0, 5); localStorage.setItem('sbs-log-keys-prev', JSON.stringify(a)); } catch (e) {} }
   function syncKey() {
     let k = null; try { k = new URLSearchParams(location.search).get('log'); } catch (e) {}
     if (k && KEY_RE.test(k)) { keepPrevKey(k); try { localStorage.setItem('sbs-log-key', k); } catch (e) {} return k; }
@@ -4406,8 +4430,10 @@ window.Photos = (() => {
   const keyOf = raw => { let k = String(raw || '').trim(); try { const u = new URL(k); k = u.searchParams.get('log') || ''; } catch (e) { const m = k.match(/log=([A-Za-z0-9_-]+)/); if (m) k = m[1]; } return KEY_RE.test(k) ? k : null; };
   function switchLog(k) { keepPrevKey(k); try { localStorage.setItem('sbs-log-key', k); localStorage.removeItem('sbs-explored'); } catch (e) {} location.href = location.pathname + '?log=' + k; }
   // joining another log: the link goes in an in-page dialog that says first that this device switches logs, and that the log it
-  // leaves keeps its key here (sbs-log-key-prev). Nothing is replaced until Switch logs is tapped.
-  function joinLog() {
+  // leaves keeps its key here (keepPrevKey). Nothing is replaced until Switch logs is tapped. back: the same dialog, without the
+  // field, takes this device back to the log it left last (Settings offers it only when there is one)
+  function joinLog(back) {
+    back = back === true; const to = back ? prevKeys()[0] : null; if (back && !to) return;
     let dlg = $('join');
     if (!dlg) {
       dlg = document.createElement('dialog'); dlg.id = 'join'; dlg.className = 'who'; dlg.setAttribute('aria-labelledby', 'join-t');
@@ -4417,18 +4443,20 @@ window.Photos = (() => {
         <div class="actions"><button type="button" class="btn quiet" id="join-cancel">Cancel</button><button type="submit" class="btn primary">Switch logs</button></div></form>`;
       document.body.appendChild(dlg);
     }
-    if (typeof dlg.showModal !== 'function') { const k = keyOf(prompt('Paste the shared link (or just its key)')); if (k) switchLog(k); return; } // a browser without the dialog: the old prompt
+    if (typeof dlg.showModal !== 'function') { const k = back ? (confirm('Go back to the previous log?') ? to : null) : keyOf(prompt('Paste the shared link (or just its key)')); if (k) switchLog(k); return; } // a browser without the dialog: the old prompt
     const inp = dlg.querySelector('#join-in'), err = dlg.querySelector('#join-err'), form = dlg.querySelector('#join-form');
-    inp.value = ''; err.hidden = true;
+    inp.value = ''; err.hidden = true; inp.parentNode.hidden = back;
+    dlg.querySelector('#join-t').textContent = back ? 'Back to the previous log?' : 'Join another log?';
+    dlg.querySelector('#join-t + p').textContent = back ? 'This device will switch back to the log it used before this one. Nothing is deleted, and this device keeps the current log\'s key so it can come back to it.' : 'This device will switch to that log: you will see and add to it instead of the one open now. Nothing is deleted, and this device keeps the current log\'s key so it can come back to it.';
     form.onsubmit = e => {
-      e.preventDefault(); const k = keyOf(inp.value);
+      e.preventDefault(); const k = back ? to : keyOf(inp.value);
       if (!k) { err.textContent = 'That is not a Seven by Seven link.'; err.hidden = false; inp.focus(); return; }
       let cur = null; try { cur = localStorage.getItem('sbs-log-key'); } catch (x) {}
       dlg.close(); if (k === cur) { toast('This device already uses that log'); return; }
       switchLog(k);
     };
     dlg.querySelector('#join-cancel').onclick = () => dlg.close();
-    dlg.showModal(); inp.focus();
+    dlg.showModal(); if (!back) inp.focus();
   }
   // ---- the name prompt: an in-page dialog. done(name) runs inside the Save / Skip tap, so a file picker it opens counts as tapped
   function askName(done) {
@@ -4592,16 +4620,23 @@ window.Photos = (() => {
     const d = state.draft; if (!sp && !d.hood && navigator.geolocation) d.locating = true;
     go(state.loc, { view: 'log', fly: false, replace: true, sheet: isPhone() ? 'full' : undefined });
     if (!sp) { const qi = panel.querySelector('#lf-q'); if (qi) qi.focus({ preventScroll: true }); } // the name first, still inside the + tap (iOS opens the keyboard only for a focus in a tap)
-    if (d.locating) locate(pos => { d.locating = false; if (state.draft === d && d.lon == null) fillGps(d, pos); else if (state.draft === d) refreshForm(); }, { quiet: true, fail: () => { d.locating = false; if (state.draft === d) refreshForm(); } });
+    if (d.locating) locate(pos => { d.locating = false; if (state.draft === d && d.lon == null) fillGps(d, pos); else gpsIdle(d); }, { quiet: true, fail: () => { d.locating = false; gpsIdle(d); } });
   }
-  function fillGps(d, pos) { const [x, y] = Geom.proj(pos), w = locateXY(x, y); Object.assign(d, { lon: pos[0], lat: pos[1], x, y, hood: w.hood || d.hood, sub: w.sub, src: 'gps', where: 'Your location' }); refreshForm(); }
-  // redraw the form from the draft (which every field writes as it changes); a field being typed in keeps the focus and the caret
-  function refreshForm() {
-    if (state.view !== 'log' || state.placing) return;
-    const a = document.activeElement, id = a && panel.contains(a) && a.id, at = id && typeof a.selectionStart === 'number' ? a.selectionStart : null;
-    renderLogForm();
-    const n = id && panel.querySelector('#' + id); if (n) { n.focus({ preventScroll: true }); if (at != null) try { n.setSelectionRange(at, at); } catch (e) {} }
+  // a location that lands while the form is open changes the form in place, never by a rebuild: that would take what is being typed,
+  // the focus (on iOS, the keyboard), the caret and the open suggestions with it. Once the form is saved or left it does nothing.
+  const openForm = d => state.draft === d && state.view === 'log' && panel.querySelector('#logform');
+  function gpsIdle(d) { const b = openForm(d) && panel.querySelector('#lf-gps'); if (b) { b.disabled = false; b.removeAttribute('aria-busy'); b.textContent = 'Use my location'; } }
+  function fillGps(d, pos) {
+    if (state.draft !== d) return; const [x, y] = Geom.proj(pos), w = locateXY(x, y); Object.assign(d, { lon: pos[0], lat: pos[1], x, y, hood: w.hood || d.hood, sub: w.sub, src: 'gps', where: 'Your location' });
+    const f = !state.placing && openForm(d); if (!f) return; // a pin drop is on: its Back draws the form from the draft
+    const qi = f.querySelector('#lf-q'), lb = f.querySelector('label[for="lf-q"]'); if (lb) lb.textContent = 'Place';
+    { const o = f.querySelector('#lf-clear'); if (o) o.parentNode.remove(); } qi.insertAdjacentHTML('afterend', whereLine(d)); f.querySelector('#lf-clear').addEventListener('click', () => clearWhere(d));
+    for (const el of [f.querySelector('#lf-gps') && f.querySelector('#lf-gps').parentNode, f.querySelector('#lf-hint'), f.querySelector('#lf-actions span')]) if (el) el.remove(); // what a placed form has not
+    if (!d.id) { const h = head.querySelector('h2'); if (h) h.innerHTML = d.hood ? `In ${esc(d.sub || d.hood)}` : 'Somewhere on the map'; }
   }
+  // the line under the name once the spot has a place: where it is, and 'change' to take the place off again
+  const whereLine = d => `<small style="color:var(--muted);font-size:12.5px">${ICON.pin.replace('<svg', '<svg style="width:12px;height:12px;vertical-align:-1px;fill:none;stroke:currentColor;stroke-width:2"')} ${esc(d.where || '')}${(() => { const w = d.where || ''; const parts = [d.sub, d.hood].filter(x => x && !w.includes(x)); const tail = parts.length ? parts.join(', ') : (w ? '' : 'outside the tracked places'); return (w && tail ? ' · ' : '') + esc(tail); })()} <button type="button" class="act" id="lf-clear" style="border:0;background:none;color:var(--accent-deep, var(--accent));font-weight:600;padding:0 0 0 6px">change</button></small>`;
+  function clearWhere(d) { d.lon = d.lat = d.x = d.y = null; d.where = ''; d.src = null; renderLogForm(); }
   let sugTimer = null, sugCtrl = 0;
   function renderLogForm() {
     const d = state.draft; if (!d) { state.view = null; render(); return; }
@@ -4609,7 +4644,7 @@ window.Photos = (() => {
     setHead({ eyebrow: d.id ? 'Edit spot' : 'Log a place', title: d.id ? esc(d.name) : (d.hood ? `In ${esc(d.sub || d.hood)}` : 'Somewhere on the map'), onBack: cancelLog, tools: [] });
     panel.innerHTML = `<form id="logform" autocomplete="off">
       <div class="field"><label for="lf-q">${placed ? 'Place' : 'Find the place'}</label><input id="lf-q" placeholder="Search a restaurant, bar, park…" value="${esc(d.name)}" ${placed ? '' : 'autofocus'}>
-        ${placed ? `<small style="color:var(--muted);font-size:12.5px">${ICON.pin.replace('<svg', '<svg style="width:12px;height:12px;vertical-align:-1px;fill:none;stroke:currentColor;stroke-width:2"')} ${esc(d.where || '')}${(() => { const w = d.where || ''; const parts = [d.sub, d.hood].filter(x => x && !w.includes(x)); const tail = parts.length ? parts.join(', ') : (w ? '' : 'outside the tracked places'); return (w && tail ? ' · ' : '') + esc(tail); })()} <button type="button" class="act" id="lf-clear" style="border:0;background:none;color:var(--accent-deep, var(--accent));font-weight:600;padding:0 0 0 6px">change</button></small>` : ''}</div>
+        ${placed ? whereLine(d) : ''}</div>
       <ul class="suggest" id="lf-sug" hidden></ul>
       <p class="empty" id="lf-nosearch" style="font-size:12.5px;margin:-4px 0 10px" ${state.searchDown ? '' : 'hidden'}>Live suggestions are not available here. Press Enter to search, or type the name and drop a pin.</p>
       ${placed ? '' : `<div class="actions" style="margin:0 0 14px"><button type="button" class="btn sm" id="lf-pin">${ICON.pin} Drop a pin on the map</button><button type="button" class="btn sm" id="lf-gps" ${d.locating ? 'disabled aria-busy="true"' : ''}>${d.locating ? 'Finding your location…' : 'Use my location'}</button></div>`}
@@ -4632,7 +4667,7 @@ window.Photos = (() => {
     panel.querySelector('#lf-date').addEventListener('change', e => d.at = e.target.value || today());
     panel.querySelector('#lf-note').addEventListener('input', e => d.note = e.target.value);
     panel.querySelector('#lf-cancel').addEventListener('click', cancelLog);
-    const clr = panel.querySelector('#lf-clear'); if (clr) clr.addEventListener('click', () => { d.lon = d.lat = d.x = d.y = null; d.where = ''; d.src = null; renderLogForm(); });
+    const clr = panel.querySelector('#lf-clear'); if (clr) clr.addEventListener('click', () => clearWhere(d));
     const pin = panel.querySelector('#lf-pin'); if (pin) pin.addEventListener('click', () => { state.placing = true; state.pending = null; stage.classList.add('placing'); if (isPhone()) sheet.set('peek'); setHead({ eyebrow: 'Drop a pin', title: 'Tap the map', onBack: () => { stopPlacing(); renderLogForm(); if (isPhone()) sheet.set('full'); }, tools: [] }); toast('Tap the map where it is', 3200); map.redraw(); });
     const gps = panel.querySelector('#lf-gps'); if (gps) gps.addEventListener('click', () => locate(pos => { if (state.draft === d) fillGps(d, pos); }));
     form.addEventListener('submit', e => { e.preventDefault(); saveDraft(); });
@@ -4751,7 +4786,7 @@ window.Photos = (() => {
   }
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { syncThemeColor(); map.refreshPalette(); recolor(false); if (window.StreetMap) StreetMap.restyle(); });
   let wasPhone = isPhone();
-  window.addEventListener('resize', () => { map.resize(); map.redraw(); if (isPhone() !== wasPhone) { wasPhone = isPhone(); render(); } else fitHead(); }); // across the breakpoint the recent spots move between the header and the panel // resize() also catches a devicePixelRatio change (browser zoom)
+  window.addEventListener('resize', () => { map.resize(); map.redraw(); if (isPhone() !== wasPhone) { wasPhone = isPhone(); if (state.quiz || state.placing) fitHead(); else render(); } else fitHead(); }); // across the breakpoint the recent spots move between the header and the panel (not mid-quiz, where a render drops an answer's verdict and Next, nor mid pin-drop, whose header it replaces) // resize() also catches a devicePixelRatio change (browser zoom)
   window.__sbs = { map, state, go, sheet, maps: { spotQuery, areaQuery, mapsLink, appleLink, spotApple, areaApple }, photos: window.Photos ? Object.assign(Object.create(window.Photos), { ownerKey }) : null, get photoOpts() { return photoOpts; }, feed: { read: readFeed, get news() { return state.news; } } }; // for tests and the console
   window.claude?.hot?.snapshot?.(() => ({ loc: state.loc }));
   window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});

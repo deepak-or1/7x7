@@ -555,12 +555,13 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
   .search::before { content: ""; position: absolute; inset: 0; border-radius: 999px; z-index: -1; transition: background .2s; }
   .search input { display: block; width: 44px; height: 44px; padding: 0; font-size: 16px; color: transparent; border: 0; border-radius: 999px; background: transparent; cursor: pointer; }
   .search svg { left: 13px; width: 18px; height: 18px; stroke: var(--ink); }
-  .search input:focus, .search input.has { width: 100%; padding: 0 14px 0 40px; color: var(--ink); background: transparent; cursor: text; }
+  .search input:focus, .searching .search input { width: 100%; padding: 0 14px 0 40px; color: var(--ink); background: transparent; cursor: text; }
   .search input:focus-visible { outline: 2px solid var(--focus, var(--accent)); outline-offset: -2px; }
   .search input::placeholder { color: transparent; } .search input:focus::placeholder { color: var(--muted); }
   .search input::-webkit-search-cancel-button { filter: grayscale(1); opacity: .6; } /* Chrome's blue clear button, in ink grey */
-  .top:has(#q:focus, #q.has) .search { flex: 1; width: auto; }
-  .top:has(#q:focus, #q.has) .search::before { background: var(--sheet-bg); box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow); } /* the sheet opens full under it: one paper surface */
+  :root:not(.searching) .search input::-webkit-search-cancel-button { -webkit-appearance: none; display: none; } /* folded into its slot with text kept: no clear button beside the magnifier */
+  .searching .top .search, .top:has(#q:focus) .search { flex: 1; width: auto; } /* only while searching: when search mode ends the field folds back into its slot, text and all (kept for the next open); left open, it covered the layers menu */
+  .searching .top .search::before, .top:has(#q:focus) .search::before { background: var(--sheet-bg); box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow); } /* the sheet opens full under it: one paper surface */
   .ctl { z-index: 3; right: max(var(--m), env(safe-area-inset-right, 0px)); top: max(var(--m), env(safe-area-inset-top, 0px)); transition: opacity .2s; }
   .ctl .qslot { display: block; height: 44px; pointer-events: none; }
   .ctl .stack { width: 44px; border-radius: 999px; }

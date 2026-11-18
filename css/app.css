@@ -117,36 +117,26 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 /* ---------- surfaces ---------- */
 .surface { background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); border: 0; border-radius: var(--r); box-shadow: var(--glass-ring); }
 
-/* ---------- top: brand, search, trail ---------- */
-.top { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); top: max(16px, env(safe-area-inset-top, 0px)); width: 372px; max-width: calc(100% - 32px); z-index: 4; display: flex; flex-direction: column; }
-.brandrow { display: flex; align-items: center; gap: 10px; padding: 10px 10px 10px 16px; }
-.brand { flex: 1; min-width: 0; }
-.brand h1 { font-family: var(--display); font-weight: 700; font-size: 20px; line-height: 1; margin: 0; letter-spacing: -.02em; font-variation-settings: "opsz" 72; white-space: nowrap; }
-.brand h1 span { color: var(--accent); }
-.brand p { margin: 2px 0 0; color: var(--muted); font-size: 12px; line-height: 1.3; }
+/* ---------- top: the search field (desktop: top left of the map; phone: in the capsule's top slot) ---------- */
+.sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.top { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); top: max(16px, env(safe-area-inset-top, 0px)); z-index: 4; display: flex; flex-direction: column; }
 .search { position: relative; flex: none; }
 .search svg { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; fill: none; stroke: var(--muted); stroke-width: 2; stroke-linecap: round; pointer-events: none; }
 .search input { width: 136px; height: 34px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--paper); padding: 0 10px 0 29px; font-size: 13.5px; color: var(--ink); transition: width .2s var(--ease), border-color .15s; }
 .search input:focus { outline: none; border-color: var(--ink); width: 196px; }
 .search input::placeholder { color: var(--muted); }
-.trail { display: flex; align-items: center; gap: 2px; padding: 8px 10px 8px 8px; border-top: 1px solid var(--line); font-size: 13px; font-weight: 500; color: var(--muted); overflow-x: auto; scrollbar-width: none; white-space: nowrap; }
-.trail::-webkit-scrollbar { display: none; }
-.trail button { border: 0; background: transparent; padding: 4px 6px; border-radius: 6px; color: var(--muted); font-weight: 500; font-size: 13px; line-height: 1.2; }
-.trail button:hover { color: var(--ink); background: var(--paper-2); }
-.trail button[aria-current="true"] { color: var(--ink); font-weight: 600; }
-.trail .sep { color: var(--line-2); font-size: 12px; padding: 0 1px; }
-.trail .back { display: none; }
 
-/* ---------- camera controls ---------- */
-.ctl { position: absolute; right: calc(var(--side) + 16px + max(16px, env(safe-area-inset-right, 0px))); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; z-index: 4; overflow: visible; }
+/* ---------- the control capsule: top right of the map (search on the phone), locate, layers (the menu holds the legend), zoom ---------- */
+.ctl { position: absolute; right: calc(var(--side) + 16px + max(16px, env(safe-area-inset-right, 0px))); top: max(16px, env(safe-area-inset-top, 0px)); display: flex; flex-direction: column; z-index: 4; overflow: visible; }
 .ctl .stack { display: flex; flex-direction: column; overflow: hidden; border-radius: var(--r-sm); }
+.ctl .qslot { display: none; }
 .ctl button { width: 40px; height: 40px; border: 0; border-top: 1px solid var(--line); background: transparent; display: grid; place-items: center; color: var(--ink); font-weight: 600; font-size: 18px; }
 .ctl button:first-child { border-top: 0; }
 .ctl button:hover { background: var(--paper-2); }
 .ctl button[aria-pressed="true"] { color: var(--accent); }
 .ctl button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .ctl button.busy { opacity: .5; }
-.lenses { position: absolute; right: 48px; bottom: 0; width: 258px; padding: 6px; display: none; }
+.lenses { position: absolute; right: calc(100% + 8px); top: 0; width: 258px; padding: 6px; display: none; }
 .lenses.on { display: block; }
 .lenses button { width: 100%; height: auto; display: grid; grid-template-columns: 1fr auto; align-items: center; text-align: left; padding: 9px 10px; border: 0; border-radius: 6px; font-size: 13.5px; font-weight: 500; gap: 10px; }
 .lenses button b { font-weight: 600; display: block; }
@@ -154,13 +144,12 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .lenses button[aria-pressed="true"] { background: var(--paper-2); color: var(--ink); }
 .lenses button[aria-pressed="true"] b::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-right: 7px; vertical-align: 2px; }
 .lenses .sw { display: inline-flex; gap: 2px; } .lenses .sw i { width: 9px; height: 9px; display: inline-block; background: var(--c); border-radius: 2px; }
-.legend { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 3; display: flex; align-items: center; gap: 14px; padding: 7px 12px; font-size: 12px; font-weight: 500; color: var(--ink-2); pointer-events: none; border-radius: var(--r-sm); }
-.legend:empty { display: none; }
-.legend span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-.legend i { width: 9px; height: 9px; display: inline-block; background: var(--c); border-radius: 2px; }
-.legend .ramp { gap: 1px; } .legend .ramp i { border-radius: 0; } .legend .ramp i:first-child { border-radius: 2px 0 0 2px; } .legend .ramp i:last-child { border-radius: 0 2px 2px 0; }
-.legend .hint { color: var(--muted); font-weight: 400; }
-.lgrow { display: contents; } /* desktop: the items sit straight in the legend's row; the phone makes it a sideways scroller */
+/* the legend of the lens in use, under the lenses */
+.lgd { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 4px 4px 0; padding: 9px 6px 5px; border-top: 1px solid var(--glass-edge); font-size: 12.5px; font-weight: 500; color: var(--ink-2); }
+.lgd:empty { display: none; }
+.lgd span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.lgd i { width: 8px; height: 8px; display: inline-block; background: var(--c); border-radius: 50%; }
+.lgd .ramp { gap: 0; } .lgd .ramp i { width: 12px; border-radius: 0; } .lgd .ramp i:first-child { border-radius: 2px 0 0 2px; } .lgd .ramp i:last-child { border-radius: 0 2px 2px 0; }
 
 /* ---------- the logbook (desktop: right panel; phone: bottom sheet) ---------- */
 .sheet { position: absolute; right: max(16px, env(safe-area-inset-right, 0px)); top: max(16px, env(safe-area-inset-top, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); width: var(--side); z-index: 5; display: flex; flex-direction: column; overflow: hidden; }
@@ -178,6 +167,31 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .head .tools button { width: 32px; height: 32px; border: 0; background: transparent; border-radius: 6px; display: grid; place-items: center; color: var(--muted); }
 .head .tools button:hover { background: var(--paper-2); color: var(--ink); }
 .head .tools button svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.head.compact { min-height: 0; align-items: center; } .head.compact .ttl { padding-top: 0; }
+/* the path: the small line names where you are, each crumb a button to that level. The crumb is the line's height; a pseudo-element
+   gives it a 44px-tall target without making the header taller. app.js folds it to fit (fitHead) */
+.eyebrow { white-space: nowrap; min-width: 0; }
+.eyebrow .path { display: inline-flex; align-items: center; flex: none; } .eyebrow .path.squeeze { flex: 0 1 auto; min-width: 0; } /* unshrunk, so an overflow shows in the line's scrollWidth (fitHead) */
+.eyebrow .path button { position: relative; flex: none; border: 0; background: none; padding: 0; margin: 0; font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; line-height: inherit; cursor: pointer; }
+.eyebrow .path button::before { content: ""; position: absolute; inset: -14px -5px -13px; }
+.eyebrow .path .fold { padding: 0 6px; margin: 0 -6px; } .eyebrow .path .fold::before { inset: -14px -4px -13px; } /* the folded '…': a target as wide as a short word */
+.eyebrow .path button:first-child { color: var(--accent-deep, color-mix(in srgb, var(--accent) 78%, var(--ink))); }
+.eyebrow .path button:hover span { text-decoration: underline; text-underline-offset: 3px; }
+.eyebrow .path .sep, .eyebrow .ktag .sep { opacity: .5; margin: 0 5px; }
+.eyebrow .path.squeeze button:last-child { flex: 0 1 auto; min-width: 0; } .eyebrow .path.squeeze button:last-child span { display: block; overflow: hidden; text-overflow: ellipsis; }
+.eyebrow .ktag { display: inline-flex; align-items: center; gap: 6px; flex: none; } .eyebrow .ktag .sep { margin: 0 -1px 0 0; }
+.panel .lead .kbody, .panel .lead.kbody { color: var(--ink); font-weight: 600; } /* a spot's kind, when it does not fit on the path line */
+.kbody i { display: inline-block; width: 8px; height: 8px; margin: 0 6px 1px 0; border-radius: 2px; background: var(--c); vertical-align: middle; }
+/* the first screen: the most recent spots, one tap each, scrolling sideways */
+.recent { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; margin: 0 0 14px; }
+.recent::-webkit-scrollbar { display: none; }
+.recent > span { flex: none; display: flex; }
+.recent button { display: inline-flex; align-items: center; gap: 7px; height: 36px; padding: 0 13px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--sheet-bg, var(--paper)); font: 600 14px/1 var(--sans); color: var(--ink); white-space: nowrap; }
+.recent button:hover { border-color: var(--ink); }
+.recent i { width: 9px; height: 9px; border-radius: 50%; background: var(--c); flex: none; } .recent i.want { background: transparent; box-shadow: 0 0 0 2px var(--c) inset; }
+.recent .all { color: var(--ink-2); font-weight: 500; }
+.facts .vibe { display: inline-flex; align-items: center; gap: 6px; } .facts .vibe i { width: 8px; height: 8px; border-radius: 2px; background: var(--c); }
+dialog.who .err { margin: -2px 0 10px; color: var(--bad); font-size: 13.5px; font-weight: 500; }
 .panel { flex: 1; min-height: 0; overflow: auto; padding: 14px 18px 24px; scrollbar-width: thin; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 .eyebrow { font-size: 11.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 7px; margin: 0; }
 .eyebrow i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; background: var(--c, var(--accent)); }
@@ -493,39 +507,23 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
 /* ---------- desktop: the phone's warm paper glass, at desktop scale ---------- */
 @media not all and (max-width: 880px) {
   :root { --accent-deep: color-mix(in srgb, var(--accent) 78%, var(--ink)); --focus: var(--accent-deep); } /* accent that holds 3:1 on glass, light and dark */
-  /* top left: phone-like pieces. A wordmark pill and a search pill in one row; the trail pill below them under the root */
-  .top.surface { left: max(var(--m), env(safe-area-inset-left, 0px)); top: max(var(--m), env(safe-area-inset-top, 0px)); width: max-content; max-width: calc(100% - var(--side) - var(--m) - max(var(--m), env(safe-area-inset-left, 0px)) - max(var(--m), env(safe-area-inset-right, 0px))); flex-direction: row; align-items: center; gap: 8px; background: none; border-radius: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; pointer-events: none; }
-  .brandrow { display: contents; }
-  .top .brand, .top .search, .top .trail { pointer-events: auto; }
-  .top .brand, .search input, .top .trail { background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: var(--glass-ring); }
-  .top .brand { height: 40px; display: flex; align-items: center; padding: 0 16px 1px; border-radius: 999px; }
-  .brand h1 { font-size: 18px; } .brand h1 span { color: var(--accent-deep); }
-  .brand p { display: none; }
+  /* top left: the search pill, alone (the path and the wordmark are in the logbook's header) */
+  .top.surface { left: max(var(--m), env(safe-area-inset-left, 0px)); top: max(var(--m), env(safe-area-inset-top, 0px)); width: max-content; background: none; border-radius: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .search input { background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: var(--glass-ring); }
   .search svg { left: 13px; z-index: 1; stroke: var(--glass-muted); }
   .search input { width: 220px; height: 40px; padding: 0 14px 0 35px; border: 0; border-radius: 999px; }
   .search input:focus { width: 280px; background: var(--sheet-bg); outline: 2px solid transparent; box-shadow: inset 0 0 0 1.5px var(--accent-deep), var(--glass-shadow); }
   .search input::placeholder { color: var(--glass-muted); }
   .search input::-webkit-search-cancel-button { filter: grayscale(1); opacity: .6; }
-  .top .trail { position: absolute; left: 0; top: calc(100% + 8px); max-width: calc(100vw - var(--side) - 3 * var(--m)); height: 36px; padding: 0 6px; border: 0; border-radius: 999px; color: var(--ink-2); }
-  .trail:not(.deep) { display: none; }
-  .trail button { color: var(--ink-2); } .trail button:hover { color: var(--ink); background: var(--glass-hover); }
-  .trail .sep { color: var(--ink-2); opacity: .45; }
-  /* legend: one fully rounded row at the bottom left; a sideways scroller with a soft edge when it does not fit */
-  .legend { left: max(var(--m), env(safe-area-inset-left, 0px)); bottom: calc(var(--m) + env(safe-area-inset-bottom, 0px)); height: 34px; max-width: calc(100% - var(--side) - 2 * var(--m) - max(var(--m), env(safe-area-inset-left, 0px)) - max(var(--m), env(safe-area-inset-right, 0px)) - 40px); padding: 0; gap: 0; border-radius: 999px; overflow: hidden; font-size: 12.5px; } /* the map keeps its wheel, drag and hover under the legend, as before */
-  .legend .lgrow { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 0 22px 0 14px; overflow-x: auto; scrollbar-width: none;
-    -webkit-mask-image: linear-gradient(to right, transparent, #000 10px, #000 calc(100% - 22px), transparent); mask-image: linear-gradient(to right, transparent, #000 10px, #000 calc(100% - 22px), transparent); }
-  .legend .lgrow::-webkit-scrollbar { display: none; }
-  .legend span:not(.ramp) i { width: 8px; height: 8px; border-radius: 50%; }
-  .legend .hint { color: var(--glass-muted); margin-left: 2px; }
-  /* controls: a slim glass capsule, its bottom on the legend's and the logbook's */
-  .ctl { right: calc(var(--side) + var(--m) + max(var(--m), env(safe-area-inset-right, 0px))); bottom: calc(var(--m) + env(safe-area-inset-bottom, 0px)); }
+  /* controls: a slim glass capsule at the top right of the map, beside the logbook */
+  .ctl { right: calc(var(--side) + var(--m) + max(var(--m), env(safe-area-inset-right, 0px))); top: max(var(--m), env(safe-area-inset-top, 0px)); }
   .ctl .stack { width: 40px; border-radius: 999px; }
   .ctl .stack button { width: 40px; height: 40px; border-top: 0; position: relative; }
   .ctl .stack button + button::before { content: ""; position: absolute; top: 0; left: 10px; right: 10px; height: 1px; background: var(--glass-edge); }
   .ctl .stack button:hover { background: var(--glass-hover); }
   .ctl .stack button:focus-visible { outline-offset: -4px; border-radius: 999px; }
   .ctl .stack button[aria-pressed="true"] { color: var(--accent-deep); }
-  .lenses { right: calc(100% + 8px); bottom: 0; width: 272px; padding: 6px; border-radius: 18px; background: var(--glass-strong); }
+  .lenses { right: calc(100% + 8px); top: 0; width: 272px; padding: 6px; border-radius: 18px; background: var(--glass-strong); }
   .lenses button { border-radius: 12px; justify-items: stretch; } .lenses .sw { justify-self: end; } .lenses button:hover { background: var(--glass-hover); }
   .lenses button small { color: var(--glass-muted); }
   .lenses button[aria-pressed="true"] { background: var(--glass-hover); }
@@ -534,66 +532,44 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
   .sheet .suggest button:hover { background: var(--paper-2); }
   .panel h3 .act, .progress small .act, .textlinks .done, .textlinks button[aria-pressed="true"], .row:hover .nm, .stamp.got b, .head h2 em { color: var(--accent-deep); } /* small accent text: 4.7:1 on the paper (the plain accent is 3.3:1) */
   .pstamp:not(.want) { color: color-mix(in srgb, var(--accent) 60%, var(--ink)); } /* the stamp prints at 86% opacity: a deeper ink keeps it at 4.5:1 */
-  .top .brand { flex: none; }
   .progress small .act { border: 0; background: transparent; padding: 0; font: inherit; font-weight: 600; cursor: pointer; }
   .quiz .verdict.good { color: color-mix(in srgb, var(--good) 80%, var(--ink)); } /* 5:1 on the paper (the plain green is 4:1) */
   .panel h3 { justify-content: flex-start; } .panel h3 .n { margin-left: auto; } .panel h3 .n:has(+ .act) { margin-left: 0; } .panel h3 .act { margin-left: auto; } /* count beside the label, action at the right */
   .smap-link { display: none; } /* the street map is for dragging here; the buttons under it open Maps */
-  /* map tooltip: a small glass label; toast: the phone's solid pill, over the middle of the map above the legend */
+  /* map tooltip: a small glass label; toast: the phone's solid pill, low over the middle of the map */
   .tip { background: var(--glass-strong); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); color: var(--ink); border-radius: 10px; padding: 6px 11px 7px; box-shadow: var(--glass-ring); }
   .tip small { color: var(--glass-muted); opacity: 1; }
-  .toast { top: auto; bottom: calc(var(--m) + 34px + 12px + env(safe-area-inset-bottom, 0px)); left: calc((100% - var(--side) - 2 * var(--m)) / 2); transform: translateX(-50%) translateY(8px); border-radius: 20px; padding: 10px 16px; background: var(--toast-bg, var(--ink)); color: var(--toast-ink, var(--paper)); box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow); max-width: calc(100% - var(--side) - 8 * var(--m)); }
+  .toast { top: auto; bottom: calc(var(--m) + 16px + env(safe-area-inset-bottom, 0px)); left: calc((100% - var(--side) - 2 * var(--m)) / 2); transform: translateX(-50%) translateY(8px); border-radius: 20px; padding: 10px 16px; background: var(--toast-bg, var(--ink)); color: var(--toast-ink, var(--paper)); box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow); max-width: calc(100% - var(--side) - 8 * var(--m)); }
 }
 /* ---------- phone ---------- */
 @media (max-width: 880px) {
   /* warm paper glass: the floating chrome is translucent paper over the map (tokens on :root) */
-  :root { --side: 0px; --m: 12px; }
-  .top .brand, .search::before, .top .trail::before, .legend, .ctl .stack, .lenses { background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); border: 0; box-shadow: inset 0 0 0 1px var(--glass-edge), inset 0 1px 0 var(--glass-hi), var(--glass-shadow); }
-  /* top: no card. A brand pill at the left, a round search button at the right, the map between them. Deeper screens swap
-     the brand for the trail pill; search takes the row when active. The only back control is the sheet's, in thumb reach. */
-  .top.surface { left: max(var(--m), env(safe-area-inset-left, 0px)); right: max(var(--m), env(safe-area-inset-right, 0px)); top: max(var(--m), env(safe-area-inset-top, 0px)); width: auto; max-width: none; min-height: 44px; flex-direction: row; align-items: center; gap: 8px; background: none; border: 0; border-radius: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; pointer-events: none; }
-  .brandrow { display: contents; }
-  .top .brand, .top .search, .top .trail { pointer-events: auto; }
-  .sheet-full:not(.searching) .top :is(.brand, .search, .trail) { pointer-events: none; } /* hidden under the full sheet: not tappable in the strip above it */
-  .top .brand { flex: none; order: 1; height: 40px; display: flex; align-items: center; padding: 0 16px 1px; border-radius: 999px; }
-  .brand h1 { font-size: 17px; } .brand p { display: none; }
-  .top .search { order: 3; margin: 0 -2px 0 auto; width: 44px; height: 44px; isolation: isolate; } /* -2px: the 40px disc's edge lines up with the controls' edge */
-  .search::before { content: ""; position: absolute; inset: 2px; border-radius: 999px; z-index: -1; transition: background .2s; }
-  .search input { display: block; width: 44px; height: 44px; padding: 0; font-size: 16px; color: transparent; border: 0; border-radius: 999px; background: transparent; }
+  .ctl .stack, .lenses { background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); border: 0; box-shadow: inset 0 0 0 1px var(--glass-edge), inset 0 1px 0 var(--glass-hi), var(--glass-shadow); }
+  /* one capsule at the top right: search, locate, layers. It stays put at every sheet position (the full sheet covers it). The
+     search field is the capsule's first slot: .top lays the real input over the capsule's empty .qslot (pointer-events: none),
+     above it (z-index), so a tap focuses the input directly and the keyboard opens. Searching, the field takes the top row and the
+     capsule hides. */
+  .top.surface { left: max(var(--m), env(safe-area-inset-left, 0px)); right: max(var(--m), env(safe-area-inset-right, 0px)); top: max(var(--m), env(safe-area-inset-top, 0px)); width: auto; max-width: none; min-height: 44px; flex-direction: row; align-items: center; justify-content: flex-end; background: none; border: 0; border-radius: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; pointer-events: none; }
+  .top .search { pointer-events: auto; width: 44px; height: 44px; isolation: isolate; }
+  .sheet-full:not(.searching) .top .search { pointer-events: none; } /* hidden under the full sheet: not tappable in the strip above it */
+  .search::before { content: ""; position: absolute; inset: 0; border-radius: 999px; z-index: -1; transition: background .2s; }
+  .search input { display: block; width: 44px; height: 44px; padding: 0; font-size: 16px; color: transparent; border: 0; border-radius: 999px; background: transparent; cursor: pointer; }
   .search svg { left: 13px; width: 18px; height: 18px; stroke: var(--ink); }
-  .search input:focus, .search input.has { width: 100%; padding: 0 14px 0 40px; color: var(--ink); background: transparent; }
+  .search input:focus, .search input.has { width: 100%; padding: 0 14px 0 40px; color: var(--ink); background: transparent; cursor: text; }
+  .search input:focus-visible { outline: 2px solid var(--focus, var(--accent)); outline-offset: -2px; }
   .search input::placeholder { color: transparent; } .search input:focus::placeholder { color: var(--muted); }
   .search input::-webkit-search-cancel-button { filter: grayscale(1); opacity: .6; } /* Chrome's blue clear button, in ink grey */
-  .top:has(#q:focus, #q.has) .brand, .top:has(#q:focus, #q.has) .trail { display: none; }
-  .top:has(#q:focus, #q.has) .search { flex: 1; margin-left: 0; width: auto; }
-  .top:has(#q:focus, #q.has) .search::before { background: var(--sheet-bg); } /* the sheet opens full under it: one paper surface */
-  /* trail pill: hugs its crumbs, never wider than the room left of the search button; app.js folds leading crumbs into '…'
-     and, if the last crumb alone is still too long, adds .squeeze so it ends in an ellipsis. The row is 44px (the crumb
-     targets) and does not clip or scroll, so its 40px glass pill (the ::before) keeps its shadow and blur. */
-  .top .trail { order: 2; flex: 0 1 auto; min-width: 0; height: 44px; padding: 0 8px; gap: 0; border: 0; position: relative; isolation: isolate; overflow: visible; font-size: 14px; }
-  .top .trail::before { content: ""; position: absolute; inset: 2px 0; border-radius: 999px; z-index: -1; }
-  .trail button { flex: none; } .trail.squeeze [aria-current="true"] { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-  .trail button { font-size: 14px; padding: 0 6px; min-height: 44px; color: var(--ink-2); } /* ink-2, not muted: 4.5:1 on glass over any place colour */
-  .trail .sep { color: var(--ink-2); opacity: .45; }
-  .trail:not(.deep) { display: none; }
-  .top:has(.trail.deep) .brand { display: none; }
-  .trail .back svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-  /* legend: one capsule row at the bottom left, beside the controls; sideways scroll with soft edges when it does not fit */
-  .legend { display: flex; left: max(var(--m), env(safe-area-inset-left, 0px)); right: auto; max-width: calc(100% - 2 * var(--m) - 44px - 8px); height: 34px; bottom: calc(var(--sheet-vis) + var(--m)); padding: 0; gap: 0; border-radius: 999px; overflow: hidden; font-size: 12.5px; pointer-events: auto; transition: bottom .42s var(--ease), opacity .2s; }
-  .legend .lgrow { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 0 26px 0 14px; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; touch-action: pan-x;
-    -webkit-mask-image: linear-gradient(to right, transparent, #000 10px, #000 calc(100% - 26px), transparent); mask-image: linear-gradient(to right, transparent, #000 10px, #000 calc(100% - 26px), transparent); }
-  .legend .lgrow::-webkit-scrollbar { display: none; }
-  .legend span { gap: 6px; } .legend span:not(.ramp) i { width: 8px; height: 8px; border-radius: 50%; }
-  .legend.lifting { transition: none; } .legend .hint { display: none; } .sheet-full .legend { opacity: 0; pointer-events: none; }
-  /* controls: a slim capsule at the bottom right, its bottom on the legend's */
-  .ctl .stack { width: 44px; border-radius: 16px; }
+  .top:has(#q:focus, #q.has) .search { flex: 1; width: auto; }
+  .top:has(#q:focus, #q.has) .search::before { background: var(--sheet-bg); box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow); } /* the sheet opens full under it: one paper surface */
+  .ctl { z-index: 3; right: max(var(--m), env(safe-area-inset-right, 0px)); top: max(var(--m), env(safe-area-inset-top, 0px)); transition: opacity .2s; }
+  .ctl .qslot { display: block; height: 44px; pointer-events: none; }
+  .ctl .stack { width: 44px; border-radius: 999px; }
   .ctl .stack button { width: 44px; height: 44px; border-top: 0; position: relative; }
-  .ctl .stack button + button::before { content: ""; position: absolute; top: 0; left: 10px; right: 10px; height: 1px; background: var(--glass-edge); }
+  .ctl .stack > * + button::before { content: ""; position: absolute; top: 0; left: 10px; right: 10px; height: 1px; background: var(--glass-edge); }
   .ctl .stack button:hover { background: transparent; }
-  .lenses { right: 0; bottom: calc(100% + 8px); width: min(340px, calc(100vw - 2 * var(--m))); padding: 6px; border-radius: 18px; background: var(--glass-strong); }
+  .lenses { right: calc(100% + 8px); top: 0; width: min(300px, calc(100vw - 2 * var(--m) - 52px)); max-height: calc(100vh - var(--sheet-vis) - 2 * var(--m) - max(var(--m), env(safe-area-inset-top, 0px))); overflow-y: auto; overscroll-behavior: contain; padding: 6px; border-radius: 18px; background: var(--glass-strong); } /* never under the sheet: a phone on its side scrolls the menu */
   .lenses button { min-height: 52px; padding: 10px 12px; font-size: 15px; border-radius: 12px; } .lenses button small { font-size: 13px; } .lenses .sw i { width: 11px; height: 11px; }
-  .ctl { right: max(var(--m), env(safe-area-inset-right, 0px)); bottom: calc(var(--sheet-vis) + var(--m)); transition: bottom .42s var(--ease), opacity .2s; }
-  .ctl.lifting { transition: none; }
+  .lgd { font-size: 13.5px; gap: 6px 14px; padding: 10px 8px 6px; }
   #zoom-in, #zoom-out { display: none; }
   .sheet-full .ctl, .sheet-full .top { opacity: 0; pointer-events: none; transition: opacity .2s; }
   .searching.sheet-full .top { opacity: 1; pointer-events: auto; } .searching .ctl { opacity: 0; pointer-events: none; } /* search: card pinned, sheet full under it */
@@ -602,16 +578,19 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
   .grip { display: block; flex: none; height: 18px; position: relative; touch-action: none; }
   .grip::after { content: ""; position: absolute; left: 50%; top: 7px; width: 36px; height: 4px; border-radius: 2px; background: var(--line-2); transform: translateX(-50%); }
   /* head: chevron on the eyebrow row, the title on its own row at the panel's 16px edge */
-  .head { display: grid; grid-template-columns: auto 1fr auto; gap: 0; align-items: center; padding: 0 8px 10px max(16px, env(safe-area-inset-left, 0px)); min-height: 52px; border-bottom-color: transparent; transition: border-color .2s; touch-action: none; }
+  .head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 0; align-items: center; padding: 0 8px 10px max(16px, env(safe-area-inset-left, 0px)); min-height: 52px; border-bottom-color: transparent; transition: border-color .2s; touch-action: none; }
   .head .ttl { display: contents; }
   .head .up { grid-area: 1/1/2/2; margin: -10px 2px -10px -14px; } .head .up[hidden] { display: none; }
   .head .eyebrow { grid-area: 1/2/2/3; }
   .head .tools { grid-area: 1/3/3/4; align-self: start; margin: -6px -4px 0 0; }
   .sheet.scrolled .head { border-bottom-color: var(--line); }
   .head h2 { grid-area: 2/1/3/3; margin-top: 2px; font-size: 26px; line-height: 1.05; }
+  .head.compact { min-height: 0; padding-bottom: 6px; } .head.compact .tools { grid-row: 1; }
+  .head .recent { grid-column: 1 / -1; grid-row: 3; margin: 12px -8px 2px calc(-1 * max(16px, env(safe-area-inset-left, 0px))); padding: 0 max(16px, env(safe-area-inset-left, 0px)); touch-action: pan-x; } /* full bleed; sideways drags scroll it (js/sheet.js leaves them alone) */
+  .recent button { height: 40px; padding: 0 14px; font-size: 15px; } .recent > span { position: relative; } .recent button::after { content: ""; position: absolute; inset: -2px 0; } /* a 44pt target */
   .panel { padding: 6px max(16px, env(safe-area-inset-left, 0px)) calc(32px + var(--kb, 0px) + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
   .sheet:not(.full) .panel { overflow: hidden; }
-  .toast { top: auto; bottom: calc(var(--sheet-vis) + 60px); transform: translateX(-50%) translateY(8px); transition: opacity .25s, transform .25s var(--ease), bottom .42s var(--ease); border-radius: 20px; padding: 10px 16px; background: var(--toast-bg, var(--ink)); color: var(--toast-ink, var(--paper)); box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow); width: max-content; max-width: calc(100% - 2 * (max(var(--m), env(safe-area-inset-right, 0px)) + 44px + 8px)); white-space: normal; text-align: center; text-overflow: clip; } /* clear of the controls; a long message wraps */
+  .toast { top: auto; bottom: calc(var(--sheet-vis) + 16px); transform: translateX(-50%) translateY(8px); transition: opacity .25s, transform .25s var(--ease), bottom .42s var(--ease); border-radius: 20px; padding: 10px 16px; background: var(--toast-bg, var(--ink)); color: var(--toast-ink, var(--paper)); box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow); width: max-content; max-width: calc(100% - 2 * max(var(--m), env(safe-area-inset-right, 0px)) - 16px); white-space: normal; text-align: center; text-overflow: clip; } /* just above the sheet; a long message wraps */
   .sheet-full .toast { bottom: calc(24px + env(safe-area-inset-bottom, 0px)); top: auto; }
   .tip { display: none; }
   .cols2 { columns: 1; }
@@ -633,14 +612,12 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
   .progress small .act { border: 0; background: transparent; font: inherit; font-weight: 600; color: var(--accent); cursor: pointer; padding: 10px 0; margin: -10px 0; }
   .lenses button { justify-items: stretch; } .lenses .sw { justify-self: end; } /* labels share one left edge */
   .panel h3 { justify-content: flex-start; } .panel h3 .n { margin-left: auto; } .panel h3 .n:has(+ .act) { margin-left: 0; } .panel h3 .act { margin-left: auto; } /* count beside the label, action at the right */
-  /* the legend is for the overview: hidden at place/section/spot depth and while dropping a pin */
-  .loc-deep .legend, .app:has(.stage.placing) .legend { display: none; }
   .app:has(.stage.placing) #lf-actions { display: none; } /* while dropping a pin the peek sheet shows 'Tap the map', not Save */
   /* half detent: one-line row subtitles and tighter spacing so the list starts above the fold (two lines at full) */
   .sheet:not(.full) .row .nm small { -webkit-line-clamp: 1; }
   .sheet:not(.full) .panel h3 { margin-top: 14px; } .sheet:not(.full) .panel .lead { margin-bottom: 10px; }
   .sheet:not(.full) .marks + .savestate:empty + .facts, .sheet:not(.full) .marks + .facts { margin-top: 10px; }
-  .row:active, .mark:not([disabled]):active, .textlinks button:active, .head .up:active, .head .tools button:active, .trail button:active, .suggest button:active { background: var(--paper-2); }
+  .row:active, .mark:not([disabled]):active, .textlinks button:active, .head .up:active, .head .tools button:active, .recent button:active, .suggest button:active { background: var(--paper-2); }
   .savestate:empty { display: none; } .marks + .savestate:empty + .facts, .marks + .facts { margin-top: 14px; }
 }
 /* surfaces, phone and desktop (outside the phone block, in its cascade position): the logbook's controls sit on its paper; in dark the

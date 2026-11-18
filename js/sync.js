@@ -50,5 +50,31 @@ window.Sync = (() => {
       delAll: owner => Promise.all([del(ph(owner)), del(pt(owner)).catch(() => {})]).then(() => {}),
     };
   }
-  return { ready, connect, url, photos };
+  // The activity feed, another sibling: logs/<key>-ev/<eventId> = { t, by, d, k, id, name, hood, n }. push POSTs, so the database
+  // makes the id (time-ordered by its clock); recent reads the last few by id; watch streams the newest one, so onChange() fires
+  // when any device adds an event (photos included, which never touch the log). Anyone with the link can write it: app.js checks
+  // every field it reads.
+  function events(key) {
+    const u = `${base}/logs/${encodeURIComponent(key + '-ev')}.json`, last = n => `?orderBy=${encodeURIComponent('"$key"')}&limitToLast=${n}`;
+    const req = (q, o) => fetch(u + q, o).then(r => { if (!r.ok) throw err(r.status === 401 || r.status === 403 ? 'invalid_argument' : 'unavailable', 'feed request failed ' + r.status); return r.json(); });
+    function watch(onChange) { // the same reopen-with-backoff as connect(); returns close
+      let es = null, closed = false, retry = 0;
+      function open() {
+        if (closed) return;
+        es = new EventSource(u + last(1));
+        es.addEventListener('put', () => { retry = 0; onChange(); });
+        es.addEventListener('patch', () => onChange());
+        es.addEventListener('auth_revoked', () => es.close()); es.addEventListener('cancel', () => es.close());
+        es.onerror = () => { if (es.readyState === EventSource.CLOSED && !closed) { es = null; setTimeout(open, Math.min(30000, 1000 * 2 ** retry++)); } };
+      }
+      open();
+      return () => { closed = true; if (es) es.close(); };
+    }
+    return {
+      push: ev => req('', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(ev) }).then(r => (r && typeof r.name === 'string' ? r.name : null)), // the new id
+      recent: (limit = 30) => req(last(Math.max(1, Math.min(100, limit | 0)))).then(d => (d && typeof d === 'object' ? d : {})), // { id: event }, unordered
+      watch,
+    };
+  }
+  return { ready, connect, url, photos, events };
 })();

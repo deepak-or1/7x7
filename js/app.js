@@ -55,6 +55,16 @@
   const isWant = i => !!state.want[slug(HOODS[i].name)];
   const inRegion = (i, r = state.loc.region) => r === 'all' || HOODS[i].region === r;
   const isPhone = () => window.innerWidth <= 880;
+  // ---------- who is using this device ----------
+  // No accounts (anyone with the link writes the log), so each device may give a name: asked once, before its first write to a
+  // shared log, and changed later in Settings. null in storage: never asked; '': skipped. The device id tells this device's
+  // feed events from the others' (names can repeat or change).
+  const WHO_MAX = 24, cleanName = s => (typeof s === 'string' ? s : '').replace(/[\x00-\x1f\x7f]/g, '').replace(/\s+/g, ' ').trim().slice(0, WHO_MAX);
+  const who = () => { try { return cleanName(localStorage.getItem('sbs-who')); } catch (e) { return ''; } };
+  let whoSet = false; // asked this session: a browser without the dialog, or storage that will not keep the answer, is not asked again until reload
+  const whoAsked = () => { if (whoSet) return true; try { return localStorage.getItem('sbs-who') !== null; } catch (e) { return true; } };
+  const setWho = n => { whoSet = true; try { localStorage.setItem('sbs-who', cleanName(n)); } catch (e) {} };
+  const deviceId = (() => { let d = null; try { d = localStorage.getItem('sbs-dev'); } catch (e) {} if (!d || !/^[a-z0-9]{8,40}$/.test(d)) { d = (crypto.randomUUID ? crypto.randomUUID().replace(/-/g, '') : Math.random().toString(36).slice(2) + Date.now().toString(36)).slice(0, 24); try { localStorage.setItem('sbs-dev', d); } catch (e) {} } return d; })();
 
   // ---------- map ----------
   const stage = $('stage'), canvas = $('map'), panel = $('panel'), head = $('head'), sheetEl = $('sheet'), trailEl = $('trail'), tip = $('tip');
@@ -173,7 +183,12 @@
   }
   function showTip(x, y, main, sub) { tip.innerHTML = `${esc(main)}${sub ? `<small>${esc(sub)}</small>` : ''}`; tip.style.left = x + 'px'; tip.style.top = y + 'px'; tip.classList.add('on'); }
   let toastTimer = null;
-  function toast(t, ms = 2200) { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('on'), ms); }
+  // action (optional): { label, run } adds one button; the toast is tappable only while it shows one
+  function toast(t, ms = 2200, action) {
+    const el = $('toast'); el.textContent = t; el.classList.toggle('act', !!action);
+    if (action) { const s = document.createElement('span'), b = document.createElement('button'); s.textContent = t; b.type = 'button'; b.textContent = action.label; b.addEventListener('click', () => { el.classList.remove('on'); clearTimeout(toastTimer); action.run(); }); el.replaceChildren(s, b); } // the text in a span, so a long line shrinks and the button never does
+    el.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('on'), ms);
+  }
 
   // ---------- chrome: trail, lenses, legend, search ----------
   function renderTrail() {
@@ -298,7 +313,8 @@
   function stampState() { const vibe = {}; for (const k in VIBES) vibe[k] = HOODS.every((h, i) => INFO[h.name].vibe !== k || isDone(i)); return { n: doneCount('all'), sf: doneCount('sf'), marin: doneCount('marin'), east: doneCount('east'), penin: doneCount('penin'), south: doneCount('south'), north: doneCount('north'), ft: climbedFt('all'), vibe }; }
   function renderHome() {
     const r = state.loc.region, n = doneCount(), total = REGION_N[r], s = stampState(), earned = STAMPS.filter(st => st.test(s)), next = STAMPS.find(st => !st.test(s));
-    setHead({ back: r !== 'all', eyebrow: r === 'all' ? 'Logbook' : 'Logbook · Bay Area', title: r === 'all' ? 'The Bay Area' : REGIONS[r].label, tools: [logTool(null, null)] });
+    const news = r === 'all' ? state.news.length : 0; // the only sign of news, in the sheet's own eyebrow: it shows at the peek too
+    setHead({ back: r !== 'all', eyebrow: r === 'all' ? 'Logbook' + (news ? ` · ${news} new` : '') : 'Logbook · Bay Area', title: r === 'all' ? 'The Bay Area' : REGIONS[r].label, tools: [logTool(null, null)] });
     const entries = NAMES.filter(x => inRegion(IDX[x]) && state.done[slug(x)]).sort((a, b) => (state.done[slug(b)].at || '').localeCompare(state.done[slug(a)].at || '') || a.localeCompare(b));
     const wantList = NAMES.filter(x => inRegion(IDX[x]) && state.want[slug(x)] && !state.done[slug(x)]);
     const recent = Object.keys(state.spots).filter(id => IDX[state.spots[id].hood] != null && inRegion(IDX[state.spots[id].hood])).sort((a, b) => (state.spots[a].at < state.spots[b].at ? 1 : -1));
@@ -313,7 +329,7 @@
       <div id="moods" ${active ? '' : 'hidden'}><h3>Mood</h3><div class="textlinks">${MOODS.map(t => `<button type="button" data-mood="${t}" aria-pressed="${state.filters.has(t)}">${t}</button>`).join('')}</div>
         ${active ? `<h3>${hits.length ? hits.length + ' match' + (hits.length === 1 ? '' : 'es') : 'No matches'}</h3><div class="textlinks">${hits.map(a => `<button type="button" class="${isDone(IDX[a]) ? 'done' : isWant(IDX[a]) ? 'want' : ''}" data-go='${attr({ hood: a })}'>${esc(a)}</button>`).join('')}</div>` : ''}</div>`;
     const list = `<h3>${r === 'all' ? 'Regions' : 'Places'} <span class="n">${r === 'all' ? '' : total}</span></h3><ul class="rows ${r === 'all' ? '' : 'cols2'}">${places}</ul>`;
-    panel.innerHTML = progress + (isPhone() ? list + lead + links : lead + links + list) + `
+    panel.innerHTML = (news ? newsBlock() : '') + progress + (isPhone() ? list + lead + links : lead + links + list) + `
       ${entries.length ? `<h3>Walked <span class="n">${entries.length}</span></h3><ul class="rows">${entries.map(x => `<li><button type="button" class="row" data-go='${attr({ hood: x })}'><span class="ic flag"></span><span class="nm">${esc(x)}${state.done[slug(x)].note ? `<small>${esc(state.done[slug(x)].note)}</small>` : ''}</span><span class="rt">${niceDate(state.done[slug(x)].at)}</span></button></li>`).join('')}</ul>` : ''}
       ${wantList.length ? `<h3>Want to go <span class="n">${wantList.length}</span></h3><div class="textlinks">${wantList.map(a => `<button type="button" class="want" data-go='${attr({ hood: a })}'>${esc(a)}</button>`).join('')}</div>` : ''}
       <h3>Spots <span class="n">${recent.length || ''}</span>${recent.length > 6 ? `<button type="button" class="act" data-view="spots">All ${recent.length}</button>` : `<button type="button" class="act" id="log-home">+ Log a place</button>`}</h3>
@@ -322,6 +338,7 @@
       <details class="more"><summary>Settings</summary>
         <label class="switch"><span>Color every place, walked or not</span><input type="checkbox" id="show-all" ${state.showAll ? 'checked' : ''}></label>
         <div class="field" style="margin-top:12px"><label>Appearance</label><div class="seg">${['system', 'light', 'dark'].map(t => `<button type="button" data-theme-pick="${t}" aria-pressed="${state.theme === t}">${t === 'system' ? 'System' : t[0].toUpperCase() + t.slice(1)}</button>`).join('')}</div></div>
+        ${state.store === 'sync' ? `<div class="field"><label for="who-in">Your name on this device</label><input id="who-in" maxlength="${WHO_MAX}" autocomplete="given-name" enterkeyhint="done" placeholder="Shown on what you add" value="${esc(who())}"></div>` : ''}
         <div class="actions" style="margin-top:4px"><button type="button" class="btn sm" id="export">Export log</button><button type="button" class="btn sm" id="import">Import</button><input type="file" id="import-file" accept="application/json" hidden>${state.store === 'sync' ? '<button type="button" class="btn sm primary" id="share-log">Share this log</button><button type="button" class="btn sm" id="join-log">Join a log</button>' : ''}</div>
         <p class="fine">${state.store === 'db' ? 'Your log, list, spots and notes are saved with this artifact and shared with everyone it is shared with.' : state.store === 'sync' ? 'This log is shared: everyone who opens your link sees it and adds to it, live. Keep the link private, and bookmark it on each phone. Photos are shared with the log the same way, but Export log does not include them.' : 'Your log is saved in this browser. Export it now and then to keep a copy, or to move it to another device.'} San Francisco boundaries from the SF Planning Department, high points from Mapzen elevation data. Marin, East Bay and Peninsula boundaries from the US Census; their high points are approximate. Place search by Photon, © OpenStreetMap contributors.</p>
       </details>`;
@@ -337,6 +354,9 @@
     panel.querySelector('#import-file').addEventListener('change', e => importLog(e.target.files[0]));
     const sh = panel.querySelector('#share-log'); if (sh) sh.addEventListener('click', shareLog);
     panel.querySelectorAll('#join-log, #join-log-hint').forEach(b => b.addEventListener('click', joinLog));
+    const wi = panel.querySelector('#who-in'); if (wi) { wi.addEventListener('keydown', e => { if (e.key === 'Enter') wi.blur(); }); wi.addEventListener('change', () => { setWho(wi.value); wi.value = who(); toast(who() ? `You are ${who()} on this device` : 'No name on this device'); }); }
+    const ns = panel.querySelector('#news-seen'); if (ns) ns.addEventListener('click', markSeen);
+    panel.querySelectorAll('[data-news]').forEach(b => b.addEventListener('click', () => { const e = newsShown.find(x => x.key === b.dataset.news); if (e) openEv(e); }));
   }
 
   // ---- a neighborhood ----
@@ -391,12 +411,13 @@
   function renderSpot(id) {
     const sp = state.spots[id], k = KINDS[sp.kind] || KINDS.other;
     setHead({ eyebrow: `${k.label} · ${esc(sp.sub || sp.hood)}`, dot: k.c, title: esc(sp.name), tools: [{ id: 'edit', label: 'Edit', icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16v4z"/><path d="M13 7l4 4"/></svg>', run: () => startLog({ hood: sp.hood, sub: sp.sub, edit: id }) }] });
-    const mq = spotQuery(sp), aq = spotApple(sp), want = sp.status === 'want', r = want ? 0 : Math.max(0, Math.min(5, sp.rating | 0));
+    const mq = spotQuery(sp), aq = spotApple(sp), want = sp.status === 'want', r = want ? 0 : Math.max(0, Math.min(5, sp.rating | 0)), by = cleanName(sp.by);
     const sv = { key: 'spot:' + id + '@' + ll(sp.lat, sp.lon), name: sp.name, href: tapLink(mq, aq), q: mq, z: 17, lat: sp.lat, lon: sp.lon, zoom: 16, pin: { c: k.c, e: k.e } };
     if (!paint(`
       ${hero(ownerKey.spot(id), sp.name, { c: k.c, e: k.e, badge: { e: k.e, t: k.label } })}
       ${sp.where ? `<p class="lead">${esc(sp.where)}</p>` : ''}
       <div class="vrow">${r ? `<span class="vstars" role="img" aria-label="${r} of 5 stars"><span aria-hidden="true">${'★'.repeat(r)}<i>${'★'.repeat(5 - r)}</i></span></span><b class="vword">${VERDICT[r]}</b>` : ''}<span class="pstamp ${want ? 'want' : 'been'}">${want ? 'Want to try' : `Been${sp.at ? ' · ' + esc(niceDate(sp.at)) : ''}`}</span></div>
+      ${by ? `<p class="vby">Logged by ${esc(by)}</p>` : ''}
       ${sp.note ? `<p class="pull">${esc(sp.note)}</p>` : ''}
       ${okLL(sp.lat, sp.lon) ? streetMap(sv) : ''}${mapBtns(mq, aq)}
       <div class="actions" style="margin-top:18px">${sp.status === 'want' ? `<button type="button" class="btn primary" id="been-now">Been here now</button>` : ''}<button type="button" class="btn quiet" id="edit">Edit</button><button type="button" class="btn quiet" id="del" style="color:var(--bad)">Delete</button></div>
@@ -408,7 +429,7 @@
     panel.querySelector('#del').addEventListener('click', () => { panel.querySelector('#del-confirm').hidden = false; panel.querySelector('#del').hidden = true; });
     panel.querySelector('#del-no').addEventListener('click', () => { panel.querySelector('#del-confirm').hidden = true; panel.querySelector('#del').hidden = false; });
     panel.querySelector('#del-yes').addEventListener('click', () => removeSpot(id));
-    const bn = panel.querySelector('#been-now'); if (bn) bn.addEventListener('click', async () => { const s = state.spots[id]; if (!s) return; s.status = 'been'; s.at = today(); await persist(); render(); toast(`${s.name}: been there.`); });
+    const bn = panel.querySelector('#been-now'); if (bn) bn.addEventListener('click', async () => { if (!state.spots[id]) return; await beforeWrite(); const s = state.spots[id]; if (!s || s.status === 'been') return; s.status = 'been'; s.at = today(); const ok = await persist(); render(); toast(`${s.name}: been there.`); if (ok !== false) logEvent('been', { id, name: s.name, hood: s.hood }); });
   }
   // ---- all spots ----
   function renderSpots() {
@@ -458,14 +479,18 @@
   }
   async function toggleDone(name) {
     if (!state.canWrite) return;
-    const k = slug(name), i = IDX[name], before = stampState();
+    const k = slug(name), i = IDX[name];
+    if (!state.done[k] && needsName()) { await beforeWrite(); if (state.done[k] || state.loc.hood !== name) return; } // the name first; a sync while asking may have walked it already
+    const before = stampState(), walking = !state.done[k];
     if (state.done[k]) delete state.done[k]; else { state.done[k] = { at: today(), note: '' }; delete state.want[k]; map.pop(i); }
     if (state.lens === 'done') recolor(true); map.redraw(); render();
     if (state.done[k]) { const after = stampState(); const newStamp = STAMPS.find(s => !s.test(before) && s.test(after)); toast(newStamp ? `Stamp earned: ${newStamp.label}` : `${name} walked. +${ft(HOODS[i].max).toLocaleString()} ft`); }
-    setSaveState('Saving…'); if (await persist() !== false) setSaveState(state.done[k] ? 'Saved' : '');
+    setSaveState('Saving…'); const ok = await persist(); if (ok !== false) { setSaveState(state.done[k] ? 'Saved' : ''); if (walking && state.done[k] && !walkedEv.has(k)) { walkedEv.add(k); logEvent('place', { id: k, name, hood: name }); } } // still walked once saved (no undo meanwhile), and one event a place a session however often it is toggled
   }
+  const walkedEv = new Set();
   async function toggleWant(name) {
     if (!state.canWrite) return; const k = slug(name), i = IDX[name];
+    if (!state.want[k] && needsName()) { await beforeWrite(); if (state.want[k] || state.loc.hood !== name) return; }
     if (state.want[k]) delete state.want[k]; else { state.want[k] = { at: today() }; map.pop(i); }
     map.redraw(); render(); setSaveState('Saving…'); if (await persist() !== false) setSaveState('Saved');
   }
@@ -524,13 +549,130 @@
     try { localStorage.setItem('sbs-log-key', k); localStorage.removeItem('sbs-explored'); } catch (e) {}
     location.href = location.pathname + '?log=' + k;
   }
+  // ---- the name prompt: an in-page dialog. done(name) runs inside the Save / Skip tap, so a file picker it opens counts as tapped
+  function askName(done) {
+    let dlg = $('who');
+    if (!dlg) {
+      dlg = document.createElement('dialog'); dlg.id = 'who'; dlg.className = 'who'; dlg.setAttribute('aria-labelledby', 'who-t');
+      dlg.innerHTML = `<form method="dialog" id="who-form"><h2 id="who-t">Who is logging?</h2><p>Your name goes on what you add to this log, so the other phone sees who it was. Change it any time in Settings.</p>
+        <div class="field"><label for="who-name">Your name</label><input id="who-name" maxlength="${WHO_MAX}" autocomplete="given-name" enterkeyhint="done" placeholder="First name"></div>
+        <div class="actions"><button type="button" class="btn quiet" id="who-skip">Skip</button><button type="submit" class="btn primary">Save</button></div></form>`;
+      document.body.appendChild(dlg);
+    }
+    if (typeof dlg.showModal !== 'function') { whoSet = true; done(who()); return; } // no dialog support: write without a name, ask again next visit
+    const inp = dlg.querySelector('#who-name'), form = dlg.querySelector('#who-form'), skip = dlg.querySelector('#who-skip');
+    inp.value = who();
+    const finish = (name, esc) => { form.onsubmit = skip.onclick = dlg.oncancel = null; setWho(name); if (dlg.open) dlg.close(); done(who(), esc); };
+    form.onsubmit = e => { e.preventDefault(); finish(inp.value); };
+    skip.onclick = () => finish('');
+    dlg.oncancel = e => { e.preventDefault(); finish('', true); }; // Escape: a skip, but not a tap (done is told, so it opens no file picker)
+    dlg.showModal(); inp.focus();
+  }
+  // before a write to a shared log: the name, once per device
+  const needsName = () => state.store === 'sync' && state.canWrite && !whoAsked();
+  const beforeWrite = () => new Promise(r => needsName() ? askName(r) : r(who()));
+  // adding a photo: photos.js opens the picker on the tap, so the first tap asks first, then taps the button again for the user. The
+  // hero may have redrawn while the dialog was open: then it is that hero's add button now. After Escape there is no tap to open a
+  // picker with, so nothing is replayed (the user taps + Photo again).
+  document.addEventListener('click', e => {
+    const b = e.target.closest && e.target.closest('[data-ph-add]'); if (!b || b.disabled || !needsName()) return;
+    e.preventDefault(); e.stopPropagation(); const h = b.closest('.hero[data-owner]'), owner = h && h.dataset.owner;
+    askName((n, esc) => {
+      if (esc) return;
+      const nb = b.isConnected ? b : [...document.querySelectorAll('.hero[data-owner]')].filter(x => x.dataset.owner === owner).map(x => x.querySelector('[data-ph-add]:not([disabled])')).find(Boolean);
+      if (nb && !nb.disabled) nb.click();
+    });
+  }, true);
+
+  // ---------- what's new: the activity feed beside a shared log ----------
+  // logs/<key>-ev/<id> = { t, by, d (device id), k, id, name, hood, n }, written when this device adds a spot, marks one been, walks
+  // a place or adds photos, and only once the write itself went through. On open the last 30 are read; the ones by other devices
+  // newer than this device's last seen id show at the top of the root panel until Seen. Ids come from the database, so they sort by
+  // its clock (no skew between phones). While the app is open the feed's own stream fires on every new event and the feed is read
+  // again, and what arrived is toasted.
+  // Anyone with the link can write the feed: every field is checked and cut to length, and escaped where it reaches HTML.
+  let feed = null, feedKey = null, feedTimer = null, photoOpts = null, feedReq = 0, feedDone = false, newsShown = []; const told = new Set(); // told: events already shown this session (block or toast)
+  state.news = []; // unseen events by others, newest first
+  const EV_KINDS = { spot: 1, been: 1, photo: 1, place: 1 };
+  const EV_KEY = /^-[A-Za-z0-9_-]{19}$/; // a database push id only: a hand-written key ('zzzz') would sort after every real one and hide them
+  const evStr = (v, n) => typeof v === 'string' ? v.replace(/[\x00-\x1f\x7f]/g, '').slice(0, n) : '';
+  function cleanEv(key, e) {
+    if (!EV_KEY.test(key) || !e || typeof e !== 'object' || !Object.hasOwn(EV_KINDS, e.k)) return null;
+    return { key, k: e.k, t: evStr(e.t, 40), by: cleanName(evStr(e.by, 80)), d: evStr(e.d, 40), id: evStr(e.id, 120), name: evStr(e.name, 80).trim(), hood: evStr(e.hood, 80), n: e.k === 'photo' ? Math.max(1, Math.min(99, Math.floor(+e.n) || 1)) : 0 };
+  }
+  function logEvent(k, o) {
+    if (!feed || state.store !== 'sync' || !state.canWrite) return;
+    const ev = { t: new Date().toISOString(), by: who(), d: deviceId, k, id: String(o.id || '').slice(0, 120), name: String(o.name || '').slice(0, 80), hood: String(o.hood || '').slice(0, 80) };
+    if (k === 'photo') ev.n = Math.max(1, o.n | 0);
+    feed.push(ev).catch(e => console.warn('event not saved', e));
+  }
+  const seenId = () => { let s = null; try { s = localStorage.getItem('sbs-seen-' + feedKey); } catch (e) {} return s === '' || EV_KEY.test(s) ? s : null; }; // '': before every event; anything else unknown: never seen
+  const setSeen = id => { if (id !== '' && !EV_KEY.test(id)) return; try { localStorage.setItem('sbs-seen-' + feedKey, id); } catch (e) {} };
+  function evLine(e) { const by = e.by || 'Someone', nm = e.name || 'a spot'; return e.k === 'photo' ? `${by} added ${e.n === 1 ? 'a photo' : e.n + ' photos'} to ${nm}` : e.k === 'place' ? `${by} walked ${nm}` : e.k === 'been' ? `${by} went to ${nm}` : `${by} logged ${nm}`; }
+  function ago(t) { const d = Date.parse(t), m = (Date.now() - d) / 60000; if (!isFinite(m) || m < -5) return ''; return m < 1 ? 'just now' : m < 60 ? Math.round(m) + ' min ago' : m < 1440 ? Math.round(m / 60) + ' h ago' : m < 10080 ? Math.round(m / 1440) + (Math.round(m / 1440) === 1 ? ' day ago' : ' days ago') : niceDate(new Date(d).toISOString().slice(0, 10)); }
+  // where a photo owner key points: a spot, a place, or a section
+  function ownerLoc(owner) {
+    for (const id in state.spots) if (ownerKey.spot(id) === owner) return { spot: id };
+    for (const h of NAMES) { if (ownerKey.place(h) === owner) return { hood: h }; for (const s of subs(h)) if (ownerKey.section(h, s.name) === owner) return { hood: h, sub: s.name }; }
+    return null;
+  }
+  function evLoc(e) { // every lookup by own key only: an event's id or hood of '__proto__' or 'constructor' finds nothing
+    if ((e.k === 'spot' || e.k === 'been') && Object.hasOwn(state.spots, e.id)) return { spot: e.id };
+    if (e.k === 'photo') { const l = ownerLoc(e.id); if (l) return l; }
+    if (e.k === 'place' && Object.hasOwn(BY_SLUG, e.id)) return { hood: BY_SLUG[e.id] };
+    return Object.hasOwn(IDX, e.hood) ? { hood: e.hood } : null;
+  }
+  function openEv(e) { const l = evLoc(e); if (l) go(l, { tap: true }); else toast('That is no longer in the log', 2600); }
+  const atRoot = () => !state.view && !state.query && !state.quiz && level(state.loc) === 0;
+  async function readFeed(live) {
+    if (!feed) return; const my = ++feedReq; let d;
+    try { d = await feed.recent(30); } catch (e) { console.warn('feed unavailable', e); return; }
+    if (my !== feedReq) return; // a later read was asked for: an older answer never replaces it
+    if (!feedDone) { feedDone = true; live = false; } // the first answer is the backlog: the block shows it, no toast
+    const all = Object.keys(d && typeof d === 'object' ? d : {}).sort().map(k => cleanEv(k, d[k])).filter(Boolean);
+    let seen = seenId();
+    if (seen === null) { seen = all.length ? all[all.length - 1].key : ''; setSeen(seen); } // first visit on this device: nothing counts as new
+    const news = all.filter(e => e.key > seen && e.d !== deviceId).reverse(), arrived = news.filter(e => !told.has(e.key));
+    news.forEach(e => told.add(e.key));
+    const changed = news.map(e => e.key).join() !== state.news.map(e => e.key).join(); state.news = news;
+    const busy = state.view === 'log' || !!($('who') && $('who').open); // a form or the name prompt is open: View would leave it and lose the draft
+    if (live && arrived.length) { const e = arrived[0]; toast(evLine(e) + (arrived.length > 1 ? ` and ${arrived.length - 1} more` : ''), 6000, busy ? null : { label: 'View', run: () => openEv(e) }); }
+    if (changed && atRoot() && !(document.activeElement && panel.contains(document.activeElement) && document.activeElement.matches('input, textarea'))) render(); // never under someone typing
+  }
+  const feedSoon = () => { clearTimeout(feedTimer); feedTimer = setTimeout(() => readFeed(true), 250); }; // one read for a burst of stream messages
+  // Seen and the lines act on what the block last drew (newsShown), never on a list read since while it could not redraw
+  function markSeen() { const top = newsShown[0]; if (top && top.key > (seenId() || '')) setSeen(top.key); state.news = top ? state.news.filter(e => e.key > top.key) : []; render(); }
+  function newsBlock() {
+    const n = newsShown = state.news; if (!n.length) return '';
+    const shown = n.slice(0, 5), more = n.length - shown.length;
+    return `<section class="news" aria-label="New since you were last here"><h3>New since you were last here<button type="button" class="act" id="news-seen">Seen</button></h3>
+      <ul class="rows">${shown.map(e => `<li><button type="button" class="row" data-news="${esc(e.key)}"><span class="ic"></span><span class="nm">${esc(evLine(e))}<small>${esc([e.hood && e.hood !== e.name ? e.hood : '', ago(e.t)].filter(Boolean).join(' · '))}</small></span><span class="rt"><span class="chev"></span></span></button></li>`).join('')}</ul>
+      ${more ? `<p class="more">and ${more} more</p>` : ''}</section>`;
+  }
+  // photos.js: who adds a photo, what was added (an event), and the capture date of a photo on a been spot (offered, never applied unasked)
+  function photoAdded(owner, ids, label) {
+    const n = Array.isArray(ids) ? ids.length : ids && typeof ids === 'object' ? Object.keys(ids).length : 0; if (!n) return;
+    const l = ownerLoc(owner), hood = l ? (l.spot ? state.spots[l.spot].hood : l.hood) : '';
+    logEvent('photo', { id: owner, name: label || (l && l.spot ? state.spots[l.spot].name : l ? l.sub || l.hood : ''), hood, n });
+  }
+  function photoTaken(owner, date, label) {
+    if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) || isNaN(new Date(date + 'T12:00:00')) || date > today()) return;
+    const l = ownerLoc(owner), id = l && l.spot, sp = id && state.spots[id]; if (!sp || sp.status !== 'been' || sp.at === date || !state.canWrite) return;
+    const was = sp.at; // the offer is for the date shown now: an edit or a sync since, or a log gone read-only, voids it
+    toast(`Photo taken ${niceDate(date)}`, 8000, { label: 'Use as the visit date', run: async () => { const s = state.spots[id]; if (!s || s.status !== 'been' || s.at !== was || !state.canWrite) return; s.at = date; stamped = null; render(); if (await persist() !== false) toast(`${s.name}: visited ${niceDate(date)}`); } });
+  }
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && feed) readFeed(true); }); // a home-screen app comes back without reloading
+
   function connectSync() {
     if (!window.Sync || !Sync.ready()) { state.store = 'local'; return; }
     const key = syncKey(); state.store = 'sync';
-    if (window.Photos && Sync.photos) Photos.init({ api: Sync.photos(key), toast, canWrite: () => state.canWrite });
+    if (Sync.events) { feed = Sync.events(key); feedKey = key; }
+    if (window.Photos && Sync.photos) Photos.init(photoOpts = { api: Sync.photos(key), toast, canWrite: () => state.canWrite, who, onAdded: photoAdded, onTaken: photoTaken });
     { const sp = state.loc.spot || (state.bootLoc && state.bootLoc.spot); if (sp && window.Photos && Photos.preload) Photos.preload(ownerKey.spot(sp)); } // a #spot-- link: its photos set off now, beside the log, not after it
-    let seeded = false;
+    let seeded = false, fed = false;
+    const unwatch = feed && feed.watch ? feed.watch(feedSoon) : null; // any device's new event (a photo too): read the feed again
     docRef = Sync.connect(key, data => {
+      if (!fed) { fed = true; readFeed(false); } // the first record, even our own write coming back: what is new since last time
       if (data && data.updatedAt && data.updatedAt === lastSent) return; // our own write coming back
       if (data) adopt(data);
       else if (!seeded) { seeded = true; if (local && local.hoods && Object.keys(local.hoods).length) persist(); }
@@ -538,7 +680,7 @@
       const boot = state.bootLoc; state.bootLoc = null;
       if (boot && state.spots[boot.spot] && !state.loc.spot) go(boot, { replace: true });
       else if (state.loc.spot && !state.spots[state.loc.spot]) go({ hood: state.loc.hood }, { replace: true }); else render();
-    }, e => { console.warn('sync ended', e); if (e && e.code === 'invalid_argument') { state.canWrite = false; render(); } });
+    }, e => { console.warn('sync ended', e); if (e && e.code === 'invalid_argument') { state.canWrite = false; if (unwatch) unwatch(); render(); } }); // the log stream closed: the feed's goes too
     render();
   }
   async function exportLog() {
@@ -581,7 +723,7 @@
       <div class="field"><label>Status</label><div class="seg" id="lf-status"><button type="button" data-s="been" aria-pressed="${d.status === 'been'}">Been</button><button type="button" data-s="want" aria-pressed="${d.status === 'want'}">Want to try</button></div></div>
       <div class="two lf-been" id="lf-been" ${d.status === 'been' ? '' : 'hidden'}>
         <div class="field" style="margin:0"><label>Rating</label><div class="rate" id="lf-rate">${[1, 2, 3, 4, 5].map(n => `<button type="button" data-r="${n}" class="${n <= d.rating ? 'on' : ''}" aria-label="${n} star${n > 1 ? 's' : ''}">★</button>`).join('')}</div></div>
-        <div class="field" style="margin:0"><label for="lf-date">When</label><input type="date" id="lf-date" value="${esc(d.at || today())}"></div>
+        <div class="field lf-when" style="margin:0"><label for="lf-date">When</label><input type="date" id="lf-date" value="${esc(d.at || today())}"></div>
       </div>
       <div class="field"><label for="lf-note">Note</label><textarea id="lf-note" rows="2" placeholder="What to order, who to bring, what to skip">${esc(d.note || '')}</textarea></div>
       ${d.id || placed || !isPhone() ? '' : `<p class="empty" id="lf-hint" style="font-size:12.5px">Without a pin it lands in the middle of ${esc(d.sub || d.hood || 'the map')}.</p>`}
@@ -625,14 +767,18 @@
   function cancelLog() { const d = state.draft; state.draft = null; stopPlacing(); if (d && d.id) go({ spot: d.id }, { replace: true, fly: false }); else go(state.loc, { replace: true, fly: false }); }
   async function saveDraft() {
     const d = state.draft; if (!d) return; const name = (d.name || '').trim(); if (!name) { panel.querySelector('#lf-q').focus(); return; }
+    const di = panel.querySelector('#lf-date'); if (di) d.at = di.value || today(); // the field as it is now: iOS may not have fired change before the tap
+    if (needsName()) { await beforeWrite(); if (state.draft !== d) return; }
     if (d.lon == null) { // no pin: the centre of the section, or the neighborhood
       let x, y; if (d.hood && d.sub && subByName(d.hood, d.sub)) [x, y] = subByName(d.hood, d.sub).c; else if (d.hood) { const h = HOODS[IDX[d.hood]]; x = h.cx; y = h.cy; } else { const c = map.cam; x = c.x + c.w / 2; y = c.y + c.w * map.H / map.W / 2; }
       x += (Math.random() - .5) * 0.6; y += (Math.random() - .5) * 0.6; const [lon, lat] = Geom.unproj(x, y); const w = locateXY(x, y); Object.assign(d, { lon, lat, x, y, hood: w.hood || d.hood, sub: w.sub || d.sub, src: 'approx' });
     }
-    const id = d.id || ('s' + Date.now().toString(36));
-    state.spots[id] = { name: name.slice(0, 80), kind: KINDS[d.kind] ? d.kind : 'other', status: d.status === 'want' ? 'want' : 'been', rating: d.status === 'been' ? (d.rating | 0) : 0, note: (d.note || '').trim().slice(0, 400), lon: +d.lon.toFixed(5), lat: +d.lat.toFixed(5), hood: d.hood, sub: d.sub || null, at: d.at || today(), where: (d.where || '').slice(0, 120), src: d.src || null };
+    const id = d.id || ('s' + Date.now().toString(36)), prev = d.id ? state.spots[d.id] : null;
+    const by = prev ? cleanName(prev.by) : who(), was = prev ? prev.status : null; // by: who first logged it, kept through every edit
+    state.spots[id] = { ...(by ? { by } : {}), name: name.slice(0, 80), kind: KINDS[d.kind] ? d.kind : 'other', status: d.status === 'want' ? 'want' : 'been', rating: d.status === 'been' ? (d.rating | 0) : 0, note: (d.note || '').trim().slice(0, 400), lon: +d.lon.toFixed(5), lat: +d.lat.toFixed(5), hood: d.hood, sub: d.sub || null, at: d.at || today(), where: (d.where || '').slice(0, 120), src: d.src || null };
     state.draft = null; state.pending = null; state.placing = false; stage.classList.remove('placing');
     toast(d.id ? 'Saved' : `${name} logged`); setSaveState('Saving…'); const ok = await persist(); go({ spot: id }, { replace: true }); if (ok !== false) setSaveState('Saved');
+    if (ok !== false && state.spots[id]) { const s = state.spots[id], k = !prev ? 'spot' : was === 'want' && s.status === 'been' ? 'been' : null; if (k) logEvent(k, { id, name: s.name, hood: s.hood }); }
   }
   async function removeSpot(id) { const sp = state.spots[id]; if (!sp) return; delete state.spots[id]; go({ hood: sp.hood, sub: sp.sub }, { replace: true, fly: false }); map.redraw(); const ok = await persist(); if (ok !== false && state.store === 'sync' && window.Photos) { try { Photos.removeAll(ownerKey.spot(id)); } catch (e) {} } toast(`${sp.name} removed`); } // its photos go too, best effort, once the delete is saved
 
@@ -710,7 +856,7 @@
   }
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { syncThemeColor(); map.refreshPalette(); recolor(false); if (window.StreetMap) StreetMap.restyle(); });
   window.addEventListener('resize', () => { map.resize(); map.redraw(); renderTrail(); }); // resize() also catches a devicePixelRatio change (browser zoom)
-  window.__sbs = { map, state, go, sheet, maps: { spotQuery, areaQuery, mapsLink, appleLink, spotApple, areaApple }, photos: window.Photos ? Object.assign(Object.create(window.Photos), { ownerKey }) : null }; // for tests and the console
+  window.__sbs = { map, state, go, sheet, maps: { spotQuery, areaQuery, mapsLink, appleLink, spotApple, areaApple }, photos: window.Photos ? Object.assign(Object.create(window.Photos), { ownerKey }) : null, get photoOpts() { return photoOpts; }, feed: { read: readFeed, get news() { return state.news; } } }; // for tests and the console
   window.claude?.hot?.snapshot?.(() => ({ loc: state.loc }));
   window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
 })();

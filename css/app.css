@@ -109,6 +109,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .tip.on { opacity: 1; }
 .toast { position: absolute; left: 50%; top: calc(14px + env(safe-area-inset-top, 0px)); transform: translateX(-50%) translateY(-8px); background: var(--ink); color: var(--paper); font-weight: 600; padding: 9px 14px; border-radius: 8px; opacity: 0; transition: opacity .25s, transform .25s var(--ease); pointer-events: none; font-size: 13.5px; z-index: 9; max-width: calc(100% - 32px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.act { display: flex; align-items: center; gap: 12px; padding-right: 6px; text-align: left; } .toast.act.on { pointer-events: auto; } /* one action: tappable only while it shows */
+.toast.act > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; } /* a long line ends in an ellipsis; the button (flex: none) stays whole */
+.toast button { flex: none; border: 0; border-radius: 999px; padding: 0 12px; height: 30px; background: color-mix(in srgb, currentColor 16%, transparent); color: inherit; font-weight: 700; font-size: 13px; white-space: nowrap; }
+.toast button:hover { background: color-mix(in srgb, currentColor 26%, transparent); }
 
 /* ---------- surfaces ---------- */
 .surface { background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); border: 0; border-radius: var(--r); box-shadow: var(--glass-ring); }
@@ -231,6 +235,7 @@ a.btn { text-decoration: none; }
 .vword { font-family: var(--display); font-weight: 700; font-size: 16px; letter-spacing: -.01em; color: var(--ink); white-space: nowrap; }
 .pstamp { margin-left: auto; flex: none; font-family: var(--display); font-weight: 700; font-size: 12px; line-height: 1; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; color: var(--accent); border: 2px solid currentColor; border-radius: 6px; padding: 5px 9px; outline: 1px solid color-mix(in srgb, currentColor 45%, transparent); outline-offset: -5px; transform: rotate(-5deg); opacity: .86; }
 .pstamp.want { color: var(--want); border-style: dashed; }
+.panel .vby { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); } /* who logged the spot, under its verdict */
 .vrow .pstamp:first-child { margin-left: 2px; } /* no rating: the stamp alone, at the start of the row */
 .pstamp.thunk { animation: thunk .26s cubic-bezier(.3, 1.5, .5, 1) .12s both; }
 @keyframes thunk { from { opacity: 0; transform: rotate(-5deg) scale(1.5); } to { opacity: .86; transform: rotate(-5deg) scale(1); } }
@@ -261,6 +266,19 @@ a.btn { text-decoration: none; }
 .row .rt .chev { display: inline-block; width: 7px; height: 7px; border-right: 1.5px solid var(--line-2); border-bottom: 1.5px solid var(--line-2); transform: rotate(-45deg); margin-left: 8px; vertical-align: 1px; }
 .cols2 { columns: 2; column-gap: 18px; } .cols2 li { break-inside: avoid; }
 
+/* what's new since this device last looked: a soft card at the top of the root panel, gone once Seen */
+.news { margin: 0 0 14px; padding: 0 12px 2px; border-radius: var(--r); background: color-mix(in srgb, var(--accent) 7%, var(--sheet-bg, var(--paper))); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent); }
+.panel .news h3 { margin: 0; padding: 10px 0 2px; color: var(--ink-2); }
+.news .row .ic { background: var(--accent); width: 7px; height: 7px; margin: 0 1px; }
+.news .rows li { border-bottom-color: color-mix(in srgb, var(--accent) 12%, transparent); }
+.panel .news .more { margin: 0; padding: 0 0 10px 18px; font-size: 12.5px; color: var(--muted); }
+/* the name prompt (a dialog, asked once per device) */
+dialog.who { width: min(360px, calc(100% - 32px)); padding: 18px 18px 16px; border: 0; border-radius: 18px; background: var(--sheet-bg, var(--paper)); color: var(--ink); box-shadow: var(--panel-shadow); }
+dialog.who::backdrop { background: rgba(10, 12, 16, .4); }
+dialog.who h2 { margin: 0 0 4px; font-family: var(--display); font-weight: 700; font-size: 22px; line-height: 1.1; letter-spacing: -.02em; font-variation-settings: "opsz" 96; }
+dialog.who p { margin: 0 0 14px; font-size: 14px; line-height: 1.45; color: var(--muted); }
+dialog.who .field input { background: var(--sheet-bg, var(--paper)); }
+dialog.who .actions { justify-content: flex-end; margin-top: 4px; }
 .progress { display: flex; flex-direction: column; gap: 6px; margin: 2px 0 14px; }
 .bar { height: 4px; background: var(--line); overflow: hidden; border-radius: 2px; }
 .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .5s var(--ease); border-radius: 2px; min-width: 0; }
@@ -547,9 +565,6 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
   .sheet:not(.full) .row .nm small { -webkit-line-clamp: 1; }
   .sheet:not(.full) .panel h3 { margin-top: 14px; } .sheet:not(.full) .panel .lead { margin-bottom: 10px; }
   .sheet:not(.full) .marks + .savestate:empty + .facts, .sheet:not(.full) .marks + .facts { margin-top: 10px; }
-  /* log form at half (after a pin): the bar sits on the visible sheet edge, not the off-screen panel bottom */
-  .sheet:not(.full) #lf-actions { position: fixed; left: 0; right: 0; bottom: auto; top: calc(var(--sheet-vis) - 69px - env(safe-area-inset-bottom, 0px)); margin: 0; }
-  .sheet:not(.full) #logform { padding-bottom: 80px; }
   .row:active, .mark:not([disabled]):active, .textlinks button:active, .head .up:active, .head .tools button:active, .trail button:active, .suggest button:active { background: var(--paper-2); }
   .savestate:empty { display: none; } .marks + .savestate:empty + .facts, .marks + .facts { margin-top: 14px; }
 }
@@ -561,11 +576,28 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
 @media (max-width: 880px) {
   .stage::after { content: ""; position: absolute; inset: 0; background: rgba(0,0,0,0); pointer-events: none; transition: background .3s var(--ease); }
   .sheet-full .stage::after { background: rgba(0,0,0,.45); }
-  /* log form: Save/Cancel pinned to the sheet bottom (the negative offsets cancel the panel's bottom padding so it sits flush;
-     with the keyboard up, --kb keeps it just above the keyboard) */
-  #logform { display: flex; flex-direction: column; min-height: 100%; } #logform > * { flex: none; } /* short form: the bar still ends at the sheet bottom */
-  #lf-actions { position: sticky; bottom: calc(-32px - env(safe-area-inset-bottom, 0px)); margin: auto -16px calc(-32px - var(--kb, 0px) - env(safe-area-inset-bottom, 0px)); padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px)); background: var(--sheet-bg, var(--paper)); border-top: 1px solid var(--line); display: grid; grid-template-columns: 1fr 2fr; gap: 10px; z-index: 1; }
+  /* log form: Save/Cancel on the visible bottom edge of the sheet, out of the panel's flow. Fixed inside the sheet (its transform makes
+     the sheet the containing block), so bottom: --sheet-y is the edge that shows at any detent, and --kb lifts it above the keyboard
+     (0 whenever no text field is focused, js/sheet.js). Not sticky: its resting place hung on the panel's padding and --kb, and a stale
+     --kb left it mid-sheet over the When field. The form ends with room for the bar, so the last field scrolls clear of it. */
+  #lf-actions { position: fixed; left: 0; right: 0; bottom: calc(var(--sheet-y) + var(--kb, 0px)); margin: 0; padding: 10px max(16px, env(safe-area-inset-right, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); background: var(--sheet-bg, var(--paper)); border-top: 1px solid var(--line); display: grid; grid-template-columns: 1fr 2fr; gap: 10px; z-index: 3; transition: bottom .42s var(--ease); } /* the sheet's own easing: during a detent change the bar stays on the screen edge */
+  .kb #lf-actions { padding-bottom: 10px; } /* the keyboard covers the home indicator */
+  @media (max-height: 500px) { .kb #lf-actions { visibility: hidden; } .kb .panel:has(#logform) { scroll-padding-bottom: var(--kb, 0px); } } /* a phone on its side with the keyboard up: no room for a field and the bar; it is back when the keyboard goes */
+  .sheet.lifting #lf-actions { transition: none; }
+  #logform { padding-bottom: 60px; } /* with the panel's 32px: the bar's height and a gap */
+  .panel { scroll-padding-bottom: var(--kb, 0px); } .panel:has(#logform) { scroll-padding-bottom: calc(var(--kb, 0px) + 80px + env(safe-area-inset-bottom, 0px)); } /* a focused field scrolls into the part above the keyboard and the bar */
   #lf-actions .btn { height: 48px; font-size: 16px; border-radius: 12px; } #lf-actions .primary { order: 2; }
+  dialog.who { margin: calc(env(safe-area-inset-top, 0px) + 56px) auto auto; } /* high, so the keyboard leaves it in view */
+  dialog.who .actions { display: grid; grid-template-columns: 1fr 2fr; } dialog.who .btn { height: 48px; font-size: 16px; border-radius: 12px; }
+  .sheet-full:has(#logform) .toast { bottom: calc(var(--kb, 0px) + 82px + env(safe-area-inset-bottom, 0px)); } /* above the bar */
+  /* When: iOS draws a date input centred, wider than its box and with no sign it can be changed; left-aligned in the field with a calendar mark */
+  .lf-when { position: relative; }
+  .lf-when input[type=date] { display: block; -webkit-appearance: none; appearance: none; min-width: 0; max-width: 100%; text-align: left; padding-right: 40px; }
+  .lf-when input[type=date]::-webkit-date-and-time-value { text-align: left; margin: 0; }
+  .lf-when input[type=date]::-webkit-calendar-picker-indicator { opacity: 0; } /* Chrome's own icon: still there to tap, under ours */
+  .lf-when::after { content: ""; position: absolute; right: 13px; bottom: 13px; width: 18px; height: 18px; background: var(--muted); pointer-events: none;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round'%3E%3Crect x='3.5' y='5' width='17' height='15.5' rx='2.5'/%3E%3Cpath d='M3.5 10h17M8 3v4M16 3v4'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round'%3E%3Crect x='3.5' y='5' width='17' height='15.5' rx='2.5'/%3E%3Cpath d='M3.5 10h17M8 3v4M16 3v4'/%3E%3C/svg%3E") center / contain no-repeat; }
   /* spots filters: one sideways-scrolling row of pills per group */
   .chips { flex-wrap: nowrap; overflow-x: auto; gap: 8px; margin: 0 -16px 8px; padding: 2px 16px; scrollbar-width: none; -webkit-overflow-scrolling: touch; } .chips::-webkit-scrollbar { display: none; }
   .chips button { flex: none; min-height: 36px; height: 36px; padding: 0 14px; border: 1px solid var(--line-2); border-radius: 999px; white-space: nowrap; text-decoration: none; }

@@ -59,10 +59,23 @@
     panel.addEventListener('touchend', endTouch); panel.addEventListener('touchcancel', endTouch);
     panel.addEventListener('click', e => { if (isPhone() && detent === 'peek' && !e.target.closest('button, a, input, select, textarea, label, summary')) set('half'); });
     panel.addEventListener('scroll', () => el.classList.toggle('scrolled', panel.scrollTop > 2), { passive: true });
-    // keyboard: a field opens the sheet to full (half does not scroll) and scrolls into view; --kb pads the panel above the keyboard
+    // keyboard: a field opens the sheet to full (half does not scroll) and scrolls into view; --kb (below) pads the panel above the keyboard
     panel.addEventListener('focusin', e => { if (!isPhone() || !e.target.matches('input:not([type=checkbox]):not([type=file]), textarea, select')) return; if (detent !== 'full') set('full'); setTimeout(() => { try { e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (err) {} }, 450); });
-    if (window.visualViewport) { const kb = () => root.style.setProperty('--kb', Math.max(0, window.innerHeight - visualViewport.height - visualViewport.offsetTop).toFixed(0) + 'px'); visualViewport.addEventListener('resize', kb); visualViewport.addEventListener('scroll', kb); kb(); }
-    window.addEventListener('resize', () => set(detent, { instant: true, resize: true }));
+    // --kb: how much of the layout viewport the keyboard covers. Only a focused text field has a keyboard, so with none focused it is 0
+    // whatever the visual viewport says: iOS can miss the resize after the keyboard goes, and a stale --kb floated the form's Save bar a
+    // keyboard's height up the sheet, over the fields. A pinch zoom also shrinks the visual viewport, and is not a keyboard.
+    const TEXT = 'input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=date]):not([type=time]):not([type=range]):not([type=color]):not([type=button]):not([type=submit]), textarea, [contenteditable="true"]';
+    let kbPx = -1;
+    function kb() {
+      const vv = window.visualViewport, a = document.activeElement, H = window.innerHeight;
+      let v = vv && a && a.matches(TEXT) && vv.scale < 1.05 ? Math.max(0, H - vv.height - vv.offsetTop) : 0;
+      if (v < 60) v = 0; v = Math.round(Math.min(v, H * .7)); // under 60px: browser bars, not a keyboard
+      if (v === kbPx) return; kbPx = v; root.style.setProperty('--kb', v + 'px'); root.classList.toggle('kb', v > 0);
+    }
+    const kbSoon = () => { kb(); for (const t of [120, 360, 720]) setTimeout(kb, t); }; // the keyboard slides for a few hundred ms
+    if (window.visualViewport) { visualViewport.addEventListener('resize', kb); visualViewport.addEventListener('scroll', kb); }
+    document.addEventListener('focusin', kbSoon); document.addEventListener('focusout', kbSoon); kb();
+    window.addEventListener('resize', () => { kb(); set(detent, { instant: true, resize: true }); });
     return { set, get detent() { return detent; }, get visible() { return isPhone() ? vis : 0; }, heights, isPhone };
   };
 })();

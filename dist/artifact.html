@@ -1796,6 +1796,7 @@ window.LANDMARKS = [
     let region = 'all', sel = -1, selSub = -1, hover = -1, hoverSub = -1, hoverSpot = null, quiz = false;
     const colNow = HOODS.map(() => [200, 200, 200]), colTo = HOODS.map(() => [200, 200, 200]); let colAnim = false;
     const lblA = HOODS.map(() => 0), subA = {}, lmA = LANDS.map(() => 0), bridgeLblA = [0], waterLblA = [0], sfA = [0], starA = {};
+    const farA = [1]; // how strongly places outside the selected region fade: 1 while the camera is where the app put it, 0 once the user moves it by hand (else the map is grey exactly where they look)
     const markAnim = {}; let me = null, meT0 = 0;
     const measureCache = new Map(); let drawnSpots = [];
     // widths measured before the webfont arrives belong to the fallback face: measure again once it loads
@@ -1900,12 +1901,12 @@ window.LANDMARKS = [
       for (let i = 0; i < HOODS.length; i++) { const bb = BB[i]; if (bb[2] < x || bb[0] > x1 || bb[3] < y || bb[1] > y1) continue; vis.push(i); subF[i] = subFactor(i); }
       for (const i of vis) {
         const far = region !== 'all' && HOODS[i].region !== region && i !== sel;
-        const a = (o.alphaFor ? o.alphaFor(i) : 1) * (far ? .32 : 1);
+        const a = (o.alphaFor ? o.alphaFor(i) : 1) * (far ? lerp(1, .32, farA[0]) : 1);
         c.globalAlpha = a; c.fillStyle = rgbStr(colNow[i]); c.fill(PATH[i]);
         if (subF[i] > 0.01) { const cells = subsOf(i), base = colNow[i], white = [255, 255, 255], black = [20, 30, 40]; c.globalAlpha = a * subF[i]; clipTo(c, i, () => cells.forEach((cell, j) => { const m = j % 3; c.fillStyle = rgbStr(cell.star ? mix(base, .12, gold) : m === 0 ? mix(base, .09, white) : m === 1 ? base : mix(base, .07, black)); c.fill(cell.path); })); }
       }
       tick('t-fills'); c.strokeStyle = P.paper; c.lineWidth = 1 / k;
-      for (const i of vis) { const far = region !== 'all' && HOODS[i].region !== region; c.globalAlpha = far ? .35 : .9; c.stroke(PATH[i]); }
+      for (const i of vis) { const far = region !== 'all' && HOODS[i].region !== region; c.globalAlpha = far ? lerp(.9, .35, farA[0]) : .9; c.stroke(PATH[i]); }
       c.strokeStyle = P.subLine; c.lineWidth = .8 / k;
       for (const i of vis) if (subF[i] > 0.01) { c.globalAlpha = subF[i] * .9; clipTo(c, i, () => subsOf(i).forEach(cell => c.stroke(cell.path))); }
       // starred sections: a gold band just inside the cell edge, with a dark-gold rim, so it reads on any base colour
@@ -1921,6 +1922,10 @@ window.LANDMARKS = [
     }
     function draw(dt) {
       const k = kNow(), I = insets(); let anim = false; pt0 = performance.now(); prof.frames = (prof.frames || 0) + 1;
+      // the region fade follows the camera: a hand pan or zoom cross-fades it out, the next fly brings it back (the fills live in the terrain bitmap, so each step re-renders it)
+      const farOn = !userMoved || quiz, far0 = farA[0]; // the quiz keeps it: the fade is the only sign of which places are in play
+      if (region === 'all') farA[0] = farOn ? 1 : 0; // nothing is faded at the whole Bay: no fade to animate, no terrain redraws for it
+      else { anim = fade(farA, 0, farOn ? 1 : 0, dt, 160) || anim; if (farA[0] !== far0) dirty = true; }
       // terrain: reuse, scale, or re-render
       const drift = cache.valid ? Math.abs(k / cache.k - 1) : 1;
       const inside = cache.valid && cam.x >= cache.x && cam.y >= cache.y && cam.x + W / k <= cache.x + (W + 2 * cache.mw) / cache.k && cam.y + H / k <= cache.y + (H + 2 * cache.mh) / cache.k;
@@ -1973,7 +1978,7 @@ window.LANDMARKS = [
       // landmark glyphs cannot move, so their footprints are reserved first (they are drawn later, above the fills)
       const lmF = quiz ? 0 : smooth(k, 7, 10.5), lmH = clamp(k * 1.7, 16, 44);
       LANDS.forEach((l, j) => {
-        const hi = IDX[l.hood]; const far = region !== 'all' && hi != null && HOODS[hi].region !== region;
+        const hi = IDX[l.hood]; const far = farOn && region !== 'all' && hi != null && HOODS[hi].region !== region;
         const [sx, sy] = toScreen(l.x, l.y); const onScreen = sx > -60 && sx < W + 60 && sy > -60 && sy < H + 60;
         anim = fade(lmA, j, onScreen && !far ? lmF : 0, dt, 180) || anim;
         l._s = onScreen ? [sx, sy] : null;
@@ -1998,7 +2003,7 @@ window.LANDMARKS = [
       const labelFont = s => `600 ${s.toFixed(1)}px Figtree, system-ui, sans-serif`;
       const show = [];
       for (const i of order) {
-        const h = HOODS[i], far = region !== 'all' && h.region !== region && i !== sel && i !== hover;
+        const h = HOODS[i], far = farOn && region !== 'all' && h.region !== region && i !== sel && i !== hover;
         let target = 0, box = null, size = base, ghost = false, st = 0;
         if (!quiz && !far) {
           const hot = i === sel || i === hover, text = (window.SHORT[h.name] || h.name).toUpperCase();
@@ -2039,6 +2044,16 @@ window.LANDMARKS = [
       }
       if (supportsLS) ctx.letterSpacing = '0px';
       ctx.globalAlpha = 1; tick('hoodlbl');
+      // spots are fixed like flags: their dots (tagged, so spot names keep their old test) and the open spot's name are reserved before section labels, which move or hide around them
+      const spots = drawnSpots = o.spots ? o.spots() : [], pinScale = clamp(k / 12, .75, 1.15), pinSize = isPhone() ? 10.5 : 11.5, openSpot = o.selectedSpot?.(), spotBoxes = [];
+      for (const sp of spots) {
+        const [sx, sy] = toScreen(sp.x, sp.y); if (sx < -20 || sx > W + 20 || sy < -20 || sy > H + 20) { sp._s = null; continue; }
+        sp._s = [sx, sy];
+        const r = 6.5 * pinScale * (sp.status === 'pending' && isPhone() ? 1.5 : 1) + 2, b = [sx - r, sy - r, sx + r, sy + r]; b.own = 'dot'; spotBoxes.push(b); // the hot radius for every dot: hovering a spot never reflows section labels
+        if (sp.id === openSpot && k > 16 && sp.name && !quiz) { const x0 = sx + 6.5 * pinScale + 3; spotBoxes.push([x0, sy - 7, x0 + measure(sp.name, 500, pinSize) + 4, sy + 7]); }
+      }
+      for (const b of spotBoxes) placed.push(b);
+      const onSpot = b => spotBoxes.some(q => b[0] < q[2] && b[2] > q[0] && b[1] < q[3] && b[3] > q[1]);
       // section labels
       const subSize = isPhone() ? 10.5 : 11.5, subFont = `500 ${subSize}px Figtree, system-ui, sans-serif`, sgx = 2;
       const hotSize = subSize * 1.25, hotFont = `600 ${hotSize}px Figtree, system-ui, sans-serif`; // phone: the selected section's name leads
@@ -2053,9 +2068,9 @@ window.LANDMARKS = [
             const tw = measure(c.name, big ? 600 : 500, ss) + sw, th = ss * 1.2, [cx, cy] = toScreen(c.c[0], c.c[1]);
             box = [cx - tw / 2 - sgx, cy - th / 2, cx + tw / 2 + sgx, cy + th / 2];
             const fits = (c.bbox[2] - c.bbox[0]) * k >= tw * .8 && (c.bbox[3] - c.bbox[1]) * k >= th * 1.1;
-            // in a starred place, a label that clashes looks for the nearest clear, on-screen spot whose centre stays in its own section
+            // in a starred place, a label that clashes looks for the nearest clear, on-screen spot whose centre stays in its own section; so does any label sitting on a spot, so dots do not empty a dense area of names
             let moved = false;
-            if (STAR[i] && (c.star || fits) && clash(box)) {
+            if ((STAR[i] && (c.star || fits) && clash(box)) || ((c.star || fits || hot) && onSpot(box))) {
               const inScr = b => { const dx = Math.max(0, 2 - b[0]) + Math.min(0, W - 2 - b[2]); return [b[0] + dx, b[1], b[2] + dx, b[3]]; };
               const inCell = b => { const [mx, my] = toMap((b[0] + b[2]) / 2, (b[1] + b[3]) / 2); return c.rings.some(r => Geom.pip(r, mx, my)); };
               search: for (const dy of [0, th * 1.15, -th * 1.15, th * 2.3, -th * 2.3]) for (const dx of [0, -tw * .5, tw * .5, -tw, tw]) { const alt = inScr([box[0] + dx, box[1] + dy, box[2] + dx, box[3] + dy]); if (!clash(alt) && inCell(alt)) { box = alt; moved = true; break search; } }
@@ -2072,7 +2087,7 @@ window.LANDMARKS = [
       }
       if (wm) {
         const text = (window.SHORT[HOODS[wm.i].name] || HOODS[wm.i].name).toUpperCase(), th = wm.size * 1.2, b = wm.box;
-        const hit = q => placed.some(p => q[0] < p[2] && q[2] > p[0] && q[1] < p[3] && q[3] > p[1]);
+        const hit = q => placed.some(p => p.own !== 'dot' && q[0] < p[2] && q[2] > p[0] && q[1] < p[3] && q[3] > p[1]); // the watermark sits under the dots, so it does not dodge them
         const dy = [0, th * 1.4, -th * 1.4, th * 2.8, -th * 2.8, th * 4.2, -th * 4.2].find(d => !hit([b[0], b[1] + d, b[2], b[3] + d]));
         if (dy != null) { ctx.globalAlpha = lblA[wm.i]; ctx.textAlign = 'center'; ctx.font = labelFont(wm.size); if (supportsLS) ctx.letterSpacing = '0.14em'; ctx.fillStyle = P.accent; ctx.fillText(text, (b[0] + b[2]) / 2 - wm.st / 2, (b[1] + b[3]) / 2 + dy); if (supportsLS) ctx.letterSpacing = '0px'; placeStar(wm, dy); }
       }
@@ -2099,17 +2114,15 @@ window.LANDMARKS = [
       });
       ctx.globalAlpha = 1; tick('landmarks');
       // spots
-      const spots = drawnSpots = o.spots ? o.spots() : [], pinFont = `500 ${isPhone() ? 10.5 : 11.5}px Figtree, system-ui, sans-serif`;
-      const pinScale = clamp(k / 12, .75, 1.15);
+      const pinFont = `500 ${pinSize}px Figtree, system-ui, sans-serif`;
       for (const sp of spots) {
-        const [sx, sy] = toScreen(sp.x, sp.y); if (sx < -20 || sx > W + 20 || sy < -20 || sy > H + 20) { sp._s = null; continue; }
-        sp._s = [sx, sy];
-        const hot = sp.id === hoverSpot || sp.id === o.selectedSpot?.(); const r = (hot ? 6.5 : 5) * pinScale;
+        if (!sp._s) continue; const [sx, sy] = sp._s; // positioned with the reservations above
+        const hot = sp.id === hoverSpot || sp.id === openSpot; const r = (hot ? 6.5 : 5) * pinScale;
         ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI * 2);
         if (sp.status === 'pending' && isPhone()) { ctx.beginPath(); ctx.arc(sx, sy, r * 1.5, 0, Math.PI * 2); ctx.globalAlpha = .22; ctx.fillStyle = P.accent; ctx.fill(); ctx.globalAlpha = 1; ctx.setLineDash([3, 2]); ctx.strokeStyle = P.accent; ctx.lineWidth = 2; ctx.stroke(); ctx.setLineDash([]); ctx.beginPath(); ctx.arc(sx, sy, r * .45, 0, Math.PI * 2); ctx.fillStyle = P.accent; ctx.fill(); } // phone: a dashed accent ring that reads in both themes
         else if (sp.status === 'pending') { ctx.fillStyle = P.paper; ctx.fill(); ctx.setLineDash([2, 1.5]); ctx.strokeStyle = P.accent; ctx.lineWidth = 1.5; ctx.stroke(); ctx.setLineDash([]); }
         else { ctx.fillStyle = P.paper; ctx.fill(); ctx.strokeStyle = hot ? P.ink : 'rgba(0,0,0,.25)'; ctx.lineWidth = hot ? 1.5 : 1; ctx.stroke(); ctx.beginPath(); ctx.arc(sx, sy, r * .55, 0, Math.PI * 2); const c = cssColor(sp.c); if (sp.status === 'want') { ctx.strokeStyle = c; ctx.lineWidth = 1.6; ctx.stroke(); } else { ctx.fillStyle = c; ctx.fill(); } }
-        if (k > 16 && sp.name && !quiz) { const ps = isPhone() ? 10.5 : 11.5, tw = measure(sp.name, 500, ps), box = [sx + r + 3, sy - 7, sx + r + 3 + tw + 4, sy + 7]; if (!clash(box) || hot) { placed.push(box); ctx.textAlign = 'left'; ctx.font = pinFont; haloText(sp.name, sx + r + 5, sy, ps, P.label); } }
+        if (k > 16 && sp.name && !quiz) { const ps = pinSize, tw = measure(sp.name, 500, ps), box = [sx + r + 3, sy - 7, sx + r + 3 + tw + 4, sy + 7]; if (!clash(box, 'dot') || hot) { placed.push(box); ctx.textAlign = 'left'; ctx.font = pinFont; haloText(sp.name, sx + r + 5, sy, ps, P.label); } }
       }
       tick('spots');
       // me
@@ -2118,9 +2131,12 @@ window.LANDMARKS = [
     }
 
     // ---- hit testing ----
-    function hitTest(sx, sy) {
+    function hitTest(sx, sy, touch) {
       const spots = drawnSpots; // the objects draw() positioned, not a fresh list
-      for (let q = spots.length - 1; q >= 0; q--) { const sp = spots[q]; if (sp._s && Math.hypot(sp._s[0] - sx, sp._s[1] - sy) < 11 && sp.status !== 'pending') return { type: 'spot', id: sp.id, hood: sp.hood }; }
+      if (touch) { // a fingertip covers a dot and its neighbours: a wider reach, and the nearest dot inside it (the top one on a tie)
+        let best = null, bd = 20; for (let q = spots.length - 1; q >= 0; q--) { const sp = spots[q]; if (!sp._s || sp.status === 'pending') continue; const d = Math.hypot(sp._s[0] - sx, sp._s[1] - sy); if (d < bd) { best = sp; bd = d; } }
+        if (best) return { type: 'spot', id: best.id, hood: best.hood };
+      } else for (let q = spots.length - 1; q >= 0; q--) { const sp = spots[q]; if (sp._s && Math.hypot(sp._s[0] - sx, sp._s[1] - sy) < 11 && sp.status !== 'pending') return { type: 'spot', id: sp.id, hood: sp.hood }; }
       for (let j = LANDS.length - 1; j >= 0; j--) { const b = LANDS[j]._box; if (b && lmA[j] > .5 && sx >= b[0] - 3 && sx <= b[2] + 3 && sy >= b[1] - 3 && sy <= b[3] + 3) return { type: 'landmark', landmark: LANDS[j], hood: LANDS[j].hood }; }
       const [mx, my] = toMap(sx, sy), k = kNow();
       for (let i = 0; i < HOODS.length; i++) {
@@ -2171,7 +2187,7 @@ window.LANDMARKS = [
           const sx = e.clientX - r.left, sy = e.clientY - r.top, t = now();
           mode = 'still'; // before the callbacks: a tap may start a fly or a zoom
           if (lastTap && t - lastTap.t < 320 && Math.hypot(lastTap.x - sx, lastTap.y - sy) < 28) { lastTap = null; zoomAt(sx, sy, 1 / 1.9); }
-          else { lastTap = { t, x: sx, y: sy }; if (o.onTap) o.onTap(hitTest(sx, sy), sx, sy); }
+          else { lastTap = { t, x: sx, y: sy }; if (o.onTap) o.onTap(hitTest(sx, sy, e.pointerType === 'touch' && !quiz), sx, sy); } // quiz: a tap answers with the place under the finger, not a nearby dot's
         } else if (drag && drag.moved > 5) {
           const speed = Math.hypot(vel.x, vel.y); if (speed > 0.08 && now() - drag.t < 80) { mode = 'inertia'; kick(); } else mode = 'still';
         } else mode = 'still';

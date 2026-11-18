@@ -29,15 +29,25 @@ window.Sync = (() => {
       close: () => { closed = true; if (es) es.close(); },
     };
   }
-  // Photos sit in a sibling record, logs/<key>-ph/<owner>/<photoId>, so the log's live stream never carries them.
+  // Photos sit in sibling records, so the log's live stream never carries them: logs/<key>-ph/<owner>/<photoId> is the
+  // full photo (the source of truth) and logs/<key>-pt/<owner>/<photoId> its small thumb. A shallow read lists an
+  // owner's ids ({id: true}) without their bytes.
   function photos(key) {
-    const purl = (...p) => `${base}/logs/${[key + '-ph', ...p].map(encodeURIComponent).join('/')}.json`;
+    const at = node => (...p) => `${base}/logs/${[key + node, ...p].map(encodeURIComponent).join('/')}.json`, ph = at('-ph'), pt = at('-pt');
     const req = (u, o) => fetch(u, o).then(r => { if (!r.ok) throw err(r.status === 401 || r.status === 403 ? 'invalid_argument' : 'unavailable', 'photos request failed ' + r.status); return r; });
+    const get = u => req(u).then(r => r.json()), obj = d => (d && typeof d === 'object' ? d : {});
+    const put = (u, rec) => req(u, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rec) }).then(() => {});
+    const del = u => req(u, { method: 'DELETE' });
     return {
-      list: owner => req(purl(owner)).then(r => r.json()).then(d => (d && typeof d === 'object' ? d : {})),
-      put: (owner, id, rec) => req(purl(owner, id), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rec) }).then(() => {}),
-      del: (owner, id) => req(purl(owner, id), { method: 'DELETE' }).then(() => {}),
-      delAll: owner => req(purl(owner), { method: 'DELETE' }).then(() => {}),
+      key,
+      ids: owner => get(ph(owner) + '?shallow=true').then(d => Object.fromEntries(Object.keys(obj(d)).filter(k => d[k] != null).map(k => [k, true]))), // whatever shape comes back (an array for number-like ids), {id: true}
+      thumbs: owner => get(pt(owner)).then(obj),
+      get: (owner, id) => get(ph(owner, id)), // null once deleted
+      thumb: (owner, id) => get(pt(owner, id)),
+      put: (owner, id, rec) => put(ph(owner, id), rec),
+      putThumb: (owner, id, rec) => put(pt(owner, id), rec),
+      del: (owner, id) => del(ph(owner, id)).then(() => del(pt(owner, id)).catch(() => {})).then(() => {}), // the thumb after the photo: a thumb left behind is ignored, a photo left without one gets a new one
+      delAll: owner => Promise.all([del(ph(owner)), del(pt(owner)).catch(() => {})]).then(() => {}),
     };
   }
   return { ready, connect, url, photos };

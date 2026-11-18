@@ -512,6 +512,7 @@
     if (!window.Sync || !Sync.ready()) { state.store = 'local'; return; }
     const key = syncKey(); state.store = 'sync';
     if (window.Photos && Sync.photos) Photos.init({ api: Sync.photos(key), toast, canWrite: () => state.canWrite });
+    { const sp = state.loc.spot || (state.bootLoc && state.bootLoc.spot); if (sp && window.Photos && Photos.preload) Photos.preload(ownerKey.spot(sp)); } // a #spot-- link: its photos set off now, beside the log, not after it
     let seeded = false;
     docRef = Sync.connect(key, data => {
       if (data && data.updatedAt && data.updatedAt === lastSent) return; // our own write coming back

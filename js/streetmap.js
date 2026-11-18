@@ -13,7 +13,7 @@
   const FONT = ['Noto Sans Regular'], FONT_I = ['Noto Sans Italic'], WAIT = 6000, LIB_WAIT = 15000;
   const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   let lib = null, src = null, dead = !('WebGLRenderingContext' in window), drawn = false;
-  let map = null, host = null, pending = null, shown = null, cur = null, omt = null, data = { sec: fc([]), dots: fc([]) }, dataKey = '';
+  let map = null, host = null, pending = null, shown = null, cur = null, omt = null, data = { sec: fc([]), dots: fc([]) }, dataKey = '', errs = 0;
   function fc(features) { return { type: 'FeatureCollection', features }; }
 
   // ---------- loading ----------
@@ -134,18 +134,21 @@
     map.getCanvas().setAttribute('tabindex', '-1');
     map.on('move', placePin); map.on('resize', placePin);
     map.on('style.load', () => { if (map.getSource('sec')) { map.getSource('sec').setData(data.sec); map.getSource('dots').setData(data.dots); } });
-    // before anything has ever drawn, a tile or style error means the tiles are not reachable: the embed, now, not in 6 s
-    map.on('error', e => { console.warn('street map:', e && e.error ? e.error.message || e.error : e); if (!drawn && pending) { const p = pending; src = null; fallback(p.el, p.v); } });
+    // before anything has ever drawn, a run of tile errors means the tiles are not reachable: the embed, now, not in 6 s.
+    // One failed tile or glyph range is not that (and may belong to the view before this one), so it takes three
+    map.on('error', e => { console.warn('street map:', e && e.error ? e.error.message || e.error : e); if (!drawn && pending && ++errs >= 3) { const p = pending; src = null; fallback(p.el, p.v); } });
   }
   // for tests and timing: how long a view took from mount to drawn
   function report(key, t0) { api.last = { key, ms: Math.round(performance.now() - t0) }; window.dispatchEvent(new CustomEvent('streetmap:drawn', { detail: api.last })); }
-  function arm(p, ms) { clearTimeout(p.timer); p.timer = setTimeout(() => { if (pending === p) { console.warn(`street map: nothing drawn in ${ms / 1000} s, using the Google embed`); fallback(p.el, p.v); } }, ms); }
+  function arm(p, ms) { clearTimeout(p.timer); p.timer = setTimeout(() => { if (pending === p) { console.warn(`street map: nothing drawn in ${ms / 1000} s, using the Google embed`); if (!map) src = null; fallback(p.el, p.v); } }, ms); } // !map: a TileJSON read that hangs is asked for again by the next panel
+  const gone = p => { if (p.el.isConnected) return false; if (pending === p) { clearTimeout(p.timer); pending = null; } return true; }; // the panel moved on while this view loaded: nothing is drawn or marked as shown
   function show(p) {
-    const { el, v } = p; arm(p, WAIT);
+    const { el, v } = p; if (gone(p)) return;
+    arm(p, WAIT); errs = 0;
     attach(el); el.classList.remove('live', 'fb');
     setData(v); map.jumpTo(camera(v)); placePin();
     const done = () => {
-      if (pending !== p) { map.off('idle', done); return; }
+      if (pending !== p || gone(p)) { map.off('idle', done); return; }
       map.off('idle', done); clearTimeout(p.timer); pending = null; drawn = true; shown = v.key;
       el.classList.add('live'); report(v.key, p.t0);
     };
@@ -157,18 +160,20 @@
   function mount(el, v) {
     if (!el) return;
     const prev = cur, t0 = performance.now(); cur = Object.assign({ el }, v);
-    if (dead) { fallback(el, v); return; }
+    const c = v.seed || [v.lon, v.lat]; // MapLibre throws on a centre that is not a coordinate
+    if (dead || !(isFinite(c[0]) && isFinite(c[1]) && Math.abs(c[1]) <= 90)) { fallback(el, v); return; }
     if (map && shown === v.key && prev && prev.key === v.key && !pending) { el.classList.add('live'); attach(el); setData(v); placePin(); map.triggerRepaint(); report(v.key, t0); return; }
     if (pending) { clearTimeout(pending.timer); pending = null; }
     shown = null;
     const p = pending = { el, v, t0 };
     arm(p, LIB_WAIT); // the library and the TileJSON on a slow line; the 6 s for the map itself start in show()
-    if (map) { show(p); return; }
+    const go = () => { try { show(p); } catch (e) { console.warn('street map: this view failed, using the Google embed', e); fallback(el, v); } };
+    if (map) { go(); return; }
     Promise.all([loadLib(), source()]).then(([gl, s]) => {
-      if (pending !== p) return;
+      if (pending !== p || gone(p)) return;
       omt = s;
       try { if (!map) create(gl, el, v); } catch (e) { dead = true; console.warn('street map: no WebGL, using the Google embed', e); fallback(el, v); return; }
-      show(p);
+      go();
     }, () => { if (pending === p) fallback(el, v); });
   }
   // the theme changed: the same map, new colours (a diff of the style, so no tile reloads)

@@ -276,7 +276,8 @@
   const streetOK = () => (state.store === 'sync' || state.store === 'local') && !(window.claude && window.claude.use);
   const streetMap = v => streetOK() && window.StreetMap ? `<h3>Street map</h3>${StreetMap.box(v)}` : '';
   const mountStreet = v => { const el = panel.querySelector('.mapprev'); if (el && window.StreetMap) StreetMap.mount(el, v); };
-  const spotDots = skip => Object.keys(state.spots).filter(id => id !== skip).map(id => { const s = state.spots[id]; return [s.lon, s.lat, KINDS[s.kind] ? s.kind : 'other']; });
+  const okLL = (lat, lon) => typeof lat === 'number' && typeof lon === 'number' && isFinite(lat) && isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180; // a log is anyone's to write: a spot without real coordinates gets no map and no dot
+  const spotDots = skip => Object.keys(state.spots).filter(id => id !== skip && okLL(state.spots[id].lat, state.spots[id].lon)).map(id => { const s = state.spots[id]; return [s.lon, s.lat, KINDS[s.kind] ? s.kind : 'other']; });
   // a re-render (sync echo, a save) that would write the same HTML leaves the panel alone, so the street map stays as drawn
   let painted = null;
   function paint(html) { if (painted && painted.html === html && panel.contains(painted.el)) return false; panel.innerHTML = html; const el = panel.querySelector('.mapprev'); painted = el ? { html, el } : null; return true; }
@@ -397,7 +398,7 @@
       ${sp.where ? `<p class="lead">${esc(sp.where)}</p>` : ''}
       <div class="vrow">${r ? `<span class="vstars" role="img" aria-label="${r} of 5 stars"><span aria-hidden="true">${'★'.repeat(r)}<i>${'★'.repeat(5 - r)}</i></span></span><b class="vword">${VERDICT[r]}</b>` : ''}<span class="pstamp ${want ? 'want' : 'been'}">${want ? 'Want to try' : `Been${sp.at ? ' · ' + esc(niceDate(sp.at)) : ''}`}</span></div>
       ${sp.note ? `<p class="pull">${esc(sp.note)}</p>` : ''}
-      ${streetMap(sv)}${mapBtns(mq, aq)}
+      ${okLL(sp.lat, sp.lon) ? streetMap(sv) : ''}${mapBtns(mq, aq)}
       <div class="actions" style="margin-top:18px">${sp.status === 'want' ? `<button type="button" class="btn primary" id="been-now">Been here now</button>` : ''}<button type="button" class="btn quiet" id="edit">Edit</button><button type="button" class="btn quiet" id="del" style="color:var(--bad)">Delete</button></div>
       <div class="actions" id="del-confirm" hidden><span style="font-size:13.5px;align-self:center">Remove ${esc(sp.name)} from your log?</span><button type="button" class="btn sm" id="del-yes" style="color:var(--bad);border-color:var(--bad)">Delete</button><button type="button" class="btn sm quiet" id="del-no">Keep</button></div>`)) return false;
     mountStreet(Object.assign(sv, { dots: spotDots(id) })); // the other spots in the log, as small dots

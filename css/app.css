@@ -318,6 +318,10 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
 .smap-pin::before { content: ""; position: absolute; left: -8px; top: -3px; width: 16px; height: 6px; border-radius: 50%; background: rgba(40, 30, 15, .3); filter: blur(1.5px); } /* where it touches the ground */
 .smap-pin i { position: absolute; left: -16px; top: -38px; width: 32px; height: 32px; border-radius: 50% 50% 50% 3px; transform: rotate(-45deg); background: var(--c); box-shadow: 0 0 0 2.5px var(--sheet-bg, var(--paper)), 0 8px 16px -6px rgba(40, 30, 15, .55); display: grid; place-items: center; font-style: normal; }
 .smap-pin b { transform: rotate(45deg); font-size: 16px; line-height: 1; font-weight: 400; }
+/* the place's name beside the pin: the app's type, a halo of the land colour so it reads on streets, blocks or parks */
+.smap-name { --h: var(--land); position: absolute; left: 18px; top: -22px; transform: translateY(-50%); width: max-content; max-width: 10em; padding: 2px 3px; font: 600 12.5px/1.15 var(--sans); letter-spacing: -.005em; color: color-mix(in srgb, var(--c) 26%, var(--ink)); text-wrap: balance; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+  text-shadow: 1px 0 0 var(--h), -1px 0 0 var(--h), 0 1px 0 var(--h), 0 -1px 0 var(--h), 1px 1px 0 var(--h), -1px -1px 0 var(--h), 1px -1px 0 var(--h), -1px 1px 0 var(--h), 0 0 3px var(--h), 0 0 3px var(--h); }
+.smap-pin.l .smap-name { left: auto; right: 18px; text-align: right; }
 .smap-attr { position: absolute; right: 6px; bottom: 6px; z-index: 2; padding: 2px 7px 3px; border-radius: 999px; background: color-mix(in srgb, var(--land) 78%, transparent); color: var(--muted); font-size: 10px; line-height: 1.3; letter-spacing: .01em; white-space: nowrap; }
 .smap-attr a { color: inherit; text-decoration: none; } .smap-attr a:hover { color: var(--ink); text-decoration: underline; }
 .mapprev.fb .smap-pin, .mapprev.fb .smap-attr { display: none; } /* the Google embed has its own pin and credits */

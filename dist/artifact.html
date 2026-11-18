@@ -1,6 +1,6 @@
 <title>Seven by Seven</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<meta name="description" content="A trail map of San Francisco and the Bay Area: walk every neighborhood, log every place.">
+<meta name="referrer" content="strict-origin-when-cross-origin"><!-- the page URL carries the private ?log= key: other hosts (map tiles, fonts) get the origin only --><meta name="description" content="A trail map of San Francisco and the Bay Area: walk every neighborhood, log every place.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Seven by Seven">
 <meta property="og:title" content="Seven by Seven">
@@ -335,8 +335,29 @@ details.more summary::-webkit-details-marker { display: none; }
 details.more summary::after { content: "+"; font-size: 14px; } details.more[open] summary::after { content: "−"; }
 
 /* street-map preview (section, spot) and photos (the hero at the top of a panel, lightbox over everything but the toast) */
-.mapprev { display: block; width: 100%; aspect-ratio: 16 / 10; border: 1px solid var(--line); border-radius: var(--r-sm); overflow: hidden; background: var(--paper-2); }
+/* the street map (js/streetmap.js): the land colour, the pin and the credit first; the map fades in over them once drawn. A hairline
+   ring on top, not a border, so the map runs to the rounded edge. The phone covers it with a link (a picture: a drag moves the
+   sheet, a tap opens Maps); the desktop leaves the map to drag and ctrl/cmd-scroll */
+.mapprev { position: relative; display: block; width: 100%; aspect-ratio: 16 / 10; border-radius: var(--r-sm); overflow: hidden; background: var(--land); isolation: isolate; }
+.mapprev::after { content: ""; position: absolute; inset: 0; z-index: 3; border-radius: inherit; box-shadow: inset 0 0 0 1px var(--glass-edge); pointer-events: none; }
 .mapprev iframe { display: block; width: 100%; height: 100%; border: 0; }
+.mapprev .smap-host { position: absolute; inset: 0; opacity: 0; transition: opacity .3s var(--ease); } /* .mapprev: wins over maplibre-gl.css, which makes its container relative */
+.mapprev.live .smap-host { opacity: 1; }
+.smap-link { position: absolute; inset: 0; z-index: 4; }
+.smap-pin { position: absolute; left: 50%; top: 50%; z-index: 2; width: 0; height: 0; pointer-events: none; }
+.smap-pin::before { content: ""; position: absolute; left: -8px; top: -3px; width: 16px; height: 6px; border-radius: 50%; background: rgba(40, 30, 15, .3); filter: blur(1.5px); } /* where it touches the ground */
+.smap-pin i { position: absolute; left: -16px; top: -38px; width: 32px; height: 32px; border-radius: 50% 50% 50% 3px; transform: rotate(-45deg); background: var(--c); box-shadow: 0 0 0 2.5px var(--sheet-bg, var(--paper)), 0 8px 16px -6px rgba(40, 30, 15, .55); display: grid; place-items: center; font-style: normal; }
+.smap-pin b { transform: rotate(45deg); font-size: 16px; line-height: 1; font-weight: 400; }
+.smap-attr { position: absolute; right: 6px; bottom: 6px; z-index: 2; padding: 2px 7px 3px; border-radius: 999px; background: color-mix(in srgb, var(--land) 78%, transparent); color: var(--muted); font-size: 10px; line-height: 1.3; letter-spacing: .01em; white-space: nowrap; }
+.smap-attr a { color: inherit; text-decoration: none; } .smap-attr a:hover { color: var(--ink); text-decoration: underline; }
+.mapprev.fb .smap-pin, .mapprev.fb .smap-attr { display: none; } /* the Google embed has its own pin and credits */
+.mapprev .maplibregl-cooperative-gesture-screen { background: color-mix(in srgb, var(--sheet-bg, var(--paper)) 72%, transparent); color: var(--ink); font: 600 13px/1.3 var(--sans); }
+/* the Apple / Google pair right under the preview (the place panel has it without one) */
+.mapbtns { display: flex; gap: 8px; margin: 12px 0 0; }
+.mapprev + .mapbtns { margin-top: 8px; }
+.mapbtns .btn { flex: 1 1 0; min-width: 0; }
+.mapbtns .btn:only-child { flex: none; }
+.mapbtns .btn svg { width: 13px; height: 13px; margin: 0 -3px 0 -2px; opacity: .55; }
 /* hero: full bleed (the negative margins cancel the panel padding), photos 4:3 in a snap carousel; no photos: a 150px cover in
    the spot's kind colour or the place's vibe colour (--hc), mixed with paper so it works light and dark */
 .hero { --hx: 18px; position: relative; margin: 4px calc(-1 * var(--hx)) 16px; aspect-ratio: 4 / 3; overflow: hidden; background: var(--paper-2); color: var(--ink); }
@@ -454,6 +475,7 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
   .progress small .act { border: 0; background: transparent; padding: 0; font: inherit; font-weight: 600; cursor: pointer; }
   .quiz .verdict.good { color: color-mix(in srgb, var(--good) 80%, var(--ink)); } /* 5:1 on the paper (the plain green is 4:1) */
   .panel h3 { justify-content: flex-start; } .panel h3 .n { margin-left: auto; } .panel h3 .n:has(+ .act) { margin-left: 0; } .panel h3 .act { margin-left: auto; } /* count beside the label, action at the right */
+  .smap-link { display: none; } /* the street map is for dragging here; the buttons under it open Maps */
   /* map tooltip: a small glass label; toast: the phone's solid pill, over the middle of the map above the legend */
   .tip { background: var(--glass-strong); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); color: var(--ink); border-radius: 10px; padding: 6px 11px 7px; box-shadow: var(--glass-ring); }
   .tip small { color: var(--glass-muted); opacity: 1; }
@@ -583,7 +605,7 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
   .hero-add { height: 36px; padding: 0 14px; font-size: 14px; } .hero-add::before { content: ""; position: absolute; inset: -5px -4px; } /* a 44pt target */
   .hero-cta { height: 40px; padding: 0 18px; font-size: 14px; }
   .lb-stage img { left: 0; width: 100%; }
-  .mapprev iframe { pointer-events: none; } /* phone: the preview is a picture, so a drag on it moves the sheet and a tap opens Maps */
+  .mapprev iframe, .smap-host { pointer-events: none; } /* phone: the preview is a picture, so a drag on it moves the sheet and a tap opens Maps */
   .lb-btn { background: rgba(0, 0, 0, .45); }
   .chips button[aria-pressed="true"] { background: var(--seg-on, var(--ink)); color: var(--seg-on-ink, var(--paper)); border-color: var(--seg-on, var(--ink)); text-decoration: none; }
 }
@@ -2846,6 +2868,192 @@ window.Photos = (() => {
 
 </script>
 <script>
+// The street map in a spot or section panel: OpenFreeMap vector tiles (OpenStreetMap data, keyless) drawn by MapLibre GL JS
+// in the app's own palette. The library is vendored and is not part of the page's load: it comes on first need, or when the
+// browser is idle after boot. One map (one WebGL context) for the page, moved into whichever panel shows it, so a re-render
+// of the panel keeps it as drawn. Until a view has drawn, its box is the land colour with the pin already in place; anything
+// that keeps the map from drawing (no WebGL, the library or the tiles not loading, 6 s without a frame) puts Google's keyless
+// embed in the box instead, so it is never blank. app.js only calls this where streetOK() holds (never inside the artifact).
+(function () {
+  // MapLibre GL JS 5.24.0 (BSD-3-Clause, vendor/LICENSE-maplibre-gl.txt), from https://unpkg.com/maplibre-gl@5.24.0/dist/
+  //   sha256 vendor/maplibre-gl.js  45a9b07a9189ce56054c620a947ccf41e291e58c95e9b61533b740aaa65ee5cb
+  //   sha256 vendor/maplibre-gl.css ab1e70d59ec40465bae7e7030da2f3ccf28133fd502e62bd598eefbadfd7a732
+  const LIB = 'vendor/maplibre-gl.js', LIB_CSS = 'vendor/maplibre-gl.css';
+  const TILEJSON = 'https://tiles.openfreemap.org/planet', GLYPHS = 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf';
+  const FONT = ['Noto Sans Regular'], FONT_I = ['Noto Sans Italic'], WAIT = 6000, LIB_WAIT = 15000;
+  const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  let lib = null, src = null, dead = !('WebGLRenderingContext' in window), drawn = false;
+  let map = null, host = null, pending = null, shown = null, cur = null, omt = null, data = { sec: fc([]), dots: fc([]) }, dataKey = '', errs = 0;
+  function fc(features) { return { type: 'FeatureCollection', features }; }
+
+  // ---------- loading ----------
+  function loadLib() {
+    if (lib) return lib;
+    const css = new Promise((res, rej) => { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = LIB_CSS; l.onload = res; l.onerror = rej; document.head.appendChild(l); });
+    const js = window.maplibregl ? Promise.resolve() : new Promise((res, rej) => { const s = document.createElement('script'); s.src = LIB; s.async = true; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
+    lib = Promise.all([js, css]).then(() => { if (!window.maplibregl) throw new Error('maplibre did not load'); try { maplibregl.prewarm(); } catch (e) {} return maplibregl; }); // prewarm: the tile workers start now, not on the first view
+    lib.catch(e => { dead = true; console.warn('street map: library failed, using the Google embed', e); });
+    return lib;
+  }
+  // the TileJSON names the current weekly tile build, so it is fetched (once) rather than written into the style; a failure
+  // is not remembered, so the next panel tries again
+  function source() {
+    if (!src) { src = fetch(TILEJSON).then(r => r.ok ? r.json() : Promise.reject(new Error('tilejson ' + r.status))).then(j => ({ type: 'vector', tiles: j.tiles, minzoom: j.minzoom || 0, maxzoom: j.maxzoom || 14 })); src.catch(() => { src = null; }); }
+    return src;
+  }
+  // preload: the library, the TileJSON and the Latin glyphs (cached a week by the tile host), so a first panel only waits for tiles
+  function preload() {
+    if (dead) return;
+    loadLib(); source();
+    for (const f of [FONT, FONT_I]) fetch(GLYPHS.replace('{fontstack}', encodeURIComponent(f.join(','))).replace('{range}', '0-255')).catch(() => {});
+  }
+  // after boot, once the page has loaded and the browser has nothing better to do
+  function idle() {
+    if (dead) return;
+    const go = () => (window.requestIdleCallback || (f => setTimeout(f, 300)))(preload, { timeout: 3000 });
+    if (document.readyState === 'complete') go(); else window.addEventListener('load', go, { once: true });
+  }
+
+  // ---------- style: every colour from the CSS tokens, so it follows the theme ----------
+  const hex = c => { c = String(c).trim().replace('#', ''); if (c.length === 3) c = c.replace(/./g, x => x + x); return [0, 2, 4].map(i => parseInt(c.slice(i, i + 2), 16) || 0); };
+  const mix = (a, b, t) => { const A = hex(a), B = hex(b); return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, '0')).join(''); };
+  const lum = c => { const [r, g, b] = hex(c); return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255; };
+  function palette() {
+    const cs = getComputedStyle(document.documentElement), t = n => cs.getPropertyValue('--' + n).trim() || '#888888';
+    const land = t('land'), dark = lum(land) < 0.4, ink2 = t('ink-2'), paper = t('paper');
+    const K = {}; for (const k of ['food', 'drink', 'coffee', 'view', 'shop', 'park', 'other']) K[k] = t('k-' + k);
+    return {
+      dark, land, K, paper, accent: t('accent'),
+      water: dark ? mix(t('water'), land, .22) : t('water'), waterLine: mix(t('water'), t('coast'), dark ? .35 : .25), wlbl: t('wlbl'),
+      park: mix(land, t('k-park'), dark ? .28 : .3), wood: mix(land, t('k-park'), dark ? .22 : .24), sand: mix(land, t('v-sun'), .14),
+      bld: mix(land, t('line-2'), dark ? .5 : .55), bldLine: mix(land, t('line-2'), dark ? .9 : 1),
+      minor: dark ? mix(land, ink2, .13) : mix(paper, land, .15), major: dark ? mix(land, ink2, .2) : paper,
+      casing: dark ? mix(land, t('water'), .55) : mix(land, t('line-2'), .9), path: dark ? mix(land, ink2, .2) : mix(land, t('muted'), .32),
+      rail: dark ? mix(land, ink2, .24) : mix(land, t('muted'), .38),
+      text: ink2, text3: mix(ink2, t('muted'), .55), text2: t('muted'), halo: land,
+    };
+  }
+  function style() {
+    const C = palette(), get = k => ['get', k], is = (...c) => ['match', get('class'), c, true, false];
+    const name = ['coalesce', get('name:en'), get('name')], notTunnel = ['!=', get('brunnel'), 'tunnel'];
+    const roads = ['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'minor', 'service'];
+    // one zoom interpolate per expression: the per-class widths sit inside its stops
+    const width = (svc, minor, mid, major) => ['interpolate', ['exponential', 1.6], ['zoom'], ...[13, 15, 17, 19].flatMap((z, i) => [z, ['match', get('class'), ['service'], svc[i], ['minor'], minor[i], ['tertiary'], mid[i], major[i]]])];
+    const kind = ['match', get('k'), ...Object.entries(C.K).flatMap(([k, c]) => [k, c]), C.K.other];
+    return {
+      version: 8, glyphs: GLYPHS,
+      sources: { omt, sec: { type: 'geojson', data: data.sec }, dots: { type: 'geojson', data: data.dots } },
+      layers: [
+        { id: 'bg', type: 'background', paint: { 'background-color': C.land } },
+        { id: 'wood', type: 'fill', source: 'omt', 'source-layer': 'landcover', filter: is('wood', 'grass', 'farmland'), paint: { 'fill-color': C.wood } },
+        { id: 'sand', type: 'fill', source: 'omt', 'source-layer': 'landcover', filter: is('sand'), paint: { 'fill-color': C.sand } },
+        { id: 'park', type: 'fill', source: 'omt', 'source-layer': 'park', paint: { 'fill-color': C.park } },
+        { id: 'green', type: 'fill', source: 'omt', 'source-layer': 'landuse', filter: is('cemetery', 'pitch', 'playground', 'stadium', 'garden', 'grass'), paint: { 'fill-color': C.park, 'fill-opacity': .8 } },
+        { id: 'water', type: 'fill', source: 'omt', 'source-layer': 'water', filter: ['!=', get('brunnel'), 'tunnel'], paint: { 'fill-color': C.water } },
+        { id: 'waterway', type: 'line', source: 'omt', 'source-layer': 'waterway', filter: notTunnel, paint: { 'line-color': C.water, 'line-width': ['interpolate', ['linear'], ['zoom'], 13, 1, 17, 3] } },
+        { id: 'bld', type: 'fill', source: 'omt', 'source-layer': 'building', minzoom: 14.5, paint: { 'fill-color': C.bld, 'fill-outline-color': C.bldLine, 'fill-opacity': ['interpolate', ['linear'], ['zoom'], 14.5, 0, 15.5, 1] } },
+        { id: 'path', type: 'line', source: 'omt', 'source-layer': 'transportation', minzoom: 14, filter: ['all', is('path', 'track'), ['!', ['match', get('subclass'), ['footway', 'sidewalk', 'crossing', 'cycleway', 'steps', 'pedestrian'], true, false]], notTunnel], paint: { 'line-color': C.path, 'line-width': ['interpolate', ['linear'], ['zoom'], 14, .6, 18, 1.6], 'line-dasharray': [2.5, 2] } },
+        { id: 'rail', type: 'line', source: 'omt', 'source-layer': 'transportation', filter: ['all', is('rail'), notTunnel], paint: { 'line-color': C.rail, 'line-width': ['interpolate', ['linear'], ['zoom'], 13, .6, 18, 1.4] } },
+        { id: 'tunnel', type: 'line', source: 'omt', 'source-layer': 'transportation', filter: ['all', ['match', get('class'), roads, true, false], ['==', get('brunnel'), 'tunnel']], layout: { 'line-join': 'round' }, paint: { 'line-color': C.casing, 'line-opacity': .6, 'line-width': width([.5, 1, 3, 8], [1, 3, 7, 18], [1.5, 4, 9, 22], [2, 5, 11, 26]), 'line-dasharray': [1.5, 1] } },
+        { id: 'case', type: 'line', source: 'omt', 'source-layer': 'transportation', filter: ['all', ['match', get('class'), roads, true, false], notTunnel], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': C.casing, 'line-width': width([0, 2.6, 6, 14], [.9, 5.2, 12.5, 30], [2.6, 7.5, 16, 38], [3.6, 9.5, 19, 44]) } },
+        { id: 'road', type: 'line', source: 'omt', 'source-layer': 'transportation', filter: ['all', ['match', get('class'), roads, true, false], notTunnel], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': ['match', get('class'), ['minor', 'service'], C.minor, C.major], 'line-width': width([0, 1.4, 4.4, 12], [.5, 3.6, 10.5, 27], [1.7, 5.8, 14, 35], [2.6, 7.6, 17, 41]) } },
+        { id: 'sec-fill', type: 'fill', source: 'sec', paint: { 'fill-color': C.accent, 'fill-opacity': C.dark ? .08 : .07 } },
+        { id: 'sec-line', type: 'line', source: 'sec', layout: { 'line-join': 'round' }, paint: { 'line-color': C.accent, 'line-opacity': .55, 'line-width': ['interpolate', ['linear'], ['zoom'], 12, 1.2, 16, 1.8] } },
+        { id: 'water-lbl', type: 'symbol', source: 'omt', 'source-layer': 'water_name', layout: { 'text-field': name, 'text-font': FONT_I, 'text-size': 12, 'text-letter-spacing': .06, 'text-max-width': 8 }, paint: { 'text-color': C.wlbl, 'text-halo-color': C.water, 'text-halo-width': 1 } },
+        { id: 'road-lbl', type: 'symbol', source: 'omt', 'source-layer': 'transportation_name', minzoom: 13.5, filter: ['match', get('class'), roads, true, false], layout: { 'symbol-placement': 'line', 'text-field': name, 'text-font': FONT, 'text-size': ['interpolate', ['linear'], ['zoom'], 14, ['match', get('class'), ['minor', 'service'], 10, 11], 16, ['match', get('class'), ['minor', 'service'], 11.5, 12.5], 18, ['match', get('class'), ['minor', 'service'], 13, 14]], 'text-letter-spacing': .02, 'symbol-spacing': 280, 'text-padding': 4 }, paint: { 'text-color': ['match', get('class'), ['minor', 'service'], C.text3, C.text], 'text-halo-color': C.halo, 'text-halo-width': 1.6 } },
+        { id: 'place-lbl', type: 'symbol', source: 'omt', 'source-layer': 'place', filter: is('neighbourhood', 'quarter', 'suburb', 'village', 'town', 'hamlet'), layout: { 'text-field': name, 'text-font': FONT, 'text-size': 11, 'text-transform': 'uppercase', 'text-letter-spacing': .12, 'text-max-width': 7, 'text-padding': 8 }, paint: { 'text-color': C.text2, 'text-halo-color': C.halo, 'text-halo-width': 1.4 } },
+        { id: 'dots', type: 'circle', source: 'dots', paint: { 'circle-color': kind, 'circle-radius': 5, 'circle-stroke-color': C.paper, 'circle-stroke-width': 1.6 } },
+      ],
+    };
+  }
+
+  // ---------- the box ----------
+  const ATTR = '<span class="smap-attr">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> · <a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a></span>';
+  // v: { key, name, href (where a tap goes on the phone), q and z (the Google fallback), and either lat, lon, zoom and pin
+  // { c, e } (a spot) or rings [[[lon, lat], ...], ...] and seed [lon, lat] (a section); dots: [[lon, lat, kind], ...] }
+  function box(v) {
+    const pin = v.pin ? `<span class="smap-pin" style="--c:${esc(v.pin.c)}" aria-hidden="true"><i><b>${esc(v.pin.e)}</b></i></span>` : '';
+    return `<div class="mapprev" data-key="${esc(v.key)}"><a class="smap-link" href="${esc(v.href)}" target="_blank" rel="noopener" aria-label="Open ${esc(v.name)} in Maps"></a>${pin}${ATTR}</div>`;
+  }
+  // Google's keyless embed. Its referrer is the origin only: the page URL carries the private ?log= key
+  function fallback(el, v) {
+    if (pending && pending.el === el) { clearTimeout(pending.timer); pending = null; }
+    if (host && host.parentNode === el) host.remove();
+    el.classList.remove('live'); el.classList.add('fb');
+    if (!el.querySelector('iframe')) el.insertAdjacentHTML('afterbegin', `<iframe src="${esc(`https://www.google.com/maps?q=${encodeURIComponent(v.q)}&z=${v.z}&output=embed`)}" loading="lazy" title="Street map of ${esc(v.name)}" referrerpolicy="origin"></iframe>`);
+  }
+  function attach(el) { if (host.parentNode !== el) el.insertBefore(host, el.firstChild); map.resize(); }
+  function placePin() { if (!cur || !cur.pin || !map) return; const pin = cur.el.querySelector('.smap-pin'); if (!pin) return; const p = map.project([cur.lon, cur.lat]); pin.style.left = p.x.toFixed(1) + 'px'; pin.style.top = p.y.toFixed(1) + 'px'; }
+  function setData(v) {
+    const sec = v.rings && v.rings.length ? fc([{ type: 'Feature', properties: {}, geometry: { type: 'MultiPolygon', coordinates: v.rings.map(r => [r.concat([r[0]])]) } }]) : fc([]);
+    const dots = fc((v.dots || []).map(d => ({ type: 'Feature', properties: { k: d[2] }, geometry: { type: 'Point', coordinates: [d[0], d[1]] } })));
+    const k = JSON.stringify([sec, dots]); if (k === dataKey) return; dataKey = k; data = { sec, dots };
+    if (map && map.getSource('sec')) { map.getSource('sec').setData(sec); map.getSource('dots').setData(dots); }
+  }
+  function camera(v) {
+    if (!v.rings || !v.rings.length) return { center: v.seed || [v.lon, v.lat], zoom: v.zoom || 15 };
+    let x0 = 180, y0 = 90, x1 = -180, y1 = -90; v.rings.forEach(r => r.forEach(([x, y]) => { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }));
+    const c = map.cameraForBounds([[x0, y0], [x1, y1]], { padding: 22, maxZoom: 16 });
+    return c ? { center: c.center, zoom: Math.max(12, c.zoom) } : { center: v.seed, zoom: 15 };
+  }
+  function create(gl, el, v) {
+    host = document.createElement('div'); host.className = 'smap-host'; host.setAttribute('aria-hidden', 'true');
+    el.insertBefore(host, el.firstChild);
+    map = new gl.Map({ container: host, style: style(), center: v.seed || [v.lon, v.lat], zoom: v.zoom || 15, attributionControl: false, fadeDuration: 0, maxPitch: 0, dragRotate: false, pitchWithRotate: false, touchPitch: false, keyboard: false, cooperativeGestures: true, renderWorldCopies: false, validateStyle: false, refreshExpiredTiles: false });
+    map.touchZoomRotate.disableRotation();
+    map.getCanvas().setAttribute('tabindex', '-1');
+    map.on('move', placePin); map.on('resize', placePin);
+    map.on('style.load', () => { if (map.getSource('sec')) { map.getSource('sec').setData(data.sec); map.getSource('dots').setData(data.dots); } });
+    // before anything has ever drawn, a run of tile errors means the tiles are not reachable: the embed, now, not in 6 s.
+    // One failed tile or glyph range is not that (and may belong to the view before this one), so it takes three
+    map.on('error', e => { console.warn('street map:', e && e.error ? e.error.message || e.error : e); if (!drawn && pending && ++errs >= 3) { const p = pending; src = null; fallback(p.el, p.v); } });
+  }
+  // for tests and timing: how long a view took from mount to drawn
+  function report(key, t0) { api.last = { key, ms: Math.round(performance.now() - t0) }; window.dispatchEvent(new CustomEvent('streetmap:drawn', { detail: api.last })); }
+  function arm(p, ms) { clearTimeout(p.timer); p.timer = setTimeout(() => { if (pending === p) { console.warn(`street map: nothing drawn in ${ms / 1000} s, using the Google embed`); if (!map) src = null; fallback(p.el, p.v); } }, ms); } // !map: a TileJSON read that hangs is asked for again by the next panel
+  const gone = p => { if (p.el.isConnected) return false; if (pending === p) { clearTimeout(p.timer); pending = null; } return true; }; // the panel moved on while this view loaded: nothing is drawn or marked as shown
+  function show(p) {
+    const { el, v } = p; if (gone(p)) return;
+    arm(p, WAIT); errs = 0;
+    attach(el); el.classList.remove('live', 'fb');
+    setData(v); map.jumpTo(camera(v)); placePin();
+    const done = () => {
+      if (pending !== p || gone(p)) { map.off('idle', done); return; }
+      map.off('idle', done); clearTimeout(p.timer); pending = null; drawn = true; shown = v.key;
+      el.classList.add('live'); report(v.key, p.t0);
+    };
+    map.on('idle', done); map.triggerRepaint();
+  }
+  // after the panel is painted: put the map in the box at this view. The same view again (a re-render with other HTML) keeps
+  // the map exactly as it was, panned or not (live before attach: attach measures, and a measured opacity 0 would fade in);
+  // a new view stays hidden until it has drawn, then fades in
+  function mount(el, v) {
+    if (!el) return;
+    const prev = cur, t0 = performance.now(); cur = Object.assign({ el }, v);
+    const c = v.seed || [v.lon, v.lat]; // MapLibre throws on a centre that is not a coordinate
+    if (dead || !(isFinite(c[0]) && isFinite(c[1]) && Math.abs(c[1]) <= 90)) { fallback(el, v); return; }
+    if (map && shown === v.key && prev && prev.key === v.key && !pending) { el.classList.add('live'); attach(el); setData(v); placePin(); map.triggerRepaint(); report(v.key, t0); return; }
+    if (pending) { clearTimeout(pending.timer); pending = null; }
+    shown = null;
+    const p = pending = { el, v, t0 };
+    arm(p, LIB_WAIT); // the library and the TileJSON on a slow line; the 6 s for the map itself start in show()
+    const go = () => { try { show(p); } catch (e) { console.warn('street map: this view failed, using the Google embed', e); fallback(el, v); } };
+    if (map) { go(); return; }
+    Promise.all([loadLib(), source()]).then(([gl, s]) => {
+      if (pending !== p || gone(p)) return;
+      omt = s;
+      try { if (!map) create(gl, el, v); } catch (e) { dead = true; console.warn('street map: no WebGL, using the Google embed', e); fallback(el, v); return; }
+      go();
+    }, () => { if (pending === p) fallback(el, v); });
+  }
+  // the theme changed: the same map, new colours (a diff of the style, so no tile reloads)
+  function restyle() { if (map && omt) map.setStyle(style(), { diff: true }); }
+
+  const api = window.StreetMap = { box, mount, restyle, preload, idle, last: null, get map() { return map; } };
+})();
+
+</script>
+<script>
 // Seven by Seven — the app: one place in a hierarchy (Bay Area › region › neighborhood › section › spot),
 // a logbook that follows it, and a tracker saved per person.
 (function () {
@@ -2895,7 +3103,7 @@ window.Photos = (() => {
   const state = { loc: { region: 'all', hood: null, sub: null, spot: null }, view: null, lens: 'vibe', filters: new Set(), query: '', showAll: true, theme: 'system', done: {}, want: {}, spots: {}, placing: false, pending: null, draft: null, canWrite: true, store: 'none', quiz: null, hover: -1 };
   try { const s = JSON.parse(localStorage.getItem('sbs-prefs-v3') || localStorage.getItem('sbs-prefs-v2') || '{}'); if (LENSES[s.lens || s.mode]) state.lens = s.lens || s.mode; if (s.showAll === false) state.showAll = false; if (s.theme === 'light' || s.theme === 'dark') state.theme = s.theme; } catch (e) {}
   const savePrefs = () => { try { localStorage.setItem('sbs-prefs-v3', JSON.stringify({ lens: state.lens, showAll: state.showAll, theme: state.theme })); } catch (e) {} };
-  function applyTheme() { if (state.theme === 'light' || state.theme === 'dark') document.documentElement.setAttribute('data-theme', state.theme); else document.documentElement.removeAttribute('data-theme'); syncThemeColor(); }
+  function applyTheme() { if (state.theme === 'light' || state.theme === 'dark') document.documentElement.setAttribute('data-theme', state.theme); else document.documentElement.removeAttribute('data-theme'); syncThemeColor(); if (window.StreetMap) StreetMap.restyle(); }
   // the browser / PWA status band follows the theme the page actually shows: the paper tone at the top of the map
   function syncThemeColor() { const c = getComputedStyle(document.documentElement).getPropertyValue('--land-other').trim(); if (c) document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.setAttribute('content', c)); } // both metas (their media attributes only matter before this runs)
   applyTheme();
@@ -3110,11 +3318,23 @@ window.Photos = (() => {
   }
   const areaQuery = (hood, sub) => joinQ([sub, hood, isSF(hood) ? 'San Francisco' : null, 'CA']);
   const mapsLink = q => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
-  const mapsBtn = q => `<a class="btn sm quiet" href="${esc(mapsLink(q))}" target="_blank" rel="noopener">Open in Maps</a>`;
-  // the street-map preview: Google's keyless embed. Not inside the Claude artifact, whose host blocks third-party frames
+  // Apple Maps, in the legacy URL format every iOS and macOS version opens: q searches near sll; ll with q drops a labelled pin
+  const appleLink = (q, o = {}) => 'https://maps.apple.com/?' + (o.ll ? `ll=${o.ll}&q=${encodeURIComponent(q)}` : `q=${encodeURIComponent(q)}${o.sll ? '&sll=' + o.sll : ''}`) + (o.z ? '&z=' + o.z : '');
+  const APPLE = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent); // iPadOS reports itself as a Mac
+  const ll = (lat, lon) => `${+(+lat).toFixed(5)},${+(+lon).toFixed(5)}`;
+  const spotApple = sp => sp.src === 'search' && sp.name ? appleLink(spotQuery(sp), { sll: ll(sp.lat, sp.lon), z: 17 }) : appleLink(sp.name || ll(sp.lat, sp.lon), { ll: ll(sp.lat, sp.lon), z: 17 });
+  function areaApple(hood, sub) { const s = sub && subByName(hood, sub), h = HOODS[IDX[hood]], c = s ? [s.lon, s.lat] : h ? Geom.unproj(h.cx, h.cy) : null; return appleLink(areaQuery(hood, sub), c ? { sll: ll(c[1], c[0]) } : {}); }
+  const tapLink = (q, apple) => APPLE ? apple : mapsLink(q); // where a tap on the phone preview goes
+  // the map buttons, a pair under the preview: Apple Maps first on Apple devices, otherwise the one Google button
+  const extBtn = (href, label) => `<a class="btn sm" href="${esc(href)}" target="_blank" rel="noopener">${label}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 16L16 8M9 8h7v7"/></svg></a>`;
+  const mapBtns = (q, apple) => `<div class="mapbtns">${APPLE ? extBtn(apple, 'Apple Maps') + extBtn(mapsLink(q), 'Google Maps') : extBtn(mapsLink(q), 'Open in Maps')}</div>`;
+  // the street-map preview (js/streetmap.js). Not inside the Claude artifact, whose host blocks third-party content
   const streetOK = () => (state.store === 'sync' || state.store === 'local') && !(window.claude && window.claude.use);
-  const streetMap = (q, z, name) => streetOK() ? `<h3>Street map</h3><a class="mapprev" href="${esc(mapsLink(q))}" target="_blank" rel="noopener" aria-label="Open ${esc(name)} in Maps"><iframe src="${esc(`https://www.google.com/maps?q=${encodeURIComponent(q)}&z=${z}&output=embed`)}" loading="lazy" title="Street map of ${esc(name)}" referrerpolicy="no-referrer-when-downgrade"></iframe></a>` : '';
-  // a re-render (sync echo, a save) that would write the same HTML leaves the panel alone, so the street map does not reload
+  const streetMap = v => streetOK() && window.StreetMap ? `<h3>Street map</h3>${StreetMap.box(v)}` : '';
+  const mountStreet = v => { const el = panel.querySelector('.mapprev'); if (el && window.StreetMap) StreetMap.mount(el, v); };
+  const okLL = (lat, lon) => typeof lat === 'number' && typeof lon === 'number' && isFinite(lat) && isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180; // a log is anyone's to write: a spot without real coordinates gets no map and no dot
+  const spotDots = skip => Object.keys(state.spots).filter(id => id !== skip && okLL(state.spots[id].lat, state.spots[id].lon)).map(id => { const s = state.spots[id]; return [s.lon, s.lat, KINDS[s.kind] ? s.kind : 'other']; });
+  // a re-render (sync echo, a save) that would write the same HTML leaves the panel alone, so the street map stays as drawn
   let painted = null;
   function paint(html) { if (painted && painted.html === html && panel.contains(painted.el)) return false; panel.innerHTML = html; const el = panel.querySelector('.mapprev'); painted = el ? { html, el } : null; return true; }
   // ---- photos (hosted shared log only): owner keys are Firebase-safe (no . $ # [ ] / or control characters)
@@ -3191,7 +3411,7 @@ window.Photos = (() => {
       </div>
       ${done ? `<textarea class="note" id="note" placeholder="What did you eat, see, or climb?" aria-label="Notes for ${esc(name)}">${esc(keepNote ?? done.note ?? '')}</textarea>` : ''}<div class="savestate" id="savestate">${state.canWrite ? '' : 'Sign in to keep a list'}</div>
       <div class="facts"><span><b>${ft(h.max).toLocaleString()} ft</b> high point${roof ? ' · ' + REGIONS[h.region].roof : ''}</span><span><b>Fog</b> <span class="dots">${[1, 2, 3, 4, 5].map(n => `<i class="${n <= info.fog ? 'on' : ''}"></i>`).join('')}</span> ${FOG_WORDS[info.fog - 1]}</span></div>
-      <div class="actions">${mapsBtn(areaQuery(name))}</div>
+      ${mapBtns(areaQuery(name), areaApple(name))}
       ${secs.length ? `<h3>Sections <span class="n">${secs.length}</span></h3><ul class="rows">${secs.map((s, j) => [s, j]).sort((a, b) => !!b[0].star - !!a[0].star).map(([s, j]) => rowSub(name, s, j)).join('')}</ul>` : ''}
       <h3>Spots <span class="n">${mine.length || ''}</span><button type="button" class="act" id="log-here">+ Log a place</button></h3>
       ${mine.length ? `<ul class="rows">${mine.map(id => rowSpot(id, false)).join('')}</ul>` : `<p class="empty">Nothing logged here yet.</p>`}
@@ -3208,32 +3428,36 @@ window.Photos = (() => {
     const s = subByName(hood, subName), i = IDX[hood], info = INFO[hood], mine = spotsIn(hood, subName), others = subs(hood).filter(x => x.name !== subName);
     if (s.star) setHead({ eyebrow: `<span class="star"><b>★</b> Starred · ${esc(s.star)}</span>`, title: esc(subName), tools: [logTool(hood, subName)] });
     else setHead({ eyebrow: `${esc(hood)} · ${REGIONS[HOODS[i].region].label}`, dot: `var(--${VIBES[info.vibe].cls})`, title: esc(subName), tools: [logTool(hood, subName)] });
-    const mq = areaQuery(hood, subName);
+    const mq = areaQuery(hood, subName), aq = areaApple(hood, subName);
+    const sv = { key: 'sub:' + hood + '/' + subName, name: subName, href: tapLink(mq, aq), q: mq, z: 16, seed: [s.lon, s.lat], zoom: 15 };
     if (!paint(`
       ${s.star ? `<p class="starnote"><b aria-hidden="true">★</b><span>${esc(s.star)}</span></p>` : ''}
       ${hero(ownerKey.section(hood, subName), subName, Object.assign(vibeLook(hood), { extras: mine.map(spotSrc) }))}
       <p class="lead">${esc(s.line)}</p>
       ${s.tags && s.tags.length ? `<div class="tags">${s.tags.map(t => `<span>${esc(t)}</span>`).join('')}</div>` : ''}
-      ${streetMap(mq, 16, subName)}<div class="actions" style="margin-top:8px">${mapsBtn(mq)}</div>
+      ${streetMap(sv)}${mapBtns(mq, aq)}
       <h3>Spots here <span class="n">${mine.length || ''}</span><button type="button" class="act" id="log-here">+ Log a place</button></h3>
       ${mine.length ? `<ul class="rows">${mine.map(id => rowSpot(id, false)).join('')}</ul>` : `<p class="empty">Nothing logged in ${esc(subName)} yet.</p>`}
       ${s.known && s.known.length ? `<h3>Known for</h3><ul class="plain">${s.known.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
       <h3>Also in ${esc(hood)}</h3><div class="textlinks">${others.map(x => `<button type="button" data-go='${attr({ hood, sub: x.name })}'>${esc(x.name)}</button>`).join('')}</div>`)) return false;
+    mountStreet(Object.assign(sv, { rings: (s.rings || []).map(r => r.map(([x, y]) => Geom.unproj(x, y).map(n => +n.toFixed(5)))), dots: spotDots(null) })); // the section's cell, outlined
     panel.querySelector('#log-here').addEventListener('click', () => startLog({ hood, sub: subName }));
   }
   // ---- a spot ----
   function renderSpot(id) {
     const sp = state.spots[id], k = KINDS[sp.kind] || KINDS.other;
     setHead({ eyebrow: `${k.label} · ${esc(sp.sub || sp.hood)}`, dot: k.c, title: esc(sp.name), tools: [{ id: 'edit', label: 'Edit', icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16v4z"/><path d="M13 7l4 4"/></svg>', run: () => startLog({ hood: sp.hood, sub: sp.sub, edit: id }) }] });
-    const mq = spotQuery(sp), want = sp.status === 'want', r = want ? 0 : Math.max(0, Math.min(5, sp.rating | 0));
+    const mq = spotQuery(sp), aq = spotApple(sp), want = sp.status === 'want', r = want ? 0 : Math.max(0, Math.min(5, sp.rating | 0));
+    const sv = { key: 'spot:' + id + '@' + ll(sp.lat, sp.lon), name: sp.name, href: tapLink(mq, aq), q: mq, z: 17, lat: sp.lat, lon: sp.lon, zoom: 16, pin: { c: k.c, e: k.e } };
     if (!paint(`
       ${hero(ownerKey.spot(id), sp.name, { c: k.c, e: k.e, badge: { e: k.e, t: k.label } })}
       ${sp.where ? `<p class="lead">${esc(sp.where)}</p>` : ''}
       <div class="vrow">${r ? `<span class="vstars" role="img" aria-label="${r} of 5 stars"><span aria-hidden="true">${'★'.repeat(r)}<i>${'★'.repeat(5 - r)}</i></span></span><b class="vword">${VERDICT[r]}</b>` : ''}<span class="pstamp ${want ? 'want' : 'been'}">${want ? 'Want to try' : `Been${sp.at ? ' · ' + esc(niceDate(sp.at)) : ''}`}</span></div>
       ${sp.note ? `<p class="pull">${esc(sp.note)}</p>` : ''}
-      ${streetMap(mq, 17, sp.name)}
-      <div class="actions" style="margin-top:18px">${sp.status === 'want' ? `<button type="button" class="btn primary" id="been-now">Been here now</button>` : ''}<a class="btn" href="${esc(mapsLink(mq))}" target="_blank" rel="noopener">Open in Maps</a><button type="button" class="btn quiet" id="edit">Edit</button><button type="button" class="btn quiet" id="del" style="color:var(--bad)">Delete</button></div>
+      ${okLL(sp.lat, sp.lon) ? streetMap(sv) : ''}${mapBtns(mq, aq)}
+      <div class="actions" style="margin-top:18px">${sp.status === 'want' ? `<button type="button" class="btn primary" id="been-now">Been here now</button>` : ''}<button type="button" class="btn quiet" id="edit">Edit</button><button type="button" class="btn quiet" id="del" style="color:var(--bad)">Delete</button></div>
       <div class="actions" id="del-confirm" hidden><span style="font-size:13.5px;align-self:center">Remove ${esc(sp.name)} from your log?</span><button type="button" class="btn sm" id="del-yes" style="color:var(--bad);border-color:var(--bad)">Delete</button><button type="button" class="btn sm quiet" id="del-no">Keep</button></div>`)) return false;
+    mountStreet(Object.assign(sv, { dots: spotDots(id) })); // the other spots in the log, as small dots
     { const st = panel.querySelector('.pstamp'), key = id + ':' + sp.status; if (st && stamped !== key) { st.classList.add('thunk'); st.addEventListener('animationend', () => st.classList.remove('thunk'), { once: true }); } stamped = key; } // a fresh spot (or a new status): the stamp lands
     // listeners can outlive this render (an identical re-render keeps the panel), so they look the spot up when used
     panel.querySelector('#edit').addEventListener('click', () => { const s = state.spots[id]; if (s) startLog({ hood: s.hood, sub: s.sub, edit: id }); });
@@ -3537,11 +3761,12 @@ window.Photos = (() => {
       const l = state.loc; const v = l.hood ? null : map.fitView(...map.regionBBox(l.region), 1.06, 0); if (v) { map.jumpTo(v); } else { const bb = map.regionBBox(l.region); map.jumpTo(map.fitView(bb[0], bb[1], bb[2], bb[3], 1.06, 0)); flyToLoc(900); }
     }
     connectStore();
+    if (window.StreetMap && streetOK()) StreetMap.idle(); // the street-map library, once the page has loaded and the browser is idle
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { map.redraw(); renderTrail(); }); // the trail folds by measured width: measure again in the real font
   }
-  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { syncThemeColor(); map.refreshPalette(); recolor(false); });
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { syncThemeColor(); map.refreshPalette(); recolor(false); if (window.StreetMap) StreetMap.restyle(); });
   window.addEventListener('resize', () => { map.resize(); map.redraw(); renderTrail(); }); // resize() also catches a devicePixelRatio change (browser zoom)
-  window.__sbs = { map, state, go, sheet, maps: { spotQuery, areaQuery, mapsLink }, photos: window.Photos ? Object.assign(Object.create(window.Photos), { ownerKey }) : null }; // for tests and the console
+  window.__sbs = { map, state, go, sheet, maps: { spotQuery, areaQuery, mapsLink, appleLink, spotApple, areaApple }, photos: window.Photos ? Object.assign(Object.create(window.Photos), { ownerKey }) : null }; // for tests and the console
   window.claude?.hot?.snapshot?.(() => ({ loc: state.loc }));
   window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
 })();

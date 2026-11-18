@@ -47,7 +47,7 @@
   const state = { loc: { region: 'all', hood: null, sub: null, spot: null }, view: null, lens: 'vibe', filters: new Set(), query: '', showAll: true, theme: 'system', done: {}, want: {}, spots: {}, placing: false, pending: null, draft: null, canWrite: true, store: 'none', quiz: null, hover: -1 };
   try { const s = JSON.parse(localStorage.getItem('sbs-prefs-v3') || localStorage.getItem('sbs-prefs-v2') || '{}'); if (LENSES[s.lens || s.mode]) state.lens = s.lens || s.mode; if (s.showAll === false) state.showAll = false; if (s.theme === 'light' || s.theme === 'dark') state.theme = s.theme; } catch (e) {}
   const savePrefs = () => { try { localStorage.setItem('sbs-prefs-v3', JSON.stringify({ lens: state.lens, showAll: state.showAll, theme: state.theme })); } catch (e) {} };
-  function applyTheme() { if (state.theme === 'light' || state.theme === 'dark') document.documentElement.setAttribute('data-theme', state.theme); else document.documentElement.removeAttribute('data-theme'); syncThemeColor(); }
+  function applyTheme() { if (state.theme === 'light' || state.theme === 'dark') document.documentElement.setAttribute('data-theme', state.theme); else document.documentElement.removeAttribute('data-theme'); syncThemeColor(); if (window.StreetMap) StreetMap.restyle(); }
   // the browser / PWA status band follows the theme the page actually shows: the paper tone at the top of the map
   function syncThemeColor() { const c = getComputedStyle(document.documentElement).getPropertyValue('--land-other').trim(); if (c) document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.setAttribute('content', c)); } // both metas (their media attributes only matter before this runs)
   applyTheme();
@@ -262,11 +262,22 @@
   }
   const areaQuery = (hood, sub) => joinQ([sub, hood, isSF(hood) ? 'San Francisco' : null, 'CA']);
   const mapsLink = q => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
-  const mapsBtn = q => `<a class="btn sm quiet" href="${esc(mapsLink(q))}" target="_blank" rel="noopener">Open in Maps</a>`;
-  // the street-map preview: Google's keyless embed. Not inside the Claude artifact, whose host blocks third-party frames
+  // Apple Maps, in the legacy URL format every iOS and macOS version opens: q searches near sll; ll with q drops a labelled pin
+  const appleLink = (q, o = {}) => 'https://maps.apple.com/?' + (o.ll ? `ll=${o.ll}&q=${encodeURIComponent(q)}` : `q=${encodeURIComponent(q)}${o.sll ? '&sll=' + o.sll : ''}`) + (o.z ? '&z=' + o.z : '');
+  const APPLE = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent); // iPadOS reports itself as a Mac
+  const ll = (lat, lon) => `${+(+lat).toFixed(5)},${+(+lon).toFixed(5)}`;
+  const spotApple = sp => sp.src === 'search' && sp.name ? appleLink(spotQuery(sp), { sll: ll(sp.lat, sp.lon), z: 17 }) : appleLink(sp.name || ll(sp.lat, sp.lon), { ll: ll(sp.lat, sp.lon), z: 17 });
+  function areaApple(hood, sub) { const s = sub && subByName(hood, sub), h = HOODS[IDX[hood]], c = s ? [s.lon, s.lat] : h ? Geom.unproj(h.cx, h.cy) : null; return appleLink(areaQuery(hood, sub), c ? { sll: ll(c[1], c[0]) } : {}); }
+  const tapLink = (q, apple) => APPLE ? apple : mapsLink(q); // where a tap on the phone preview goes
+  // the map buttons, a pair under the preview: Apple Maps first on Apple devices, otherwise the one Google button
+  const extBtn = (href, label) => `<a class="btn sm" href="${esc(href)}" target="_blank" rel="noopener">${label}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 16L16 8M9 8h7v7"/></svg></a>`;
+  const mapBtns = (q, apple) => `<div class="mapbtns">${APPLE ? extBtn(apple, 'Apple Maps') + extBtn(mapsLink(q), 'Google Maps') : extBtn(mapsLink(q), 'Open in Maps')}</div>`;
+  // the street-map preview (js/streetmap.js). Not inside the Claude artifact, whose host blocks third-party content
   const streetOK = () => (state.store === 'sync' || state.store === 'local') && !(window.claude && window.claude.use);
-  const streetMap = (q, z, name) => streetOK() ? `<h3>Street map</h3><a class="mapprev" href="${esc(mapsLink(q))}" target="_blank" rel="noopener" aria-label="Open ${esc(name)} in Maps"><iframe src="${esc(`https://www.google.com/maps?q=${encodeURIComponent(q)}&z=${z}&output=embed`)}" loading="lazy" title="Street map of ${esc(name)}" referrerpolicy="no-referrer-when-downgrade"></iframe></a>` : '';
-  // a re-render (sync echo, a save) that would write the same HTML leaves the panel alone, so the street map does not reload
+  const streetMap = v => streetOK() && window.StreetMap ? `<h3>Street map</h3>${StreetMap.box(v)}` : '';
+  const mountStreet = v => { const el = panel.querySelector('.mapprev'); if (el && window.StreetMap) StreetMap.mount(el, v); };
+  const spotDots = skip => Object.keys(state.spots).filter(id => id !== skip).map(id => { const s = state.spots[id]; return [s.lon, s.lat, KINDS[s.kind] ? s.kind : 'other']; });
+  // a re-render (sync echo, a save) that would write the same HTML leaves the panel alone, so the street map stays as drawn
   let painted = null;
   function paint(html) { if (painted && painted.html === html && panel.contains(painted.el)) return false; panel.innerHTML = html; const el = panel.querySelector('.mapprev'); painted = el ? { html, el } : null; return true; }
   // ---- photos (hosted shared log only): owner keys are Firebase-safe (no . $ # [ ] / or control characters)
@@ -343,7 +354,7 @@
       </div>
       ${done ? `<textarea class="note" id="note" placeholder="What did you eat, see, or climb?" aria-label="Notes for ${esc(name)}">${esc(keepNote ?? done.note ?? '')}</textarea>` : ''}<div class="savestate" id="savestate">${state.canWrite ? '' : 'Sign in to keep a list'}</div>
       <div class="facts"><span><b>${ft(h.max).toLocaleString()} ft</b> high point${roof ? ' · ' + REGIONS[h.region].roof : ''}</span><span><b>Fog</b> <span class="dots">${[1, 2, 3, 4, 5].map(n => `<i class="${n <= info.fog ? 'on' : ''}"></i>`).join('')}</span> ${FOG_WORDS[info.fog - 1]}</span></div>
-      <div class="actions">${mapsBtn(areaQuery(name))}</div>
+      ${mapBtns(areaQuery(name), areaApple(name))}
       ${secs.length ? `<h3>Sections <span class="n">${secs.length}</span></h3><ul class="rows">${secs.map((s, j) => [s, j]).sort((a, b) => !!b[0].star - !!a[0].star).map(([s, j]) => rowSub(name, s, j)).join('')}</ul>` : ''}
       <h3>Spots <span class="n">${mine.length || ''}</span><button type="button" class="act" id="log-here">+ Log a place</button></h3>
       ${mine.length ? `<ul class="rows">${mine.map(id => rowSpot(id, false)).join('')}</ul>` : `<p class="empty">Nothing logged here yet.</p>`}
@@ -360,32 +371,36 @@
     const s = subByName(hood, subName), i = IDX[hood], info = INFO[hood], mine = spotsIn(hood, subName), others = subs(hood).filter(x => x.name !== subName);
     if (s.star) setHead({ eyebrow: `<span class="star"><b>★</b> Starred · ${esc(s.star)}</span>`, title: esc(subName), tools: [logTool(hood, subName)] });
     else setHead({ eyebrow: `${esc(hood)} · ${REGIONS[HOODS[i].region].label}`, dot: `var(--${VIBES[info.vibe].cls})`, title: esc(subName), tools: [logTool(hood, subName)] });
-    const mq = areaQuery(hood, subName);
+    const mq = areaQuery(hood, subName), aq = areaApple(hood, subName);
+    const sv = { key: 'sub:' + hood + '/' + subName, name: subName, href: tapLink(mq, aq), q: mq, z: 16, seed: [s.lon, s.lat], zoom: 15 };
     if (!paint(`
       ${s.star ? `<p class="starnote"><b aria-hidden="true">★</b><span>${esc(s.star)}</span></p>` : ''}
       ${hero(ownerKey.section(hood, subName), subName, Object.assign(vibeLook(hood), { extras: mine.map(spotSrc) }))}
       <p class="lead">${esc(s.line)}</p>
       ${s.tags && s.tags.length ? `<div class="tags">${s.tags.map(t => `<span>${esc(t)}</span>`).join('')}</div>` : ''}
-      ${streetMap(mq, 16, subName)}<div class="actions" style="margin-top:8px">${mapsBtn(mq)}</div>
+      ${streetMap(sv)}${mapBtns(mq, aq)}
       <h3>Spots here <span class="n">${mine.length || ''}</span><button type="button" class="act" id="log-here">+ Log a place</button></h3>
       ${mine.length ? `<ul class="rows">${mine.map(id => rowSpot(id, false)).join('')}</ul>` : `<p class="empty">Nothing logged in ${esc(subName)} yet.</p>`}
       ${s.known && s.known.length ? `<h3>Known for</h3><ul class="plain">${s.known.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
       <h3>Also in ${esc(hood)}</h3><div class="textlinks">${others.map(x => `<button type="button" data-go='${attr({ hood, sub: x.name })}'>${esc(x.name)}</button>`).join('')}</div>`)) return false;
+    mountStreet(Object.assign(sv, { rings: (s.rings || []).map(r => r.map(([x, y]) => Geom.unproj(x, y).map(n => +n.toFixed(5)))), dots: spotDots(null) })); // the section's cell, outlined
     panel.querySelector('#log-here').addEventListener('click', () => startLog({ hood, sub: subName }));
   }
   // ---- a spot ----
   function renderSpot(id) {
     const sp = state.spots[id], k = KINDS[sp.kind] || KINDS.other;
     setHead({ eyebrow: `${k.label} · ${esc(sp.sub || sp.hood)}`, dot: k.c, title: esc(sp.name), tools: [{ id: 'edit', label: 'Edit', icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16v4z"/><path d="M13 7l4 4"/></svg>', run: () => startLog({ hood: sp.hood, sub: sp.sub, edit: id }) }] });
-    const mq = spotQuery(sp), want = sp.status === 'want', r = want ? 0 : Math.max(0, Math.min(5, sp.rating | 0));
+    const mq = spotQuery(sp), aq = spotApple(sp), want = sp.status === 'want', r = want ? 0 : Math.max(0, Math.min(5, sp.rating | 0));
+    const sv = { key: 'spot:' + id + '@' + ll(sp.lat, sp.lon), name: sp.name, href: tapLink(mq, aq), q: mq, z: 17, lat: sp.lat, lon: sp.lon, zoom: 16, pin: { c: k.c, e: k.e } };
     if (!paint(`
       ${hero(ownerKey.spot(id), sp.name, { c: k.c, e: k.e, badge: { e: k.e, t: k.label } })}
       ${sp.where ? `<p class="lead">${esc(sp.where)}</p>` : ''}
       <div class="vrow">${r ? `<span class="vstars" role="img" aria-label="${r} of 5 stars"><span aria-hidden="true">${'★'.repeat(r)}<i>${'★'.repeat(5 - r)}</i></span></span><b class="vword">${VERDICT[r]}</b>` : ''}<span class="pstamp ${want ? 'want' : 'been'}">${want ? 'Want to try' : `Been${sp.at ? ' · ' + esc(niceDate(sp.at)) : ''}`}</span></div>
       ${sp.note ? `<p class="pull">${esc(sp.note)}</p>` : ''}
-      ${streetMap(mq, 17, sp.name)}
-      <div class="actions" style="margin-top:18px">${sp.status === 'want' ? `<button type="button" class="btn primary" id="been-now">Been here now</button>` : ''}<a class="btn" href="${esc(mapsLink(mq))}" target="_blank" rel="noopener">Open in Maps</a><button type="button" class="btn quiet" id="edit">Edit</button><button type="button" class="btn quiet" id="del" style="color:var(--bad)">Delete</button></div>
+      ${streetMap(sv)}${mapBtns(mq, aq)}
+      <div class="actions" style="margin-top:18px">${sp.status === 'want' ? `<button type="button" class="btn primary" id="been-now">Been here now</button>` : ''}<button type="button" class="btn quiet" id="edit">Edit</button><button type="button" class="btn quiet" id="del" style="color:var(--bad)">Delete</button></div>
       <div class="actions" id="del-confirm" hidden><span style="font-size:13.5px;align-self:center">Remove ${esc(sp.name)} from your log?</span><button type="button" class="btn sm" id="del-yes" style="color:var(--bad);border-color:var(--bad)">Delete</button><button type="button" class="btn sm quiet" id="del-no">Keep</button></div>`)) return false;
+    mountStreet(Object.assign(sv, { dots: spotDots(id) })); // the other spots in the log, as small dots
     { const st = panel.querySelector('.pstamp'), key = id + ':' + sp.status; if (st && stamped !== key) { st.classList.add('thunk'); st.addEventListener('animationend', () => st.classList.remove('thunk'), { once: true }); } stamped = key; } // a fresh spot (or a new status): the stamp lands
     // listeners can outlive this render (an identical re-render keeps the panel), so they look the spot up when used
     panel.querySelector('#edit').addEventListener('click', () => { const s = state.spots[id]; if (s) startLog({ hood: s.hood, sub: s.sub, edit: id }); });
@@ -689,11 +704,12 @@
       const l = state.loc; const v = l.hood ? null : map.fitView(...map.regionBBox(l.region), 1.06, 0); if (v) { map.jumpTo(v); } else { const bb = map.regionBBox(l.region); map.jumpTo(map.fitView(bb[0], bb[1], bb[2], bb[3], 1.06, 0)); flyToLoc(900); }
     }
     connectStore();
+    if (window.StreetMap && streetOK()) StreetMap.idle(); // the street-map library, once the page has loaded and the browser is idle
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { map.redraw(); renderTrail(); }); // the trail folds by measured width: measure again in the real font
   }
-  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { syncThemeColor(); map.refreshPalette(); recolor(false); });
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { syncThemeColor(); map.refreshPalette(); recolor(false); if (window.StreetMap) StreetMap.restyle(); });
   window.addEventListener('resize', () => { map.resize(); map.redraw(); renderTrail(); }); // resize() also catches a devicePixelRatio change (browser zoom)
-  window.__sbs = { map, state, go, sheet, maps: { spotQuery, areaQuery, mapsLink }, photos: window.Photos ? Object.assign(Object.create(window.Photos), { ownerKey }) : null }; // for tests and the console
+  window.__sbs = { map, state, go, sheet, maps: { spotQuery, areaQuery, mapsLink, appleLink, spotApple, areaApple }, photos: window.Photos ? Object.assign(Object.create(window.Photos), { ownerKey }) : null }; // for tests and the console
   window.claude?.hot?.snapshot?.(() => ({ loc: state.loc }));
   window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
 })();

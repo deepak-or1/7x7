@@ -305,8 +305,29 @@ details.more summary::-webkit-details-marker { display: none; }
 details.more summary::after { content: "+"; font-size: 14px; } details.more[open] summary::after { content: "−"; }
 
 /* street-map preview (section, spot) and photos (the hero at the top of a panel, lightbox over everything but the toast) */
-.mapprev { display: block; width: 100%; aspect-ratio: 16 / 10; border: 1px solid var(--line); border-radius: var(--r-sm); overflow: hidden; background: var(--paper-2); }
+/* the street map (js/streetmap.js): the land colour, the pin and the credit first; the map fades in over them once drawn. A hairline
+   ring on top, not a border, so the map runs to the rounded edge. The phone covers it with a link (a picture: a drag moves the
+   sheet, a tap opens Maps); the desktop leaves the map to drag and ctrl/cmd-scroll */
+.mapprev { position: relative; display: block; width: 100%; aspect-ratio: 16 / 10; border-radius: var(--r-sm); overflow: hidden; background: var(--land); isolation: isolate; }
+.mapprev::after { content: ""; position: absolute; inset: 0; z-index: 3; border-radius: inherit; box-shadow: inset 0 0 0 1px var(--glass-edge); pointer-events: none; }
 .mapprev iframe { display: block; width: 100%; height: 100%; border: 0; }
+.mapprev .smap-host { position: absolute; inset: 0; opacity: 0; transition: opacity .3s var(--ease); } /* .mapprev: wins over maplibre-gl.css, which makes its container relative */
+.mapprev.live .smap-host { opacity: 1; }
+.smap-link { position: absolute; inset: 0; z-index: 4; }
+.smap-pin { position: absolute; left: 50%; top: 50%; z-index: 2; width: 0; height: 0; pointer-events: none; }
+.smap-pin::before { content: ""; position: absolute; left: -8px; top: -3px; width: 16px; height: 6px; border-radius: 50%; background: rgba(40, 30, 15, .3); filter: blur(1.5px); } /* where it touches the ground */
+.smap-pin i { position: absolute; left: -16px; top: -38px; width: 32px; height: 32px; border-radius: 50% 50% 50% 3px; transform: rotate(-45deg); background: var(--c); box-shadow: 0 0 0 2.5px var(--sheet-bg, var(--paper)), 0 8px 16px -6px rgba(40, 30, 15, .55); display: grid; place-items: center; font-style: normal; }
+.smap-pin b { transform: rotate(45deg); font-size: 16px; line-height: 1; font-weight: 400; }
+.smap-attr { position: absolute; right: 6px; bottom: 6px; z-index: 2; padding: 2px 7px 3px; border-radius: 999px; background: color-mix(in srgb, var(--land) 78%, transparent); color: var(--muted); font-size: 10px; line-height: 1.3; letter-spacing: .01em; white-space: nowrap; }
+.smap-attr a { color: inherit; text-decoration: none; } .smap-attr a:hover { color: var(--ink); text-decoration: underline; }
+.mapprev.fb .smap-pin, .mapprev.fb .smap-attr { display: none; } /* the Google embed has its own pin and credits */
+.mapprev .maplibregl-cooperative-gesture-screen { background: color-mix(in srgb, var(--sheet-bg, var(--paper)) 72%, transparent); color: var(--ink); font: 600 13px/1.3 var(--sans); }
+/* the Apple / Google pair right under the preview (the place panel has it without one) */
+.mapbtns { display: flex; gap: 8px; margin: 12px 0 0; }
+.mapprev + .mapbtns { margin-top: 8px; }
+.mapbtns .btn { flex: 1 1 0; min-width: 0; }
+.mapbtns .btn:only-child { flex: none; }
+.mapbtns .btn svg { width: 13px; height: 13px; margin: 0 -3px 0 -2px; opacity: .55; }
 /* hero: full bleed (the negative margins cancel the panel padding), photos 4:3 in a snap carousel; no photos: a 150px cover in
    the spot's kind colour or the place's vibe colour (--hc), mixed with paper so it works light and dark */
 .hero { --hx: 18px; position: relative; margin: 4px calc(-1 * var(--hx)) 16px; aspect-ratio: 4 / 3; overflow: hidden; background: var(--paper-2); color: var(--ink); }
@@ -424,6 +445,7 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
   .progress small .act { border: 0; background: transparent; padding: 0; font: inherit; font-weight: 600; cursor: pointer; }
   .quiz .verdict.good { color: color-mix(in srgb, var(--good) 80%, var(--ink)); } /* 5:1 on the paper (the plain green is 4:1) */
   .panel h3 { justify-content: flex-start; } .panel h3 .n { margin-left: auto; } .panel h3 .n:has(+ .act) { margin-left: 0; } .panel h3 .act { margin-left: auto; } /* count beside the label, action at the right */
+  .smap-link { display: none; } /* the street map is for dragging here; the buttons under it open Maps */
   /* map tooltip: a small glass label; toast: the phone's solid pill, over the middle of the map above the legend */
   .tip { background: var(--glass-strong); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); color: var(--ink); border-radius: 10px; padding: 6px 11px 7px; box-shadow: var(--glass-ring); }
   .tip small { color: var(--glass-muted); opacity: 1; }
@@ -553,7 +575,7 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
   .hero-add { height: 36px; padding: 0 14px; font-size: 14px; } .hero-add::before { content: ""; position: absolute; inset: -5px -4px; } /* a 44pt target */
   .hero-cta { height: 40px; padding: 0 18px; font-size: 14px; }
   .lb-stage img { left: 0; width: 100%; }
-  .mapprev iframe { pointer-events: none; } /* phone: the preview is a picture, so a drag on it moves the sheet and a tap opens Maps */
+  .mapprev iframe, .smap-host { pointer-events: none; } /* phone: the preview is a picture, so a drag on it moves the sheet and a tap opens Maps */
   .lb-btn { background: rgba(0, 0, 0, .45); }
   .chips button[aria-pressed="true"] { background: var(--seg-on, var(--ink)); color: var(--seg-on-ink, var(--paper)); border-color: var(--seg-on, var(--ink)); text-decoration: none; }
 }

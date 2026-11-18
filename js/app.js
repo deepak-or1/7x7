@@ -7,7 +7,6 @@
   const IDX = Object.fromEntries(HOODS.map((h, i) => [h.name, i]));
   const NAMES = HOODS.map(h => h.name).sort((a, b) => a.localeCompare(b));
   const REGION_N = Object.fromEntries(Object.keys(REGIONS).map(r => [r, HOODS.filter(h => r === 'all' || h.region === r).length]));
-  { const tag = document.querySelector('.brand p'); if (tag) tag.textContent = `${REGION_N.all} places between the ocean and the hills.`; } // the static copy in index.html says the same
   const slug = n => String(n).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   const BY_SLUG = Object.fromEntries(NAMES.map(n => [slug(n), n]));
   const ft = m => Math.round(m * 3.28084);
@@ -20,7 +19,7 @@
   const KINDS = { food: { label: 'Food', c: 'var(--k-food)', e: '🍜' }, drink: { label: 'Drinks', c: 'var(--k-drink)', e: '🍸' }, coffee: { label: 'Coffee', c: 'var(--k-coffee)', e: '☕' }, view: { label: 'View', c: 'var(--k-view)', e: '🌄' }, shop: { label: 'Shop', c: 'var(--k-shop)', e: '🛍️' }, park: { label: 'Park', c: 'var(--k-park)', e: '🌳' }, other: { label: 'Other', c: 'var(--k-other)', e: '📍' } };
   const VIBE_E = { fog: '🌫️', hills: '⛰️', water: '🌊', sun: '☀️', buzz: '✨', green: '🌿' }; // the cover emoji of a place and its sections
   const VERDICT = ['', 'Skip it', 'Meh', 'Solid', 'Great', 'Loved it']; // a spot's rating, in words
-  const LENSES = { vibe: { label: 'Character', sub: 'Six kinds of place' }, fog: { label: 'Fog', sub: 'Sunbelt to permanent cloud' }, elev: { label: 'Hills', sub: 'Sea level to the summits' }, done: { label: 'Walked', sub: 'Where you have been' } };
+  const LENSES = { vibe: { label: 'Character', sub: 'Six kinds of place' }, fog: { label: 'Fog', sub: 'Sunbelt to permanent cloud' }, elev: { label: 'Hills', sub: 'Sea level to the summits' }, done: { label: 'Been', sub: 'Where you have been' } };
   const STAMPS = [
     { id: 'first', label: 'First steps', test: s => s.n >= 1, icon: '1' }, { id: 'ten', label: 'Ten down', test: s => s.n >= 10, icon: '10' },
     { id: 'half', label: 'Half the city', test: s => s.sf >= Math.ceil(REGION_N.sf / 2), icon: '½' }, { id: 'all', label: 'Whole city', test: s => s.sf >= REGION_N.sf, icon: String(REGION_N.sf) },
@@ -55,19 +54,32 @@
   const isWant = i => !!state.want[slug(HOODS[i].name)];
   const inRegion = (i, r = state.loc.region) => r === 'all' || HOODS[i].region === r;
   const isPhone = () => window.innerWidth <= 880;
+  // ---------- who is using this device ----------
+  // No accounts (anyone with the link writes the log), so each device may give a name: asked once, before its first write to a
+  // shared log, and changed later in Settings. null in storage: never asked; '': skipped. The device id tells this device's
+  // feed events from the others' (names can repeat or change).
+  const WHO_MAX = 24, cleanName = s => (typeof s === 'string' ? s : '').replace(/[\x00-\x1f\x7f]/g, '').replace(/\s+/g, ' ').trim().slice(0, WHO_MAX);
+  const who = () => { try { return cleanName(localStorage.getItem('sbs-who')); } catch (e) { return ''; } };
+  let whoSet = false; // asked this session: a browser without the dialog, or storage that will not keep the answer, is not asked again until reload
+  const whoAsked = () => { if (whoSet) return true; try { return localStorage.getItem('sbs-who') !== null; } catch (e) { return true; } };
+  const setWho = n => { whoSet = true; try { localStorage.setItem('sbs-who', cleanName(n)); } catch (e) {} };
+  const deviceId = (() => { let d = null; try { d = localStorage.getItem('sbs-dev'); } catch (e) {} if (!d || !/^[a-z0-9]{8,40}$/.test(d)) { d = (crypto.randomUUID ? crypto.randomUUID().replace(/-/g, '') : Math.random().toString(36).slice(2) + Date.now().toString(36)).slice(0, 24); try { localStorage.setItem('sbs-dev', d); } catch (e) {} } return d; })();
 
   // ---------- map ----------
-  const stage = $('stage'), canvas = $('map'), panel = $('panel'), head = $('head'), sheetEl = $('sheet'), trailEl = $('trail'), tip = $('tip');
+  const stage = $('stage'), canvas = $('map'), panel = $('panel'), head = $('head'), sheetEl = $('sheet'), tip = $('tip');
   const spotList = () => { const out = []; for (const id in state.spots) { const sp = state.spots[id]; if (!sp._xy) sp._xy = Geom.proj([sp.lon, sp.lat]); out.push({ id, x: sp._xy[0], y: sp._xy[1], c: (KINDS[sp.kind] || KINDS.other).c, name: sp.name, status: sp.status || 'been', hood: sp.hood }); } if (state.pending) out.push({ id: 'pending', x: state.pending.x, y: state.pending.y, c: 'var(--accent)', name: '', status: 'pending' }); return out; };
   const marksFor = () => HOODS.map((h, i) => isDone(i) ? 'flag' : isWant(i) ? 'star' : null);
   const matches = i => { if (!inRegion(i)) return false; const info = INFO[HOODS[i].name]; for (const t of state.filters) if (!info.tags.includes(t)) return false; return true; };
   const map = window.MapView(canvas, {
-    insets() { const tr = $('trail'), top = Math.max(document.querySelector('.top').getBoundingClientRect().bottom, !isPhone() && tr.offsetParent ? tr.getBoundingClientRect().bottom : 0), lg = isPhone() ? $('legend').offsetHeight : 0; return { top: (isPhone() && sheet && sheet.detent === 'full') ? 0 : top + 10, right: isPhone() ? 0 : 400 + 32, bottom: (isPhone() ? (sheet ? sheet.visible : 0) + (lg ? lg + 12 : 0) : 0) + 12, left: 0 }; }, // phone: frame above the legend too
+    // framing: above the phone sheet; the desktop clear of the search pill (top left) and the control capsule (a column beside the
+    // logbook). The phone frames across the full width, and in the column left of its capsule only when the shape would run under
+    // it (insetClear, set by frame())
+    insets() { const c = document.querySelector('#ctl .stack').getBoundingClientRect(), right = Math.max(0, window.innerWidth - c.left) + 8; if (isPhone()) return { top: sheet && sheet.detent === 'full' ? 0 : c.top + 4, right: insetClear ? right : 0, bottom: (sheet ? sheet.visible : 0) + 12, left: 0 }; return { top: document.querySelector('.top .search').getBoundingClientRect().bottom + 10, right, bottom: 12, left: 0 }; },
     spots: spotList, marks: marksFor, selectedSpot: () => state.loc.spot,
     alphaFor(i) { if (state.quiz) return 1; const filtered = state.filters.size > 0 && !matches(i) ? .25 : 1; const veil = !state.showAll && state.lens !== 'done' && !isDone(i) ? .35 : 1; return filtered * veil; },
     onTap, onHover, onGestureStart() { closeLenses(); },
-    // the floating chrome (brand and trail pills, search, control capsule, legend) reserves its footprint so map labels avoid it
-    occluders() { if (isPhone() && document.documentElement.classList.contains('sheet-full')) return []; return ['.top .brand', '.top .search', '#trail', '#ctl .stack', '#legend'].map(s => document.querySelector(s)).filter(el => el && el.offsetParent !== null && getComputedStyle(el).opacity !== '0').map(el => el.getBoundingClientRect()).filter(b => b.height > 0).map(b => [b.left - 4, b.top - 4, b.right + 4, b.bottom + 4]); },
+    // the floating chrome (the control capsule; the search field, which on the phone sits in the capsule's top slot) reserves its footprint so map labels avoid it
+    occluders() { if (isPhone() && document.documentElement.classList.contains('sheet-full')) return []; return ['.top .search', '#ctl .stack'].map(s => document.querySelector(s)).filter(el => el && el.offsetParent !== null && getComputedStyle(el).opacity !== '0').map(el => el.getBoundingClientRect()).filter(b => b.height > 0).map(b => [b.left - 4, b.top - 4, b.right + 4, b.bottom + 4]); },
   });
 
   function colorFor(i) {
@@ -81,7 +93,10 @@
   const recolor = animate => map.setColors(HOODS.map((h, i) => colorFor(i)), animate && !reduceMotion);
 
   // ---------- sheet ----------
-  const sheet = window.Sheet(sheetEl, { grip: $('grip'), head, panel, ctl: $('ctl'), legend: $('legend'), onChange(detent, vis, o) { if (o && (o.resize || o.quiet)) return; if (isPhone() && detent !== 'full' && document.documentElement.classList.contains('searching')) { q.blur(); endSearch(); } if (isPhone() && detent !== 'full' && !map.userMoved) flyToLoc(); } }); // dragging the sheet down leaves search mode so the controls come back
+  // canDismiss: something is open that a swipe down may close (never the log form, a pin drop, the name or join dialog, search or the quiz)
+  const dialogOpen = () => !!document.querySelector('dialog[open]');
+  const canDismiss = () => isPhone() && !state.quiz && !state.query && !state.placing && state.view !== 'log' && !dialogOpen() && (!!state.view || level(state.loc) > 0);
+  const sheet = window.Sheet(sheetEl, { grip: $('grip'), head, panel, canDismiss, onDismiss: () => dismiss(), onChange(detent, vis, o) { if (o && (o.resize || o.quiet)) return; if (isPhone() && detent !== 'full' && document.documentElement.classList.contains('searching')) { q.blur(); endSearch(); } if (isPhone() && detent !== 'full' && !map.userMoved) flyToLoc(); } }); // dragging the sheet down leaves search mode so the controls come back
 
   // ---------- navigation ----------
   const hoodOfSpot = id => state.spots[id] ? state.spots[id].hood : null;
@@ -113,15 +128,19 @@
     if (REGIONS[parts[0]]) return { region: parts[0] };
     return { region: 'all' };
   }
+  // history entries this page pushed carry this load's id and their depth, so a swipe down can step back to the screen the person
+  // came from, and only when that screen is this app's (a deep link or a reload has nothing of ours behind it: one level up instead)
+  const SESSION = Math.random().toString(36).slice(2), hDepth = () => history.state && history.state.s === SESSION ? history.state.n | 0 : 0;
+  let goFly = false; // inside go(), before its camera fly: a street map mounts once the fly has landed
   function go(l, opts = {}) {
     const next = normalize(l), prev = state.loc;
     if (state.quiz && !opts.keepQuiz) endQuiz(true);
     if (state.placing && !opts.keepPlacing) stopPlacing();
     state.loc = next; state.view = opts.view || null;
-    if (opts.push !== false) { try { const url = location.pathname + location.search + hashOf(next); if (opts.replace || level(next) === level(prev) && next.hood === prev.hood && next.sub === prev.sub) history.replaceState({ loc: next }, '', url); else history.pushState({ loc: next }, '', url); } catch (e) {} }
+    if (opts.push !== false) { try { const url = location.pathname + location.search + hashOf(next), n = hDepth(); if (opts.replace || level(next) === level(prev) && next.hood === prev.hood && next.sub === prev.sub) history.replaceState({ loc: next, s: SESSION, n }, '', url); else history.pushState({ loc: next, s: SESSION, n: n + 1 }, '', url); } catch (e) {} }
     map.setState({ region: next.region, sel: next.hood ? IDX[next.hood] : -1, selSub: next.sub ? subIndex(next.hood, next.sub) : -1 });
     if (state.lens === 'done' || state.quiz) recolor(false);
-    render();
+    goFly = opts.fly !== false; render(); goFly = false;
     // settle the sheet first so the camera frames the place in the space that is left
     if (isPhone()) { const lv = level(next); if (opts.sheet) sheet.set(opts.sheet, { quiet: true }); else if (lv >= 2) { if (!opts.fromMap || sheet.detent === 'peek') sheet.set('half', { quiet: true }); } else if (opts.fromMap || lv < level(prev)) sheet.set('peek', { quiet: true }); } // up to a region or the whole map: back to map-first
     else panel.scrollTop = 0;
@@ -130,14 +149,44 @@
     if ((opts.fromMap || opts.tap) && !opts.view && next.sub && !next.spot && !(prev.hood === next.hood && prev.sub === next.sub)) { const s = subByName(next.hood, next.sub); if (s && s.star) celebrate(s); }
   }
   function up() { const l = state.loc; if (state.view) { go(l, { replace: true, fly: false }); return; } if (l.spot) go({ hood: l.hood, sub: l.sub }); else if (l.sub) go({ hood: l.hood }); else if (l.hood) go({ region: l.region }); else if (l.region !== 'all') go({ region: 'all' }); }
+  // the phone's swipe down from half: back to the previous screen when it is ours, else one level up. go() then settles the sheet
+  // where that screen wants it (the first screen and a region at the peek)
+  // (a list opened from the same screen, like all spots, is not a step down: go() leaves the sheet as the drag left it, so it is set here)
+  let backing = null; // dismiss() went back and waits for the popstate that answers it
+  function dismiss() {
+    if (state.view) { up(); if (isPhone()) sheet.set(level(state.loc) >= 2 ? 'half' : 'peek', { quiet: true }); return; }
+    if (hDepth() < 1) { up(); return; }
+    const was = state.loc, n = hDepth(), b = backing = { late: false }; history.back();
+    // the popstate is late (else two navigations, and a history that no longer matches the panel). The history has stepped back
+    // already: go where it is now, and the popstate that still comes moves nothing (after 5 s it is not waited for). It has not: only
+    // settle the sheet, so it never stays mid-drag, and the popstate navigates when it comes. Either way one navigation.
+    b.t = setTimeout(() => {
+      if (state.loc !== was) return;
+      if (hDepth() < n) { b.late = true; go((history.state && history.state.loc) || parseHash(location.hash), { push: false }); setTimeout(() => { if (backing === b) backing = null; }, 5000); }
+      else sheet.set('half', { quiet: true });
+    }, 600);
+  }
+  // phone: frame the selection across the full width, unless a vertex of its shape (or a corner of the capsule inside the shape)
+  // would land under the capsule: then frame it again in the column left of the capsule
+  let insetClear = false;
+  function frame(bb, pad, minW, dur, polys) {
+    let v = map.fitView(bb[0], bb[1], bb[2], bb[3], pad, minW);
+    if (isPhone() && polys) {
+      const c = document.querySelector('#ctl .stack').getBoundingClientRect(), k = map.W / v.w, x0 = c.left - 6, y0 = c.top - 6, x1 = c.right + 6, y1 = c.bottom + 6;
+      const under = polys.some(poly => poly.some(ring => ring.some(([x, y]) => { const sx = (x - v.x) * k, sy = (y - v.y) * k; return sx > x0 && sx < x1 && sy > y0 && sy < y1; })))
+        || [[x0, y0], [x0, y1], [x1, y0], [x1, y1]].some(([sx, sy]) => Geom.inPolys(polys, v.x + sx / k, v.y + sy / k));
+      if (under) { insetClear = true; v = map.fitView(bb[0], bb[1], bb[2], bb[3], pad, minW); insetClear = false; }
+    }
+    map.flyToView(v, dur);
+  }
   function flyToLoc(dur) {
     const l = state.loc;
-    if (l.spot && state.spots[l.spot]) { const sp = state.spots[l.spot], [x, y] = sp._xy || Geom.proj([sp.lon, sp.lat]); map.flyTo([x - .01, y - .01, x + .01, y + .01], 1, U * 0.028, dur); return; }
-    if (l.sub) { const s = subByName(l.hood, l.sub); if (s) { const pb = map.hoodBBox(IDX[l.hood]); map.flyTo(s.bbox, isPhone() ? 1.3 : 1.5, Math.max(U * 0.03, (s.bbox[2] - s.bbox[0]) * 3, (pb[2] - pb[0]) * .5), dur); return; } } // keep the parent place in view around a small section
-    if (l.hood) { const ph = isPhone(); map.flyTo(map.hoodBBox(IDX[l.hood]), ph ? 1.25 : 1.75, U * (ph ? 0.06 : 0.08), dur); return; }
+    if (l.spot && state.spots[l.spot]) { const sp = state.spots[l.spot], [x, y] = sp._xy || Geom.proj([sp.lon, sp.lat]); frame([x - .01, y - .01, x + .01, y + .01], 1, U * 0.028, dur, [[[[x, y]]]]); return; }
+    if (l.sub) { const s = subByName(l.hood, l.sub); if (s) { const pb = map.hoodBBox(IDX[l.hood]); frame(s.bbox, isPhone() ? 1.3 : 1.5, Math.max(U * 0.03, (s.bbox[2] - s.bbox[0]) * 3, (pb[2] - pb[0]) * .5), dur, (s.rings || []).map(r => [r])); return; } } // keep the parent place in view around a small section
+    if (l.hood) { const ph = isPhone(); frame(map.hoodBBox(IDX[l.hood]), ph ? 1.25 : 1.75, U * (ph ? 0.06 : 0.08), dur, window.HPP[IDX[l.hood]]); return; }
     map.flyTo(map.regionBBox(l.region), 1.06, 0, dur); // 'all' is the bay core box, padded like a region
   }
-  window.addEventListener('popstate', e => { const l = (e.state && e.state.loc) || parseHash(location.hash); go(l, { push: false }); });
+  window.addEventListener('popstate', e => { const b = backing; backing = null; if (b) { clearTimeout(b.t); if (b.late) return; } const l = (e.state && e.state.loc) || parseHash(location.hash); go(l, { push: false }); });
 
   // ---------- map callbacks ----------
   function onTap(hit, sx, sy) {
@@ -166,87 +215,107 @@
       map.setHover(i, hit.sub, null); stage.classList.add('pointing');
       if (state.quiz) { tip.classList.remove('on'); return; }
       if (s && (l.hood === name || map.hoodPx(i) > 420)) showTip(sx, sy, s.name, name);
-      else showTip(sx, sy, name, isDone(i) ? 'Walked ✓' : isWant(i) ? 'On your list ★' : INFO[name].line);
+      else showTip(sx, sy, name, isDone(i) ? 'Been ✓' : isWant(i) ? 'Want to go' : INFO[name].line);
       return;
     }
     map.setHover(-1, -1, null); tip.classList.remove('on'); stage.classList.remove('pointing');
   }
   function showTip(x, y, main, sub) { tip.innerHTML = `${esc(main)}${sub ? `<small>${esc(sub)}</small>` : ''}`; tip.style.left = x + 'px'; tip.style.top = y + 'px'; tip.classList.add('on'); }
   let toastTimer = null;
-  function toast(t, ms = 2200) { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('on'), ms); }
+  // action (optional): { label, run } adds one button; the toast is tappable only while it shows one
+  function toast(t, ms = 2200, action) {
+    const el = $('toast'); el.textContent = t; el.classList.toggle('act', !!action);
+    if (action) { const s = document.createElement('span'), b = document.createElement('button'); s.textContent = t; b.type = 'button'; b.textContent = action.label; b.addEventListener('click', () => { el.classList.remove('on'); clearTimeout(toastTimer); action.run(); }); el.replaceChildren(s, b); } // the text in a span, so a long line shrinks and the button never does
+    el.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('on'), ms);
+  }
 
-  // ---------- chrome: trail, lenses, legend, search ----------
-  function renderTrail() {
-    const l = state.loc, crumbs = [{ label: 'Bay Area', loc: { region: 'all' } }];
-    if (l.region !== 'all') crumbs.push({ label: REGIONS[l.region].label, loc: { region: l.region } });
-    if (l.hood) crumbs.push({ label: l.hood, loc: { hood: l.hood } });
-    if (l.sub) crumbs.push({ label: l.sub, loc: { hood: l.hood, sub: l.sub } });
-    if (l.spot && state.spots[l.spot]) crumbs.push({ label: state.spots[l.spot].name, loc: { spot: l.spot } });
-    trailEl.classList.toggle('deep', crumbs.length > 1);
-    trailEl.innerHTML = `<button type="button" class="back" aria-label="Back">${ICON.back}</button>` + crumbs.map((c, i) => `${i ? '<span class="sep">›</span>' : ''}<button type="button" data-crumb="${i}" aria-current="${i === crumbs.length - 1}">${esc(c.label)}</button>`).join('');
-    trailEl.querySelector('.back').addEventListener('click', up);
-    trailEl.querySelectorAll('[data-crumb]').forEach(b => b.addEventListener('click', () => { const c = crumbs[+b.dataset.crumb]; if (+b.dataset.crumb === crumbs.length - 1) flyToLoc(); else go(c.loc); }));
-    trailEl.scrollLeft = 1e6;
-    document.documentElement.classList.toggle('loc-deep', crumbs.length > 2); // phone: the legend is for the overview (landing, region)
-    trailEl.classList.remove('squeeze');
-    // phone: when the trail does not fit, fold its leading crumbs into a '…' crumb instead of clipping a word
-    if (isPhone() && crumbs.length > 2) {
-      const bs = [...trailEl.querySelectorAll('[data-crumb]')];
-      for (let h = 1; trailEl.scrollWidth > trailEl.clientWidth + 1 && h <= bs.length - 2; h++) bs.forEach((b, j) => { const sep = b.nextElementSibling; if (j < h - 1) { b.hidden = true; if (sep) sep.hidden = true; } else if (j === h - 1) { b.textContent = '…'; b.setAttribute('aria-label', crumbs[j].label); } });
-      if (trailEl.scrollWidth > trailEl.clientWidth + 1) trailEl.classList.add('squeeze'); // still too long: the last crumb ends in an ellipsis
-      trailEl.scrollLeft = 1e6;
-    }
+  // ---------- chrome: the path, lenses and their legend, search ----------
+  // the path to where you are, the current item left out (it is the title under it): each crumb opens its level
+  function crumbsOf(l) {
+    const c = [{ label: 'Bay Area', loc: { region: 'all' } }];
+    if (l.region !== 'all') c.push({ label: REGIONS[l.region].label, loc: { region: l.region } });
+    if (l.hood) c.push({ label: l.hood, loc: { hood: l.hood } });
+    if (l.sub) c.push({ label: l.sub, loc: { hood: l.hood, sub: l.sub } });
+    if (l.spot && state.spots[l.spot]) c.push({ label: state.spots[l.spot].name, loc: { spot: l.spot } });
+    return c.slice(0, -1);
+  }
+  // the header's small line, built to fit by measuring: more than three crumbs keep the first and the last two; the kind tag after
+  // the path (a spot's kind, a section's star) moves to the panel's .kbody line when it does not fit; then middle crumbs fold into
+  // a '…' crumb (it opens the first level it hides); last, the last crumb ends in an ellipsis. Run after every render and resize.
+  function fitHead() {
+    const eb = head.querySelector('.eyebrow'), P = head._path; if (!eb || !P) return;
+    const cr = P.crumbs, body = panel.querySelector('.kbody'), over = () => eb.scrollWidth > eb.clientWidth + 1;
+    let idx = cr.length > 3 ? [0, cr.length - 2, cr.length - 1] : cr.map((c, i) => i), tag = !!P.tag;
+    const draw = (fold, squeeze) => {
+      eb.innerHTML = `<span class="path${squeeze ? ' squeeze' : ''}">${idx.map((i, j) => (j ? '<span class="sep" aria-hidden="true">›</span>' : '') + (fold && j === 1 ? `<button type="button" class="fold" data-crumb="1" aria-label="${esc(cr[1].label)}"><span>…</span></button>` : `<button type="button" data-crumb="${i}"><span>${esc(cr[i].label)}</span></button>`)).join('')}</span>${tag ? `<span class="ktag"><span class="sep" aria-hidden="true">·</span>${P.tag}</span>` : ''}`;
+    };
+    draw(false);
+    if (over() && tag) { tag = false; draw(false); }
+    if (over() && idx.length > 2) { idx = [idx[0], idx[1], idx[idx.length - 1]]; draw(true); } // Bay Area › … › the parent
+    if (over()) draw(idx.length > 2, true);
+    if (body) body.hidden = tag || !P.tag;
+    eb.querySelectorAll('[data-crumb]').forEach(b => b.addEventListener('click', () => go(cr[+b.dataset.crumb].loc, { tap: true })));
   }
   const lensesEl = $('lenses'), lensBtn = $('lens-btn');
   function swatches(lens) { if (lens === 'vibe') return Object.values(VIBES).map(v => `<i style="--c:var(--${v.cls})"></i>`).join(''); if (lens === 'fog') return [1, 2, 3, 4, 5].map(n => `<i style="--c:var(--fog${n})"></i>`).join(''); if (lens === 'elev') return [1, 2, 3, 4, 5].map(n => `<i style="--c:var(--hill${n})"></i>`).join(''); return `<i style="--c:var(--accent)"></i><i style="--c:var(--grey-fill)"></i>`; }
-  function renderLenses() { lensesEl.innerHTML = Object.entries(LENSES).map(([k, v]) => `<button type="button" role="menuitemradio" data-lens="${k}" aria-pressed="${state.lens === k}"><span><b>${v.label}</b><small>${v.sub}</small></span><span class="sw">${swatches(k)}</span></button>`).join(''); lensesEl.querySelectorAll('[data-lens]').forEach(b => b.addEventListener('click', () => { setLens(b.dataset.lens); closeLenses(); })); }
-  function setLens(k) { state.lens = k; savePrefs(); renderLenses(); renderLegend(); recolor(true); }
+  // the layers menu: the four lenses, and under them the legend of the one in use (the map has no legend of its own)
+  function renderLenses() { lensesEl.innerHTML = Object.entries(LENSES).map(([k, v]) => `<button type="button" data-lens="${k}" aria-pressed="${state.lens === k}"><span><b>${v.label}</b><small>${v.sub}</small></span><span class="sw">${swatches(k)}</span></button>`).join('') + '<div class="lgd" id="legend"></div>'; lensesEl.querySelectorAll('[data-lens]').forEach(b => b.addEventListener('click', () => { setLens(b.dataset.lens); closeLenses(); })); renderLegend(); }
+  function setLens(k) { state.lens = k; savePrefs(); renderLenses(); recolor(true); }
   function renderLegend() {
-    const el = $('legend'), k = state.lens;
+    const el = $('legend'), k = state.lens; if (!el) return;
     if (state.quiz) { el.innerHTML = ''; return; }
     if (k === 'vibe') el.innerHTML = Object.values(VIBES).map(v => `<span><i style="--c:var(--${v.cls})"></i>${v.label}</span>`).join('');
     else if (k === 'fog') el.innerHTML = `<span>Sunny</span><span class="ramp">${swatches('fog')}</span><span>Always foggy</span>`;
     else if (k === 'elev') el.innerHTML = `<span>Sea level</span><span class="ramp">${swatches('elev')}</span><span>${ft(MAXM).toLocaleString()} ft</span>`;
-    else el.innerHTML = `<span><i style="--c:var(--accent)"></i>Walked</span><span><i style="--c:var(--grey-fill)"></i>Not yet</span>`;
-    el.innerHTML = `<div class="lgrow">${el.innerHTML}<span class="hint">Tap a place · drag · scroll to zoom</span></div>`; // the row: display: contents on desktop, the phone's sideways scroller
+    else el.innerHTML = `<span><i style="--c:var(--accent)"></i>Been</span><span><i style="--c:var(--grey-fill)"></i>Everywhere else</span>`;
+    el.setAttribute('aria-label', 'Legend: ' + LENSES[k].label);
   }
   function closeLenses() { lensesEl.classList.remove('on'); lensBtn.setAttribute('aria-expanded', 'false'); }
   lensBtn.addEventListener('click', e => { e.stopPropagation(); const on = !lensesEl.classList.contains('on'); lensesEl.classList.toggle('on', on); lensBtn.setAttribute('aria-expanded', String(on)); });
   document.addEventListener('pointerdown', e => { if (!e.target.closest('#lenses, #lens-btn')) closeLenses(); });
   $('zoom-in').addEventListener('click', () => map.zoom(1 / 1.6)); $('zoom-out').addEventListener('click', () => map.zoom(1.6));
-  $('home').addEventListener('click', () => { if (level(state.loc) === 0) flyToLoc(); else go({ region: 'all' }); });
-  document.addEventListener('keydown', e => { if (e.target.matches('input, textarea, select')) { if (e.key === 'Escape') e.target.blur(); return; } if (e.key === 'Escape') { if (state.view || level(state.loc) > 0) up(); } else if (e.key === '+' || e.key === '=') map.zoom(1 / 1.6); else if (e.key === '-') map.zoom(1.6); });
+  document.addEventListener('keydown', e => { if (dialogOpen()) return; if (e.target.matches('input, textarea, select')) { if (e.key === 'Escape') e.target.blur(); return; } if (e.key === 'Escape') { if (state.view || level(state.loc) > 0) up(); } else if (e.key === '+' || e.key === '=') map.zoom(1 / 1.6); else if (e.key === '-') map.zoom(1.6); });
   const q = $('q');
   q.addEventListener('input', () => { state.query = q.value.trim().toLowerCase(); q.classList.toggle('has', !!q.value); if (state.query) renderSearch(); else render(); });
   q.addEventListener('keydown', e => { if (e.key === 'Enter') { const first = panel.querySelector('[data-first]'); if (first) first.click(); } });
   // phone search mode: the card stays pinned and the sheet opens to full right under it, so results sit above the keyboard
-  function endSearch(d) { document.documentElement.classList.remove('searching'); if (isPhone() && d) sheet.set(d, { quiet: true }); renderTrail(); } // the trail was display:none while searching, so fold it again now
+  function endSearch(d) { document.documentElement.classList.remove('searching'); if (isPhone() && d) sheet.set(d, { quiet: true }); }
   q.addEventListener('focus', () => { if (isPhone()) { document.documentElement.classList.add('searching'); sheet.set('full', { quiet: true }); } if (state.query) renderSearch(); });
   q.addEventListener('blur', () => { if (isPhone() && !q.value) endSearch('peek'); });
 
   // ---------- head + panel ----------
+  // o: { eyebrow (text) or path: { crumbs, tag } (the tappable path, fitted by fitHead), title, tools, back, onBack, extra (phone root:
+  // the recent spots row), compact (the title is for assistive tech only) }
   function setHead(o) {
-    head.innerHTML = `<button type="button" class="up" aria-label="Back" ${o.back === false ? 'hidden' : ''}>${ICON.back}</button><div class="ttl"><p class="eyebrow">${o.dot ? `<i style="--c:${o.dot}"></i>` : ''}${o.eyebrow || ''}</p><h2>${o.title}</h2></div><div class="tools">${(o.tools || []).map(t => `<button type="button" data-tool="${t.id}" title="${esc(t.label)}" aria-label="${esc(t.label)}">${t.icon}</button>`).join('')}</div>`;
+    head._path = o.path || null;
+    head.innerHTML = `<button type="button" class="up" aria-label="Back" ${o.back === false ? 'hidden' : ''}>${ICON.back}</button><div class="ttl"><p class="eyebrow">${o.path ? '' : (o.dot ? `<i style="--c:${o.dot}"></i>` : '') + (o.eyebrow || '')}</p><h2${o.compact ? ' class="sr"' : ''}>${o.title}</h2></div><div class="tools">${(o.tools || []).map(t => `<button type="button" data-tool="${t.id}" title="${esc(t.label)}" aria-label="${esc(t.label)}">${t.icon}</button>`).join('')}</div>${o.extra || ''}`;
+    head.classList.toggle('compact', !!o.compact);
     head.querySelector('.up').addEventListener('click', o.onBack || up);
     (o.tools || []).forEach(t => head.querySelector(`[data-tool="${t.id}"]`).addEventListener('click', t.run));
+    if (o.extra) wire(head);
   }
+  let headH = 0;
   function render() {
-    renderTrail(); renderLegend();
-    if (state.query) { renderSearch(); return; }
-    if (state.quiz) { renderQuiz(); return; }
-    const l = state.loc, v = state.view; let fresh = true;
-    if (!l.spot) stamped = null; // back on this spot later, the stamp lands again
-    if (v === 'log') renderLogForm(); else if (v === 'spots') renderSpots(); else if (l.spot) fresh = renderSpot(l.spot); else if (l.sub) fresh = renderSub(l.hood, l.sub); else if (l.hood) renderHood(l.hood); else renderHome();
-    if (fresh === false) return; // the panel was left as it was, listeners and all
-    wire(panel);
-    if (window.Photos) Photos.mount(panel);
+    renderLegend();
+    if (state.query) renderSearch();
+    else if (state.quiz) renderQuiz();
+    else {
+      const l = state.loc, v = state.view; let fresh = true;
+      if (!l.spot) stamped = null; // back on this spot later, the stamp lands again
+      if (v === 'log') renderLogForm(); else if (v === 'spots') renderSpots(); else if (l.spot) fresh = renderSpot(l.spot); else if (l.sub) fresh = renderSub(l.hood, l.sub); else if (l.hood) renderHood(l.hood); else renderHome();
+      if (fresh !== false) { wire(panel); if (window.Photos) Photos.mount(panel); } // fresh false: the panel was left as it was, listeners and all
+      if (!v && level(l) >= 2) streetSoon();
+    }
+    fitHead();
+    // the peek is the header's height: when that changes (the recent spots row comes or goes) the peek follows
+    const hh = head.offsetHeight; if (hh !== headH) { headH = hh; if (isPhone() && sheet.detent === 'peek') sheet.set('peek', { quiet: true }); }
   }
   function wire(root) {
     root.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => go(JSON.parse(b.dataset.go), { tap: true })));
     root.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => go(state.loc, { view: b.dataset.view, fly: false, replace: true, sheet: isPhone() ? 'full' : undefined })));
   }
   const rowSub = (hood, s, j) => { const n = Object.values(state.spots).filter(sp => sp.hood === hood && sp.sub === s.name).length; return `<li><button type="button" class="row" data-go='${attr({ hood, sub: s.name })}'>${s.star ? '<span class="ic starb" aria-label="Starred"></span>' : `<span class="ic sq" style="--c:${colorFor(IDX[hood])};opacity:${[1, .75, .5][j % 3]}"></span>`}<span class="nm">${esc(s.name)}<small>${s.star ? `<span class="why">${esc(s.star)}</span> · ` : ''}${esc(s.line)}</small></span><span class="rt">${n ? n + (n === 1 ? ' spot' : ' spots') : ''}<span class="chev"></span></span></button></li>`; };
-  const rowSpot = (id, withPlace) => { const sp = state.spots[id], k = KINDS[sp.kind] || KINDS.other; const meta = [k.label, withPlace ? (sp.sub || sp.hood) : sp.sub, sp.note].filter(Boolean).join(' · '); const rt = sp.status === 'want' ? 'want to try' : (sp.rating ? '★'.repeat(sp.rating) : niceDate(sp.at)); return `<li><button type="button" class="row" data-go='${attr({ spot: id })}'><span class="ic" style="--c:${k.c};${sp.status === 'want' ? 'background:transparent;box-shadow:0 0 0 2px ' + k.c + ' inset' : ''}"></span><span class="nm">${esc(sp.name)}<small>${esc(meta)}</small></span><span class="rt">${esc(rt)}</span></button></li>`; };
+  const rowSpot = (id, withPlace) => { const sp = state.spots[id], k = KINDS[sp.kind] || KINDS.other; const meta = [k.label, withPlace ? (sp.sub || sp.hood) : sp.sub, sp.note].filter(Boolean).join(' · '); const rt = sp.status === 'want' ? 'want to go' : (sp.rating ? '★'.repeat(sp.rating) : niceDate(sp.at)); return `<li><button type="button" class="row" data-go='${attr({ spot: id })}'><span class="ic" style="--c:${k.c};${sp.status === 'want' ? 'background:transparent;box-shadow:0 0 0 2px ' + k.c + ' inset' : ''}"></span><span class="nm">${esc(sp.name)}<small>${esc(meta)}</small></span><span class="rt">${esc(rt)}</span></button></li>`; };
   const spotsIn = (hood, sub) => Object.keys(state.spots).filter(id => state.spots[id].hood === hood && (!sub || state.spots[id].sub === sub)).sort((a, b) => (state.spots[a].at < state.spots[b].at ? 1 : -1));
   const logTool = (hood, sub) => ({ id: 'log', label: 'Log a place', icon: ICON.plus, run: () => startLog({ hood, sub }) });
   // ---- Google Maps: a text query lands on the real place; a pinned, GPS or approximate spot keeps its coordinates
@@ -275,7 +344,21 @@
   // the street-map preview (js/streetmap.js). Not inside the Claude artifact, whose host blocks third-party content
   const streetOK = () => (state.store === 'sync' || state.store === 'local') && !(window.claude && window.claude.use);
   const streetMap = v => streetOK() && window.StreetMap ? `<h3>Street map</h3>${StreetMap.box(v)}` : '';
-  const mountStreet = v => { const el = panel.querySelector('.mapprev'); if (el && window.StreetMap) StreetMap.mount(el, v); };
+  // the street map mounts once the camera has landed (mounting during the fly cost a 60-365 ms hitch); a re-render with no fly
+  // (a sync echo, a save) mounts at once, so the same view stays drawn without a blink
+  const mountStreet = v => { const now = () => { const el = panel.querySelector('.mapprev'); if (el && el.dataset.key === v.key && window.StreetMap) StreetMap.mount(el, v); }; if (goFly || flyQ.length) afterFly(now); else now(); };
+  // the camera has been still for three frames (or 2.5 s passed): the fly is over
+  const flyQ = [];
+  function afterFly(fn) {
+    flyQ.push(fn); if (flyQ.length > 1) return;
+    let last = '', still = 0; const t0 = performance.now();
+    const tick = () => { const c = map.cam, k = c.x + ',' + c.y + ',' + c.w, t = performance.now(); still = k === last ? still + 1 : 0; last = k; if ((still >= 3 && t - t0 > 90) || t - t0 > 2500) flyQ.splice(0).forEach(f => f()); else requestAnimationFrame(tick); };
+    requestAnimationFrame(tick);
+  }
+  // the street-map library (about 376 KB) is not loaded at boot: the first place, section or spot asks for it, once its fly is over,
+  // so the download and its parse never share the main thread with the camera or a first photo
+  let streetAsked = false;
+  function streetSoon() { if (streetAsked || !window.StreetMap || !streetOK()) return; streetAsked = true; afterFly(() => StreetMap.preload()); }
   const okLL = (lat, lon) => typeof lat === 'number' && typeof lon === 'number' && isFinite(lat) && isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180; // a log is anyone's to write: a spot without real coordinates gets no map and no dot
   const spotDots = skip => Object.keys(state.spots).filter(id => id !== skip && okLL(state.spots[id].lat, state.spots[id].lon)).map(id => { const s = state.spots[id]; return [s.lon, s.lat, KINDS[s.kind] ? s.kind : 'other']; });
   // a re-render (sync echo, a save) that would write the same HTML leaves the panel alone, so the street map stays as drawn
@@ -298,36 +381,40 @@
   function stampState() { const vibe = {}; for (const k in VIBES) vibe[k] = HOODS.every((h, i) => INFO[h.name].vibe !== k || isDone(i)); return { n: doneCount('all'), sf: doneCount('sf'), marin: doneCount('marin'), east: doneCount('east'), penin: doneCount('penin'), south: doneCount('south'), north: doneCount('north'), ft: climbedFt('all'), vibe }; }
   function renderHome() {
     const r = state.loc.region, n = doneCount(), total = REGION_N[r], s = stampState(), earned = STAMPS.filter(st => st.test(s)), next = STAMPS.find(st => !st.test(s));
-    setHead({ back: r !== 'all', eyebrow: r === 'all' ? 'Logbook' : 'Logbook · Bay Area', title: r === 'all' ? 'The Bay Area' : REGIONS[r].label, tools: [logTool(null, null)] });
+    const news = r === 'all' ? state.news.length : 0; // the only sign of news, in the sheet's own eyebrow: it shows at the peek too
+    const recent = Object.keys(state.spots).filter(id => IDX[state.spots[id].hood] != null && inRegion(IDX[state.spots[id].hood])).sort((a, b) => (state.spots[a].at < state.spots[b].at ? 1 : -1));
+    // the first screen: the wordmark is the title, and the most recent spots are one tap away (in the phone's header, so the peek shows them)
+    const chips = r === 'all' && recent.length ? `<div class="recent" role="list" aria-label="Recent spots">${recent.slice(0, 5).map(id => { const sp = state.spots[id], k = KINDS[sp.kind] || KINDS.other; return `<span role="listitem"><button type="button" data-go='${attr({ spot: id })}'><i class="${sp.status === 'want' ? 'want' : ''}" style="--c:${k.c}"></i>${esc(sp.name)}</button></span>`; }).join('')}${recent.length > 5 ? `<span role="listitem"><button type="button" class="all" data-view="spots">All ${recent.length} ›</button></span>` : ''}</div>` : '';
+    if (r === 'all') setHead({ back: false, eyebrow: 'Logbook · ' + (news ? `${news} new` : `${n} of ${total} walked`), title: 'Seven by Seven<em>.</em>', tools: [logTool(null, null)], extra: isPhone() ? chips : '' });
+    else setHead({ path: { crumbs: crumbsOf(state.loc) }, title: REGIONS[r].label, tools: [logTool(null, null)] });
     const entries = NAMES.filter(x => inRegion(IDX[x]) && state.done[slug(x)]).sort((a, b) => (state.done[slug(b)].at || '').localeCompare(state.done[slug(a)].at || '') || a.localeCompare(b));
     const wantList = NAMES.filter(x => inRegion(IDX[x]) && state.want[slug(x)] && !state.done[slug(x)]);
-    const recent = Object.keys(state.spots).filter(id => IDX[state.spots[id].hood] != null && inRegion(IDX[state.spots[id].hood])).sort((a, b) => (state.spots[a].at < state.spots[b].at ? 1 : -1));
     const active = state.filters.size > 0, hits = active ? NAMES.filter(x => matches(IDX[x])) : [];
     const places = r === 'all'
       ? Object.keys(REGIONS).filter(k => k !== 'all').map(k => `<li><button type="button" class="row" data-go='${attr({ region: k })}'><span class="ic ${doneCount(k) === REGION_N[k] ? 'flag' : doneCount(k) ? 'sq' : 'none'}" style="--c:var(--accent)"></span><span class="nm">${REGIONS[k].label}</span><span class="rt">${doneCount(k)} of ${REGION_N[k]}<span class="chev"></span></span></button></li>`).join('')
       : NAMES.filter(x => inRegion(IDX[x])).map(x => `<li><button type="button" class="row" data-go='${attr({ hood: x })}'><span class="ic ${isDone(IDX[x]) ? 'flag' : isWant(IDX[x]) ? 'star' : 'none'}"></span><span class="nm">${esc(x)}${starOf(x) ? '<span class="st" role="img" aria-label="Starred"></span>' : ''}</span><span class="rt">${ft(HOODS[IDX[x]].max).toLocaleString()} ft</span></button></li>`).join('');
     // the phone puts the tappable list right under the progress bar, so the half sheet shows rows, not instructions
     const progress = `<div class="progress"><div class="bar"><i style="width:${(n / total * 100).toFixed(1)}%"></i></div><small>${n === 0 ? (state.store === 'sync' && !Object.keys(state.spots).length ? 'Nothing walked yet · <button type="button" class="act" id="join-log-hint">Already have a log? Join it</button>' : 'Nothing walked yet') : `<b>${n}</b> of ${total} walked · ${Math.round(areaPct() * 100)}% by area · ${climbedFt().toLocaleString()} ft climbed`}</small></div>`;
-    const lead = `<p class="lead">${n === 0 ? `Tap a place on the map, or pick one ${isPhone() ? 'above' : 'below'}. When you have set foot in it, log it and it gets a flag.` : n === total ? `All ${total}. You have walked ${REGIONS[r].the}.` : `${total - n} to go.${next ? ' Next stamp: ' + next.label + '.' : ''}`}</p>`;
+    const lead = `<p class="lead">${n === 0 ? `Tap a place on the map, or pick one ${isPhone() ? 'above' : 'below'}. When you have set foot in it, log it and it gets a flag.` : n === total ? `All ${total}. You have been all over ${REGIONS[r].the}.` : `${total - n} to go.${next ? ' Next stamp: ' + next.label + '.' : ''}`}</p>`;
     const links = `<div class="textlinks"><button type="button" id="surprise">Suggest a place</button><button type="button" id="quiz">Quiz me</button><button type="button" data-mood-toggle>Find by mood${active ? ' (' + state.filters.size + ')' : ''}</button></div>
       <div id="moods" ${active ? '' : 'hidden'}><h3>Mood</h3><div class="textlinks">${MOODS.map(t => `<button type="button" data-mood="${t}" aria-pressed="${state.filters.has(t)}">${t}</button>`).join('')}</div>
         ${active ? `<h3>${hits.length ? hits.length + ' match' + (hits.length === 1 ? '' : 'es') : 'No matches'}</h3><div class="textlinks">${hits.map(a => `<button type="button" class="${isDone(IDX[a]) ? 'done' : isWant(IDX[a]) ? 'want' : ''}" data-go='${attr({ hood: a })}'>${esc(a)}</button>`).join('')}</div>` : ''}</div>`;
     const list = `<h3>${r === 'all' ? 'Regions' : 'Places'} <span class="n">${r === 'all' ? '' : total}</span></h3><ul class="rows ${r === 'all' ? '' : 'cols2'}">${places}</ul>`;
-    panel.innerHTML = progress + (isPhone() ? list + lead + links : lead + links + list) + `
-      ${entries.length ? `<h3>Walked <span class="n">${entries.length}</span></h3><ul class="rows">${entries.map(x => `<li><button type="button" class="row" data-go='${attr({ hood: x })}'><span class="ic flag"></span><span class="nm">${esc(x)}${state.done[slug(x)].note ? `<small>${esc(state.done[slug(x)].note)}</small>` : ''}</span><span class="rt">${niceDate(state.done[slug(x)].at)}</span></button></li>`).join('')}</ul>` : ''}
+    panel.innerHTML = (news ? newsBlock() : '') + progress + (isPhone() ? list + lead + links : chips + lead + links + list) + `
+      ${entries.length ? `<h3>Been <span class="n">${entries.length}</span></h3><ul class="rows">${entries.map(x => `<li><button type="button" class="row" data-go='${attr({ hood: x })}'><span class="ic flag"></span><span class="nm">${esc(x)}${state.done[slug(x)].note ? `<small>${esc(state.done[slug(x)].note)}</small>` : ''}</span><span class="rt">${niceDate(state.done[slug(x)].at)}</span></button></li>`).join('')}</ul>` : ''}
       ${wantList.length ? `<h3>Want to go <span class="n">${wantList.length}</span></h3><div class="textlinks">${wantList.map(a => `<button type="button" class="want" data-go='${attr({ hood: a })}'>${esc(a)}</button>`).join('')}</div>` : ''}
-      <h3>Spots <span class="n">${recent.length || ''}</span>${recent.length > 6 ? `<button type="button" class="act" data-view="spots">All ${recent.length}</button>` : `<button type="button" class="act" id="log-home">+ Log a place</button>`}</h3>
+      <h3>Spots <span class="n">${recent.length || ''}</span>${recent.length > 6 ? `<button type="button" class="act" data-view="spots">All ${recent.length}</button>` : ''}</h3>
       ${recent.length ? `<ul class="rows">${recent.slice(0, 6).map(id => rowSpot(id, true)).join('')}</ul>` : `<p class="empty">Restaurants, bars, views, shops: search a name or drop a pin, then rate it.</p>`}
       <h3>Stamps <span class="n">${earned.length} of ${STAMPS.length}</span></h3><div class="stamps">${STAMPS.map(st => `<div class="stamp ${st.test(s) ? 'got' : ''}"><b>${st.icon}</b>${st.label}</div>`).join('')}</div>
       <details class="more"><summary>Settings</summary>
-        <label class="switch"><span>Color every place, walked or not</span><input type="checkbox" id="show-all" ${state.showAll ? 'checked' : ''}></label>
+        <label class="switch"><span>Color every place, been or not</span><input type="checkbox" id="show-all" ${state.showAll ? 'checked' : ''}></label>
         <div class="field" style="margin-top:12px"><label>Appearance</label><div class="seg">${['system', 'light', 'dark'].map(t => `<button type="button" data-theme-pick="${t}" aria-pressed="${state.theme === t}">${t === 'system' ? 'System' : t[0].toUpperCase() + t.slice(1)}</button>`).join('')}</div></div>
-        <div class="actions" style="margin-top:4px"><button type="button" class="btn sm" id="export">Export log</button><button type="button" class="btn sm" id="import">Import</button><input type="file" id="import-file" accept="application/json" hidden>${state.store === 'sync' ? '<button type="button" class="btn sm primary" id="share-log">Share this log</button><button type="button" class="btn sm" id="join-log">Join a log</button>' : ''}</div>
+        ${state.store === 'sync' ? `<div class="field"><label for="who-in">Your name on this device</label><input id="who-in" maxlength="${WHO_MAX}" autocomplete="given-name" enterkeyhint="done" placeholder="Shown on what you add" value="${esc(who())}"></div>` : ''}
+        <div class="actions" style="margin-top:4px"><button type="button" class="btn sm" id="export">Export log</button><button type="button" class="btn sm" id="import">Import</button><input type="file" id="import-file" accept="application/json" hidden>${state.store === 'sync' ? '<button type="button" class="btn sm primary" id="share-log">Share this log</button><button type="button" class="btn sm" id="join-log">Join a log</button>' + (prevKeys().length ? '<button type="button" class="btn sm quiet" id="back-log">Back to the previous log</button>' : '') : ''}</div>
         <p class="fine">${state.store === 'db' ? 'Your log, list, spots and notes are saved with this artifact and shared with everyone it is shared with.' : state.store === 'sync' ? 'This log is shared: everyone who opens your link sees it and adds to it, live. Keep the link private, and bookmark it on each phone. Photos are shared with the log the same way, but Export log does not include them.' : 'Your log is saved in this browser. Export it now and then to keep a copy, or to move it to another device.'} San Francisco boundaries from the SF Planning Department, high points from Mapzen elevation data. Marin, East Bay and Peninsula boundaries from the US Census; their high points are approximate. Place search by Photon, © OpenStreetMap contributors.</p>
       </details>`;
     panel.querySelector('#surprise').addEventListener('click', surprise);
     panel.querySelector('#quiz').addEventListener('click', startQuiz);
-    const lg = panel.querySelector('#log-home'); if (lg) lg.addEventListener('click', () => startLog({}));
     panel.querySelector('[data-mood-toggle]').addEventListener('click', () => { const m = panel.querySelector('#moods'); m.hidden = !m.hidden; });
     panel.querySelectorAll('[data-mood]').forEach(b => b.addEventListener('click', () => { const t = b.dataset.mood; state.filters.has(t) ? state.filters.delete(t) : state.filters.add(t); map.invalidate(); render(); panel.querySelector('#moods').hidden = false; }));
     panel.querySelectorAll('[data-theme-pick]').forEach(b => b.addEventListener('click', () => { state.theme = b.dataset.themePick; savePrefs(); applyTheme(); map.refreshPalette(); recolor(false); render(); }));
@@ -337,6 +424,10 @@
     panel.querySelector('#import-file').addEventListener('change', e => importLog(e.target.files[0]));
     const sh = panel.querySelector('#share-log'); if (sh) sh.addEventListener('click', shareLog);
     panel.querySelectorAll('#join-log, #join-log-hint').forEach(b => b.addEventListener('click', joinLog));
+    const bl = panel.querySelector('#back-log'); if (bl) bl.addEventListener('click', () => joinLog(true));
+    const wi = panel.querySelector('#who-in'); if (wi) { wi.addEventListener('keydown', e => { if (e.key === 'Enter') wi.blur(); }); wi.addEventListener('change', () => { setWho(wi.value); wi.value = who(); toast(who() ? `You are ${who()} on this device` : 'No name on this device'); }); }
+    const ns = panel.querySelector('#news-seen'); if (ns) ns.addEventListener('click', markSeen);
+    panel.querySelectorAll('[data-news]').forEach(b => b.addEventListener('click', () => { const e = newsShown.find(x => x.key === b.dataset.news); if (e) openEv(e); }));
   }
 
   // ---- a neighborhood ----
@@ -344,34 +435,32 @@
     const i = IDX[name], info = INFO[name], h = HOODS[i], k = slug(name), done = state.done[k], want = state.want[k], secs = subs(name), mine = spotsIn(name);
     const roof = h.max === Math.max(...HOODS.filter(x => x.region === h.region).map(x => x.max)), dis = state.canWrite ? '' : 'disabled';
     const keepNote = panel.dataset.name === name && panel.querySelector('#note') ? panel.querySelector('#note').value : null; panel.dataset.name = name;
-    setHead({ eyebrow: `${REGIONS[h.region].label} · ${VIBES[info.vibe].label}`, dot: `var(--${VIBES[info.vibe].cls})`, title: esc(name), tools: [logTool(name, null)] });
+    setHead({ path: { crumbs: crumbsOf(state.loc) }, title: esc(name), tools: [logTool(name, null)] }); // the vibe is the first of the facts
     const extras = mine.map(spotSrc).concat(secs.slice().sort((a, b) => !!b.star - !!a.star).map(s => ({ owner: ownerKey.section(name, s.name), label: s.name }))); // spots first, newest first (photos mostly live there and the hero caps its sources), then sections in list order
     panel.innerHTML = `
       ${hero(ownerKey.place(name), name, Object.assign(vibeLook(name), { extras }))}
       <p class="lead">${esc(info.line)}</p>
       <div class="marks">
-        <button type="button" class="mark done ${done ? 'on' : ''}" id="explore" aria-pressed="${!!done}" ${dis}><span class="box">${ICON.check}</span><span><b>${done ? 'Walked' : 'Been here'}</b><small>${done ? niceDate(done.at) + ' · tap to undo' : 'Logs it with a flag'}</small></span></button>
-        <button type="button" class="mark want ${want ? 'on' : ''}" id="want" aria-pressed="${!!want}" ${dis || (done ? 'disabled' : '')}><span class="box">${ICON.star}</span><span><b>${want ? 'On the list' : 'Want to go'}</b><small>${done ? 'Already walked' : want ? 'Tap to remove' : 'Save for later'}</small></span></button>
+        <button type="button" class="mark done ${done ? 'on' : ''}" id="explore" aria-pressed="${!!done}" ${dis}><span class="box">${ICON.check}</span><span><b>Been</b><small>${done ? niceDate(done.at) + ' · tap to undo' : 'Plants a flag'}</small></span></button>
+        <button type="button" class="mark want ${want ? 'on' : ''}" id="want" aria-pressed="${!!want}" ${dis || (done ? 'disabled' : '')}><span class="box">${ICON.star}</span><span><b>Want to go</b><small>${done ? 'Already been' : want ? 'Tap to remove' : 'Save for later'}</small></span></button>
       </div>
       ${done ? `<textarea class="note" id="note" placeholder="What did you eat, see, or climb?" aria-label="Notes for ${esc(name)}">${esc(keepNote ?? done.note ?? '')}</textarea>` : ''}<div class="savestate" id="savestate">${state.canWrite ? '' : 'Sign in to keep a list'}</div>
-      <div class="facts"><span><b>${ft(h.max).toLocaleString()} ft</b> high point${roof ? ' · ' + REGIONS[h.region].roof : ''}</span><span><b>Fog</b> <span class="dots">${[1, 2, 3, 4, 5].map(n => `<i class="${n <= info.fog ? 'on' : ''}"></i>`).join('')}</span> ${FOG_WORDS[info.fog - 1]}</span></div>
-      ${mapBtns(areaQuery(name), areaApple(name))}
       ${secs.length ? `<h3>Sections <span class="n">${secs.length}</span></h3><ul class="rows">${secs.map((s, j) => [s, j]).sort((a, b) => !!b[0].star - !!a[0].star).map(([s, j]) => rowSub(name, s, j)).join('')}</ul>` : ''}
-      <h3>Spots <span class="n">${mine.length || ''}</span><button type="button" class="act" id="log-here">+ Log a place</button></h3>
+      <div class="facts"><span class="vibe"><i style="--c:var(--${VIBES[info.vibe].cls})"></i><b>${VIBES[info.vibe].label}</b></span><span><b>${ft(h.max).toLocaleString()} ft</b> high point${roof ? ' · ' + REGIONS[h.region].roof : ''}</span><span><b>Fog</b> <span class="dots">${[1, 2, 3, 4, 5].map(n => `<i class="${n <= info.fog ? 'on' : ''}"></i>`).join('')}</span> ${FOG_WORDS[info.fog - 1]}</span></div>
+      ${mapBtns(areaQuery(name), areaApple(name))}
+      <h3>Spots <span class="n">${mine.length || ''}</span></h3>
       ${mine.length ? `<ul class="rows">${mine.map(id => rowSpot(id, false)).join('')}</ul>` : `<p class="empty">Nothing logged here yet.</p>`}
       <h3>Known for</h3><ul class="plain">${info.known.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
       <h3>One thing to know</h3><p class="fact">${esc(info.fact)}</p>
       <h3>Next door</h3>${h.adj.length ? `<div class="textlinks">${h.adj.map(a => `<button type="button" class="${isDone(IDX[a]) ? 'done' : isWant(IDX[a]) ? 'want' : ''}" data-go='${attr({ hood: a })}'>${esc(a)}</button>`).join('')}</div>` : '<p class="empty">Nobody. It is an island.</p>'}`;
     panel.querySelector('#explore').addEventListener('click', () => toggleDone(name));
     panel.querySelector('#want').addEventListener('click', () => toggleWant(name));
-    panel.querySelector('#log-here').addEventListener('click', () => startLog({ hood: name }));
     const n = panel.querySelector('#note'); if (n) n.addEventListener('input', e => noteInput(name, e.target.value));
   }
   // ---- a section of a neighborhood ----
   function renderSub(hood, subName) {
     const s = subByName(hood, subName), i = IDX[hood], info = INFO[hood], mine = spotsIn(hood, subName), others = subs(hood).filter(x => x.name !== subName);
-    if (s.star) setHead({ eyebrow: `<span class="star"><b>★</b> Starred · ${esc(s.star)}</span>`, title: esc(subName), tools: [logTool(hood, subName)] });
-    else setHead({ eyebrow: `${esc(hood)} · ${REGIONS[HOODS[i].region].label}`, dot: `var(--${VIBES[info.vibe].cls})`, title: esc(subName), tools: [logTool(hood, subName)] });
+    setHead({ path: { crumbs: crumbsOf(state.loc), tag: s.star ? '<span class="star"><b>★</b> Starred</span>' : null }, title: esc(subName), tools: [logTool(hood, subName)] }); // the reason for the star is the note at the top of the panel
     const mq = areaQuery(hood, subName), aq = areaApple(hood, subName);
     const sv = { key: 'sub:' + hood + '/' + subName, name: subName, href: tapLink(mq, aq), q: mq, z: 16, seed: [s.lon, s.lat], zoom: 15 };
     if (!paint(`
@@ -380,35 +469,34 @@
       <p class="lead">${esc(s.line)}</p>
       ${s.tags && s.tags.length ? `<div class="tags">${s.tags.map(t => `<span>${esc(t)}</span>`).join('')}</div>` : ''}
       ${streetMap(sv)}${mapBtns(mq, aq)}
-      <h3>Spots here <span class="n">${mine.length || ''}</span><button type="button" class="act" id="log-here">+ Log a place</button></h3>
+      <h3>Spots here <span class="n">${mine.length || ''}</span></h3>
       ${mine.length ? `<ul class="rows">${mine.map(id => rowSpot(id, false)).join('')}</ul>` : `<p class="empty">Nothing logged in ${esc(subName)} yet.</p>`}
       ${s.known && s.known.length ? `<h3>Known for</h3><ul class="plain">${s.known.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
       <h3>Also in ${esc(hood)}</h3><div class="textlinks">${others.map(x => `<button type="button" data-go='${attr({ hood, sub: x.name })}'>${esc(x.name)}</button>`).join('')}</div>`)) return false;
     mountStreet(Object.assign(sv, { rings: (s.rings || []).map(r => r.map(([x, y]) => Geom.unproj(x, y).map(n => +n.toFixed(5)))), dots: spotDots(null) })); // the section's cell, outlined
-    panel.querySelector('#log-here').addEventListener('click', () => startLog({ hood, sub: subName }));
   }
   // ---- a spot ----
   function renderSpot(id) {
     const sp = state.spots[id], k = KINDS[sp.kind] || KINDS.other;
-    setHead({ eyebrow: `${k.label} · ${esc(sp.sub || sp.hood)}`, dot: k.c, title: esc(sp.name), tools: [{ id: 'edit', label: 'Edit', icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16v4z"/><path d="M13 7l4 4"/></svg>', run: () => startLog({ hood: sp.hood, sub: sp.sub, edit: id }) }] });
-    const mq = spotQuery(sp), aq = spotApple(sp), want = sp.status === 'want', r = want ? 0 : Math.max(0, Math.min(5, sp.rating | 0));
+    setHead({ path: { crumbs: crumbsOf(state.loc), tag: `<i style="--c:${k.c}"></i>${k.label}` }, title: esc(sp.name), tools: [{ id: 'edit', label: 'Edit', icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16v4z"/><path d="M13 7l4 4"/></svg>', run: () => { const s = state.spots[id]; if (s) startLog({ hood: s.hood, sub: s.sub, edit: id }); } }] });
+    const mq = spotQuery(sp), aq = spotApple(sp), want = sp.status === 'want', r = want ? 0 : Math.max(0, Math.min(5, sp.rating | 0)), by = cleanName(sp.by);
     const sv = { key: 'spot:' + id + '@' + ll(sp.lat, sp.lon), name: sp.name, href: tapLink(mq, aq), q: mq, z: 17, lat: sp.lat, lon: sp.lon, zoom: 16, pin: { c: k.c, e: k.e } };
     if (!paint(`
       ${hero(ownerKey.spot(id), sp.name, { c: k.c, e: k.e, badge: { e: k.e, t: k.label } })}
-      ${sp.where ? `<p class="lead">${esc(sp.where)}</p>` : ''}
-      <div class="vrow">${r ? `<span class="vstars" role="img" aria-label="${r} of 5 stars"><span aria-hidden="true">${'★'.repeat(r)}<i>${'★'.repeat(5 - r)}</i></span></span><b class="vword">${VERDICT[r]}</b>` : ''}<span class="pstamp ${want ? 'want' : 'been'}">${want ? 'Want to try' : `Been${sp.at ? ' · ' + esc(niceDate(sp.at)) : ''}`}</span></div>
+      ${sp.where ? `<p class="lead"><span class="kbody" hidden><i style="--c:${k.c}"></i>${esc(k.label)} · </span>${esc(sp.where)}</p>` : `<p class="lead kbody" hidden><i style="--c:${k.c}"></i>${esc(k.label)}</p>`}
+      <div class="vrow">${r ? `<span class="vstars" role="img" aria-label="${r} of 5 stars"><span aria-hidden="true">${'★'.repeat(r)}<i>${'★'.repeat(5 - r)}</i></span></span><b class="vword">${VERDICT[r]}</b>` : ''}<span class="pstamp ${want ? 'want' : 'been'}">${want ? 'Want to go' : `Been${sp.at ? ' · ' + esc(niceDate(sp.at)) : ''}`}</span></div>
+      ${by ? `<p class="vby">Logged by ${esc(by)}</p>` : ''}
       ${sp.note ? `<p class="pull">${esc(sp.note)}</p>` : ''}
       ${okLL(sp.lat, sp.lon) ? streetMap(sv) : ''}${mapBtns(mq, aq)}
-      <div class="actions" style="margin-top:18px">${sp.status === 'want' ? `<button type="button" class="btn primary" id="been-now">Been here now</button>` : ''}<button type="button" class="btn quiet" id="edit">Edit</button><button type="button" class="btn quiet" id="del" style="color:var(--bad)">Delete</button></div>
+      <div class="actions" style="margin-top:18px">${sp.status === 'want' ? `<button type="button" class="btn primary" id="been-now">Mark as been</button>` : ''}<button type="button" class="btn quiet" id="del" style="color:var(--bad)">Delete</button></div>
       <div class="actions" id="del-confirm" hidden><span style="font-size:13.5px;align-self:center">Remove ${esc(sp.name)} from your log?</span><button type="button" class="btn sm" id="del-yes" style="color:var(--bad);border-color:var(--bad)">Delete</button><button type="button" class="btn sm quiet" id="del-no">Keep</button></div>`)) return false;
     mountStreet(Object.assign(sv, { dots: spotDots(id) })); // the other spots in the log, as small dots
     { const st = panel.querySelector('.pstamp'), key = id + ':' + sp.status; if (st && stamped !== key) { st.classList.add('thunk'); st.addEventListener('animationend', () => st.classList.remove('thunk'), { once: true }); } stamped = key; } // a fresh spot (or a new status): the stamp lands
     // listeners can outlive this render (an identical re-render keeps the panel), so they look the spot up when used
-    panel.querySelector('#edit').addEventListener('click', () => { const s = state.spots[id]; if (s) startLog({ hood: s.hood, sub: s.sub, edit: id }); });
     panel.querySelector('#del').addEventListener('click', () => { panel.querySelector('#del-confirm').hidden = false; panel.querySelector('#del').hidden = true; });
     panel.querySelector('#del-no').addEventListener('click', () => { panel.querySelector('#del-confirm').hidden = true; panel.querySelector('#del').hidden = false; });
     panel.querySelector('#del-yes').addEventListener('click', () => removeSpot(id));
-    const bn = panel.querySelector('#been-now'); if (bn) bn.addEventListener('click', async () => { const s = state.spots[id]; if (!s) return; s.status = 'been'; s.at = today(); await persist(); render(); toast(`${s.name}: been there.`); });
+    const bn = panel.querySelector('#been-now'); if (bn) bn.addEventListener('click', async () => { if (!state.spots[id]) return; await beforeWrite(); const s = state.spots[id]; if (!s || s.status === 'been') return; s.status = 'been'; s.at = today(); const ok = await persist(); render(); toast(`${s.name}: been there.`); if (ok !== false) logEvent('been', { id, name: s.name, hood: s.hood }); });
   }
   // ---- all spots ----
   function renderSpots() {
@@ -417,18 +505,26 @@
     if (f.kind) ids = ids.filter(id => state.spots[id].kind === f.kind); if (f.status) ids = ids.filter(id => (state.spots[id].status || 'been') === f.status);
     ids.sort((a, b) => (state.spots[a].at < state.spots[b].at ? 1 : -1));
     setHead({ eyebrow: 'Logbook', title: 'Spots', onBack: () => go(state.loc, { replace: true, fly: false }), tools: [logTool(null, null)] });
-    panel.innerHTML = `<div class="textlinks chips"><button type="button" data-sf="status:" aria-pressed="${!f.status}">All</button><button type="button" data-sf="status:been" aria-pressed="${f.status === 'been'}">Been</button><button type="button" data-sf="status:want" aria-pressed="${f.status === 'want'}">Want to try</button></div>
+    panel.innerHTML = `<div class="textlinks chips"><button type="button" data-sf="status:" aria-pressed="${!f.status}">All</button><button type="button" data-sf="status:been" aria-pressed="${f.status === 'been'}">Been</button><button type="button" data-sf="status:want" aria-pressed="${f.status === 'want'}">Want to go</button></div>
       <div class="textlinks chips"><button type="button" data-sf="kind:" aria-pressed="${!f.kind}">Any kind</button>${Object.entries(KINDS).map(([k, v]) => `<button type="button" data-sf="kind:${k}" aria-pressed="${f.kind === k}">${v.label}</button>`).join('')}</div>
       <h3>${ids.length} ${ids.length === 1 ? 'spot' : 'spots'}</h3>${ids.length ? `<ul class="rows">${ids.map(id => rowSpot(id, true)).join('')}</ul>` : '<p class="empty">Nothing matches.</p>'}`;
     panel.querySelectorAll('[data-sf]').forEach(b => b.addEventListener('click', () => { const [k, v] = b.dataset.sf.split(':'); state.spotFilter = Object.assign({}, f, { [k]: v || null }); renderSpots(); wire(panel); }));
   }
   // ---- search ----
+  // how well a name matches: 0 it starts with the query, 1 a word in it does, 2 it contains it, 9 not at all
+  function rankOf(text, qq) { const t = String(text || '').toLowerCase(); let j = t.indexOf(qq); if (j < 0) return 9; if (j === 0) return 0; for (; j >= 0; j = t.indexOf(qq, j + 1)) if (!/[\p{L}\p{N}]/u.test(t[j - 1])) return 1; return 2; }
+  // the matches, best rank first, ties alphabetical; names: the texts that count (an alias, a note: the note only as 'contains'). A synced
+  // spot's name is anyone's to write (a number, nothing): the labels compare as strings
+  const ranked = (items, names, label) => items.map(x => [x, Math.min(...names(x).map(([t, floor]) => Math.max(floor || 0, rankOf(t, state.query))))]).filter(a => a[1] < 9).sort((a, b) => a[1] - b[1] || String(label(a[0]) ?? '').localeCompare(String(label(b[0]) ?? ''))).map(a => a[0]);
   function renderSearch() {
-    const qq = state.query, hoods = NAMES.filter(n => n.toLowerCase().includes(qq) || (SHORT[n] || '').toLowerCase().includes(qq));
-    const secs = []; HOODS.forEach(h => subs(h.name).forEach(s => { if (s.name.toLowerCase().includes(qq)) secs.push({ hood: h.name, sub: s.name }); }));
-    const spots = Object.keys(state.spots).filter(id => state.spots[id].name.toLowerCase().includes(qq) || (state.spots[id].note || '').toLowerCase().includes(qq));
-    const lms = map.landmarks.filter(l => l.name.toLowerCase().includes(qq));
-    setHead({ eyebrow: 'Search', title: esc(q.value), onBack: () => { q.value = ''; state.query = ''; q.classList.remove('has'); q.blur(); endSearch('peek'); render(); } });
+    const hoods = ranked(NAMES, n => [[n], [SHORT[n]]], n => n);
+    const allSecs = []; HOODS.forEach(h => subs(h.name).forEach(s => allSecs.push({ hood: h.name, sub: s.name })));
+    const secs = ranked(allSecs, x => [[x.sub]], x => x.sub);
+    const spots = ranked(Object.keys(state.spots), id => [[state.spots[id].name], [state.spots[id].note, 2]], id => state.spots[id].name);
+    const lms = ranked(map.landmarks, l => [[l.name]], l => l.name);
+    const total = hoods.length + secs.length + spots.length + lms.length;
+    // the query is already in the field above: the header says how many, and its heading names the panel for assistive tech
+    setHead({ eyebrow: total ? `Search · ${total} ${total === 1 ? 'result' : 'results'}` : 'Search', title: 'Search results', compact: true, onBack: () => { q.value = ''; state.query = ''; q.classList.remove('has'); q.blur(); endSearch('peek'); render(); } });
     let first = true; const F = () => { const f = first ? 'data-first' : ''; first = false; return f; };
     panel.innerHTML = `
       ${hoods.length ? `<h3>Places <span class="n">${hoods.length}</span></h3><ul class="rows">${hoods.map(n => `<li><button type="button" class="row" ${F()} data-go='${attr({ hood: n })}'><span class="ic ${isDone(IDX[n]) ? 'flag' : isWant(IDX[n]) ? 'star' : 'none'}"></span><span class="nm">${esc(n)}<small>${esc(REGIONS[HOODS[IDX[n]].region].label)}</small></span><span class="rt"><span class="chev"></span></span></button></li>`).join('')}</ul>` : ''}
@@ -458,14 +554,18 @@
   }
   async function toggleDone(name) {
     if (!state.canWrite) return;
-    const k = slug(name), i = IDX[name], before = stampState();
+    const k = slug(name), i = IDX[name];
+    if (!state.done[k] && needsName()) { await beforeWrite(); if (state.done[k] || state.loc.hood !== name) return; } // the name first; a sync while asking may have walked it already
+    const before = stampState(), walking = !state.done[k];
     if (state.done[k]) delete state.done[k]; else { state.done[k] = { at: today(), note: '' }; delete state.want[k]; map.pop(i); }
     if (state.lens === 'done') recolor(true); map.redraw(); render();
-    if (state.done[k]) { const after = stampState(); const newStamp = STAMPS.find(s => !s.test(before) && s.test(after)); toast(newStamp ? `Stamp earned: ${newStamp.label}` : `${name} walked. +${ft(HOODS[i].max).toLocaleString()} ft`); }
-    setSaveState('Saving…'); if (await persist() !== false) setSaveState(state.done[k] ? 'Saved' : '');
+    if (state.done[k]) { const after = stampState(); const newStamp = STAMPS.find(s => !s.test(before) && s.test(after)); toast(newStamp ? `Stamp earned: ${newStamp.label}` : `Been to ${name}. +${ft(HOODS[i].max).toLocaleString()} ft`); }
+    setSaveState('Saving…'); const ok = await persist(); if (ok !== false) { setSaveState(state.done[k] ? 'Saved' : ''); if (walking && state.done[k] && !walkedEv.has(k)) { walkedEv.add(k); logEvent('place', { id: k, name, hood: name }); } } // still walked once saved (no undo meanwhile), and one event a place a session however often it is toggled
   }
+  const walkedEv = new Set();
   async function toggleWant(name) {
     if (!state.canWrite) return; const k = slug(name), i = IDX[name];
+    if (!state.want[k] && needsName()) { await beforeWrite(); if (state.want[k] || state.loc.hood !== name) return; }
     if (state.want[k]) delete state.want[k]; else { state.want[k] = { at: today() }; map.pop(i); }
     map.redraw(); render(); setSaveState('Saving…'); if (await persist() !== false) setSaveState('Saved');
   }
@@ -503,9 +603,20 @@
   }
   // ---------- hosted site: one shared logbook per secret link ----------
   // The key rides in ?log= so a bookmark or a shared link carries it; a link with a key adopts that log on this device.
+  const KEY_RE = /^[A-Za-z0-9_-]{16,80}$/;
+  // a log this device leaves is never lost: its key goes to the front of sbs-log-keys-prev (most recent first, distinct, at most 5, never
+  // the log open now), whether it is left by Join or by opening a link with another key. The older single slot (sbs-log-key-prev) is
+  // read into the list once, then removed. Keys are never shown in the page.
+  function prevKeys() {
+    let a = null, cur = null, old = null; try { cur = localStorage.getItem('sbs-log-key'); old = localStorage.getItem('sbs-log-key-prev'); a = JSON.parse(localStorage.getItem('sbs-log-keys-prev')); } catch (e) {}
+    a = [old, ...(Array.isArray(a) ? a : [])].filter((k, i, s) => typeof k === 'string' && KEY_RE.test(k) && k !== cur && s.indexOf(k) === i).slice(0, 5);
+    if (old !== null) try { localStorage.setItem('sbs-log-keys-prev', JSON.stringify(a)); localStorage.removeItem('sbs-log-key-prev'); } catch (e) {}
+    return a;
+  }
+  function keepPrevKey(next) { try { const a = [localStorage.getItem('sbs-log-key'), ...prevKeys()].filter((k, i, s) => k && KEY_RE.test(k) && k !== next && s.indexOf(k) === i).slice(0, 5); localStorage.setItem('sbs-log-keys-prev', JSON.stringify(a)); } catch (e) {} }
   function syncKey() {
     let k = null; try { k = new URLSearchParams(location.search).get('log'); } catch (e) {}
-    if (k && /^[A-Za-z0-9_-]{16,80}$/.test(k)) { try { localStorage.setItem('sbs-log-key', k); } catch (e) {} return k; }
+    if (k && KEY_RE.test(k)) { keepPrevKey(k); try { localStorage.setItem('sbs-log-key', k); } catch (e) {} return k; }
     try { k = localStorage.getItem('sbs-log-key'); } catch (e) {}
     if (!k) { k = (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)).replace(/-/g, ''); try { localStorage.setItem('sbs-log-key', k); } catch (e) {} }
     try { const u = new URL(location.href); u.searchParams.set('log', k); history.replaceState(history.state, '', u.pathname + u.search + u.hash); } catch (e) {}
@@ -517,20 +628,161 @@
     try { if (navigator.share) { await navigator.share({ title: 'Seven by Seven', text: 'Our logbook', url: link }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
     try { await navigator.clipboard.writeText(link); toast('Link copied'); } catch (e) { prompt('Copy this link', link); }
   }
-  function joinLog() {
-    const raw = prompt('Paste the shared link (or just its key)'); if (!raw) return;
-    let k = raw.trim(); try { const u = new URL(k); k = u.searchParams.get('log') || ''; } catch (e) { const m = k.match(/log=([A-Za-z0-9_-]+)/); if (m) k = m[1]; }
-    if (!/^[A-Za-z0-9_-]{16,80}$/.test(k)) { toast('That is not a Seven by Seven link', 3000); return; }
-    try { localStorage.setItem('sbs-log-key', k); localStorage.removeItem('sbs-explored'); } catch (e) {}
-    location.href = location.pathname + '?log=' + k;
+  const keyOf = raw => { let k = String(raw || '').trim(); try { const u = new URL(k); k = u.searchParams.get('log') || ''; } catch (e) { const m = k.match(/log=([A-Za-z0-9_-]+)/); if (m) k = m[1]; } return KEY_RE.test(k) ? k : null; };
+  function switchLog(k) { keepPrevKey(k); try { localStorage.setItem('sbs-log-key', k); localStorage.removeItem('sbs-explored'); } catch (e) {} location.href = location.pathname + '?log=' + k; }
+  // joining another log: the link goes in an in-page dialog that says first that this device switches logs, and that the log it
+  // leaves keeps its key here (keepPrevKey). Nothing is replaced until Switch logs is tapped. back: the same dialog, without the
+  // field, takes this device back to the log it left last (Settings offers it only when there is one)
+  function joinLog(back) {
+    back = back === true; const to = back ? prevKeys()[0] : null; if (back && !to) return;
+    let dlg = $('join');
+    if (!dlg) {
+      dlg = document.createElement('dialog'); dlg.id = 'join'; dlg.className = 'who'; dlg.setAttribute('aria-labelledby', 'join-t');
+      dlg.innerHTML = `<form method="dialog" id="join-form" novalidate><h2 id="join-t">Join another log?</h2><p>This device will switch to that log: you will see and add to it instead of the one open now. Nothing is deleted, and this device keeps the current log's key so it can come back to it.</p>
+        <div class="field"><label for="join-in">The shared link, or its key</label><input id="join-in" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go" placeholder="Paste the link"></div>
+        <p class="err" id="join-err" role="alert" hidden></p>
+        <div class="actions"><button type="button" class="btn quiet" id="join-cancel">Cancel</button><button type="submit" class="btn primary">Switch logs</button></div></form>`;
+      document.body.appendChild(dlg);
+    }
+    if (typeof dlg.showModal !== 'function') { const k = back ? (confirm('Go back to the previous log?') ? to : null) : keyOf(prompt('Paste the shared link (or just its key)')); if (k) switchLog(k); return; } // a browser without the dialog: the old prompt
+    const inp = dlg.querySelector('#join-in'), err = dlg.querySelector('#join-err'), form = dlg.querySelector('#join-form');
+    inp.value = ''; err.hidden = true; inp.parentNode.hidden = back;
+    dlg.querySelector('#join-t').textContent = back ? 'Back to the previous log?' : 'Join another log?';
+    dlg.querySelector('#join-t + p').textContent = back ? 'This device will switch back to the log it used before this one. Nothing is deleted, and this device keeps the current log\'s key so it can come back to it.' : 'This device will switch to that log: you will see and add to it instead of the one open now. Nothing is deleted, and this device keeps the current log\'s key so it can come back to it.';
+    form.onsubmit = e => {
+      e.preventDefault(); const k = back ? to : keyOf(inp.value);
+      if (!k) { err.textContent = 'That is not a Seven by Seven link.'; err.hidden = false; inp.focus(); return; }
+      let cur = null; try { cur = localStorage.getItem('sbs-log-key'); } catch (x) {}
+      dlg.close(); if (k === cur) { toast('This device already uses that log'); return; }
+      switchLog(k);
+    };
+    dlg.querySelector('#join-cancel').onclick = () => dlg.close();
+    dlg.showModal(); if (!back) inp.focus();
   }
+  // ---- the name prompt: an in-page dialog. done(name) runs inside the Save / Skip tap, so a file picker it opens counts as tapped
+  function askName(done) {
+    let dlg = $('who');
+    if (!dlg) {
+      dlg = document.createElement('dialog'); dlg.id = 'who'; dlg.className = 'who'; dlg.setAttribute('aria-labelledby', 'who-t');
+      dlg.innerHTML = `<form method="dialog" id="who-form"><h2 id="who-t">Who is logging?</h2><p>Your name goes on what you add to this log, so the other phone sees who it was. Change it any time in Settings.</p>
+        <div class="field"><label for="who-name">Your name</label><input id="who-name" maxlength="${WHO_MAX}" autocomplete="given-name" enterkeyhint="done" placeholder="First name"></div>
+        <div class="actions"><button type="button" class="btn quiet" id="who-skip">Skip</button><button type="submit" class="btn primary">Save</button></div></form>`;
+      document.body.appendChild(dlg);
+    }
+    if (typeof dlg.showModal !== 'function') { whoSet = true; done(who()); return; } // no dialog support: write without a name, ask again next visit
+    const inp = dlg.querySelector('#who-name'), form = dlg.querySelector('#who-form'), skip = dlg.querySelector('#who-skip');
+    inp.value = who();
+    const finish = (name, esc) => { form.onsubmit = skip.onclick = dlg.oncancel = null; setWho(name); if (dlg.open) dlg.close(); done(who(), esc); };
+    form.onsubmit = e => { e.preventDefault(); finish(inp.value); };
+    skip.onclick = () => finish('');
+    dlg.oncancel = e => { e.preventDefault(); finish('', true); }; // Escape: a skip, but not a tap (done is told, so it opens no file picker)
+    dlg.showModal(); inp.focus();
+  }
+  // before a write to a shared log: the name, once per device
+  const needsName = () => state.store === 'sync' && state.canWrite && !whoAsked();
+  const beforeWrite = () => new Promise(r => needsName() ? askName(r) : r(who()));
+  // adding a photo: photos.js opens the picker on the tap, so the first tap asks first, then taps the button again for the user. The
+  // hero may have redrawn while the dialog was open: then it is that hero's add button now. After Escape there is no tap to open a
+  // picker with, so nothing is replayed (the user taps + Photo again).
+  document.addEventListener('click', e => {
+    const b = e.target.closest && e.target.closest('[data-ph-add]'); if (!b || b.disabled || !needsName()) return;
+    e.preventDefault(); e.stopPropagation(); const h = b.closest('.hero[data-owner]'), owner = h && h.dataset.owner;
+    askName((n, esc) => {
+      if (esc) return;
+      const nb = b.isConnected ? b : [...document.querySelectorAll('.hero[data-owner]')].filter(x => x.dataset.owner === owner).map(x => x.querySelector('[data-ph-add]:not([disabled])')).find(Boolean);
+      if (nb && !nb.disabled) nb.click();
+    });
+  }, true);
+
+  // ---------- what's new: the activity feed beside a shared log ----------
+  // logs/<key>-ev/<id> = { t, by, d (device id), k, id, name, hood, n }, written when this device adds a spot, marks one been, walks
+  // a place or adds photos, and only once the write itself went through. On open the last 30 are read; the ones by other devices
+  // newer than this device's last seen id show at the top of the root panel until Seen. Ids come from the database, so they sort by
+  // its clock (no skew between phones). While the app is open the feed's own stream fires on every new event and the feed is read
+  // again, and what arrived is toasted.
+  // Anyone with the link can write the feed: every field is checked and cut to length, and escaped where it reaches HTML.
+  let feed = null, feedKey = null, feedTimer = null, photoOpts = null, feedReq = 0, feedDone = false, newsShown = []; const told = new Set(); // told: events already shown this session (block or toast)
+  state.news = []; // unseen events by others, newest first
+  const EV_KINDS = { spot: 1, been: 1, photo: 1, place: 1 };
+  const EV_KEY = /^-[A-Za-z0-9_-]{19}$/; // a database push id only: a hand-written key ('zzzz') would sort after every real one and hide them
+  const evStr = (v, n) => typeof v === 'string' ? v.replace(/[\x00-\x1f\x7f]/g, '').slice(0, n) : '';
+  function cleanEv(key, e) {
+    if (!EV_KEY.test(key) || !e || typeof e !== 'object' || !Object.hasOwn(EV_KINDS, e.k)) return null;
+    return { key, k: e.k, t: evStr(e.t, 40), by: cleanName(evStr(e.by, 80)), d: evStr(e.d, 40), id: evStr(e.id, 120), name: evStr(e.name, 80).trim(), hood: evStr(e.hood, 80), n: e.k === 'photo' ? Math.max(1, Math.min(99, Math.floor(+e.n) || 1)) : 0 };
+  }
+  function logEvent(k, o) {
+    if (!feed || state.store !== 'sync' || !state.canWrite) return;
+    const ev = { t: new Date().toISOString(), by: who(), d: deviceId, k, id: String(o.id || '').slice(0, 120), name: String(o.name || '').slice(0, 80), hood: String(o.hood || '').slice(0, 80) };
+    if (k === 'photo') ev.n = Math.max(1, o.n | 0);
+    feed.push(ev).catch(e => console.warn('event not saved', e));
+  }
+  const seenId = () => { let s = null; try { s = localStorage.getItem('sbs-seen-' + feedKey); } catch (e) {} return s === '' || EV_KEY.test(s) ? s : null; }; // '': before every event; anything else unknown: never seen
+  const setSeen = id => { if (id !== '' && !EV_KEY.test(id)) return; try { localStorage.setItem('sbs-seen-' + feedKey, id); } catch (e) {} };
+  function evLine(e) { const by = e.by || 'Someone', nm = e.name || 'a spot'; return e.k === 'photo' ? `${by} added ${e.n === 1 ? 'a photo' : e.n + ' photos'} to ${nm}` : e.k === 'place' ? `${by} has been to ${nm}` : e.k === 'been' ? `${by} went to ${nm}` : `${by} logged ${nm}`; }
+  function ago(t) { const d = Date.parse(t), m = (Date.now() - d) / 60000; if (!isFinite(m) || m < -5) return ''; return m < 1 ? 'just now' : m < 60 ? Math.round(m) + ' min ago' : m < 1440 ? Math.round(m / 60) + ' h ago' : m < 10080 ? Math.round(m / 1440) + (Math.round(m / 1440) === 1 ? ' day ago' : ' days ago') : niceDate(new Date(d).toISOString().slice(0, 10)); }
+  // where a photo owner key points: a spot, a place, or a section
+  function ownerLoc(owner) {
+    for (const id in state.spots) if (ownerKey.spot(id) === owner) return { spot: id };
+    for (const h of NAMES) { if (ownerKey.place(h) === owner) return { hood: h }; for (const s of subs(h)) if (ownerKey.section(h, s.name) === owner) return { hood: h, sub: s.name }; }
+    return null;
+  }
+  function evLoc(e) { // every lookup by own key only: an event's id or hood of '__proto__' or 'constructor' finds nothing
+    if ((e.k === 'spot' || e.k === 'been') && Object.hasOwn(state.spots, e.id)) return { spot: e.id };
+    if (e.k === 'photo') { const l = ownerLoc(e.id); if (l) return l; }
+    if (e.k === 'place' && Object.hasOwn(BY_SLUG, e.id)) return { hood: BY_SLUG[e.id] };
+    return Object.hasOwn(IDX, e.hood) ? { hood: e.hood } : null;
+  }
+  function openEv(e) { const l = evLoc(e); if (l) go(l, { tap: true }); else toast('That is no longer in the log', 2600); }
+  const atRoot = () => !state.view && !state.query && !state.quiz && level(state.loc) === 0;
+  async function readFeed(live) {
+    if (!feed) return; const my = ++feedReq; let d;
+    try { d = await feed.recent(30); } catch (e) { console.warn('feed unavailable', e); return; }
+    if (my !== feedReq) return; // a later read was asked for: an older answer never replaces it
+    if (!feedDone) { feedDone = true; live = false; } // the first answer is the backlog: the block shows it, no toast
+    const all = Object.keys(d && typeof d === 'object' ? d : {}).sort().map(k => cleanEv(k, d[k])).filter(Boolean);
+    let seen = seenId();
+    if (seen === null) { seen = all.length ? all[all.length - 1].key : ''; setSeen(seen); } // first visit on this device: nothing counts as new
+    const news = all.filter(e => e.key > seen && e.d !== deviceId).reverse(), arrived = news.filter(e => !told.has(e.key));
+    news.forEach(e => told.add(e.key));
+    const changed = news.map(e => e.key).join() !== state.news.map(e => e.key).join(); state.news = news;
+    const busy = state.view === 'log' || !!($('who') && $('who').open); // a form or the name prompt is open: View would leave it and lose the draft
+    if (live && arrived.length) { const e = arrived[0]; toast(evLine(e) + (arrived.length > 1 ? ` and ${arrived.length - 1} more` : ''), 6000, busy ? null : { label: 'View', run: () => openEv(e) }); }
+    if (changed && atRoot() && !(document.activeElement && panel.contains(document.activeElement) && document.activeElement.matches('input, textarea'))) render(); // never under someone typing
+  }
+  const feedSoon = () => { clearTimeout(feedTimer); feedTimer = setTimeout(() => readFeed(true), 250); }; // one read for a burst of stream messages
+  // Seen and the lines act on what the block last drew (newsShown), never on a list read since while it could not redraw
+  function markSeen() { const top = newsShown[0]; if (top && top.key > (seenId() || '')) setSeen(top.key); state.news = top ? state.news.filter(e => e.key > top.key) : []; render(); }
+  function newsBlock() {
+    const n = newsShown = state.news; if (!n.length) return '';
+    const shown = n.slice(0, 5), more = n.length - shown.length;
+    return `<section class="news" aria-label="New since you were last here"><h3>New since you were last here<button type="button" class="act" id="news-seen">Seen</button></h3>
+      <ul class="rows">${shown.map(e => `<li><button type="button" class="row" data-news="${esc(e.key)}"><span class="ic"></span><span class="nm">${esc(evLine(e))}<small>${esc([e.hood && e.hood !== e.name ? e.hood : '', ago(e.t)].filter(Boolean).join(' · '))}</small></span><span class="rt"><span class="chev"></span></span></button></li>`).join('')}</ul>
+      ${more ? `<p class="more">and ${more} more</p>` : ''}</section>`;
+  }
+  // photos.js: who adds a photo, what was added (an event), and the capture date of a photo on a been spot (offered, never applied unasked)
+  function photoAdded(owner, ids, label) {
+    const n = Array.isArray(ids) ? ids.length : ids && typeof ids === 'object' ? Object.keys(ids).length : 0; if (!n) return;
+    const l = ownerLoc(owner), hood = l ? (l.spot ? state.spots[l.spot].hood : l.hood) : '';
+    logEvent('photo', { id: owner, name: label || (l && l.spot ? state.spots[l.spot].name : l ? l.sub || l.hood : ''), hood, n });
+  }
+  function photoTaken(owner, date, label) {
+    if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) || isNaN(new Date(date + 'T12:00:00')) || date > today()) return;
+    const l = ownerLoc(owner), id = l && l.spot, sp = id && state.spots[id]; if (!sp || sp.status !== 'been' || sp.at === date || !state.canWrite) return;
+    const was = sp.at; // the offer is for the date shown now: an edit or a sync since, or a log gone read-only, voids it
+    toast(`Photo taken ${niceDate(date)}`, 8000, { label: 'Use as the visit date', run: async () => { const s = state.spots[id]; if (!s || s.status !== 'been' || s.at !== was || !state.canWrite) return; s.at = date; stamped = null; render(); if (await persist() !== false) toast(`${s.name}: visited ${niceDate(date)}`); } });
+  }
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && feed) readFeed(true); }); // a home-screen app comes back without reloading
+
   function connectSync() {
     if (!window.Sync || !Sync.ready()) { state.store = 'local'; return; }
     const key = syncKey(); state.store = 'sync';
-    if (window.Photos && Sync.photos) Photos.init({ api: Sync.photos(key), toast, canWrite: () => state.canWrite });
+    if (Sync.events) { feed = Sync.events(key); feedKey = key; }
+    if (window.Photos && Sync.photos) Photos.init(photoOpts = { api: Sync.photos(key), toast, canWrite: () => state.canWrite, who, onAdded: photoAdded, onTaken: photoTaken });
     { const sp = state.loc.spot || (state.bootLoc && state.bootLoc.spot); if (sp && window.Photos && Photos.preload) Photos.preload(ownerKey.spot(sp)); } // a #spot-- link: its photos set off now, beside the log, not after it
-    let seeded = false;
+    let seeded = false, fed = false;
+    const unwatch = feed && feed.watch ? feed.watch(feedSoon) : null; // any device's new event (a photo too): read the feed again
     docRef = Sync.connect(key, data => {
+      if (!fed) { fed = true; readFeed(false); } // the first record, even our own write coming back: what is new since last time
       if (data && data.updatedAt && data.updatedAt === lastSent) return; // our own write coming back
       if (data) adopt(data);
       else if (!seeded) { seeded = true; if (local && local.hoods && Object.keys(local.hoods).length) persist(); }
@@ -538,7 +790,7 @@
       const boot = state.bootLoc; state.bootLoc = null;
       if (boot && state.spots[boot.spot] && !state.loc.spot) go(boot, { replace: true });
       else if (state.loc.spot && !state.spots[state.loc.spot]) go({ hood: state.loc.hood }, { replace: true }); else render();
-    }, e => { console.warn('sync ended', e); if (e && e.code === 'invalid_argument') { state.canWrite = false; render(); } });
+    }, e => { console.warn('sync ended', e); if (e && e.code === 'invalid_argument') { state.canWrite = false; if (unwatch) unwatch(); render(); } }); // the log stream closed: the feed's goes too
     render();
   }
   async function exportLog() {
@@ -564,8 +816,28 @@
   function startLog(ctx) {
     const sp = ctx.edit ? state.spots[ctx.edit] : null;
     state.draft = sp ? Object.assign({}, sp, { id: ctx.edit, x: sp._xy ? sp._xy[0] : null, y: sp._xy ? sp._xy[1] : null }) : { id: null, name: '', kind: 'food', status: 'been', rating: 0, note: '', at: today(), hood: ctx.hood || state.loc.hood || null, sub: ctx.sub || (ctx.hood ? null : state.loc.sub) || null, lon: null, lat: null, x: null, y: null, where: '', src: null };
+    // no place chosen (the first screen, a region): most likely it is where you stand, so the location lookup starts at once. With no
+    // location (refused, unavailable, timed out, off the map) the form simply stays as it is, with no message
+    const d = state.draft; if (!sp && !d.hood && navigator.geolocation) d.locating = true;
     go(state.loc, { view: 'log', fly: false, replace: true, sheet: isPhone() ? 'full' : undefined });
+    if (!sp) { const qi = panel.querySelector('#lf-q'); if (qi) qi.focus({ preventScroll: true }); } // the name first, still inside the + tap (iOS opens the keyboard only for a focus in a tap)
+    if (d.locating) locate(pos => { d.locating = false; if (state.draft === d && d.lon == null) fillGps(d, pos); else gpsIdle(d); }, { quiet: true, fail: () => { d.locating = false; gpsIdle(d); } });
   }
+  // a location that lands while the form is open changes the form in place, never by a rebuild: that would take what is being typed,
+  // the focus (on iOS, the keyboard), the caret and the open suggestions with it. Once the form is saved or left it does nothing.
+  const openForm = d => state.draft === d && state.view === 'log' && panel.querySelector('#logform');
+  function gpsIdle(d) { const b = openForm(d) && panel.querySelector('#lf-gps'); if (b) { b.disabled = false; b.removeAttribute('aria-busy'); b.textContent = 'Use my location'; } }
+  function fillGps(d, pos) {
+    if (state.draft !== d) return; const [x, y] = Geom.proj(pos), w = locateXY(x, y); Object.assign(d, { lon: pos[0], lat: pos[1], x, y, hood: w.hood || d.hood, sub: w.sub, src: 'gps', where: 'Your location' });
+    const f = !state.placing && openForm(d); if (!f) return; // a pin drop is on: its Back draws the form from the draft
+    const qi = f.querySelector('#lf-q'), lb = f.querySelector('label[for="lf-q"]'); if (lb) lb.textContent = 'Place';
+    { const o = f.querySelector('#lf-clear'); if (o) o.parentNode.remove(); } qi.insertAdjacentHTML('afterend', whereLine(d)); f.querySelector('#lf-clear').addEventListener('click', () => clearWhere(d));
+    for (const el of [f.querySelector('#lf-gps') && f.querySelector('#lf-gps').parentNode, f.querySelector('#lf-hint'), f.querySelector('#lf-actions span')]) if (el) el.remove(); // what a placed form has not
+    if (!d.id) { const h = head.querySelector('h2'); if (h) h.innerHTML = d.hood ? `In ${esc(d.sub || d.hood)}` : 'Somewhere on the map'; }
+  }
+  // the line under the name once the spot has a place: where it is, and 'change' to take the place off again
+  const whereLine = d => `<small style="color:var(--muted);font-size:12.5px">${ICON.pin.replace('<svg', '<svg style="width:12px;height:12px;vertical-align:-1px;fill:none;stroke:currentColor;stroke-width:2"')} ${esc(d.where || '')}${(() => { const w = d.where || ''; const parts = [d.sub, d.hood].filter(x => x && !w.includes(x)); const tail = parts.length ? parts.join(', ') : (w ? '' : 'outside the tracked places'); return (w && tail ? ' · ' : '') + esc(tail); })()} <button type="button" class="act" id="lf-clear" style="border:0;background:none;color:var(--accent-deep, var(--accent));font-weight:600;padding:0 0 0 6px">change</button></small>`;
+  function clearWhere(d) { d.lon = d.lat = d.x = d.y = null; d.where = ''; d.src = null; renderLogForm(); }
   let sugTimer = null, sugCtrl = 0;
   function renderLogForm() {
     const d = state.draft; if (!d) { state.view = null; render(); return; }
@@ -573,15 +845,15 @@
     setHead({ eyebrow: d.id ? 'Edit spot' : 'Log a place', title: d.id ? esc(d.name) : (d.hood ? `In ${esc(d.sub || d.hood)}` : 'Somewhere on the map'), onBack: cancelLog, tools: [] });
     panel.innerHTML = `<form id="logform" autocomplete="off">
       <div class="field"><label for="lf-q">${placed ? 'Place' : 'Find the place'}</label><input id="lf-q" placeholder="Search a restaurant, bar, park…" value="${esc(d.name)}" ${placed ? '' : 'autofocus'}>
-        ${placed ? `<small style="color:var(--muted);font-size:12.5px">${ICON.pin.replace('<svg', '<svg style="width:12px;height:12px;vertical-align:-1px;fill:none;stroke:currentColor;stroke-width:2"')} ${esc(d.where || '')}${(() => { const w = d.where || ''; const parts = [d.sub, d.hood].filter(x => x && !w.includes(x)); const tail = parts.length ? parts.join(', ') : (w ? '' : 'outside the tracked places'); return (w && tail ? ' · ' : '') + esc(tail); })()} <button type="button" class="act" id="lf-clear" style="border:0;background:none;color:var(--accent-deep, var(--accent));font-weight:600;padding:0 0 0 6px">change</button></small>` : ''}</div>
+        ${placed ? whereLine(d) : ''}</div>
       <ul class="suggest" id="lf-sug" hidden></ul>
       <p class="empty" id="lf-nosearch" style="font-size:12.5px;margin:-4px 0 10px" ${state.searchDown ? '' : 'hidden'}>Live suggestions are not available here. Press Enter to search, or type the name and drop a pin.</p>
-      ${placed ? '' : `<div class="actions" style="margin:0 0 14px"><button type="button" class="btn sm" id="lf-pin">${ICON.pin} Drop a pin on the map</button><button type="button" class="btn sm" id="lf-gps">Use my location</button></div>`}
+      ${placed ? '' : `<div class="actions" style="margin:0 0 14px"><button type="button" class="btn sm" id="lf-pin">${ICON.pin} Drop a pin on the map</button><button type="button" class="btn sm" id="lf-gps" ${d.locating ? 'disabled aria-busy="true"' : ''}>${d.locating ? 'Finding your location…' : 'Use my location'}</button></div>`}
       <div class="field"><label>Kind</label><div class="seg" id="lf-kind">${Object.entries(KINDS).filter(([k]) => k !== 'other').map(([k, v]) => `<button type="button" data-k="${k}" aria-pressed="${d.kind === k}">${v.label}</button>`).join('')}</div></div>
-      <div class="field"><label>Status</label><div class="seg" id="lf-status"><button type="button" data-s="been" aria-pressed="${d.status === 'been'}">Been</button><button type="button" data-s="want" aria-pressed="${d.status === 'want'}">Want to try</button></div></div>
+      <div class="field"><label>Status</label><div class="seg" id="lf-status"><button type="button" data-s="been" aria-pressed="${d.status === 'been'}">Been</button><button type="button" data-s="want" aria-pressed="${d.status === 'want'}">Want to go</button></div></div>
       <div class="two lf-been" id="lf-been" ${d.status === 'been' ? '' : 'hidden'}>
         <div class="field" style="margin:0"><label>Rating</label><div class="rate" id="lf-rate">${[1, 2, 3, 4, 5].map(n => `<button type="button" data-r="${n}" class="${n <= d.rating ? 'on' : ''}" aria-label="${n} star${n > 1 ? 's' : ''}">★</button>`).join('')}</div></div>
-        <div class="field" style="margin:0"><label for="lf-date">When</label><input type="date" id="lf-date" value="${esc(d.at || today())}"></div>
+        <div class="field lf-when" style="margin:0"><label for="lf-date">When</label><input type="date" id="lf-date" value="${esc(d.at || today())}"></div>
       </div>
       <div class="field"><label for="lf-note">Note</label><textarea id="lf-note" rows="2" placeholder="What to order, who to bring, what to skip">${esc(d.note || '')}</textarea></div>
       ${d.id || placed || !isPhone() ? '' : `<p class="empty" id="lf-hint" style="font-size:12.5px">Without a pin it lands in the middle of ${esc(d.sub || d.hood || 'the map')}.</p>`}
@@ -596,13 +868,13 @@
     panel.querySelector('#lf-date').addEventListener('change', e => d.at = e.target.value || today());
     panel.querySelector('#lf-note').addEventListener('input', e => d.note = e.target.value);
     panel.querySelector('#lf-cancel').addEventListener('click', cancelLog);
-    const clr = panel.querySelector('#lf-clear'); if (clr) clr.addEventListener('click', () => { d.lon = d.lat = d.x = d.y = null; d.where = ''; d.src = null; renderLogForm(); });
+    const clr = panel.querySelector('#lf-clear'); if (clr) clr.addEventListener('click', () => clearWhere(d));
     const pin = panel.querySelector('#lf-pin'); if (pin) pin.addEventListener('click', () => { state.placing = true; state.pending = null; stage.classList.add('placing'); if (isPhone()) sheet.set('peek'); setHead({ eyebrow: 'Drop a pin', title: 'Tap the map', onBack: () => { stopPlacing(); renderLogForm(); if (isPhone()) sheet.set('full'); }, tools: [] }); toast('Tap the map where it is', 3200); map.redraw(); });
-    const gps = panel.querySelector('#lf-gps'); if (gps) gps.addEventListener('click', () => locate(pos => { const [x, y] = Geom.proj(pos); const w = locateXY(x, y); Object.assign(d, { lon: pos[0], lat: pos[1], x, y, hood: w.hood || d.hood, sub: w.sub, src: 'gps', where: 'Your location' }); renderLogForm(); }));
+    const gps = panel.querySelector('#lf-gps'); if (gps) gps.addEventListener('click', () => locate(pos => { if (state.draft === d) fillGps(d, pos); }));
     form.addEventListener('submit', e => { e.preventDefault(); saveDraft(); });
   }
   async function suggest(v, sug, qi, explicit) {
-    const my = ++sugCtrl, d = state.draft; let res = [];
+    const my = ++sugCtrl, d = state.draft; let res = []; if (!d) return; // the form was saved or left before the typing pause ended
     const bias = d.hood ? (() => { const bb = map.hoodBBox(IDX[d.hood]); return Geom.unproj((bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2); })() : null;
     try { res = await window.Places.search(v, bias, { explicit }); } catch (e) { if (e.name === 'AbortError') return; sug.hidden = true; if (!state.searchDown) { state.searchDown = true; const n = panel.querySelector('#lf-nosearch'); if (n) n.hidden = false; } return; }
     if (window.Places.search.photonDown && !state.searchDown) { state.searchDown = true; const n = panel.querySelector('#lf-nosearch'); if (n) n.hidden = false; }
@@ -625,34 +897,39 @@
   function cancelLog() { const d = state.draft; state.draft = null; stopPlacing(); if (d && d.id) go({ spot: d.id }, { replace: true, fly: false }); else go(state.loc, { replace: true, fly: false }); }
   async function saveDraft() {
     const d = state.draft; if (!d) return; const name = (d.name || '').trim(); if (!name) { panel.querySelector('#lf-q').focus(); return; }
+    const di = panel.querySelector('#lf-date'); if (di) d.at = di.value || today(); // the field as it is now: iOS may not have fired change before the tap
+    if (needsName()) { await beforeWrite(); if (state.draft !== d) return; }
     if (d.lon == null) { // no pin: the centre of the section, or the neighborhood
       let x, y; if (d.hood && d.sub && subByName(d.hood, d.sub)) [x, y] = subByName(d.hood, d.sub).c; else if (d.hood) { const h = HOODS[IDX[d.hood]]; x = h.cx; y = h.cy; } else { const c = map.cam; x = c.x + c.w / 2; y = c.y + c.w * map.H / map.W / 2; }
       x += (Math.random() - .5) * 0.6; y += (Math.random() - .5) * 0.6; const [lon, lat] = Geom.unproj(x, y); const w = locateXY(x, y); Object.assign(d, { lon, lat, x, y, hood: w.hood || d.hood, sub: w.sub || d.sub, src: 'approx' });
     }
-    const id = d.id || ('s' + Date.now().toString(36));
-    state.spots[id] = { name: name.slice(0, 80), kind: KINDS[d.kind] ? d.kind : 'other', status: d.status === 'want' ? 'want' : 'been', rating: d.status === 'been' ? (d.rating | 0) : 0, note: (d.note || '').trim().slice(0, 400), lon: +d.lon.toFixed(5), lat: +d.lat.toFixed(5), hood: d.hood, sub: d.sub || null, at: d.at || today(), where: (d.where || '').slice(0, 120), src: d.src || null };
+    const id = d.id || ('s' + Date.now().toString(36)), prev = d.id ? state.spots[d.id] : null;
+    const by = prev ? cleanName(prev.by) : who(), was = prev ? prev.status : null; // by: who first logged it, kept through every edit
+    state.spots[id] = { ...(by ? { by } : {}), name: name.slice(0, 80), kind: KINDS[d.kind] ? d.kind : 'other', status: d.status === 'want' ? 'want' : 'been', rating: d.status === 'been' ? (d.rating | 0) : 0, note: (d.note || '').trim().slice(0, 400), lon: +d.lon.toFixed(5), lat: +d.lat.toFixed(5), hood: d.hood, sub: d.sub || null, at: d.at || today(), where: (d.where || '').slice(0, 120), src: d.src || null };
     state.draft = null; state.pending = null; state.placing = false; stage.classList.remove('placing');
     toast(d.id ? 'Saved' : `${name} logged`); setSaveState('Saving…'); const ok = await persist(); go({ spot: id }, { replace: true }); if (ok !== false) setSaveState('Saved');
+    if (ok !== false && state.spots[id]) { const s = state.spots[id], k = !prev ? 'spot' : was === 'want' && s.status === 'been' ? 'been' : null; if (k) logEvent(k, { id, name: s.name, hood: s.hood }); }
   }
   async function removeSpot(id) { const sp = state.spots[id]; if (!sp) return; delete state.spots[id]; go({ hood: sp.hood, sub: sp.sub }, { replace: true, fly: false }); map.redraw(); const ok = await persist(); if (ok !== false && state.store === 'sync' && window.Photos) { try { Photos.removeAll(ownerKey.spot(id)); } catch (e) {} } toast(`${sp.name} removed`); } // its photos go too, best effort, once the delete is saved
 
   // ---------- where am I ----------
-  function locate(onPos) {
+  // o.quiet: no message on failure, o.fail() instead (the log form's own lookup)
+  function locate(onPos, o = {}) {
     const btn = $('locate');
-    if (!navigator.geolocation) { toast('Location is not available here', 3000); return; }
+    if (!navigator.geolocation) { if (o.quiet) { if (o.fail) o.fail(); } else toast('Location is not available here', 3000); return; }
     btn.classList.add('busy');
     navigator.geolocation.getCurrentPosition(pos => {
       btn.classList.remove('busy'); const lon = pos.coords.longitude, lat = pos.coords.latitude, [LON0, LAT0, LON1, LAT1] = G.bbox;
-      if (lon < LON0 || lon > LON1 || lat < LAT0 || lat > LAT1) { toast('You are outside the map', 3000); return; }
+      if (lon < LON0 || lon > LON1 || lat < LAT0 || lat > LAT1) { if (o.quiet) { if (o.fail) o.fail(); } else toast('You are outside the map', 3000); return; }
       const [x, y] = Geom.proj([lon, lat]); map.setMe([x, y]);
       if (onPos) { onPos([lon, lat]); return; }
       const w = locateXY(x, y);
       if (w.hood) { toast('You are in ' + (w.sub ? w.sub + ', ' + w.hood : w.hood), 3000); go(w.sub ? { hood: w.hood, sub: w.sub } : { hood: w.hood }, { fromMap: true }); }
       else { toast('You are here', 3000); map.flyTo([x - .01, y - .01, x + .01, y + .01], 1, U * 0.08); }
     }, err => {
-      btn.classList.remove('busy'); const framed = window.top !== window.self;
+      btn.classList.remove('busy'); if (o.quiet) { if (o.fail) o.fail(); return; } const framed = window.top !== window.self;
       if (err.code === 1 && framed) toast('Location is blocked inside this frame. Open the app on its own.', 3600); else toast(err.code === 1 ? 'Location permission was refused' : 'Could not get a location', 3000);
-    }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 });
+    }, { enableHighAccuracy: true, timeout: o.quiet ? 10000 : 12000, maximumAge: 60000 });
   }
   $('locate').addEventListener('click', () => locate());
 
@@ -699,18 +976,19 @@
     state.loc = normalize(fromHash); state.bootLoc = fromHash.spot && !state.loc.spot ? fromHash : null;
     sheet.set(isPhone() ? (level(state.loc) >= 2 ? 'half' : 'peek') : 'full', { instant: true, quiet: true });
     map.setState({ region: state.loc.region, sel: state.loc.hood ? IDX[state.loc.hood] : -1, selSub: state.loc.sub ? subIndex(state.loc.hood, state.loc.sub) : -1 });
-    try { if (!state.bootLoc) history.replaceState({ loc: state.loc }, '', location.pathname + location.search + hashOf(state.loc)); } catch (e) {}
-    render();
+    try { if (!state.bootLoc) history.replaceState({ loc: state.loc, s: SESSION, n: 0 }, '', location.pathname + location.search + hashOf(state.loc)); } catch (e) {}
+    goFly = level(state.loc) >= 2; render(); goFly = false; // a deep link flies in below: its street map waits for that
+    if (isPhone()) sheet.set(sheet.detent, { instant: true, quiet: true }); // the peek is the header's height, known only now
     { // synchronously, so the very first frame is already the fitted view
       const l = state.loc; const v = l.hood ? null : map.fitView(...map.regionBBox(l.region), 1.06, 0); if (v) { map.jumpTo(v); } else { const bb = map.regionBBox(l.region); map.jumpTo(map.fitView(bb[0], bb[1], bb[2], bb[3], 1.06, 0)); flyToLoc(900); }
     }
     connectStore();
-    if (window.StreetMap && streetOK()) StreetMap.idle(); // the street-map library, once the page has loaded and the browser is idle
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { map.redraw(); renderTrail(); }); // the trail folds by measured width: measure again in the real font
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { map.redraw(); fitHead(); }); // the path folds by measured width: measure again in the real font
   }
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { syncThemeColor(); map.refreshPalette(); recolor(false); if (window.StreetMap) StreetMap.restyle(); });
-  window.addEventListener('resize', () => { map.resize(); map.redraw(); renderTrail(); }); // resize() also catches a devicePixelRatio change (browser zoom)
-  window.__sbs = { map, state, go, sheet, maps: { spotQuery, areaQuery, mapsLink, appleLink, spotApple, areaApple }, photos: window.Photos ? Object.assign(Object.create(window.Photos), { ownerKey }) : null }; // for tests and the console
+  let wasPhone = isPhone();
+  window.addEventListener('resize', () => { map.resize(); map.redraw(); if (isPhone() !== wasPhone) { wasPhone = isPhone(); if (state.quiz || state.placing) fitHead(); else render(); } else fitHead(); }); // across the breakpoint the recent spots move between the header and the panel (not mid-quiz, where a render drops an answer's verdict and Next, nor mid pin-drop, whose header it replaces) // resize() also catches a devicePixelRatio change (browser zoom)
+  window.__sbs = { map, state, go, sheet, maps: { spotQuery, areaQuery, mapsLink, appleLink, spotApple, areaApple }, photos: window.Photos ? Object.assign(Object.create(window.Photos), { ownerKey }) : null, get photoOpts() { return photoOpts; }, feed: { read: readFeed, get news() { return state.news; } } }; // for tests and the console
   window.claude?.hot?.snapshot?.(() => ({ loc: state.loc }));
   window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
 })();

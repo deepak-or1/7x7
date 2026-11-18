@@ -32,8 +32,8 @@ window.Sync = (() => {
   // Photos sit in sibling records, so the log's live stream never carries them: logs/<key>-ph/<owner>/<photoId> is the
   // full photo (the source of truth) and logs/<key>-pt/<owner>/<photoId> its small thumb. A shallow read lists an
   // owner's ids ({id: true}) without their bytes.
-  function photos(key) {
-    const at = node => (...p) => `${base}/logs/${[key + node, ...p].map(encodeURIComponent).join('/')}.json`, ph = at('-ph'), pt = at('-pt');
+  function photos(key) { // and logs/<key>-po/<owner> = { ids: [...] }, the order a writer chose
+    const at = node => (...p) => `${base}/logs/${[key + node, ...p].map(encodeURIComponent).join('/')}.json`, ph = at('-ph'), pt = at('-pt'), po = at('-po');
     const req = (u, o) => fetch(u, o).then(r => { if (!r.ok) throw err(r.status === 401 || r.status === 403 ? 'invalid_argument' : 'unavailable', 'photos request failed ' + r.status); return r; });
     const get = u => req(u).then(r => r.json()), obj = d => (d && typeof d === 'object' ? d : {});
     const put = (u, rec) => req(u, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rec) }).then(() => {});
@@ -46,9 +46,37 @@ window.Sync = (() => {
       thumb: (owner, id) => get(pt(owner, id)),
       put: (owner, id, rec) => put(ph(owner, id), rec),
       putThumb: (owner, id, rec) => put(pt(owner, id), rec),
+      order: owner => get(po(owner)), // null when no order was chosen
+      putOrder: (owner, rec) => put(po(owner), rec), // null removes it
       del: (owner, id) => del(ph(owner, id)).then(() => del(pt(owner, id)).catch(() => {})).then(() => {}), // the thumb after the photo: a thumb left behind is ignored, a photo left without one gets a new one
-      delAll: owner => Promise.all([del(ph(owner)), del(pt(owner)).catch(() => {})]).then(() => {}),
+      delAll: owner => Promise.all([del(ph(owner)), del(pt(owner)).catch(() => {}), del(po(owner)).catch(() => {})]).then(() => {}),
     };
   }
-  return { ready, connect, url, photos };
+  // The activity feed, another sibling: logs/<key>-ev/<eventId> = { t, by, d, k, id, name, hood, n }. push POSTs, so the database
+  // makes the id (time-ordered by its clock); recent reads the last few by id; watch streams the newest one, so onChange() fires
+  // when any device adds an event (photos included, which never touch the log). Anyone with the link can write it: app.js checks
+  // every field it reads.
+  function events(key) {
+    const u = `${base}/logs/${encodeURIComponent(key + '-ev')}.json`, last = n => `?orderBy=${encodeURIComponent('"$key"')}&limitToLast=${n}`;
+    const req = (q, o) => fetch(u + q, o).then(r => { if (!r.ok) throw err(r.status === 401 || r.status === 403 ? 'invalid_argument' : 'unavailable', 'feed request failed ' + r.status); return r.json(); });
+    function watch(onChange) { // the same reopen-with-backoff as connect(); returns close
+      let es = null, closed = false, retry = 0;
+      function open() {
+        if (closed) return;
+        es = new EventSource(u + last(1));
+        es.addEventListener('put', () => { retry = 0; onChange(); });
+        es.addEventListener('patch', () => onChange());
+        es.addEventListener('auth_revoked', () => es.close()); es.addEventListener('cancel', () => es.close());
+        es.onerror = () => { if (es.readyState === EventSource.CLOSED && !closed) { es = null; setTimeout(open, Math.min(30000, 1000 * 2 ** retry++)); } };
+      }
+      open();
+      return () => { closed = true; if (es) es.close(); };
+    }
+    return {
+      push: ev => req('', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(ev) }).then(r => (r && typeof r.name === 'string' ? r.name : null)), // the new id
+      recent: (limit = 30) => req(last(Math.max(1, Math.min(100, limit | 0)))).then(d => (d && typeof d === 'object' ? d : {})), // { id: event }, unordered
+      watch,
+    };
+  }
+  return { ready, connect, url, photos, events };
 })();

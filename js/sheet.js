@@ -1,5 +1,6 @@
 // The phone sheet: translateY only (no layout work), three detents, drag from the handle, the header,
-// or the content when it is scrolled to the top; velocity decides where it settles.
+// or the content when it is scrolled to the top; velocity decides where it settles. With something open (opt.canDismiss),
+// a deliberate swipe down steps full → half, then from half closes it (opt.onDismiss) instead of parking it at the peek; from the peek it does nothing.
 (function () {
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
   window.Sheet = function (el, opt) {
@@ -21,7 +22,7 @@
     }
     function apply(v, animate) {
       vis = v; const y = fullPx - v;
-      el.classList.toggle('lifting', !animate); opt.ctl && opt.ctl.classList.toggle('lifting', !animate); opt.legend && opt.legend.classList.toggle('lifting', !animate);
+      el.classList.toggle('lifting', !animate);
       root.style.setProperty('--sheet-y', y.toFixed(1) + 'px'); root.style.setProperty('--sheet-vis', v.toFixed(1) + 'px');
     }
     function set(d, o = {}) {
@@ -39,30 +40,68 @@
       set(best);
     }
     // handle + header: pointer events
-    function startDrag(y) { dragging = { y0: y, y: y, v0: vis, t: performance.now(), v: 0, moved: 0 }; }
+    function startDrag(y) { dragging = { y0: y, y: y, v0: vis, t: performance.now(), v: 0, moved: 0, from: detent }; }
     function moveDrag(y) { if (!dragging) return; const t = performance.now(), dt = Math.max(1, t - dragging.t), dy = dragging.y - y; dragging.v = dragging.v * .6 + (dy / dt) * .4; dragging.moved += Math.abs(dy); dragging.y = y; dragging.t = t; const h = heights(); let nv = dragging.v0 + (dragging.y0 - y); if (nv > h.full) nv = h.full + (nv - h.full) * .25; if (nv < h.peek) nv = h.peek - (h.peek - nv) * .35; apply(nv, false); }
-    function endDrag(tap) { if (!dragging) return; const d = dragging; dragging = null; if (d.moved < 6) { if (tap !== false) set(detent === 'peek' ? 'half' : detent === 'half' ? 'full' : 'half'); else set(detent); } else settle(vis, performance.now() - d.t > 80 ? 0 : d.v); }
-    for (const h of [grip, head]) {
-      h.addEventListener('pointerdown', e => { if (!isPhone() || e.target.closest('button, a, input')) return; try { h.setPointerCapture(e.pointerId); } catch (err) {} startDrag(e.clientY); });
-      h.addEventListener('pointermove', e => dragging && moveDrag(e.clientY));
-      h.addEventListener('pointerup', () => endDrag(true)); h.addEventListener('pointercancel', () => endDrag(false));
+    // down: px the sheet came down since the drag began. Past 80 px, or a flick, counts; less springs back, so a small drag to see
+    // more map never closes anything
+    function endDrag(tap) {
+      if (!dragging) return; const d = dragging; dragging = null;
+      if (d.moved < 6) { if (tap !== false) set(detent === 'peek' ? 'half' : detent === 'half' ? 'full' : 'half'); else set(detent); return; }
+      const v = performance.now() - d.t > 80 ? 0 : d.v, down = d.v0 - vis;
+      if (down > 0 && opt.canDismiss && opt.canDismiss()) {
+        const far = down > 80 || (v < -0.6 && down > 24);
+        if (d.from === 'full') set(far ? 'half' : 'full'); else if (far && d.from === 'half') opt.onDismiss(); else set(d.from); // from the peek: nothing to close, it springs back
+        return;
+      }
+      settle(vis, v);
     }
+    // a drag that starts on a control in the header (a path crumb, whose target is taller than its line; the root's row of recent
+    // spots, which scrolls sideways with touch-action: pan-x) moves the sheet only once it is clearly vertical, and takes no pointer
+    // capture until then, so a tap still lands on the control
+    let side = null;
+    for (const h of [grip, head]) {
+      h.addEventListener('pointerdown', e => {
+        if (!isPhone()) return;
+        if (e.target.closest('button, a, input, .recent')) { side = { id: e.pointerId, x: e.clientX, y: e.clientY }; return; }
+        try { h.setPointerCapture(e.pointerId); } catch (err) {} startDrag(e.clientY);
+      });
+      h.addEventListener('pointermove', e => {
+        if (side && e.pointerId === side.id && !dragging) { if (!e.buttons) { side = null; return; } const dx = e.clientX - side.x, dy = e.clientY - side.y; if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return; const s = side; side = null; if (Math.abs(dx) > Math.abs(dy)) return; try { h.setPointerCapture(e.pointerId); } catch (err) {} startDrag(s.y); }
+        if (dragging) moveDrag(e.clientY);
+      });
+      h.addEventListener('pointerup', () => { side = null; endDrag(true); }); h.addEventListener('pointercancel', () => { side = null; endDrag(false); });
+    }
+    // a mouse released off the header never ends the wait above there: without this, plain hovering over the header later dragged the sheet
+    for (const t of ['pointerup', 'pointercancel']) document.addEventListener(t, () => { side = null; });
     // content: touch events, so native scrolling keeps working when the sheet is open and scrolled
     let touch = null;
-    panel.addEventListener('touchstart', e => { if (!isPhone() || e.touches.length !== 1) return; touch = { x: e.touches[0].clientX, y: e.touches[0].clientY, took: false, side: !!e.target.closest('.hero-track') }; }, { passive: true }); // side: the touch began on the photo carousel, which scrolls sideways
+    panel.addEventListener('touchstart', e => { if (!isPhone() || e.touches.length !== 1) return; touch = { x: e.touches[0].clientX, y: e.touches[0].clientY, took: false, side: !!e.target.closest('.hero-track, .chips') }; }, { passive: true }); // side: the touch began on a sideways scroller (the photo carousel, a chip row)
     panel.addEventListener('touchmove', e => {
       if (!touch || e.touches.length !== 1) return; const y = e.touches[0].clientY, dy = y - touch.y;
-      if (!touch.took) { const canScroll = detent === 'full' && !(panel.scrollTop <= 0 && dy > 0); if (canScroll) { touch = null; return; } if (touch.side) { const dx = e.touches[0].clientX - touch.x; if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return; if (Math.abs(dx) > Math.abs(dy)) { touch = null; return; } } if (Math.abs(dy) < 3) return; touch.took = true; startDrag(touch.y); } // a sideways swipe on the photo carousel pages the photos, not the sheet
+      if (!touch.took) { const canScroll = detent === 'full' && !(panel.scrollTop <= 0 && dy > 0); if (canScroll) { touch = null; return; } if (touch.side) { const dx = e.touches[0].clientX - touch.x; if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return; if (Math.abs(dx) > Math.abs(dy)) { touch = null; return; } } if (Math.abs(dy) < 3) return; touch.took = true; startDrag(touch.y); } // a sideways swipe there scrolls it, not the sheet
       e.preventDefault(); moveDrag(y);
     }, { passive: false });
     const endTouch = () => { if (touch && touch.took) endDrag(false); touch = null; };
     panel.addEventListener('touchend', endTouch); panel.addEventListener('touchcancel', endTouch);
     panel.addEventListener('click', e => { if (isPhone() && detent === 'peek' && !e.target.closest('button, a, input, select, textarea, label, summary')) set('half'); });
     panel.addEventListener('scroll', () => el.classList.toggle('scrolled', panel.scrollTop > 2), { passive: true });
-    // keyboard: a field opens the sheet to full (half does not scroll) and scrolls into view; --kb pads the panel above the keyboard
+    // keyboard: a field opens the sheet to full (half does not scroll) and scrolls into view; --kb (below) pads the panel above the keyboard
     panel.addEventListener('focusin', e => { if (!isPhone() || !e.target.matches('input:not([type=checkbox]):not([type=file]), textarea, select')) return; if (detent !== 'full') set('full'); setTimeout(() => { try { e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (err) {} }, 450); });
-    if (window.visualViewport) { const kb = () => root.style.setProperty('--kb', Math.max(0, window.innerHeight - visualViewport.height - visualViewport.offsetTop).toFixed(0) + 'px'); visualViewport.addEventListener('resize', kb); visualViewport.addEventListener('scroll', kb); kb(); }
-    window.addEventListener('resize', () => set(detent, { instant: true, resize: true }));
+    // --kb: how much of the layout viewport the keyboard covers. Only a focused text field has a keyboard, so with none focused it is 0
+    // whatever the visual viewport says: iOS can miss the resize after the keyboard goes, and a stale --kb floated the form's Save bar a
+    // keyboard's height up the sheet, over the fields. A pinch zoom also shrinks the visual viewport, and is not a keyboard.
+    const TEXT = 'input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=date]):not([type=time]):not([type=range]):not([type=color]):not([type=button]):not([type=submit]), textarea, [contenteditable="true"]';
+    let kbPx = -1;
+    function kb() {
+      const vv = window.visualViewport, a = document.activeElement, H = window.innerHeight;
+      let v = vv && a && a.matches(TEXT) && vv.scale < 1.05 ? Math.max(0, H - vv.height - vv.offsetTop) : 0;
+      if (v < 60) v = 0; v = Math.round(Math.min(v, H * .7)); // under 60px: browser bars, not a keyboard
+      if (v === kbPx) return; kbPx = v; root.style.setProperty('--kb', v + 'px'); root.classList.toggle('kb', v > 0);
+    }
+    const kbSoon = () => { kb(); for (const t of [120, 360, 720]) setTimeout(kb, t); }; // the keyboard slides for a few hundred ms
+    if (window.visualViewport) { visualViewport.addEventListener('resize', kb); visualViewport.addEventListener('scroll', kb); }
+    document.addEventListener('focusin', kbSoon); document.addEventListener('focusout', kbSoon); kb();
+    window.addEventListener('resize', () => { kb(); set(detent, { instant: true, resize: true }); });
     return { set, get detent() { return detent; }, get visible() { return isPhone() ? vis : 0; }, heights, isPhone };
   };
 })();

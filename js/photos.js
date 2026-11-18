@@ -7,7 +7,7 @@
 // paints with no network wait. This file owns the downscale, the caches, the photo hero at the top of a panel (a
 // section or place also shows the photos of what is inside it), and the lightbox.
 window.Photos = (() => {
-  const MAX = 8, EDGE = 1280, TEDGE = 480, BIG = 600000, FRESH = 60000; // FRESH: a panel opened again after a minute re-reads the list in the background
+  const MAX = 8, EDGE = 2560, TEDGE = 480, BIG = 1800000, FRESH = 60000; // EDGE: four times the pixels of a phone screen's width, so a photo holds up when zoomed; BIG: past this many characters it is saved a step lower in quality; FRESH: a panel opened again after a minute re-reads the list in the background
   const XMAX = 12, DOTS = 8; // XMAX: extra sources rolled into one hero; DOTS: past this many photos the hero shows a counter instead of dots
   const LOCAL_MS = 500, RETRY = 5000; // LOCAL_MS: a local copy slower than this is skipped; RETRY: a failed photo is not asked for again sooner
   const PIN = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6-5.3-6-11a6 6 0 0 1 12 0c0 5.7-6 11-6 11z"/><circle cx="12" cy="10" r="2.2"/></svg>';
@@ -115,7 +115,7 @@ window.Photos = (() => {
     }).catch(() => {});
   }
 
-  // ---------- downscale: longest edge 1280 (thumbs 480), JPEG, EXIF orientation applied ----------
+  // ---------- downscale: longest edge 2560 (thumbs 480), JPEG, EXIF orientation applied ----------
   async function decode(file) {
     if (window.createImageBitmap) { try { return await createImageBitmap(file, { imageOrientation: 'from-image' }); } catch (e) {} }
     return new Promise((res, rej) => { const u = URL.createObjectURL(file), img = new Image(); img.onload = () => { URL.revokeObjectURL(u); res(img); }; img.onerror = () => { URL.revokeObjectURL(u); rej(new Error('could not read the image')); }; img.src = u; }); // <img> applies EXIF orientation by default
@@ -132,7 +132,7 @@ window.Photos = (() => {
     const src = await decode(file), W = src.naturalWidth || src.width, H = src.naturalHeight || src.height;
     if (!W || !H) throw new Error('empty image');
     const c = canvasOf(src, W, H, EDGE); if (src.close) src.close();
-    let d = c.toDataURL('image/jpeg', 0.8); if (d.length > BIG) d = c.toDataURL('image/jpeg', 0.6);
+    let d = c.toDataURL('image/jpeg', 0.85); if (d.length > BIG) d = c.toDataURL('image/jpeg', 0.75);
     return { rec: { d, w: c.width, h: c.height, at: new Date().toISOString() }, th: thumbAt(c, c.width, c.height) };
   }
   const downscale = file => shrink(file).then(r => r.rec);

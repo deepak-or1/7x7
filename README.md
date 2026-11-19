@@ -16,11 +16,16 @@ python3 -m http.server 8123
 
 The repo ships a GitHub Pages workflow (`.github/workflows/pages.yml`). Once, in the repository settings, set **Pages → Source** to **GitHub Actions**. Every push to `main` then deploys; the workflow can also be run by hand from the Actions tab. A hosted copy is what lets the "Where am I?" button use the phone's location, which browsers block inside an embedded frame.
 
+## Offline and updates
+
+On the hosted site (and on `localhost`) `sw.js` keeps a saved copy of the app, so a repeat visit opens at once and the map works with no connection. The page and every same-origin script and stylesheet it references are saved as one set, read from `index.html` itself; after each visit the worker checks that set again in the background and replaces it only as a whole, once every file has arrived. Open pages then show "Update ready" with a Reload button; nothing reloads by itself. The log's key in `?log=` is never saved: the page is stored under its path. Other hosts (the database, map tiles, fonts) are never touched. Bump `VERSION` in `sw.js` only when the worker's own logic changes. The single-file artifact does not register it.
+
 ## Layout
 
 | Path | What it is |
 | --- | --- |
 | `index.html` | the shell |
+| `sw.js` | the service worker: the saved copy behind instant repeat visits and offline use (see below) |
 | `css/app.css` | all styling, light and dark |
 | `js/map.js` | the canvas map: camera, gestures with inertia, terrain cache, labels, landmarks, hit testing |
 | `js/app.js` | state, the Bay Area › region › place › section › spot hierarchy, logbook views, logging, storage |

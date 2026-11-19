@@ -1,19 +1,19 @@
-// Place details on a spot's page: opening hours, cuisine, website, phone and a few plain facts, from OpenStreetMap through the
-// Overpass API (keyless; it answers a browser with CORS headers). A polite client: one small query per spot, asked only when the
-// spot's page has stayed open 600 ms (never for a list or the map; leaving and coming back starts the wait again), one request in
-// flight, 1.5 s between requests, a 10 s timeout, no retries; after a busy answer (429, 502-504), a timeout or no answer at all the
-// server is left alone for 60 s. The answer, or "nothing found", is kept on this device per spot for 30 days (localStorage, at most
-// 300 spots, under a hash: no name, position or log key is readable there) and asked again after that or when the spot's name,
-// position or OpenStreetMap id changes. Nothing is written to the log: details are fetched data, not the couple's. Everything from
-// OpenStreetMap is untrusted text: escaped, capped, and a URL only after validation. app.js puts an empty slot in the spot panel
-// below the Maps buttons and calls mount(); the block appears when it is ready, and its open-now line is worked out again every
-// minute and whenever the page comes back on screen.
+// Place details on a spot's page: opening hours, cuisine, website, phone and a few plain facts, from OpenStreetMap through
+// Nominatim's search (keyless; it answers a browser with CORS headers). Nominatim matches names loosely, so it only proposes: a
+// result is used only when its name is the spot's (the rules under "finding the place") and it lies within 60 m (an area's centre:
+// 250 m); otherwise nothing is shown. A polite client (Nominatim allows one request a second): one request per spot, asked only
+// when the spot's page has stayed open 600 ms (never for a list or the map; leaving and coming back starts the wait again), one
+// request in flight, 1.5 s between requests, a 10 s timeout, no retries; after a busy answer (429, 502-504), an answer that is not
+// a list, a timeout or no answer at all the service is left alone for 60 s. The match, or "nothing found" (an empty list), is kept
+// on this device per spot for 30 days (localStorage, at most 300 spots, under a hash: no name, position or log key is readable
+// there) and asked again after that or when the spot's name or position changes; a failed lookup is never kept. Nothing is
+// written to the log: details are fetched data, not the couple's. Everything from OpenStreetMap is untrusted text: escaped,
+// capped, and a URL only after validation. app.js puts an empty slot in the spot panel below the Maps buttons and calls mount();
+// the block appears when it is ready, and its open-now line is worked out again every minute and whenever the page comes back on
+// screen.
 (function () {
-  const API = 'https://overpass-api.de/api/interpreter', WAIT = 600, GAP = 1500, TIMEOUT = 10000, TTL = 30 * 864e5, MAX = 300, KEY = 'sbs-details-v2';
-  const NEAR = 60, NEAR_AREA = 250, LINE = 200, OH_MAX = 1000, URL_MAX = 500, TZ = 'America/Los_Angeles', RETRY_AFTER = 5 * 60e3, PAUSE = 60e3, TICK = 60e3, CAP = 100;
-  // the servers asked, in order; a busy or silent one is skipped for PAUSE and the next is asked once (no second public server
-  // could be confirmed to answer this query with CORS headers, so there is one)
-  const SERVERS = [API];
+  const API = 'https://nominatim.openstreetmap.org/search', WAIT = 600, GAP = 1500, TIMEOUT = 10000, TTL = 30 * 864e5, MAX = 300, KEY = 'sbs-details-v3';
+  const NEAR = 60, NEAR_AREA = 250, BOX = 150, LIMIT = 10, Q_MAX = 80, LINE = 200, OH_MAX = 1000, URL_MAX = 500, TZ = 'America/Los_Angeles', RETRY_AFTER = 5 * 60e3, PAUSE = 60e3, TICK = 60e3;
   const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   const own = (o, k) => !!o && typeof o === 'object' && Object.prototype.hasOwnProperty.call(o, k);
   // one line of text: no control characters, spaces collapsed, at most n characters (an ellipsis marks a cut)
@@ -206,26 +206,19 @@
   // 2: the same name; 1: the same after folding; 0: not the same place
   const sameName = (a, b) => !a.exact || !b.exact ? 0 : a.exact === b.exact ? 2 : a.stem && a.stem === b.stem && (a.kind === b.kind || !a.kind !== !b.kind) ? 1 : 0;
   const TYPES = new Set(['node', 'way', 'relation']);
-  // a stored id on the spot: 'node/123', 'way/45', 'relation/6' (or n123, w45, r6)
-  function parseOsm(v) {
-    const m = typeof v === 'string' && /^(?:(node|way|relation)\/|([nwr]))(\d{1,15})$/.exec(v.trim()); if (!m) return null;
-    const id = +m[3]; if (!Number.isSafeInteger(id) || id <= 0) return null;
-    return { type: m[1] || { n: 'node', w: 'way', r: 'relation' }[m[2]], id };
-  }
   const tagNames = tags => ['name', 'name:en', 'official_name', 'short_name', 'alt_name'].flatMap(k => own(tags, k) && typeof tags[k] === 'string' ? tags[k].split(';') : []);
   const metres = (a, b, lat) => Math.hypot((a[0] - b[0]) * Math.cos(lat * Math.PI / 180), a[1] - b[1]) * 111320;
-  // stops, platforms and station entrances share names with the places beside them; never a place page (the query leaves them out too)
+  // stops, platforms, station entrances, roads and routes share names with the places beside them; never a place page
   const RAIL_STOP = /^(stop|platform|halt|tram_stop|subway_entrance|train_station_entrance)$/;
-  const transit = t => own(t, 'highway') || own(t, 'public_transport') || (own(t, 'railway') && RAIL_STOP.test(String(t.railway)));
-  // the feature for a spot: its stored id; otherwise, within 60 m (a building or area may have its centre further off: 250 m), the
-  // best name match: the same name before a folded one at any distance, then one with something to show, then the nearest. None: null
-  function pick(sp, els, osm) {
+  const transit = t => own(t, 'highway') || own(t, 'public_transport') || own(t, 'route') || (own(t, 'railway') && RAIL_STOP.test(String(t.railway)));
+  // the feature for a spot: within 60 m (a building or area may have its centre further off: 250 m), the best name match: the same
+  // name before a folded one at any distance, then one with something to show, then the nearest. None: null
+  function pick(sp, els) {
     if (!Array.isArray(els)) return null;
     const n = nameKey(sp.name); let best = null, bq = 0, bs = false, bd = Infinity;
     for (const e of els) {
       if (!e || typeof e !== 'object' || !TYPES.has(e.type) || !Number.isSafeInteger(e.id) || e.id <= 0) continue;
       if (!e.tags || typeof e.tags !== 'object' || Array.isArray(e.tags)) continue;
-      if (osm) { if (e.type === osm.type && e.id === osm.id) return e; continue; }
       if (!n.exact) return null;
       if (transit(e.tags)) continue;
       const c = e.type === 'node' ? e : e.center; if (!c || typeof c.lat !== 'number' || typeof c.lon !== 'number' || !isFinite(c.lat) || !isFinite(c.lon)) continue;
@@ -248,14 +241,30 @@
     for (const [k] of FACTS) { const v = g(k).trim(); if (v === 'yes' || v === 'no') tags[k] = v; }
     return { type: e.type, id: e.id, tags };
   }
+  // the tags read here (names for matching, the shown ones, the transit keys); nothing else is copied from an answer
+  const TRANSIT = ['highway', 'public_transport', 'route', 'railway'], READ = new Set(['name', 'name:en', 'official_name', 'short_name', 'alt_name', 'opening_hours', 'cuisine', ...WEB, ...TEL, ...FACTS.map(f => f[0]), ...TRANSIT]);
+  const coord = v => typeof v === 'number' ? v : typeof v === 'string' && /^-?\d{1,3}(\.\d{1,12})?$/.test(v) ? +v : NaN;
+  // one Nominatim search result in the shape pick() reads: { type, id, lat, lon (a node) or center (a way or relation), tags:
+  // extratags and the name }; its main key and value (category, type) count as a tag, so a bus stop is a bus stop. Anything else: null
+  function fromNominatim(r) {
+    if (!r || typeof r !== 'object' || Array.isArray(r)) return null;
+    const type = own(r, 'osm_type') ? r.osm_type : null, id = own(r, 'osm_id') ? r.osm_id : null;
+    if (!TYPES.has(type) || !Number.isSafeInteger(id) || id <= 0) return null;
+    const lat = coord(own(r, 'lat') ? r.lat : null), lon = coord(own(r, 'lon') ? r.lon : null); if (!okLL(lat, lon)) return null;
+    const x = own(r, 'extratags') && r.extratags && typeof r.extratags === 'object' && !Array.isArray(r.extratags) ? r.extratags : {}, tags = {};
+    for (const k of READ) if (own(x, k) && typeof x[k] === 'string') tags[k] = x[k].slice(0, 10 * OH_MAX);
+    const cat = own(r, 'category') && typeof r.category === 'string' ? r.category : '', val = own(r, 'type') && typeof r.type === 'string' ? r.type : '';
+    if (TRANSIT.includes(cat) && !own(tags, cat)) tags[cat] = val.slice(0, 80);
+    if (own(r, 'name') && typeof r.name === 'string') tags.name = r.name.slice(0, 500);
+    return type === 'node' ? { type, id, lat, lon, tags } : { type, id, center: { lat, lon }, tags };
+  }
 
   // ---------- the block ----------
   const okLL = (lat, lon) => typeof lat === 'number' && typeof lon === 'number' && isFinite(lat) && isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180;
   // a short hash (two 53-bit halves): the cache's key shows nothing of what went in
   const hash = s => { const h = seed => { let a = 0xdeadbeef ^ seed, b = 0x41c6ce57 ^ seed; for (let i = 0; i < s.length; i++) { const c = s.charCodeAt(i); a = Math.imul(a ^ c, 2654435761); b = Math.imul(b ^ c, 1597334677); } a = Math.imul(a ^ (a >>> 16), 2246822507) ^ Math.imul(b ^ (b >>> 13), 3266489909); b = Math.imul(b ^ (b >>> 16), 2246822507) ^ Math.imul(a ^ (a >>> 13), 3266489909); return (4294967296 * (2097151 & b) + (a >>> 0)).toString(36); }; return h(1) + h(2); };
-  // what the cached answer belongs to: this log (or 'local'), the spot, its name and position, a stored id. A renamed or moved spot
-  // (or a new stored id) asks again
-  const spotKey = (id, sp) => sp && okLL(sp.lat, sp.lon) && typeof sp.name === 'string' && sp.name.trim() ? hash([String(opts.scope() || 'local'), id, sp.name.trim(), sp.lat.toFixed(5), sp.lon.toFixed(5), parseOsm(sp.osm) ? sp.osm.trim() : ''].join('\u0001')) : null;
+  // what the cached answer belongs to: this log (or 'local'), the spot, its name and position. A renamed or moved spot asks again
+  const spotKey = (id, sp) => sp && okLL(sp.lat, sp.lon) && typeof sp.name === 'string' && sp.name.trim() ? hash([String(opts.scope() || 'local'), id, sp.name.trim(), sp.lat.toFixed(5), sp.lon.toFixed(5)].join('\u0001')) : null;
   let uid = 0;
   const PH_RULE = /(^|[^a-z])PH(?![a-z])/i;
   // the Hours row at this moment: the raw text (no claim), or the line for now and the week's lines; a quiet note when PH is named
@@ -337,7 +346,7 @@
   function load() {
     if (cache) return cache;
     cache = new Map();
-    try { localStorage.removeItem('sbs-details-v1'); } catch (e) {} // the first version's keys held names and positions
+    try { localStorage.removeItem('sbs-details-v1'); localStorage.removeItem('sbs-details-v2'); } catch (e) {} // older versions: v1's keys held names and positions; v2 came from another service
     try { const a = JSON.parse(localStorage.getItem(KEY) || '[]'); if (Array.isArray(a)) for (const x of a) if (Array.isArray(x) && typeof x[0] === 'string' && x[1] && typeof x[1] === 'object' && typeof x[1].t === 'number') cache.set(x[0], x[1]); } catch (e) {}
     return cache;
   }
@@ -349,9 +358,8 @@
   const cached = k => { const c = load().get(k); return c && Date.now() - c.t < TTL ? c : null; };
 
   // ---------- asking, politely ----------
-  let want = null, busy = false, last = -Infinity, timer = null;
+  let want = null, busy = false, last = -Infinity, timer = null, rest = 0; // rest: until when the service is left alone
   const failed = new Map(); // a lookup that failed is not asked again for 5 minutes (it is never cached)
-  const paused = new Map(); // server -> until when it is left alone (a busy answer, a timeout, no answer)
   const still = w => w.el.isConnected && spotKey(w.id, opts.isOpen(w.id)) === w.key;
   const later = ms => { clearTimeout(timer); timer = setTimeout(pump, ms); };
   function mount(el, id, sp) {
@@ -362,7 +370,7 @@
     if (!opts.ok() || failed.get(key) > now() - RETRY_AFTER) return;
     guard(el);
     if (want && want.key === key && want.id === id) { want.el = el; return; } // a re-render of the same spot: the wait goes on
-    const w = want = { el, id, key, sp: { name: sp.name, lat: sp.lat, lon: sp.lon, osm: sp.osm } };
+    const w = want = { el, id, key, sp: { name: sp.name, lat: sp.lat, lon: sp.lon } };
     clearTimeout(timer); timer = setTimeout(() => { if (want === w) pump(); }, WAIT);
   }
   function pump() {
@@ -371,46 +379,38 @@
     const c = cached(w.key); if (c) { want = null; fill(w.el, c.d); return; }
     if (failed.get(w.key) > now() - RETRY_AFTER) { want = null; return; } // it failed while the panel was redrawn: not asked again
     const gap = last + GAP - Date.now(); if (gap > 0) { later(gap); return; }
-    const free = SERVERS.filter(s => !(paused.get(s) > now()));
-    if (!free.length) { later(Math.max(GAP, Math.min(...SERVERS.map(s => paused.get(s))) - now())); return; } // every server resting
+    if (rest > now()) { later(Math.max(GAP, rest - now())); return; } // the service is resting
     want = null; busy = true;
-    lookup(w.sp, free).then(d => {
+    lookup(w.sp).then(d => {
       put(w.key, d);
       const tgt = want && want.key === w.key && want.id === w.id ? want : w; // the panel was redrawn while this was asked
       if (tgt === want) want = null;
       if (still(tgt)) fill(tgt.el, d);
-    }, () => { failed.set(w.key, now()); }).finally(() => { busy = false; last = Date.now(); if (want) later(GAP); });
+    }, e => { failed.set(w.key, now()); if (e && e.busy) rest = now() + PAUSE; }).finally(() => { busy = false; last = Date.now(); if (want) later(GAP); });
   }
-  // each free server at most once, in order; the next one only after a busy answer or no answer
-  async function lookup(sp, servers) {
-    const osm = parseOsm(sp.osm);
-    // 'out center': coordinates for nodes, a centre for ways and relations ('out tags' prints no node coordinates)
-    const q = '[out:json][timeout:10];' + (osm ? `${osm.type}(${osm.id});out center 1;` : `nwr(around:${NEAR},${sp.lat.toFixed(5)},${sp.lon.toFixed(5)})[name][!highway][!public_transport][!route][railway!~"${RAIL_STOP.source}"];out center ${CAP};`);
-    for (let i = 0; ; i++) {
-      try { return await ask(servers[i], q, sp, osm); } catch (e) {
-        if (!e.busy) throw e;
-        paused.set(servers[i], now() + PAUSE);
-        if (i + 1 >= servers.length) throw e;
-      }
-    }
+  // the search for a spot: its name near its position, in a box about 150 m each way (west, north, east, south), only inside the box
+  function query(sp) {
+    const q = [...String(sp.name).replace(/[\x00-\x1f\x7f-\x9f\u2028\u2029]/g, ' ').replace(/\s+/g, ' ').trim()].slice(0, Q_MAX).join('');
+    const dLat = BOX / 111320, dLon = BOX / (111320 * Math.cos(sp.lat * Math.PI / 180)), f = v => v.toFixed(5);
+    return `${API}?q=${encodeURIComponent(q)}&viewbox=${[f(sp.lon - dLon), f(sp.lat + dLat), f(sp.lon + dLon), f(sp.lat - dLat)].join(',')}&bounded=1&extratags=1&format=jsonv2&limit=${LIMIT}`;
   }
-  async function ask(server, q, sp, osm) {
+  // one request: the matching feature's shown tags, or null for nothing found (an empty list, or no result the spot's name and
+  // position accept). Throws for a failed lookup; e.busy when the service should be left alone
+  async function lookup(sp) {
     const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null, t = ctl && setTimeout(() => ctl.abort(), TIMEOUT);
-    const log = { at: Date.now(), server, q }; api.requests.push(log); // for tests and the console: when, where, what, and how it went
+    const url = query(sp), log = { at: Date.now(), url }; api.requests.push(log); // for tests and the console: when, what, and how it went
     const fail = (msg, busy) => Object.assign(new Error(msg), { busy });
     try {
       let r;
       // no referrer: the page address carries the private log key
-      try { r = await (api.fetcher || fetch)(server + '?data=' + encodeURIComponent(q), { signal: ctl && ctl.signal, referrerPolicy: 'no-referrer', credentials: 'omit' }); }
+      try { r = await (api.fetcher || fetch)(url, { signal: ctl && ctl.signal, referrerPolicy: 'no-referrer', credentials: 'omit' }); }
       catch (e) { throw fail(e && e.name === 'AbortError' ? 'timeout' : 'no answer', true); } // a timeout, or no answer the page may read
       log.status = r && r.status; log.ms = Date.now() - log.at;
       if (!r || !r.ok) throw fail('details: ' + (r && r.status), !!r && [429, 502, 503, 504].includes(r.status));
-      const j = await r.json();
-      // the server's own complaint (a timeout, too busy) or no list: a failed lookup, not "nothing here"
-      if (!j || typeof j !== 'object' || !Array.isArray(j.elements) || typeof j.remark === 'string') throw fail('details: no usable answer', false);
-      const e = pick(sp, j.elements, osm);
-      if (!e && !osm && j.elements.length >= CAP) throw fail('details: answer cut at ' + CAP, false); // the place may be past the cut
-      log.n = j.elements.length;
+      let j; try { j = await r.json(); } catch (e) { j = null; }
+      if (!Array.isArray(j)) throw fail('details: no list', true); // a broken answer: a failed lookup (not "nothing here"), and a rest
+      log.n = j.length;
+      const e = pick(sp, j.slice(0, 5 * LIMIT).map(fromNominatim).filter(Boolean));
       return e ? keep(e) : null;
     } catch (e) { log.error = String(e.message || e).slice(0, 80); throw e; } finally { clearTimeout(t); }
   }
@@ -420,5 +420,5 @@
   function init(o) { opts = Object.assign(opts, o); }
   // the slot app.js puts below the Maps buttons: empty (and not displayed) until there is something to show, so nothing above it moves
   const slot = '<div class="pdet"></div>';
-  const api = window.Details = { init, mount, slot, parseHours, hoursAt, nameKey, sameName, pick, keep, tidyCuisine, safeUrl, cleanPhone, parseOsm, html, now: () => Date.now(), fetcher: null, requests: [], state: () => ({ waiting: !!want, ticking: !!live, busy, paused: [...paused].map(([s, u]) => [s, u - now()]) }), clear() { cache = null; failed.clear(); paused.clear(); try { localStorage.removeItem(KEY); } catch (e) {} } };
+  const api = window.Details = { init, mount, slot, parseHours, hoursAt, nameKey, sameName, pick, keep, tidyCuisine, safeUrl, cleanPhone, fromNominatim, query, html, now: () => Date.now(), fetcher: null, requests: [], state: () => ({ waiting: !!want, ticking: !!live, busy, paused: Math.max(0, rest - now()) }), clear() { cache = null; failed.clear(); rest = 0; try { localStorage.removeItem(KEY); } catch (e) {} } };
 })();

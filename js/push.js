@@ -9,6 +9,7 @@ const PUSH = { url: '', key: '' }; // url: the Worker's address (https://sbs-pus
 window.Push = (() => {
   const LIM = { title: 80, body: 240, tag: 64, hash: 200 }, MAX = 10, EP = 1024, BODY = 8192, NAME = 24, WAIT = 10000; // the Worker's limits; NAME: longest stored name; WAIT: longest wait for the service worker
   const ID = /^[A-Za-z0-9_-]{1,40}$/;
+  const HOSTS = ['fcm.googleapis.com', 'updates.push.services.mozilla.com'], SUFFIXES = ['.push.apple.com', '.notify.windows.com']; // the Worker's own list (push/lib.js): any other endpoint could never be delivered
   let store = null, dev = '', who = () => '';
   const own = (o, k) => !!o && typeof o === 'object' && Object.hasOwn(o, k);
   const cut = (s, n) => { let o = ''; for (const ch of s) { if (o.length + ch.length > n) break; o += ch; } return o; }; // by code point, never splitting an emoji, at most n UTF-16 units (what the Worker counts)
@@ -24,7 +25,8 @@ window.Push = (() => {
   const supported = () => 'serviceWorker' in navigator && typeof PushManager === 'function' && typeof Notification === 'function';
   const sameKey = sub => { const k = sub && sub.options && sub.options.applicationServerKey, want = bytes(PUSH.key); if (!k || !want) return true; const a = new Uint8Array(k); return a.length === want.length && a.every((b, i) => b === want[i]); }; // a subscription made for an older Worker key cannot be used
   const current = async () => { const reg = await navigator.serviceWorker.getRegistration(); const sub = reg && await reg.pushManager.getSubscription(); return sub && sameKey(sub) ? sub : null; };
-  const name = () => { try { const n = who(); return typeof n === 'string' ? cut(n.replace(/[\x00-\x1f\x7f]/g, '').trim(), NAME) : ''; } catch (e) { return ''; } };
+  const clean = s => s.replace(/[\x00-\x1f\x7f]/g, ''); // control characters: one would cost the Worker six bytes of JSON
+  const name = () => { try { const n = who(); return typeof n === 'string' ? cut(clean(n).trim(), NAME) : ''; } catch (e) { return ''; } };
   const save = sub => store && dev ? store.put(dev, { sub: sub.toJSON(), who: name(), at: Date.now() }) : Promise.resolve();
   // the synchronous part of state(): everything but whether this device is subscribed
   function early() {
@@ -63,25 +65,27 @@ window.Push = (() => {
       if (!available() || !supported() || !store || !dev) return;
       const sub = Notification.permission === 'granted' ? await current() : null;
       const all = await store.list(), mine = own(all, dev) ? all[dev] : null;
-      const stored = own(mine, 'sub') && own(mine.sub, 'endpoint') ? mine.sub.endpoint : null;
-      if (sub) { if (stored !== sub.endpoint) await save(sub); }
-      else if (mine) await store.del(dev);
+      if (sub) { // stored again when the endpoint or either key differs (a browser may renew them)
+        const ms = own(mine, 'sub') ? mine.sub : null, mk = own(ms, 'keys') ? ms.keys : null, j = sub.toJSON(), k = (j && j.keys) || {};
+        if (!(own(ms, 'endpoint') && ms.endpoint === sub.endpoint && own(mk, 'p256dh') && mk.p256dh === k.p256dh && own(mk, 'auth') && mk.auth === k.auth)) await save(sub);
+      } else if (mine && !(Notification.permission === 'granted' && await current())) await store.del(dev); // asked again: an enable() since this started may have saved it
     } catch (e) {}
   }
+  const okHost = ep => { let u; try { u = new URL(ep); } catch (e) { return false; } if (u.protocol !== 'https:' || u.port || u.username || u.password) return false; const h = u.hostname.toLowerCase(); return HOSTS.includes(h) || SUFFIXES.some(x => h.endsWith(x) && h.length > x.length); };
   // one record from the shared log, or null: data there is written by anyone with the link
   function okSub(rec) {
     if (!own(rec, 'sub')) return null;
     const s = rec.sub;
-    if (!own(s, 'endpoint') || !own(s, 'keys') || typeof s.endpoint !== 'string' || s.endpoint.length > EP || !/^https:\/\//.test(s.endpoint)) return null;
+    if (!own(s, 'endpoint') || !own(s, 'keys') || typeof s.endpoint !== 'string' || s.endpoint.length > EP || !okHost(s.endpoint)) return null;
     const k = s.keys; if (!own(k, 'p256dh') || !own(k, 'auth') || typeof k.p256dh !== 'string' || typeof k.auth !== 'string') return null;
     const p = bytes(k.p256dh), a = bytes(k.auth);
     return p && p.length === 65 && p[0] === 4 && a && a.length === 16 ? { endpoint: s.endpoint, keys: { p256dh: k.p256dh, auth: k.auth } } : null;
   }
   function okMsg(m) {
     if (!m || typeof m !== 'object' || typeof m.title !== 'string') return null;
-    const title = cut(m.title.trim(), LIM.title); if (!title) return null;
-    const out = { title, body: typeof m.body === 'string' ? cut(m.body, LIM.body) : '' };
-    if (typeof m.tag === 'string' && m.tag) out.tag = cut(m.tag, LIM.tag);
+    const title = cut(clean(m.title).trim(), LIM.title); if (!title) return null;
+    const out = { title, body: typeof m.body === 'string' ? cut(clean(m.body), LIM.body) : '' };
+    const tag = typeof m.tag === 'string' ? cut(clean(m.tag), LIM.tag) : ''; if (tag) out.tag = tag;
     if (typeof m.hash === 'string' && m.hash[0] === '#' && m.hash.length <= LIM.hash) out.hash = m.hash;
     return out;
   }
@@ -103,7 +107,10 @@ window.Push = (() => {
     const r = await fetch(PUSH.url.replace(/\/+$/, '') + '/notify', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'text/plain;charset=UTF-8' }, body });
     if (!r.ok) return;
     const out = await r.json(), res = own(out, 'results') && Array.isArray(out.results) ? out.results : [];
-    ids.forEach((id, i) => { const st = res[i] && res[i].status; if (st === 404 || st === 410) Promise.resolve().then(() => store.del(id)).catch(() => {}); });
+    const gone = ids.map((id, i) => [id, subs[i].endpoint, res[i] && res[i].status]).filter(g => g[2] === 404 || g[2] === 410); // only these: -1 and 0 say nothing about the device
+    if (!gone.length) return;
+    const now = await store.list(); // read again: the other device may have replaced its record since
+    for (const [id, ep] of gone) { const rec = own(now, id) ? now[id] : null; if (own(rec, 'sub') && own(rec.sub, 'endpoint') && rec.sub.endpoint === ep) Promise.resolve().then(() => store.del(id)).catch(() => {}); }
   }
   function notify(m) { try { send(m).catch(() => {}); } catch (e) {} } // fire and forget: never throws, never waits
   return { available, init, state, enable, disable, refresh, notify };

@@ -4,7 +4,7 @@ When one person adds something to the logbook, the other person's phone gets a n
 
 ## Deploy, once
 
-You need Node 20 or newer. Run every command from the repo root unless it says otherwise.
+You need Node 22 or newer. Run every command from the repo root unless it says otherwise.
 
 1. Create a free account at https://dash.cloudflare.com/sign-up and confirm the email. No card or domain is needed.
 2. Make the key pair. The private key goes to a file outside the repo (the tool refuses a path inside it); the public key is printed:
@@ -29,13 +29,13 @@ You need Node 20 or newer. Run every command from the repo root unless it says o
    ```
    It prints the Worker's address, like `https://sbs-push.<your-name>.workers.dev`.
 7. Check it: open that address in a browser. It should say `sbs-push ok`. If it says the VAPID keys are missing, redo steps 4 and 5 and deploy again.
-8. Tell the site where it is: in `js/push.js`, fill in the first line, `const PUSH = { url: '<the address from step 6>', key: '<the public key from step 2>' };`, commit and push.
+8. Tell the site where it is: in `js/push.js`, fill in `PUSH` so it reads `const PUSH = { url: '<the address from step 6>', key: '<the public key from step 2>' };`, commit and push.
 
 Keep `~/sbs-vapid-private.txt` somewhere safe (a password manager is best). Making a new key pair later works, but every phone then has to turn notifications on again.
 
 ## Change it later
 
-Edit `worker.js`, then `npx wrangler deploy` from this folder. To test a local copy of the site, list its address in `ALLOW_ORIGINS` in `wrangler.toml`. Run the tests with `node push/test.js` from the repo root (no install needed).
+Edit `worker.js` (the request handling) or `lib.js` (encryption, signing, the checks), then `npx wrangler deploy` from this folder; it bundles both. To test a local copy of the site, list its address in `ALLOW_ORIGINS` in `wrangler.toml`. Run the tests with `node push/test.js` from the repo root (no install needed).
 
 ## What it accepts
 

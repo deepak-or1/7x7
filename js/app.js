@@ -225,16 +225,20 @@
   let toastTimer = null;
   // action (optional): { label, run } adds one button; the toast is tappable only while it shows one
   function toast(t, ms = 2200, action) {
+    if (updOn) { updOn = false; updShown = false; } // the update toast is replaced before it was answered: offered again once this one is gone
     const el = $('toast'); el.textContent = t; el.classList.toggle('act', !!action);
-    if (action) { const s = document.createElement('span'), b = document.createElement('button'); s.textContent = t; b.type = 'button'; b.textContent = action.label; b.addEventListener('click', () => { el.classList.remove('on'); clearTimeout(toastTimer); action.run(); }); el.replaceChildren(s, b); } // the text in a span, so a long line shrinks and the button never does
-    el.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('on'), ms);
+    if (action) { const s = document.createElement('span'), b = document.createElement('button'); s.textContent = t; b.type = 'button'; b.textContent = action.label; b.addEventListener('click', () => { el.classList.remove('on'); clearTimeout(toastTimer); updOn = false; action.run(); }); el.replaceChildren(s, b); } // the text in a span, so a long line shrinks and the button never does
+    el.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(() => { el.classList.remove('on'); if (updOn) updOn = false; else updSoon(); }, ms);
   }
-  // a new set of the app's files is saved (sw.js): offered once, never applied by itself. Not over the log form or a dialog (Reload
-  // would lose what is typed): render() and a dialog's close ask again; otherwise the next visit simply opens the new set
-  let updReady = false, updShown = false;
+  // a new set of the app's files is saved (sw.js): offered once, never applied by itself. Not over the log form, a dialog, the photo
+  // viewer or a quiz (Reload would lose what is typed, a crop, the score), nor over another toast: render(), a dialog's close, the end
+  // of that toast and a short wait while the viewer is open ask again. Replaced by another toast, it is offered again once (updOn: it
+  // is the toast on screen); otherwise the next visit simply opens the new set
+  let updReady = false, updShown = false, updOn = false, updWait = null;
   function updSoon() {
-    if (!updReady || updShown || state.view === 'log' || dialogOpen()) return;
-    updShown = true; toast('Update ready', 12000, { label: 'Reload', run: () => location.reload() });
+    if (!updReady || updShown || state.view === 'log' || state.quiz || dialogOpen() || $('toast').classList.contains('on')) return;
+    if (document.querySelector('.lb')) { clearTimeout(updWait); updWait = setTimeout(updSoon, 1500); return; } // the viewer's close runs nothing of the app's
+    toast('Update ready', 12000, { label: 'Reload', run: () => location.reload() }); updShown = updOn = true;
   }
 
   // ---------- chrome: the path, lenses and their legend, search ----------
@@ -420,6 +424,7 @@
         <label class="switch"><span>Color every place, been or not</span><input type="checkbox" id="show-all" ${state.showAll ? 'checked' : ''}></label>
         <div class="field" style="margin-top:12px"><label>Appearance</label><div class="seg">${['system', 'light', 'dark'].map(t => `<button type="button" data-theme-pick="${t}" aria-pressed="${state.theme === t}">${t === 'system' ? 'System' : t[0].toUpperCase() + t.slice(1)}</button>`).join('')}</div></div>
         ${state.store === 'sync' ? `<div class="field"><label for="who-in">Your name on this device</label><input id="who-in" maxlength="${WHO_MAX}" autocomplete="given-name" enterkeyhint="done" placeholder="Shown on what you add" value="${esc(who())}"></div>` : ''}
+        ${pushOK() ? `<div class="field" id="push-field" ${pushSt === 'off' ? 'hidden' : ''}><label>Notifications</label><div id="push-row" data-st="${pushSt || ''}">${pushRow(pushSt)}</div></div>` : ''}
         <div class="actions" style="margin-top:4px"><button type="button" class="btn sm" id="export">Export log</button><button type="button" class="btn sm" id="import">Import</button><input type="file" id="import-file" accept="application/json" hidden>${state.store === 'sync' ? '<button type="button" class="btn sm primary" id="share-log">Share this log</button><button type="button" class="btn sm" id="join-log">Join a log</button>' + (prevKeys().length ? '<button type="button" class="btn sm quiet" id="back-log">Back to the previous log</button>' : '') : ''}</div>
         <p class="fine">${state.store === 'db' ? 'Your log, list, spots and notes are saved with this artifact and shared with everyone it is shared with.' : state.store === 'sync' ? 'This log is shared: everyone who opens your link sees it and adds to it, live. Keep the link private, and bookmark it on each phone. Photos are shared with the log the same way, but Export log does not include them.' : 'Your log is saved in this browser. Export it now and then to keep a copy, or to move it to another device.'} San Francisco boundaries from the SF Planning Department, high points from Mapzen elevation data. Marin, East Bay and Peninsula boundaries from the US Census; their high points are approximate. Place search by Photon, © OpenStreetMap contributors.</p>
       </details>`;
@@ -437,7 +442,32 @@
     const bl = panel.querySelector('#back-log'); if (bl) bl.addEventListener('click', () => joinLog(true));
     const wi = panel.querySelector('#who-in'); if (wi) { wi.addEventListener('keydown', e => { if (e.key === 'Enter') wi.blur(); }); wi.addEventListener('change', () => { setWho(wi.value); wi.value = who(); toast(who() ? `You are ${who()} on this device` : 'No name on this device'); }); }
     const ns = panel.querySelector('#news-seen'); if (ns) ns.addEventListener('click', markSeen);
+    if (panel.querySelector('#push-row')) { pushWire(); Push.state().then(pushFill, () => {}); }
     panel.querySelectorAll('[data-news]').forEach(b => b.addEventListener('click', () => { const e = newsShown.find(x => x.key === b.dataset.news); if (e) openEv(e); }));
+  }
+
+  // ---- phone notifications (js/push.js), in Settings: one row whose content follows Push.state(). The state is read after each
+  // render and kept, so the next render draws the same row at once (no jump); before the first answer a hidden button holds its height
+  let pushSt = null;
+  const pushOK = () => state.store === 'sync' && !!window.Push && Push.available();
+  const pushText = t => `<p style="font-size:13.5px;margin:0">${t}</p>`;
+  function pushRow(st) {
+    if (st === 'ready') return '<div class="actions" style="margin:0"><button type="button" class="btn sm primary" id="push-on">Turn on notifications</button></div>';
+    if (st === 'on') return '<div class="actions" style="margin:0"><span style="font-size:13.5px;align-self:center">On for this device</span><button type="button" class="btn sm quiet" id="push-off">Turn off</button></div>';
+    if (st === 'needs-install') return pushText('On iPhone, add this app to your Home Screen first (Share, then Add to Home Screen). Open it from there and turn notifications on.');
+    if (st === 'blocked') return pushText('Notifications are blocked for this site in the browser\'s settings.');
+    if (st === 'unsupported') return pushText('This browser cannot show notifications.');
+    return '<div class="actions" style="margin:0" aria-hidden="true"><span class="btn sm" style="visibility:hidden">Turn on notifications</span></div>'; // not known yet
+  }
+  function pushFill(st) {
+    if (typeof st === 'string') pushSt = st;
+    const f = panel.querySelector('#push-field'), row = f && f.querySelector('#push-row'); if (!row || row.dataset.st === (pushSt || '')) return;
+    f.hidden = pushSt === 'off'; row.dataset.st = pushSt || ''; row.innerHTML = pushRow(pushSt); pushWire();
+  }
+  // the taps call enable() and disable() at once, inside the tap (iOS asks for the permission only from one), then show the state they return
+  function pushWire() {
+    const on = panel.querySelector('#push-on'), off = panel.querySelector('#push-off');
+    for (const [b, run] of [[on, Push.enable], [off, Push.disable]]) if (b) b.addEventListener('click', () => { const p = run(); b.disabled = true; p.then(st => { b.disabled = false; pushFill(st); }, () => { b.disabled = false; pushFill(); }); });
   }
 
   // ---- a neighborhood ----
@@ -639,7 +669,15 @@
     try { await navigator.clipboard.writeText(link); toast('Link copied'); } catch (e) { prompt('Copy this link', link); }
   }
   const keyOf = raw => { let k = String(raw || '').trim(); try { const u = new URL(k); k = u.searchParams.get('log') || ''; } catch (e) { const m = k.match(/log=([A-Za-z0-9_-]+)/); if (m) k = m[1]; } return KEY_RE.test(k) ? k : null; };
-  function switchLog(k) { keepPrevKey(k); try { localStorage.setItem('sbs-log-key', k); localStorage.removeItem('sbs-explored'); } catch (e) {} location.href = location.pathname + '?log=' + k; }
+  // leaving a log: this device's notification record there goes first (best effort, at most 1.5 s); the browser stays subscribed and
+  // Push.refresh() writes the record under the new log once it opens
+  function switchLog(k) {
+    let old = feedKey; try { old = old || localStorage.getItem('sbs-log-key'); } catch (e) {}
+    keepPrevKey(k); try { localStorage.setItem('sbs-log-key', k); localStorage.removeItem('sbs-explored'); } catch (e) {}
+    const next = () => { location.href = location.pathname + '?log=' + k; };
+    if (old && old !== k && KEY_RE.test(old) && window.Push && Push.available() && window.Sync && Sync.push) Promise.race([Sync.push(old).del(deviceId).catch(() => {}), new Promise(r => setTimeout(r, 1500))]).then(next);
+    else next();
+  }
   // joining another log: the link goes in an in-page dialog that says first that this device switches logs, and that the log it
   // leaves keeps its key here (keepPrevKey). Nothing is replaced until Switch logs is tapped. back: the same dialog, without the
   // field, takes this device back to the log it left last (Settings offers it only when there is one)
@@ -724,7 +762,12 @@
     if (!feed || state.store !== 'sync' || !state.canWrite) return;
     const ev = { t: new Date().toISOString(), by: who(), d: deviceId, k, id: String(o.id || '').slice(0, 120), name: String(o.name || '').slice(0, 80), hood: String(o.hood || '').slice(0, 80) };
     if (k === 'photo') ev.n = Math.max(1, o.n | 0);
-    feed.push(ev).catch(e => console.warn('event not saved', e));
+    feed.push(ev).then(id => { // the other devices get a notification once the event is saved (nothing while js/push.js is not configured)
+      if (!window.Push) return; const l = evLoc(ev);
+      const msg = { title: 'Seven by Seven', body: evLine(ev), tag: typeof id === 'string' && EV_KEY.test(id) ? id : ev.t.replace(/[^A-Za-z0-9_-]/g, '') }; // one tag per event: never a silent replacement
+      if (l) msg.hash = hashOf(normalize(l));
+      Push.notify(msg);
+    }, e => console.warn('event not saved', e));
   }
   const seenId = () => { let s = null; try { s = localStorage.getItem('sbs-seen-' + feedKey); } catch (e) {} return s === '' || EV_KEY.test(s) ? s : null; }; // '': before every event; anything else unknown: never seen
   const setSeen = id => { if (id !== '' && !EV_KEY.test(id)) return; try { localStorage.setItem('sbs-seen-' + feedKey, id); } catch (e) {} };
@@ -787,6 +830,7 @@
     if (!window.Sync || !Sync.ready()) { state.store = 'local'; return; }
     const key = syncKey(); state.store = 'sync';
     if (Sync.events) { feed = Sync.events(key); feedKey = key; }
+    if (window.Push && Sync.push) { Push.init({ store: Sync.push(key), dev: deviceId, who }); Push.refresh(); } // phone notifications: this device's record beside this log follows the browser
     if (window.Photos && Sync.photos) Photos.init(photoOpts = { api: Sync.photos(key), toast, canWrite: () => state.canWrite, who, onAdded: photoAdded, onTaken: photoTaken });
     { const sp = state.loc.spot || (state.bootLoc && state.bootLoc.spot); if (sp && window.Photos && Photos.preload) Photos.preload(ownerKey.spot(sp)); } // a #spot-- link: its photos set off now, beside the log, not after it
     let seeded = false, fed = false;
@@ -998,12 +1042,17 @@
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { syncThemeColor(); map.refreshPalette(); recolor(false); if (window.StreetMap) StreetMap.restyle(); });
   let wasPhone = isPhone();
   window.addEventListener('resize', () => { map.resize(); map.redraw(); if (isPhone() !== wasPhone) { wasPhone = isPhone(); if (state.quiz || state.placing) fitHead(); else render(); } else fitHead(); }); // across the breakpoint the recent spots move between the header and the panel (not mid-quiz, where a render drops an answer's verdict and Next, nor mid pin-drop, whose header it replaces) // resize() also catches a devicePixelRatio change (browser zoom)
+  // a tap on a notification while the app is open (sw-push.js): the hash is checked again and read like a link's; never over the log form
+  function openTapped(h) {
+    if (typeof h !== 'string' || h[0] !== '#' || h.length > 200 || state.view === 'log') return;
+    const l = parseHash(h); if (level(normalize(l)) > 0) go(l, { tap: true }); // a notification always points somewhere: what is not in this log does nothing
+  }
   // the saved copy (sw.js): instant repeat visits and the app with no connection. Only over https or on this machine, and only on the
   // page with its own script files (not the single-file artifact, whose scripts are inline); any failure leaves the site as it is
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) && document.querySelector('script[src$="js/app.js"]')) {
     try {
-      navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.type === 'sbs-update') { updReady = true; updSoon(); } });
-      navigator.serviceWorker.startMessages(); // a message sent while the page was still loading is delivered now
+      navigator.serviceWorker.addEventListener('message', e => { const d = e.data; if (!d) return; if (d.type === 'sbs-update') { updReady = true; updSoon(); } else if (d.type === 'sbs-open') openTapped(d.hash); });
+      navigator.serviceWorker.startMessages?.(); // a message sent while the page was still loading is delivered now
       document.addEventListener('close', () => setTimeout(updSoon), true); // a dialog closed (close does not bubble: caught on the way down)
       const reg = () => navigator.serviceWorker.register('sw.js').catch(() => {});
       if (document.readyState === 'complete') reg(); else window.addEventListener('load', reg);

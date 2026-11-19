@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Tests for the push relay (push/worker.js) and the key tool (tools/vapid.js): node push/test.js (Node 24, no
-// dependencies). The Worker's fetch export is called directly; a node:http server on 127.0.0.1 stands in for a push
+// Tests for the push relay (push/worker.js, its helpers in push/lib.js) and the key tool (tools/vapid.js): node push/test.js
+// (Node 22 or newer, no dependencies). The Worker's fetch export is called directly; a node:http server on 127.0.0.1 stands in for a push
 // service, and what it receives is decrypted here by a separate receiver written on node:crypto (ECDH, HMAC-based HKDF,
 // AES-GCM open, padding check), not on the Worker's WebCrypto code. Nothing leaves the machine.
 'use strict';
@@ -54,7 +54,10 @@ function checkJwt(header, publicKey, aud) {
 
 (async () => {
   const worker = (await import(pathToFileURL(path.join(__dirname, 'worker.js')).href)).default;
-  const { encrypt } = worker.internals;
+  const { encrypt, pushURL } = await import(pathToFileURL(path.join(__dirname, 'lib.js')).href);
+  await test('the Worker\'s default export is { fetch } and nothing else (what the Workers runtime expects)', () => {
+    assert.deepEqual(Object.keys(worker), ['fetch']); assert.equal(typeof worker.fetch, 'function');
+  });
 
   // ---------- RFC 8291 Appendix A ----------
   const RFC = {
@@ -167,7 +170,6 @@ function checkJwt(header, publicKey, aud) {
     const r = await call({ subs: eps.map(e => newSub(e).json), msg });
     assert.deepEqual(await r.json(), { results: eps.map(() => ({ status: -1 })) });
     assert.equal(calls, 0); assert.equal(got.length, 0);
-    const { pushURL } = worker.internals;
     for (const e of ['https://fcm.googleapis.com/fcm/send/abc', 'https://updates.push.services.mozilla.com/wpush/v2/abc', 'https://web.push.apple.com/QGx', 'https://wns2-by3p.notify.windows.com/w/?token=abc']) assert.ok(pushURL(e, {}), 'accepted: ' + e);
   });
 

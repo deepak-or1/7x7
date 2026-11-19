@@ -2607,7 +2607,19 @@ window.Sync = (() => {
       watch,
     };
   }
-  return { ready, connect, url, photos, events };
+  // Phone notifications, another sibling: logs/<key>-pu/<device id> = { sub, who, at }, one child per device that turned them
+  // on (js/push.js). Anyone with the link can write it: push.js checks every record before using it.
+  function push(key) {
+    const at = (...p) => `${base}/logs/${[key + '-pu', ...p].map(encodeURIComponent).join('/')}.json`;
+    const req = (u, o) => fetch(u, o).then(r => { if (!r.ok) throw err(r.status === 401 || r.status === 403 ? 'invalid_argument' : 'unavailable', 'push request failed ' + r.status); return r; });
+    const dev = id => (typeof id === 'string' && /^[A-Za-z0-9_-]{1,40}$/.test(id) ? Promise.resolve(id) : Promise.reject(err('invalid_argument', 'bad device id')));
+    return {
+      list: () => req(at()).then(r => r.json()).then(d => (d && typeof d === 'object' ? d : {})), // { <device id>: record }
+      put: (id, rec) => dev(id).then(id => req(at(id), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rec) })).then(() => {}),
+      del: id => dev(id).then(id => req(at(id), { method: 'DELETE' })).then(() => {}),
+    };
+  }
+  return { ready, connect, url, photos, events, push };
 })();
 
 </script>

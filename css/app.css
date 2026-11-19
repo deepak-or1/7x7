@@ -673,7 +673,7 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
 .head .tools [data-tool="whereto"] svg { width: 15px; height: 15px; }
 .wt-fav { margin: 0 0 10px; } .wt-fav small { display: block; color: var(--muted); font-size: 12px; font-weight: 400; }
 .panel .wt-loc { margin: 2px 0 0; font-size: 13px; line-height: 1.4; color: var(--muted); }
-.wt-loc .act { border: 0; background: transparent; padding: 0; font: inherit; font-weight: 600; color: var(--accent-deep, var(--accent)); cursor: pointer; }
+.wt-loc .act, .wt-hid .act { border: 0; background: transparent; padding: 0; font: inherit; font-weight: 600; color: var(--accent-deep, var(--accent)); cursor: pointer; }
 .panel h3.wt-count { margin-top: 14px; }
 .wt-acts { margin: 0 0 6px; } .wt-acts .btn { flex: 1 1 0; }
 .wt-sel { grid-template-columns: auto auto 1fr auto; cursor: pointer; }
@@ -681,6 +681,7 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
 .wt-sel.off { opacity: .5; cursor: default; }
 .wt-bar { position: sticky; bottom: -24px; z-index: 2; display: flex; align-items: center; gap: 8px; margin: 12px -18px -24px; padding: 10px 18px 34px; background: var(--sheet-bg, var(--paper)); border-top: 1px solid var(--line); font-size: 13.5px; color: var(--ink-2); }
 .wt-bar span { flex: 1; min-width: 0; } .wt-bar b { color: var(--ink); }
+.wt-bar { flex-wrap: wrap; } .panel .wt-hid { flex: 1 0 100%; margin: 0; font-size: 12.5px; color: var(--muted); } /* chosen spots the filters hide, above the count */
 /* the day's walk: numbered stops, a handle to drag, arrows to step */
 .panel .wt-total { margin: 0 0 6px; font-size: 13.5px; color: var(--muted); } .wt-total b { color: var(--ink); font-family: var(--display); font-size: 17px; letter-spacing: -.01em; }
 .wt-route:focus { outline: none; }
@@ -693,6 +694,7 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
 .wt-n { width: 24px; height: 24px; border-radius: 50%; background: var(--c, var(--ink)); color: #fff; display: grid; place-items: center; font: 700 12.5px/1 var(--display); font-variant-numeric: tabular-nums; }
 .wt-name { border: 0; background: none; padding: 0; margin: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; }
 .wt-name:hover { color: var(--accent-deep, var(--accent)); }
+.wt-route .wt-stop:hover .nm { color: inherit; } /* a stop's row is not one control: only its name lights up */
 .wt-mv { display: flex; gap: 4px; }
 .wt-mv button { width: 30px; height: 30px; padding: 0; border: 1px solid var(--line-2); border-radius: var(--r-sm); background: var(--sheet-bg, var(--paper)); color: var(--ink); font-size: 14px; line-height: 1; }
 .wt-mv button:not([disabled]):hover { border-color: var(--ink); } .wt-mv button[disabled] { opacity: .35; }
@@ -712,12 +714,13 @@ dialog.wt-card .wt-pick-acts { display: grid; grid-template-columns: 1fr 1.3fr; 
 .wt-x svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
 .wt-pc.deal { animation: wt-deal .4s var(--ease) both; }
 @keyframes wt-deal { from { opacity: 0; transform: translateY(18px) rotate(-3deg) scale(.96); } to { opacity: 1; transform: none; } }
-@media not all and (max-width: 880px) { .wt-chips { margin: 0 0 8px; } .wt-loc .act, .wt-name:hover { color: var(--accent-deep); } }
+@media not all and (max-width: 880px) { .wt-chips { margin: 0 0 8px; } .wt-loc .act, .wt-hid .act, .wt-name:hover { color: var(--accent-deep); } }
 @media (max-width: 880px) {
   .head .tools [data-tool="whereto"] { width: auto; height: 44px; padding: 0 14px 0 11px; font-size: 14.5px; margin-right: 2px; } /* a 44pt target; the pill drawn inside it */
   .head .tools [data-tool="whereto"]::before { inset: 4px 0; }
   .wt-fav { padding: 4px 0 10px; }
   .wt-sel input { width: 22px; height: 22px; }
+  .wt-hid .act { padding: 14px 8px; margin: -14px -8px; } /* a 44pt target around the word */
   .wt-bar { bottom: calc(-32px - env(safe-area-inset-bottom, 0px)); margin: 12px -16px calc(-32px - env(safe-area-inset-bottom, 0px)); padding: 10px max(16px, env(safe-area-inset-right, 0px)) calc(42px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
   .wt-grab { width: 32px; height: 44px; margin-left: -10px; } .wt-grab::before { left: 11px; top: 15px; }
   .wt-mv button { width: 44px; height: 44px; font-size: 16px; }

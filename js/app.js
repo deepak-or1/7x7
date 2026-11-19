@@ -148,13 +148,13 @@
     // a tap on the map or a list that opens a starred section (never a hash load, back/forward, or a step up)
     if ((opts.fromMap || opts.tap) && !opts.view && next.sub && !next.spot && !(prev.hood === next.hood && prev.sub === next.sub)) { const s = subByName(next.hood, next.sub); if (s && s.star) celebrate(s); }
   }
-  function up() { const l = state.loc; if (state.view) { go(l, { replace: true, fly: state.view === 'whereto' }); return; } if (l.spot) go({ hood: l.hood, sub: l.sub }); else if (l.sub) go({ hood: l.hood }); else if (l.hood) go({ region: l.region }); else if (l.region !== 'all') go({ region: 'all' }); }
+  function up() { const l = state.loc; if (state.view === 'whereto' && window.WhereTo) { if (!WhereTo.back()) WhereTo.leave(); return; } if (state.view) { go(l, { replace: true, fly: false }); return; } if (l.spot) go({ hood: l.hood, sub: l.sub }); else if (l.sub) go({ hood: l.hood }); else if (l.hood) go({ region: l.region }); else if (l.region !== 'all') go({ region: 'all' }); }
   // the phone's swipe down from half: back to the previous screen when it is ours, else one level up. go() then settles the sheet
   // where that screen wants it (the first screen and a region at the peek)
   // (a list opened from the same screen, like all spots, is not a step down: go() leaves the sheet as the drag left it, so it is set here)
   let backing = null; // dismiss() went back and waits for the popstate that answers it
   function dismiss() {
-    if (state.view) { up(); if (isPhone()) sheet.set(level(state.loc) >= 2 ? 'half' : 'peek', { quiet: true }); return; }
+    if (state.view) { if (isPhone()) sheet.set(window.WhereTo && WhereTo.stepsBack() || level(state.loc) >= 2 ? 'half' : 'peek', { quiet: true }); up(); return; } // the sheet first, so a camera fly frames the space left
     if (hDepth() < 1) { up(); return; }
     const was = state.loc, n = hDepth(), b = backing = { late: false }; history.back();
     // the popstate is late (else two navigations, and a history that no longer matches the panel). The history has stepped back
@@ -303,7 +303,7 @@
     else {
       const l = state.loc, v = state.view; let fresh = true;
       if (!l.spot) stamped = null; // back on this spot later, the stamp lands again
-      if (v === 'log') renderLogForm(); else if (v === 'spots') renderSpots(); else if (v === 'whereto' && window.WhereTo) WhereTo.render(); else if (l.spot) fresh = renderSpot(l.spot); else if (l.sub) fresh = renderSub(l.hood, l.sub); else if (l.hood) renderHood(l.hood); else renderHome();
+      if (v === 'log') renderLogForm(); else if (v === 'spots') renderSpots(); else if (v === 'whereto' && window.WhereTo) fresh = WhereTo.render(); else if (l.spot) fresh = renderSpot(l.spot); else if (l.sub) fresh = renderSub(l.hood, l.sub); else if (l.hood) renderHood(l.hood); else renderHome();
       if (fresh !== false) { wire(panel); if (window.Photos) Photos.mount(panel); } // fresh false: the panel was left as it was, listeners and all
       if (!v && level(l) >= 2) streetSoon();
     }
@@ -990,7 +990,7 @@
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { syncThemeColor(); map.refreshPalette(); recolor(false); if (window.StreetMap) StreetMap.restyle(); });
   let wasPhone = isPhone();
   window.addEventListener('resize', () => { map.resize(); map.redraw(); if (isPhone() !== wasPhone) { wasPhone = isPhone(); if (state.quiz || state.placing) fitHead(); else render(); } else fitHead(); }); // across the breakpoint the recent spots move between the header and the panel (not mid-quiz, where a render drops an answer's verdict and Next, nor mid pin-drop, whose header it replaces) // resize() also catches a devicePixelRatio change (browser zoom)
-  if (window.WhereTo) WhereTo.init({ state, panel, map, sheet, Geom, U, KINDS, REGIONS, HOODS, IDX, ICON, esc, attr, setHead, render, go, up, locate, surprise, okLL, isPhone, reduceMotion, spotQuery, spotApple, mapBtns, extBtn, APPLE });
+  if (window.WhereTo) WhereTo.init({ state, panel, map, sheet, Geom, U, KINDS, REGIONS, HOODS, IDX, ICON, esc, attr, setHead, render, go, up, locate, surprise, okLL, isPhone, reduceMotion, spotQuery, spotApple, mapBtns, extBtn, APPLE, toast, inMap: (lon, lat) => lon >= G.bbox[0] && lon <= G.bbox[2] && lat >= G.bbox[1] && lat <= G.bbox[3] }); // inMap: the box locate() accepts
   window.__sbs = { map, state, go, sheet, maps: { spotQuery, areaQuery, mapsLink, appleLink, spotApple, areaApple }, photos: window.Photos ? Object.assign(Object.create(window.Photos), { ownerKey }) : null, get photoOpts() { return photoOpts; }, feed: { read: readFeed, get news() { return state.news; } } }; // for tests and the console
   window.claude?.hot?.snapshot?.(() => ({ loc: state.loc }));
   window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});

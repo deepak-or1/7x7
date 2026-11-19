@@ -666,14 +666,19 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 /* ---------- looking back (js/lookback.js): repeat visits, the timeline, on this day, the recap ---------- */
 .vrow:has(.pstamp.been) { flex-wrap: wrap; row-gap: 6px; } /* a long stamp ('Been 3 times · last Nov 10') takes its own line rather than run off the edge */
-.lk-again { margin: 12px 0 0; } .lk-again .actions { margin: 0; }
+.lk-again { margin: 6px 0 0; }
+.lk-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
+.lk-ctl { margin-left: auto; display: inline-flex; align-items: baseline; gap: 12px; } /* under the stamp: one quiet control and a small link */
+.lk-ag, .lk-od, .lk-dsum { border: 0; background: transparent; padding: 4px 0; color: var(--ink-2); font: inherit; cursor: pointer; }
+.lk-ag { font-size: 13.5px; font-weight: 600; color: var(--accent-deep, var(--accent)); }
+.lk-ag::before { content: "+\00a0"; }
+.lk-od { font-size: 12.5px; color: var(--muted); text-decoration: underline; text-decoration-color: var(--line-2); text-underline-offset: 3px; }
+.lk-ag:hover, .lk-od:hover { text-decoration: underline; text-decoration-color: currentColor; }
+.lk-dsum { font-size: 13.5px; font-weight: 500; text-decoration: underline; text-decoration-color: var(--line-2); text-underline-offset: 3px; }
+.lk-dsum::after { content: "\00a0+"; color: var(--muted); } .lk-dsum[aria-expanded="true"]::after { content: "\00a0−"; }
 .lk-add { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0 0; }
 .lk-add input, .lk-dv input { border: 1px solid var(--line-2); border-radius: var(--r-sm); padding: 5px 8px; background: var(--sheet-bg, var(--paper)); color: var(--ink); font: inherit; font-size: 14px; min-height: 30px; }
-.lk-dates { margin: 8px 0 0; }
-.lk-dates summary { display: inline-block; cursor: pointer; padding: 6px 0; font-size: 13.5px; font-weight: 500; color: var(--ink-2); text-decoration: underline; text-decoration-color: var(--line-2); text-underline-offset: 3px; list-style: none; }
-.lk-dates summary::-webkit-details-marker { display: none; }
-.lk-dates summary::after { content: "\00a0+"; color: var(--muted); } .lk-dates[open] summary::after { content: "\00a0−"; }
-.lk-dates .rows { margin-top: 2px; } .lk-dates li { padding: 6px 0; }
+.lk-dates { margin-top: 4px; } .lk-dates li { padding: 6px 0; }
 .lk-dv, .lk-rmq { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 13.5px; }
 .lk-dv .act { border: 0; background: transparent; padding: 4px 0; color: var(--bad); font-weight: 600; font-size: 13px; }
 .lk-dv .act:hover { text-decoration: underline; }
@@ -713,6 +718,7 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
 .lk-nums > div:first-child b { color: var(--accent-deep, var(--accent)); }
 .lk-nums span { display: block; margin-top: 4px; color: var(--muted); font-size: 11.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
 .lk-share { margin-top: 20px; }
+.lk-hold { margin: 10px 0 0; font-size: 13.5px; color: var(--muted); }
 .lk-out { margin: 14px 0 0; } .lk-out img { display: block; width: 100%; height: auto; border-radius: var(--r-sm); box-shadow: 0 0 0 1px var(--line), 0 10px 24px -14px rgba(60, 45, 20, .45); }
 @media (max-width: 880px) {
   .panel h3.lk-mh { top: -6px; margin-left: calc(-1 * max(16px, env(safe-area-inset-left, 0px))); margin-right: calc(-1 * max(16px, env(safe-area-inset-left, 0px))); padding: 0 max(16px, env(safe-area-inset-left, 0px)); }
@@ -720,6 +726,7 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
   .lk-row { min-height: 56px; }
   .lk-add input, .lk-dv input { font-size: 16px; min-height: 44px; padding: 8px 10px; }
   .lk-dv .act { min-height: 44px; padding: 0 4px; font-size: 14px; }
-  .lk-dates summary { min-height: 44px; display: inline-flex; align-items: center; padding: 0; font-size: 14.5px; }
+  .lk-ag, .lk-od, .lk-dsum { min-height: 44px; display: inline-flex; align-items: center; padding: 0; }
+  .lk-ctl { align-items: center; gap: 14px; } .lk-ag, .lk-dsum { font-size: 14.5px; } .lk-od { font-size: 13.5px; }
   .lk-yr { min-height: 56px; }
 }

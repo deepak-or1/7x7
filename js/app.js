@@ -2,21 +2,23 @@
 // a logbook that follows it, and a tracker saved per person.
 (function () {
   const $ = id => document.getElementById(id);
-  const G = window.GEO, HOODS = G.hoods, INFO = window.INFO, VIBES = window.VIBES, REGIONS = window.REGIONS, SHORT = window.SHORT, MOODS = window.MOODS, FOG_WORDS = window.FOG_WORDS;
+  // lookup tables and the log's maps have no prototype: a name from a link or from the shared log ('constructor', '__proto__') finds nothing
+  const bare = o => { const out = Object.create(null); if (o && typeof o === 'object') for (const k of Object.keys(o)) if (k !== '__proto__') out[k] = o[k]; return out; };
+  const G = window.GEO, HOODS = G.hoods, INFO = window.INFO, VIBES = window.VIBES, REGIONS = bare(window.REGIONS), SHORT = window.SHORT, MOODS = window.MOODS, FOG_WORDS = window.FOG_WORDS;
   const NX = G.nx, NY = G.ny, Geom = window.Geom, U = 400; // U: zoom limits are tuned in map units, where the first (SF-and-close-Bay) canvas was 400 wide
-  const IDX = Object.fromEntries(HOODS.map((h, i) => [h.name, i]));
+  const IDX = bare(Object.fromEntries(HOODS.map((h, i) => [h.name, i])));
   const NAMES = HOODS.map(h => h.name).sort((a, b) => a.localeCompare(b));
   const REGION_N = Object.fromEntries(Object.keys(REGIONS).map(r => [r, HOODS.filter(h => r === 'all' || h.region === r).length]));
   const slug = n => String(n).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-  const BY_SLUG = Object.fromEntries(NAMES.map(n => [slug(n), n]));
+  const BY_SLUG = bare(Object.fromEntries(NAMES.map(n => [slug(n), n])));
   const ft = m => Math.round(m * 3.28084);
   const MAXM = Math.max(...HOODS.map(h => h.max));
   const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   const attr = o => esc(JSON.stringify(o)); // for data-go='...' (names like Blackie's Pasture)
   const today = () => new Date().toISOString().slice(0, 10);
-  const niceDate = iso => { if (!iso) return ''; const d = new Date(iso + 'T12:00:00'); return isNaN(d) ? iso : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); };
+  const niceDate = iso => { if (typeof iso !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return ''; const d = new Date(iso + 'T12:00:00'); return isNaN(d) ? '' : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); }; // only a real date: this goes into HTML, and the log's dates are anyone's to write
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const KINDS = { food: { label: 'Food', c: 'var(--k-food)', e: '🍜' }, drink: { label: 'Drinks', c: 'var(--k-drink)', e: '🍸' }, coffee: { label: 'Coffee', c: 'var(--k-coffee)', e: '☕' }, view: { label: 'View', c: 'var(--k-view)', e: '🌄' }, shop: { label: 'Shop', c: 'var(--k-shop)', e: '🛍️' }, park: { label: 'Park', c: 'var(--k-park)', e: '🌳' }, other: { label: 'Other', c: 'var(--k-other)', e: '📍' } };
+  const KINDS = bare({ food: { label: 'Food', c: 'var(--k-food)', e: '🍜' }, drink: { label: 'Drinks', c: 'var(--k-drink)', e: '🍸' }, coffee: { label: 'Coffee', c: 'var(--k-coffee)', e: '☕' }, view: { label: 'View', c: 'var(--k-view)', e: '🌄' }, shop: { label: 'Shop', c: 'var(--k-shop)', e: '🛍️' }, park: { label: 'Park', c: 'var(--k-park)', e: '🌳' }, other: { label: 'Other', c: 'var(--k-other)', e: '📍' } });
   const VIBE_E = { fog: '🌫️', hills: '⛰️', water: '🌊', sun: '☀️', buzz: '✨', green: '🌿' }; // the cover emoji of a place and its sections
   const VERDICT = ['', 'Skip it', 'Meh', 'Solid', 'Great', 'Loved it']; // a spot's rating, in words
   const LENSES = { vibe: { label: 'Character', sub: 'Six kinds of place' }, fog: { label: 'Fog', sub: 'Sunbelt to permanent cloud' }, elev: { label: 'Hills', sub: 'Sea level to the summits' }, done: { label: 'Been', sub: 'Where you have been' } };
@@ -43,7 +45,7 @@
   };
 
   // ---------- state ----------
-  const state = { loc: { region: 'all', hood: null, sub: null, spot: null }, view: null, lens: 'vibe', filters: new Set(), query: '', showAll: true, theme: 'system', done: {}, want: {}, spots: {}, placing: false, pending: null, draft: null, canWrite: true, store: 'none', quiz: null, hover: -1 };
+  const state = { loc: { region: 'all', hood: null, sub: null, spot: null }, view: null, lens: 'vibe', filters: new Set(), query: '', showAll: true, theme: 'system', done: bare(), want: bare(), spots: bare(), placing: false, pending: null, draft: null, canWrite: true, store: 'none', quiz: null, hover: -1 };
   try { const s = JSON.parse(localStorage.getItem('sbs-prefs-v3') || localStorage.getItem('sbs-prefs-v2') || '{}'); if (LENSES[s.lens || s.mode]) state.lens = s.lens || s.mode; if (s.showAll === false) state.showAll = false; if (s.theme === 'light' || s.theme === 'dark') state.theme = s.theme; } catch (e) {}
   const savePrefs = () => { try { localStorage.setItem('sbs-prefs-v3', JSON.stringify({ lens: state.lens, showAll: state.showAll, theme: state.theme })); } catch (e) {} };
   function applyTheme() { if (state.theme === 'light' || state.theme === 'dark') document.documentElement.setAttribute('data-theme', state.theme); else document.documentElement.removeAttribute('data-theme'); syncThemeColor(); if (window.StreetMap) StreetMap.restyle(); }
@@ -102,7 +104,7 @@
   const hoodOfSpot = id => state.spots[id] ? state.spots[id].hood : null;
   function normalize(l) {
     const out = { region: 'all', hood: null, sub: null, spot: null };
-    if (l.spot && state.spots[l.spot]) { const sp = state.spots[l.spot]; out.spot = l.spot; out.hood = sp.hood; out.sub = sp.sub || null; }
+    if (l.spot && state.spots[l.spot]) { const sp = state.spots[l.spot]; out.spot = l.spot; out.hood = IDX[sp.hood] != null ? sp.hood : null; out.sub = out.hood && sp.sub || null; } // a hood name the map does not know (the log is anyone's to write) is no hood
     else if (l.hood && IDX[l.hood] != null) { out.hood = l.hood; out.sub = l.sub != null && subByName(l.hood, l.sub) ? l.sub : null; }
     if (out.hood) out.region = HOODS[IDX[out.hood]].region; else out.region = REGIONS[l.region] ? l.region : 'all';
     return out;
@@ -549,8 +551,8 @@
   }
   function setSaveState(t) { const el = $('savestate'); if (el) el.textContent = t; }
   function adopt(body) {
-    state.done = clone(body.hoods); state.want = clone(body.want); state.spots = clone(body.spots);
-    for (const id in state.spots) { const sp = state.spots[id]; if (!sp.status) sp.status = 'been'; if (!sp.sub && IDX[sp.hood] != null) { const [x, y] = Geom.proj([sp.lon, sp.lat]); const j = map.subIndexAt(IDX[sp.hood], x, y); if (j >= 0) sp.sub = subs(sp.hood)[j].name; } }
+    state.done = bare(clone(body.hoods)); state.want = bare(clone(body.want)); state.spots = bare(clone(body.spots));
+    for (const id in state.spots) { const sp = state.spots[id]; if (!sp || typeof sp !== 'object' || Array.isArray(sp)) { delete state.spots[id]; continue; } if (!sp.status) sp.status = 'been'; if (!sp.sub && IDX[sp.hood] != null) { const [x, y] = Geom.proj([sp.lon, sp.lat]); const j = map.subIndexAt(IDX[sp.hood], x, y); if (j >= 0) sp.sub = subs(sp.hood)[j].name; } }
   }
   async function toggleDone(name) {
     if (!state.canWrite) return;
@@ -703,7 +705,7 @@
   // Anyone with the link can write the feed: every field is checked and cut to length, and escaped where it reaches HTML.
   let feed = null, feedKey = null, feedTimer = null, photoOpts = null, feedReq = 0, feedDone = false, newsShown = []; const told = new Set(); // told: events already shown this session (block or toast)
   state.news = []; // unseen events by others, newest first
-  const EV_KINDS = { spot: 1, been: 1, photo: 1, place: 1 };
+  const EV_KINDS = bare({ spot: 1, been: 1, photo: 1, place: 1 });
   const EV_KEY = /^-[A-Za-z0-9_-]{19}$/; // a database push id only: a hand-written key ('zzzz') would sort after every real one and hide them
   const evStr = (v, n) => typeof v === 'string' ? v.replace(/[\x00-\x1f\x7f]/g, '').slice(0, n) : '';
   function cleanEv(key, e) {

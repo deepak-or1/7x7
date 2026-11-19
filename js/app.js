@@ -314,8 +314,9 @@
     root.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => go(JSON.parse(b.dataset.go), { tap: true })));
     root.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => go(state.loc, { view: b.dataset.view, fly: false, replace: true, sheet: isPhone() ? 'full' : undefined })));
   }
+  const V = window.Voices || null; // js/voices.js: each person's own rating and note, me too, reactions
   const rowSub = (hood, s, j) => { const n = Object.values(state.spots).filter(sp => sp.hood === hood && sp.sub === s.name).length; return `<li><button type="button" class="row" data-go='${attr({ hood, sub: s.name })}'>${s.star ? '<span class="ic starb" aria-label="Starred"></span>' : `<span class="ic sq" style="--c:${colorFor(IDX[hood])};opacity:${[1, .75, .5][j % 3]}"></span>`}<span class="nm">${esc(s.name)}<small>${s.star ? `<span class="why">${esc(s.star)}</span> · ` : ''}${esc(s.line)}</small></span><span class="rt">${n ? n + (n === 1 ? ' spot' : ' spots') : ''}<span class="chev"></span></span></button></li>`; };
-  const rowSpot = (id, withPlace) => { const sp = state.spots[id], k = KINDS[sp.kind] || KINDS.other; const meta = [k.label, withPlace ? (sp.sub || sp.hood) : sp.sub, sp.note].filter(Boolean).join(' · '); const rt = sp.status === 'want' ? 'want to go' : (sp.rating ? '★'.repeat(sp.rating) : niceDate(sp.at)); return `<li><button type="button" class="row" data-go='${attr({ spot: id })}'><span class="ic" style="--c:${k.c};${sp.status === 'want' ? 'background:transparent;box-shadow:0 0 0 2px ' + k.c + ' inset' : ''}"></span><span class="nm">${esc(sp.name)}<small>${esc(meta)}</small></span><span class="rt">${esc(rt)}</span></button></li>`; };
+  const rowSpot = (id, withPlace) => { const sp = state.spots[id], k = KINDS[sp.kind] || KINDS.other; const meta = [k.label, withPlace ? (sp.sub || sp.hood) : sp.sub, sp.note].filter(Boolean).join(' · '); const avg = V ? V.rating(sp) : sp.rating, rt = sp.status === 'want' ? 'want to go' : (avg ? '★'.repeat(avg) : niceDate(sp.at)); return `<li><button type="button" class="row" data-go='${attr({ spot: id })}'><span class="ic" style="--c:${k.c};${sp.status === 'want' ? 'background:transparent;box-shadow:0 0 0 2px ' + k.c + ' inset' : ''}"></span><span class="nm">${esc(sp.name)}<small>${esc(meta)}</small></span><span class="rt">${(V && sp.status === 'want' && V.wantLabel(sp)) || esc(rt)}</span></button></li>`; };
   const spotsIn = (hood, sub) => Object.keys(state.spots).filter(id => state.spots[id].hood === hood && (!sub || state.spots[id].sub === sub)).sort((a, b) => (state.spots[a].at < state.spots[b].at ? 1 : -1));
   const logTool = (hood, sub) => ({ id: 'log', label: 'Log a place', icon: ICON.plus, run: () => startLog({ hood, sub }) });
   // ---- Google Maps: a text query lands on the real place; a pinned, GPS or approximate spot keeps its coordinates
@@ -479,17 +480,18 @@
   function renderSpot(id) {
     const sp = state.spots[id], k = KINDS[sp.kind] || KINDS.other;
     setHead({ path: { crumbs: crumbsOf(state.loc), tag: `<i style="--c:${k.c}"></i>${k.label}` }, title: esc(sp.name), tools: [{ id: 'edit', label: 'Edit', icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16v4z"/><path d="M13 7l4 4"/></svg>', run: () => { const s = state.spots[id]; if (s) startLog({ hood: s.hood, sub: s.sub, edit: id }); } }] });
-    const mq = spotQuery(sp), aq = spotApple(sp), want = sp.status === 'want', r = want ? 0 : Math.max(0, Math.min(5, sp.rating | 0)), by = cleanName(sp.by);
+    const mq = spotQuery(sp), aq = spotApple(sp), want = sp.status === 'want', r = want ? 0 : V ? V.rating(sp) : Math.max(0, Math.min(5, sp.rating | 0)), by = cleanName(sp.by);
+    const single = `${by ? `<p class="vby">Logged by ${esc(by)}</p>` : ''}${sp.note ? `<p class="pull">${esc(sp.note)}</p>` : ''}`;
     const sv = { key: 'spot:' + id + '@' + ll(sp.lat, sp.lon), name: sp.name, href: tapLink(mq, aq), q: mq, z: 17, lat: sp.lat, lon: sp.lon, zoom: 16, pin: { c: k.c, e: k.e } };
     if (!paint(`
       ${hero(ownerKey.spot(id), sp.name, { c: k.c, e: k.e, badge: { e: k.e, t: k.label } })}
       ${sp.where ? `<p class="lead"><span class="kbody" hidden><i style="--c:${k.c}"></i>${esc(k.label)} · </span>${esc(sp.where)}</p>` : `<p class="lead kbody" hidden><i style="--c:${k.c}"></i>${esc(k.label)}</p>`}
       <div class="vrow">${r ? `<span class="vstars" role="img" aria-label="${r} of 5 stars"><span aria-hidden="true">${'★'.repeat(r)}<i>${'★'.repeat(5 - r)}</i></span></span><b class="vword">${VERDICT[r]}</b>` : ''}<span class="pstamp ${want ? 'want' : 'been'}">${want ? 'Want to go' : `Been${sp.at ? ' · ' + esc(niceDate(sp.at)) : ''}`}</span></div>
-      ${by ? `<p class="vby">Logged by ${esc(by)}</p>` : ''}
-      ${sp.note ? `<p class="pull">${esc(sp.note)}</p>` : ''}
+      ${V ? V.block(id, single) + V.extras(id) : single}
       ${okLL(sp.lat, sp.lon) ? streetMap(sv) : ''}${mapBtns(mq, aq)}
       <div class="actions" style="margin-top:18px">${sp.status === 'want' ? `<button type="button" class="btn primary" id="been-now">Mark as been</button>` : ''}<button type="button" class="btn quiet" id="del" style="color:var(--bad)">Delete</button></div>
       <div class="actions" id="del-confirm" hidden><span style="font-size:13.5px;align-self:center">Remove ${esc(sp.name)} from your log?</span><button type="button" class="btn sm" id="del-yes" style="color:var(--bad);border-color:var(--bad)">Delete</button><button type="button" class="btn sm quiet" id="del-no">Keep</button></div>`)) return false;
+    if (V) V.wire(panel, id);
     mountStreet(Object.assign(sv, { dots: spotDots(id) })); // the other spots in the log, as small dots
     { const st = panel.querySelector('.pstamp'), key = id + ':' + sp.status; if (st && stamped !== key) { st.classList.add('thunk'); st.addEventListener('animationend', () => st.classList.remove('thunk'), { once: true }); } stamped = key; } // a fresh spot (or a new status): the stamp lands
     // listeners can outlive this render (an identical re-render keeps the panel), so they look the spot up when used
@@ -502,10 +504,10 @@
   function renderSpots() {
     const r = state.loc.region; const f = state.spotFilter || {};
     let ids = Object.keys(state.spots).filter(id => IDX[state.spots[id].hood] != null && inRegion(IDX[state.spots[id].hood], r));
-    if (f.kind) ids = ids.filter(id => state.spots[id].kind === f.kind); if (f.status) ids = ids.filter(id => (state.spots[id].status || 'been') === f.status);
-    ids.sort((a, b) => (state.spots[a].at < state.spots[b].at ? 1 : -1));
+    if (f.kind) ids = ids.filter(id => state.spots[id].kind === f.kind); if (f.status) ids = ids.filter(id => f.status === 'both' ? V && V.both(state.spots[id]) : (state.spots[id].status || 'been') === f.status);
+    ids.sort((a, b) => (state.spots[a].at < state.spots[b].at ? 1 : -1)); if (V && f.status === 'want') ids.sort((a, b) => V.both(state.spots[b]) - V.both(state.spots[a])); // wanted by both of you: first
     setHead({ eyebrow: 'Logbook', title: 'Spots', onBack: () => go(state.loc, { replace: true, fly: false }), tools: [logTool(null, null)] });
-    panel.innerHTML = `<div class="textlinks chips"><button type="button" data-sf="status:" aria-pressed="${!f.status}">All</button><button type="button" data-sf="status:been" aria-pressed="${f.status === 'been'}">Been</button><button type="button" data-sf="status:want" aria-pressed="${f.status === 'want'}">Want to go</button></div>
+    panel.innerHTML = `<div class="textlinks chips"><button type="button" data-sf="status:" aria-pressed="${!f.status}">All</button><button type="button" data-sf="status:been" aria-pressed="${f.status === 'been'}">Been</button><button type="button" data-sf="status:want" aria-pressed="${f.status === 'want'}">Want to go</button>${V && (f.status === 'both' || Object.values(state.spots).some(V.both)) ? `<button type="button" data-sf="status:both" aria-pressed="${f.status === 'both'}">Both want</button>` : ''}</div>
       <div class="textlinks chips"><button type="button" data-sf="kind:" aria-pressed="${!f.kind}">Any kind</button>${Object.entries(KINDS).map(([k, v]) => `<button type="button" data-sf="kind:${k}" aria-pressed="${f.kind === k}">${v.label}</button>`).join('')}</div>
       <h3>${ids.length} ${ids.length === 1 ? 'spot' : 'spots'}</h3>${ids.length ? `<ul class="rows">${ids.map(id => rowSpot(id, true)).join('')}</ul>` : '<p class="empty">Nothing matches.</p>'}`;
     panel.querySelectorAll('[data-sf]').forEach(b => b.addEventListener('click', () => { const [k, v] = b.dataset.sf.split(':'); state.spotFilter = Object.assign({}, f, { [k]: v || null }); renderSpots(); wire(panel); }));
@@ -587,7 +589,7 @@
       docRef.onSnapshot(async snap => {
         const data = snap.exists ? (snap.data() || {}) : null;
         if (data && ((data.updatedAt && data.updatedAt === lastSent) || (snap.metadata && snap.metadata.hasPendingWrites))) return; // our own write coming back: nothing new, and a re-render would take the focus off the note
-        if (data) adopt(data);
+        if (data) { adopt(data); if (V && V.heal()) persist(); } // a log without what this device wrote (an older device, a save at the same time): put back
         else if (!seeded && !(snap.metadata && snap.metadata.fromCache)) {
           seeded = true;
           let old = null; try { const m = await mine.get(); if (m.exists) old = m.data(); } catch (e) {}
@@ -703,22 +705,22 @@
   // Anyone with the link can write the feed: every field is checked and cut to length, and escaped where it reaches HTML.
   let feed = null, feedKey = null, feedTimer = null, photoOpts = null, feedReq = 0, feedDone = false, newsShown = []; const told = new Set(); // told: events already shown this session (block or toast)
   state.news = []; // unseen events by others, newest first
-  const EV_KINDS = { spot: 1, been: 1, photo: 1, place: 1 };
+  const EV_KINDS = { spot: 1, been: 1, photo: 1, place: 1, rate: 1, metoo: 1, react: 1 }, SPOT_EV = { spot: 1, been: 1, rate: 1, metoo: 1, react: 1 }; // older devices drop the kinds they do not know
   const EV_KEY = /^-[A-Za-z0-9_-]{19}$/; // a database push id only: a hand-written key ('zzzz') would sort after every real one and hide them
   const evStr = (v, n) => typeof v === 'string' ? v.replace(/[\x00-\x1f\x7f]/g, '').slice(0, n) : '';
   function cleanEv(key, e) {
     if (!EV_KEY.test(key) || !e || typeof e !== 'object' || !Object.hasOwn(EV_KINDS, e.k)) return null;
-    return { key, k: e.k, t: evStr(e.t, 40), by: cleanName(evStr(e.by, 80)), d: evStr(e.d, 40), id: evStr(e.id, 120), name: evStr(e.name, 80).trim(), hood: evStr(e.hood, 80), n: e.k === 'photo' ? Math.max(1, Math.min(99, Math.floor(+e.n) || 1)) : 0 };
+    return { key, k: e.k, t: evStr(e.t, 40), by: cleanName(evStr(e.by, 80)), d: evStr(e.d, 40), id: evStr(e.id, 120), name: evStr(e.name, 80).trim(), hood: evStr(e.hood, 80), n: e.k === 'photo' ? Math.max(1, Math.min(99, Math.floor(+e.n) || 1)) : e.k === 'rate' && Number.isInteger(e.n) && e.n >= 1 && e.n <= 5 ? e.n : 0 };
   }
   function logEvent(k, o) {
     if (!feed || state.store !== 'sync' || !state.canWrite) return;
     const ev = { t: new Date().toISOString(), by: who(), d: deviceId, k, id: String(o.id || '').slice(0, 120), name: String(o.name || '').slice(0, 80), hood: String(o.hood || '').slice(0, 80) };
-    if (k === 'photo') ev.n = Math.max(1, o.n | 0);
+    if (k === 'photo') ev.n = Math.max(1, o.n | 0); else if (k === 'rate') ev.n = Math.max(1, Math.min(5, o.n | 0));
     feed.push(ev).catch(e => console.warn('event not saved', e));
   }
   const seenId = () => { let s = null; try { s = localStorage.getItem('sbs-seen-' + feedKey); } catch (e) {} return s === '' || EV_KEY.test(s) ? s : null; }; // '': before every event; anything else unknown: never seen
   const setSeen = id => { if (id !== '' && !EV_KEY.test(id)) return; try { localStorage.setItem('sbs-seen-' + feedKey, id); } catch (e) {} };
-  function evLine(e) { const by = e.by || 'Someone', nm = e.name || 'a spot'; return e.k === 'photo' ? `${by} added ${e.n === 1 ? 'a photo' : e.n + ' photos'} to ${nm}` : e.k === 'place' ? `${by} has been to ${nm}` : e.k === 'been' ? `${by} went to ${nm}` : `${by} logged ${nm}`; }
+  function evLine(e) { const by = e.by || 'Someone', nm = e.name || 'a spot'; return e.k === 'photo' ? `${by} added ${e.n === 1 ? 'a photo' : e.n + ' photos'} to ${nm}` : e.k === 'place' ? `${by} has been to ${nm}` : e.k === 'been' ? `${by} went to ${nm}` : e.k === 'rate' ? `${by} rated ${nm}${e.n ? ' ' + e.n : ''}` : e.k === 'metoo' ? `${by} wants to go to ${nm} too` : e.k === 'react' ? `${by} reacted to ${nm}` : `${by} logged ${nm}`; }
   function ago(t) { const d = Date.parse(t), m = (Date.now() - d) / 60000; if (!isFinite(m) || m < -5) return ''; return m < 1 ? 'just now' : m < 60 ? Math.round(m) + ' min ago' : m < 1440 ? Math.round(m / 60) + ' h ago' : m < 10080 ? Math.round(m / 1440) + (Math.round(m / 1440) === 1 ? ' day ago' : ' days ago') : niceDate(new Date(d).toISOString().slice(0, 10)); }
   // where a photo owner key points: a spot, a place, or a section
   function ownerLoc(owner) {
@@ -727,7 +729,7 @@
     return null;
   }
   function evLoc(e) { // every lookup by own key only: an event's id or hood of '__proto__' or 'constructor' finds nothing
-    if ((e.k === 'spot' || e.k === 'been') && Object.hasOwn(state.spots, e.id)) return { spot: e.id };
+    if (Object.hasOwn(SPOT_EV, e.k) && Object.hasOwn(state.spots, e.id)) return { spot: e.id };
     if (e.k === 'photo') { const l = ownerLoc(e.id); if (l) return l; }
     if (e.k === 'place' && Object.hasOwn(BY_SLUG, e.id)) return { hood: BY_SLUG[e.id] };
     return Object.hasOwn(IDX, e.hood) ? { hood: e.hood } : null;
@@ -784,7 +786,7 @@
     docRef = Sync.connect(key, data => {
       if (!fed) { fed = true; readFeed(false); } // the first record, even our own write coming back: what is new since last time
       if (data && data.updatedAt && data.updatedAt === lastSent) return; // our own write coming back
-      if (data) adopt(data);
+      if (data) { adopt(data); if (V && V.heal()) persist(); } // a log without what this device wrote (an older device, a save at the same time): put back
       else if (!seeded) { seeded = true; if (local && local.hoods && Object.keys(local.hoods).length) persist(); }
       if (state.lens === 'done') recolor(false); map.redraw();
       const boot = state.bootLoc; state.bootLoc = null;
@@ -818,7 +820,8 @@
     state.draft = sp ? Object.assign({}, sp, { id: ctx.edit, x: sp._xy ? sp._xy[0] : null, y: sp._xy ? sp._xy[1] : null }) : { id: null, name: '', kind: 'food', status: 'been', rating: 0, note: '', at: today(), hood: ctx.hood || state.loc.hood || null, sub: ctx.sub || (ctx.hood ? null : state.loc.sub) || null, lon: null, lat: null, x: null, y: null, where: '', src: null };
     // no place chosen (the first screen, a region): most likely it is where you stand, so the location lookup starts at once. With no
     // location (refused, unavailable, timed out, off the map) the form simply stays as it is, with no message
-    const d = state.draft; if (!sp && !d.hood && navigator.geolocation) d.locating = true;
+    const d = state.draft; if (sp && V) Object.assign(d, V.draft(sp)); // your own rating and note
+    if (!sp && !d.hood && navigator.geolocation) d.locating = true;
     go(state.loc, { view: 'log', fly: false, replace: true, sheet: isPhone() ? 'full' : undefined });
     if (!sp) { const qi = panel.querySelector('#lf-q'); if (qi) qi.focus({ preventScroll: true }); } // the name first, still inside the + tap (iOS opens the keyboard only for a focus in a tap)
     if (d.locating) locate(pos => { d.locating = false; if (state.draft === d && d.lon == null) fillGps(d, pos); else gpsIdle(d); }, { quiet: true, fail: () => { d.locating = false; gpsIdle(d); } });
@@ -852,10 +855,10 @@
       <div class="field"><label>Kind</label><div class="seg" id="lf-kind">${Object.entries(KINDS).filter(([k]) => k !== 'other').map(([k, v]) => `<button type="button" data-k="${k}" aria-pressed="${d.kind === k}">${v.label}</button>`).join('')}</div></div>
       <div class="field"><label>Status</label><div class="seg" id="lf-status"><button type="button" data-s="been" aria-pressed="${d.status === 'been'}">Been</button><button type="button" data-s="want" aria-pressed="${d.status === 'want'}">Want to go</button></div></div>
       <div class="two lf-been" id="lf-been" ${d.status === 'been' ? '' : 'hidden'}>
-        <div class="field" style="margin:0"><label>Rating</label><div class="rate" id="lf-rate">${[1, 2, 3, 4, 5].map(n => `<button type="button" data-r="${n}" class="${n <= d.rating ? 'on' : ''}" aria-label="${n} star${n > 1 ? 's' : ''}">★</button>`).join('')}</div></div>
+        <div class="field" style="margin:0"><label>${V ? V.label(d, 'Rating') : 'Rating'}</label><div class="rate" id="lf-rate">${[1, 2, 3, 4, 5].map(n => `<button type="button" data-r="${n}" class="${n <= d.rating ? 'on' : ''}" aria-label="${n} star${n > 1 ? 's' : ''}">★</button>`).join('')}</div></div>
         <div class="field lf-when" style="margin:0"><label for="lf-date">When</label><input type="date" id="lf-date" value="${esc(d.at || today())}"></div>
       </div>
-      <div class="field"><label for="lf-note">Note</label><textarea id="lf-note" rows="2" placeholder="What to order, who to bring, what to skip">${esc(d.note || '')}</textarea></div>
+      <div class="field"><label for="lf-note">${V ? V.label(d, 'Note') : 'Note'}</label><textarea id="lf-note" rows="2" placeholder="What to order, who to bring, what to skip">${esc(d.note || '')}</textarea></div>
       ${d.id || placed || !isPhone() ? '' : `<p class="empty" id="lf-hint" style="font-size:12.5px">Without a pin it lands in the middle of ${esc(d.sub || d.hood || 'the map')}.</p>`}
       <div class="actions" id="lf-actions"><button type="submit" class="btn primary">${d.id ? 'Save changes' : 'Save spot'}</button><button type="button" class="btn" id="lf-cancel">Cancel</button>${d.id || placed || isPhone() ? '' : `<span style="font-size:12.5px;color:var(--muted);align-self:center">Without a pin it lands in the middle of ${esc(d.sub || d.hood || 'the map')}.</span>`}</div>
     </form>`;
@@ -899,6 +902,7 @@
     const d = state.draft; if (!d) return; const name = (d.name || '').trim(); if (!name) { panel.querySelector('#lf-q').focus(); return; }
     const di = panel.querySelector('#lf-date'); if (di) d.at = di.value || today(); // the field as it is now: iOS may not have fired change before the tap
     if (needsName()) { await beforeWrite(); if (state.draft !== d) return; }
+    else if (V && V.wantsName(d.id ? state.spots[d.id] : null)) { await new Promise(r => askName(r)); if (state.draft !== d) return; } // a spot with named voices: yours needs a name
     if (d.lon == null) { // no pin: the centre of the section, or the neighborhood
       let x, y; if (d.hood && d.sub && subByName(d.hood, d.sub)) [x, y] = subByName(d.hood, d.sub).c; else if (d.hood) { const h = HOODS[IDX[d.hood]]; x = h.cx; y = h.cy; } else { const c = map.cam; x = c.x + c.w / 2; y = c.y + c.w * map.H / map.W / 2; }
       x += (Math.random() - .5) * 0.6; y += (Math.random() - .5) * 0.6; const [lon, lat] = Geom.unproj(x, y); const w = locateXY(x, y); Object.assign(d, { lon, lat, x, y, hood: w.hood || d.hood, sub: w.sub || d.sub, src: 'approx' });
@@ -906,9 +910,10 @@
     const id = d.id || ('s' + Date.now().toString(36)), prev = d.id ? state.spots[d.id] : null;
     const by = prev ? cleanName(prev.by) : who(), was = prev ? prev.status : null; // by: who first logged it, kept through every edit
     state.spots[id] = { ...(by ? { by } : {}), name: name.slice(0, 80), kind: KINDS[d.kind] ? d.kind : 'other', status: d.status === 'want' ? 'want' : 'been', rating: d.status === 'been' ? (d.rating | 0) : 0, note: (d.note || '').trim().slice(0, 400), lon: +d.lon.toFixed(5), lat: +d.lat.toFixed(5), hood: d.hood, sub: d.sub || null, at: d.at || today(), where: (d.where || '').slice(0, 120), src: d.src || null };
+    const rv = V ? V.saved(id, prev, d) : null; // v, w and rx carried over; your voice written; rating and note kept as their summary
     state.draft = null; state.pending = null; state.placing = false; stage.classList.remove('placing');
     toast(d.id ? 'Saved' : `${name} logged`); setSaveState('Saving…'); const ok = await persist(); go({ spot: id }, { replace: true }); if (ok !== false) setSaveState('Saved');
-    if (ok !== false && state.spots[id]) { const s = state.spots[id], k = !prev ? 'spot' : was === 'want' && s.status === 'been' ? 'been' : null; if (k) logEvent(k, { id, name: s.name, hood: s.hood }); }
+    if (ok !== false && state.spots[id]) { const s = state.spots[id], k = !prev ? 'spot' : was === 'want' && s.status === 'been' ? 'been' : null; if (k) logEvent(k, { id, name: s.name, hood: s.hood }); else if (rv && rv.rated) logEvent('rate', { id, name: s.name, hood: s.hood, n: rv.rated }); }
   }
   async function removeSpot(id) { const sp = state.spots[id]; if (!sp) return; delete state.spots[id]; go({ hood: sp.hood, sub: sp.sub }, { replace: true, fly: false }); map.redraw(); const ok = await persist(); if (ok !== false && state.store === 'sync' && window.Photos) { try { Photos.removeAll(ownerKey.spot(id)); } catch (e) {} } toast(`${sp.name} removed`); } // its photos go too, best effort, once the delete is saved
 
@@ -968,6 +973,7 @@
   function nextRound() { const qz = state.quiz; qz.round++; qz.locked = false; qz.lit = null; recolor(true); map.setState({ sel: -1 }); renderQuiz(); }
 
   // ---------- boot ----------
+  if (V) V.init({ state, who, cleanName, esc, verdict: VERDICT, persist, render, logEvent, askName, startLog: id => { const s = state.spots[id]; if (s) startLog({ hood: s.hood, sub: s.sub, edit: id }); }, logKey: () => feedKey || (state.store === 'db' ? 'db' : null) });
   window.HPP = []; window.HP.forEach(h => { window.HPP[IDX[h.name]] = h.polys.map(poly => poly.map(ring => ring.map(Geom.proj))); });
   function start(saved) {
     renderLenses(); recolor(false);

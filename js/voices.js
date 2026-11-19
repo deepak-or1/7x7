@@ -163,9 +163,9 @@ window.Voices = (() => {
   // write your voice, and keep the summary in step. Returns { rated, sent } when your rating changed (for the feed, once a spot a
   // session: sent() once the save went through).
   // A spot with no v (a legacy rating and note): left as it is (no v written) unless you change the rating or note. Then your voice
-  // is written, and the old rating and note stay beside it as the unnamed earlier voice ('_'), unless they were yours (the spot's
-  // logger is you) or are exactly what you saved. Never written as someone else's voice: the summary may be an average from before
-  // an older device dropped v.
+  // is written, and the old rating and note stay beside it as the logger's voice (spot.by; the unnamed earlier voice '_' when there
+  // is no logger), unless they were yours (the spot's logger is you) or are exactly what you saved. Known cost: if an older device
+  // dropped v from a spot two people had rated, the summary it left is an average and is credited to the logger here.
   function saved(id, prev, d) {
     const sp = own(o.state.spots, id); if (!sp) return null; const m = me(), want = sp.status === 'want';
     if (prev) { const v = copy(prev.v, true), rx = copy(prev.rx); if (v && Object.keys(v).length) sp.v = v; if (rx && Object.keys(rx).length) sp.rx = rx; }
@@ -181,7 +181,7 @@ window.Voices = (() => {
     if (entry && entry.n !== o.who()) entry = Object.assign({}, entry, { n: o.who() }); // same voice, the name written differently now
     if (!kept || pv.length) {
       const v = copy(prev && prev.v, true) || {};
-      if (!kept && L && !Lmine && !(entry && entry.r === L.r && entry.note === L.note)) v[ANON] = anon = { n: '', r: L.r, note: L.note, at: legacyAt(prev) };
+      if (!kept && L && !Lmine && !(entry && entry.r === L.r && entry.note === L.note)) { const k = L.k && okKey(L.k) ? L.k : ANON; anon = { k, e: { n: k === ANON ? '' : L.n, r: L.r, note: L.note, at: legacyAt(prev) } }; v[k] = anon.e; } // the old rating and note stay as the logger's voice (they logged it); with no logger, as the unnamed earlier voice
       if (entry) v[m] = entry; else delete v[m];
       if (Object.keys(v).length) sp.v = v; else delete sp.v;
     }
@@ -226,7 +226,7 @@ window.Voices = (() => {
     if (p.f === 'v') {
       const was = listed(sp.v), v = {}; for (const x of was) v[x.k] = sp.v[x.k]; // the voices listed, nothing made from the summary
       if (p.val) v[p.s] = p.val; else delete v[p.s];
-      if (p.anon && !was.length) v[ANON] = p.anon; // the earlier voice this write kept, when the log came back with no v at all
+      if (p.anon && !was.length) v[p.anon.k] = p.anon.e; // the earlier voice this write kept, when the log came back with no v at all
       if (Object.keys(v).length) { sp.v = v; summarize(sp); } else { delete sp.v; if (was.length) { sp.rating = 0; sp.note = ''; } }
     } else if (p.f === 'w') { const w = hasW(sp) ? copy(sp.w) : seedW(sp); if (p.val) w[p.s] = o.who(); else delete w[p.s]; if (Object.keys(w).length) sp.w = w; else delete sp.w; }
     else { const rx = copy(sp.rx) || {}; if (p.val) rx[p.s] = p.val; else delete rx[p.s]; if (Object.keys(rx).length) sp.rx = rx; else delete sp.rx; }

@@ -26,6 +26,7 @@ window.Sync = (() => {
     return {
       set: payload => fetch(url(key), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
         .then(r => { if (!r.ok) throw err(r.status === 401 || r.status === 403 ? 'invalid_argument' : 'unavailable', 'save failed ' + r.status); }),
+      get: () => fetch(url(key)).then(r => r.ok ? r.json() : Promise.reject(err(r.status === 401 ? 'invalid_argument' : 'unavailable'))), // the record as the database holds it now
       close: () => { closed = true; if (es) es.close(); },
     };
   }
@@ -50,6 +51,21 @@ window.Sync = (() => {
       putOrder: (owner, rec) => put(po(owner), rec), // null removes it
       del: (owner, id) => del(ph(owner, id)).then(() => del(pt(owner, id)).catch(() => {})).then(() => {}), // the thumb after the photo: a thumb left behind is ignored, a photo left without one gets a new one
       delAll: owner => Promise.all([del(ph(owner)), del(pt(owner)).catch(() => {}), del(po(owner)).catch(() => {})]).then(() => {}),
+      owners: () => get(ph() + '?shallow=true').then(d => Object.keys(obj(d))), // every owner that has photos, without their bytes (Download everything)
+    };
+  }
+  // Photos someone removed, kept 30 days before they go for good (js/safe.js): logs/<key>-pd/<owner>/<photoId> = { at, by? }.
+  // The photo itself stays where it is (-ph, -pt, -po), so a restore moves no bytes; the app leaves listed ones out wherever photos show.
+  function deleted(key) {
+    const at = (...p) => `${base}/logs/${[key + '-pd', ...p].map(encodeURIComponent).join('/')}.json`;
+    const req = (u, o) => fetch(u, o).then(r => { if (!r.ok) throw err(r.status === 401 || r.status === 403 ? 'invalid_argument' : 'unavailable', 'deleted-photos request failed ' + r.status); return r; });
+    const get = u => req(u).then(r => r.json());
+    return {
+      all: () => get(at()), // { owner: { id: { at, by } } } or null
+      get: (owner, id) => get(at(owner, id)),
+      put: (owner, id, rec) => req(at(owner, id), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rec) }).then(() => {}),
+      del: (owner, id) => req(at(owner, id), { method: 'DELETE' }).then(() => {}),
+      delOwner: owner => req(at(owner), { method: 'DELETE' }).then(() => {}),
     };
   }
   // The activity feed, another sibling: logs/<key>-ev/<eventId> = { t, by, d, k, id, name, hood, n }. push POSTs, so the database
@@ -78,5 +94,5 @@ window.Sync = (() => {
       watch,
     };
   }
-  return { ready, connect, url, photos, events };
+  return { ready, connect, url, photos, deleted, events };
 })();

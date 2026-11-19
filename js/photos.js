@@ -11,7 +11,8 @@
 // lightbox (swipe, zoom, the thumbnail strip with reordering, delete, crop and rotate).
 // init({ api, toast, canWrite, who, onAdded, onTaken }): who() is this device's display name, stored as `by` on new photos;
 // onAdded(owner, ids, label) after an add batch that added any; onTaken(owner, 'YYYY-MM-DD', label) with the earliest
-// capture date (EXIF DateTimeOriginal) in that batch, when one was found.
+// capture date (EXIF DateTimeOriginal) in that batch, when one was found. hidden(owner, id): a removed photo (js/safe.js) that
+// shows nowhere and does not count toward the limit; onDelete(owner, id): what the lightbox's Delete does instead of deleting.
 window.Photos = (() => {
   const MAX = 8, EDGE = 2560, TEDGE = 480, BIG = 1800000, FRESH = 60000; // EDGE: four times the pixels of a phone screen's width, so a photo holds up when zoomed; BIG: past this many characters it is saved a step lower in quality; FRESH: a panel opened again after a minute re-reads the list in the background
   const XMAX = 12, DOTS = 8; // XMAX: extra sources rolled into one hero; DOTS: past this many photos the hero shows a counter instead of dots
@@ -24,7 +25,9 @@ window.Photos = (() => {
   const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   const plural = n => n + (n === 1 ? ' photo' : ' photos');
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-  let api = null, toast = () => {}, canWrite = () => true, who = null, onAdded = null, onTaken = null;
+  let api = null, toast = () => {}, canWrite = () => true, who = null, onAdded = null, onTaken = null, hidden = null, onDelete = null;
+  const shown = (o, id) => { try { return !(hidden && hidden(o, id)); } catch (err) { return true; } };
+  const count = (o, e) => Object.keys(e.ids || {}).filter(id => shown(o, id)).length; // the photos that count toward MAX
   // owner -> { ids: {id: true} | null, known: ids came from the server (not only the local copy), th / full: {id: rec},
   //            bad: {id: true} (not a photo), fk: ids whose full photo is in IndexedDB, got / miss: full photo in flight / failed at,
   //            order: [id] a writer chose | null, at, ver, loading, busy, local: IndexedDB was read, ow: order writes in flight }
@@ -41,7 +44,7 @@ window.Photos = (() => {
     const e = cache[o]; if (!e || !e.ids) return [];
     const rank = new Map(); (e.order || []).forEach((id, i) => rank.has(id) || rank.set(id, i));
     const at = id => rank.has(id) ? rank.get(id) : Infinity;
-    return Object.keys(e.ids).filter(id => !e.bad[id]).sort((a, b) => at(a) - at(b) || (a < b ? -1 : a > b ? 1 : 0)).map(id => {
+    return Object.keys(e.ids).filter(id => !e.bad[id] && shown(o, id)).sort((a, b) => at(a) - at(b) || (a < b ? -1 : a > b ? 1 : 0)).map(id => {
       const f = e.full[id], t = e.th[id], r = f || t;
       return { id, d: r ? r.d : '', w: r ? r.w : 0, h: r ? r.h : 0, q: f ? 'f' : r ? 't' : '', t: t ? t.d : '', at: f && f.at, by: (f && f.by) || (t && t.by), taken: (f && f.taken) || (t && t.taken) };
     });
@@ -55,6 +58,7 @@ window.Photos = (() => {
     if (o.toast) toast = o.toast; if (o.canWrite) canWrite = o.canWrite;
     if ('who' in o) who = typeof o.who === 'function' ? o.who : null;
     if ('onAdded' in o) onAdded = o.onAdded; if ('onTaken' in o) onTaken = o.onTaken;
+    if ('hidden' in o) hidden = typeof o.hidden === 'function' ? o.hidden : null; if ('onDelete' in o) onDelete = typeof o.onDelete === 'function' ? o.onDelete : null;
   }
 
   // ---------- the local copy: IndexedDB stores t (thumbs, and the order under OKEY) and f (full photos), keyed <log key>/<owner>/<id> ----------
@@ -245,7 +249,7 @@ window.Photos = (() => {
     if (!api) { toast('Could not add the photo. Try again.', 3000); throw new Error('photos are not available'); }
     const e = entry(owner);
     try { await load(owner); } catch (err) {} // count what is there first; offline, the add itself fails below
-    const had = Object.keys(e.ids || {}).length, room = Math.max(0, MAX - had), take = files.slice(0, room);
+    const had = count(owner, e), room = Math.max(0, MAX - had), take = files.slice(0, room);
     if (!take.length) { toast(`${MAX} photos is the limit here`, 2600); return []; }
     e.busy++; refresh(owner);
     toast(`Adding ${plural(take.length)}…`, 60000);
@@ -349,7 +353,7 @@ window.Photos = (() => {
   }
   function draw(el) {
     const srcs = sourcesOf(el), own = srcs[0], e = entry(own.owner), list = combined(srcs), n = list.length;
-    const full = Object.keys(e.ids || {}).length >= MAX, write = el.dataset.w === '1' && canWrite() && !!api;
+    const full = count(own.owner, e) >= MAX, write = el.dataset.w === '1' && canWrite() && !!api;
     const mode = n ? 'photos' : api && srcs.some(s => !entry(s.owner).ids) ? 'loading' : 'empty'; // no "No photos yet" flash before the first read
     const sig = JSON.stringify([mode, list.map(p => p.owner + '/' + p.id), write, full, e.busy > 0]);
     if (el._sig === sig) { fill(el, list); return; } // the same slides: keep the slide, the focus and the decoded images; only better copies move in
@@ -433,7 +437,7 @@ window.Photos = (() => {
       <button type="button" class="lb-btn lb-nav lb-prev" aria-label="Previous photo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><button type="button" class="lb-btn lb-nav lb-next" aria-label="Next photo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
       <div class="lb-foot"><p class="lb-hint" aria-hidden="true">The first photo is the cover</p><div class="lb-strip" role="group" aria-label="All photos"></div>
         <div class="lb-tools"><button type="button" class="lb-btn lb-edit" aria-label="Crop and rotate">${SVG.crop}</button><button type="button" class="lb-btn lb-del" aria-label="Delete photo">${SVG.trash}</button></div></div>
-      <div class="lb-dlg" hidden><div class="lb-card" role="alertdialog" aria-modal="true" aria-labelledby="lb-dlg-t" aria-describedby="lb-dlg-d"><h2 id="lb-dlg-t">Delete this photo?</h2><p id="lb-dlg-d">It goes for everyone who has the link.</p><div class="lb-acts"><button type="button" class="lb-no">Keep</button><button type="button" class="lb-yes">Delete</button></div></div></div>`;
+      <div class="lb-dlg" hidden><div class="lb-card" role="alertdialog" aria-modal="true" aria-labelledby="lb-dlg-t" aria-describedby="lb-dlg-d"><h2 id="lb-dlg-t">Delete this photo?</h2><p id="lb-dlg-d">${onDelete ? 'It goes for everyone who has the link, and waits 30 days in Recently deleted.' : 'It goes for everyone who has the link.'}</p><div class="lb-acts"><button type="button" class="lb-no">Keep</button><button type="button" class="lb-yes">Delete</button></div></div></div>`;
     (document.getElementById('app') || document.body).appendChild(el);
     lb = { el, srcs, i, rail: el.querySelector('.lb-rail'), stage: el.querySelector('.lb-stage'), z: { s: 1, x: 0, y: 0 } };
     el.querySelector('.lb-x').addEventListener('click', () => close());
@@ -645,7 +649,7 @@ window.Photos = (() => {
     if (!lb || !lb.del) return; const { o: owner, id } = lb.del, yes = lb.el.querySelector('.lb-yes');
     if (!combined(lb.srcs).some(p => p.owner === owner && p.id === id)) { confirmDel(false); return; } // already gone (deleted elsewhere): nothing else is deleted in its place
     yes.disabled = true;
-    try { await remove(owner, id); toast('Photo deleted'); if (lb) { lb.el.querySelector('.lb-dlg').hidden = true; lb.el.querySelector('.lb-x').focus(); } }
+    try { if (onDelete) await onDelete(owner, id); else { await remove(owner, id); toast('Photo deleted'); } if (lb) { lb.el.querySelector('.lb-dlg').hidden = true; lb.el.querySelector('.lb-x').focus(); } }
     catch (err) { console.warn('photo delete failed', err); toast('Could not delete the photo. Try again.', 3000); }
     if (lb) yes.disabled = false;
   }
@@ -754,7 +758,7 @@ window.Photos = (() => {
   }
 
   return {
-    MAX, init, block, cover, mount, preload, add, remove, removeAll, reorder, downscale, open, close,
+    MAX, init, block, cover, mount, preload, add, remove, removeAll, reorder, downscale, open, close, refresh, // refresh(owner): redraw its heroes (a photo hidden or restored)
     list: owner => (entry(owner).known ? Promise.resolve() : load(owner)).then(() => ordered(owner)), // [{ id, d: best copy in memory, w, h, q: 'f' | 't' | '', t: thumb, at, by, taken }]
     // tests: fill the cache without the network. recs: {id: full record, or true for a photo whose full copy is not in}; thumbs: {id: thumb}; order: [id]
     prime(owner, recs, thumbs, order) {

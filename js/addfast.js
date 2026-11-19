@@ -404,13 +404,13 @@ window.AddFast = (() => {
   async function ask(j, q) { await gap(j); if (!live(j)) return null; try { return await window.Places.search(q, null, { signal: j.ac && j.ac.signal }); } catch (e) { return e && e.name === 'AbortError' ? null : false; } }
   // a row without a position: the place search by name. With an address, a match counts only where its city (or house number and
   // street) is in that address, and failing that the address itself is searched, kept only when its city is in it too. Without an
-  // address, only a single place of exactly that name is taken. Anything else stays unlocated: no guess. 'down': the search failed.
+  // address, only a single place of exactly that name is taken (several results within 150 m of each other count as one). Anything else stays unlocated: no guess. 'down': the search failed.
   async function locate(j, r) {
     r.why = '';
     const res = await ask(j, r.name); if (res === null) return; if (res === false) return 'down';
     const n = norm(r.name), a = r.where ? norm(r.where) : '';
     let c = a ? res.filter(x => alike(x, n) && agrees(x, a)) : res.filter(x => norm(x.name) === n);
-    if (a && c.length > 1 && c.every(x => metres(x, c[0]) <= NEAR)) c = [c[0]];
+    if (c.length > 1 && c.every(x => metres(x, c[0]) <= NEAR)) c = [c[0]]; // the search often lists one place twice: results within 150 m of each other are one place
     if (c.length === 1) { const x = c[0]; Object.assign(r, { lat: x.lat, lon: x.lon, kind: x.kind || null, where: r.where || clean(x.where || '', WHERE) }); return; }
     if (c.length > 1) { r.why = 'more than one place has this name'; return; }
     if (!a) { r.why = 'not found by the place search'; return; }

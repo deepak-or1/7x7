@@ -685,6 +685,7 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
 .vrx button[disabled] { opacity: .5; cursor: default; }
 .vrxwho { margin: 6px 0 0; font-size: 12.5px; color: var(--muted); overflow-wrap: anywhere; }
 .row .rt .vw2 { font-weight: 600; color: var(--want); }
+#logform .vneed { margin: 0 0 10px; color: var(--bad); font-size: 13.5px; font-weight: 500; } /* Save with no name: why nothing was saved */
 @media (max-width: 880px) {
   .vrx button { height: 44px; min-width: 52px; font-size: 19px; }
   .vrx button:not([disabled]):active { background: var(--paper-2); }

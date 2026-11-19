@@ -426,7 +426,7 @@
     const sh = panel.querySelector('#share-log'); if (sh) sh.addEventListener('click', shareLog);
     panel.querySelectorAll('#join-log, #join-log-hint').forEach(b => b.addEventListener('click', joinLog));
     const bl = panel.querySelector('#back-log'); if (bl) bl.addEventListener('click', () => joinLog(true));
-    const wi = panel.querySelector('#who-in'); if (wi) { wi.addEventListener('keydown', e => { if (e.key === 'Enter') wi.blur(); }); wi.addEventListener('change', () => { setWho(wi.value); wi.value = who(); toast(who() ? `You are ${who()} on this device` : 'No name on this device'); }); }
+    const wi = panel.querySelector('#who-in'); if (wi) { wi.addEventListener('keydown', e => { if (e.key === 'Enter') wi.blur(); }); wi.addEventListener('change', () => { const was = who(); setWho(wi.value); wi.value = who(); if (V) V.renamed(was, who()); toast(who() ? `You are ${who()} on this device` : 'No name on this device'); }); }
     const ns = panel.querySelector('#news-seen'); if (ns) ns.addEventListener('click', markSeen);
     panel.querySelectorAll('[data-news]').forEach(b => b.addEventListener('click', () => { const e = newsShown.find(x => x.key === b.dataset.news); if (e) openEv(e); }));
   }
@@ -498,7 +498,7 @@
     panel.querySelector('#del').addEventListener('click', () => { panel.querySelector('#del-confirm').hidden = false; panel.querySelector('#del').hidden = true; });
     panel.querySelector('#del-no').addEventListener('click', () => { panel.querySelector('#del-confirm').hidden = true; panel.querySelector('#del').hidden = false; });
     panel.querySelector('#del-yes').addEventListener('click', () => removeSpot(id));
-    const bn = panel.querySelector('#been-now'); if (bn) bn.addEventListener('click', async () => { if (!state.spots[id]) return; await beforeWrite(); const s = state.spots[id]; if (!s || s.status === 'been') return; s.status = 'been'; s.at = today(); const ok = await persist(); render(); toast(`${s.name}: been there.`); if (ok !== false) logEvent('been', { id, name: s.name, hood: s.hood }); });
+    const bn = panel.querySelector('#been-now'); if (bn) bn.addEventListener('click', async () => { if (!state.spots[id]) return; await beforeWrite(); const s = state.spots[id]; if (!s || s.status === 'been') return; s.status = 'been'; s.at = today(); if (V) V.been(id); const ok = await persist(); render(); toast(`${s.name}: been there.`); if (ok !== false) logEvent('been', { id, name: s.name, hood: s.hood }); });
   }
   // ---- all spots ----
   function renderSpots() {
@@ -553,6 +553,7 @@
   function adopt(body) {
     state.done = clone(body.hoods); state.want = clone(body.want); state.spots = clone(body.spots);
     for (const id in state.spots) { const sp = state.spots[id]; if (!sp.status) sp.status = 'been'; if (!sp.sub && IDX[sp.hood] != null) { const [x, y] = Geom.proj([sp.lon, sp.lat]); const j = map.subIndexAt(IDX[sp.hood], x, y); if (j >= 0) sp.sub = subs(sp.hood)[j].name; } }
+    if (V) V.tidy(state.spots); // v, w or rx that is not an object: dropped
   }
   async function toggleDone(name) {
     if (!state.canWrite) return;
@@ -588,8 +589,8 @@
       let seeded = false;
       docRef.onSnapshot(async snap => {
         const data = snap.exists ? (snap.data() || {}) : null;
-        if (data && ((data.updatedAt && data.updatedAt === lastSent) || (snap.metadata && snap.metadata.hasPendingWrites))) return; // our own write coming back: nothing new, and a re-render would take the focus off the note
-        if (data) { adopt(data); if (V && V.heal()) persist(); } // a log without what this device wrote (an older device, a save at the same time): put back
+        if (data && ((data.updatedAt && data.updatedAt === lastSent) || (snap.metadata && snap.metadata.hasPendingWrites))) { if (V && data.updatedAt === lastSent && !(snap.metadata && snap.metadata.hasPendingWrites)) V.echo(); return; } // our own write coming back: nothing new, and a re-render would take the focus off the note
+        if (data) { adopt(data); if (V && V.arrived()) persist(); } // a save at the same time dropped what this device just wrote: put back once
         else if (!seeded && !(snap.metadata && snap.metadata.fromCache)) {
           seeded = true;
           let old = null; try { const m = await mine.get(); if (m.exists) old = m.data(); } catch (e) {}
@@ -698,7 +699,7 @@
 
   // ---------- what's new: the activity feed beside a shared log ----------
   // logs/<key>-ev/<id> = { t, by, d (device id), k, id, name, hood, n }, written when this device adds a spot, marks one been, walks
-  // a place or adds photos, and only once the write itself went through. On open the last 30 are read; the ones by other devices
+  // a place, adds photos, rates a spot (rate), says me too (metoo) or reacts (react), and only once the write itself went through. On open the last 30 are read; the ones by other devices
   // newer than this device's last seen id show at the top of the root panel until Seen. Ids come from the database, so they sort by
   // its clock (no skew between phones). While the app is open the feed's own stream fires on every new event and the feed is read
   // again, and what arrived is toasted.
@@ -720,7 +721,7 @@
   }
   const seenId = () => { let s = null; try { s = localStorage.getItem('sbs-seen-' + feedKey); } catch (e) {} return s === '' || EV_KEY.test(s) ? s : null; }; // '': before every event; anything else unknown: never seen
   const setSeen = id => { if (id !== '' && !EV_KEY.test(id)) return; try { localStorage.setItem('sbs-seen-' + feedKey, id); } catch (e) {} };
-  function evLine(e) { const by = e.by || 'Someone', nm = e.name || 'a spot'; return e.k === 'photo' ? `${by} added ${e.n === 1 ? 'a photo' : e.n + ' photos'} to ${nm}` : e.k === 'place' ? `${by} has been to ${nm}` : e.k === 'been' ? `${by} went to ${nm}` : e.k === 'rate' ? `${by} rated ${nm}${e.n ? ' ' + e.n : ''}` : e.k === 'metoo' ? `${by} wants to go to ${nm} too` : e.k === 'react' ? `${by} reacted to ${nm}` : `${by} logged ${nm}`; }
+  function evLine(e) { const by = e.by || 'Someone', nm = e.name || 'a spot'; return e.k === 'photo' ? `${by} added ${e.n === 1 ? 'a photo' : e.n + ' photos'} to ${nm}` : e.k === 'place' ? `${by} has been to ${nm}` : e.k === 'been' ? `${by} went to ${nm}` : e.k === 'rate' ? `${by} rated ${nm}${e.n ? ' ' + e.n + (e.n === 1 ? ' star' : ' stars') : ''}` : e.k === 'metoo' ? `${by} wants to go to ${nm} too` : e.k === 'react' ? `${by} reacted to ${nm}` : `${by} logged ${nm}`; }
   function ago(t) { const d = Date.parse(t), m = (Date.now() - d) / 60000; if (!isFinite(m) || m < -5) return ''; return m < 1 ? 'just now' : m < 60 ? Math.round(m) + ' min ago' : m < 1440 ? Math.round(m / 60) + ' h ago' : m < 10080 ? Math.round(m / 1440) + (Math.round(m / 1440) === 1 ? ' day ago' : ' days ago') : niceDate(new Date(d).toISOString().slice(0, 10)); }
   // where a photo owner key points: a spot, a place, or a section
   function ownerLoc(owner) {
@@ -785,8 +786,8 @@
     const unwatch = feed && feed.watch ? feed.watch(feedSoon) : null; // any device's new event (a photo too): read the feed again
     docRef = Sync.connect(key, data => {
       if (!fed) { fed = true; readFeed(false); } // the first record, even our own write coming back: what is new since last time
-      if (data && data.updatedAt && data.updatedAt === lastSent) return; // our own write coming back
-      if (data) { adopt(data); if (V && V.heal()) persist(); } // a log without what this device wrote (an older device, a save at the same time): put back
+      if (data && data.updatedAt && data.updatedAt === lastSent) { if (V) V.echo(); return; } // our own write coming back
+      if (data) { adopt(data); if (V && V.arrived()) persist(); } // a save at the same time dropped what this device just wrote: put back once
       else if (!seeded) { seeded = true; if (local && local.hoods && Object.keys(local.hoods).length) persist(); }
       if (state.lens === 'done') recolor(false); map.redraw();
       const boot = state.bootLoc; state.bootLoc = null;
@@ -901,8 +902,8 @@
   async function saveDraft() {
     const d = state.draft; if (!d) return; const name = (d.name || '').trim(); if (!name) { panel.querySelector('#lf-q').focus(); return; }
     const di = panel.querySelector('#lf-date'); if (di) d.at = di.value || today(); // the field as it is now: iOS may not have fired change before the tap
-    if (needsName()) { await beforeWrite(); if (state.draft !== d) return; }
-    else if (V && V.wantsName(d.id ? state.spots[d.id] : null)) { await new Promise(r => askName(r)); if (state.draft !== d) return; } // a spot with named voices: yours needs a name
+    const asked = needsName(); if (asked) { await beforeWrite(); if (state.draft !== d) return; }
+    if (V && !(await V.named(d.id ? state.spots[d.id] : null, d, asked))) return; // a rating or note that has to be someone's: no name, no save
     if (d.lon == null) { // no pin: the centre of the section, or the neighborhood
       let x, y; if (d.hood && d.sub && subByName(d.hood, d.sub)) [x, y] = subByName(d.hood, d.sub).c; else if (d.hood) { const h = HOODS[IDX[d.hood]]; x = h.cx; y = h.cy; } else { const c = map.cam; x = c.x + c.w / 2; y = c.y + c.w * map.H / map.W / 2; }
       x += (Math.random() - .5) * 0.6; y += (Math.random() - .5) * 0.6; const [lon, lat] = Geom.unproj(x, y); const w = locateXY(x, y); Object.assign(d, { lon, lat, x, y, hood: w.hood || d.hood, sub: w.sub || d.sub, src: 'approx' });
@@ -913,7 +914,7 @@
     const rv = V ? V.saved(id, prev, d) : null; // v, w and rx carried over; your voice written; rating and note kept as their summary
     state.draft = null; state.pending = null; state.placing = false; stage.classList.remove('placing');
     toast(d.id ? 'Saved' : `${name} logged`); setSaveState('Saving…'); const ok = await persist(); go({ spot: id }, { replace: true }); if (ok !== false) setSaveState('Saved');
-    if (ok !== false && state.spots[id]) { const s = state.spots[id], k = !prev ? 'spot' : was === 'want' && s.status === 'been' ? 'been' : null; if (k) logEvent(k, { id, name: s.name, hood: s.hood }); else if (rv && rv.rated) logEvent('rate', { id, name: s.name, hood: s.hood, n: rv.rated }); }
+    if (ok !== false && state.spots[id]) { const s = state.spots[id], k = !prev ? 'spot' : was === 'want' && s.status === 'been' ? 'been' : null; if (k) logEvent(k, { id, name: s.name, hood: s.hood }); else if (rv && rv.rated) { rv.sent(); logEvent('rate', { id, name: s.name, hood: s.hood, n: rv.rated }); } }
   }
   async function removeSpot(id) { const sp = state.spots[id]; if (!sp) return; delete state.spots[id]; go({ hood: sp.hood, sub: sp.sub }, { replace: true, fly: false }); map.redraw(); const ok = await persist(); if (ok !== false && state.store === 'sync' && window.Photos) { try { Photos.removeAll(ownerKey.spot(id)); } catch (e) {} } toast(`${sp.name} removed`); } // its photos go too, best effort, once the delete is saved
 
@@ -973,7 +974,7 @@
   function nextRound() { const qz = state.quiz; qz.round++; qz.locked = false; qz.lit = null; recolor(true); map.setState({ sel: -1 }); renderQuiz(); }
 
   // ---------- boot ----------
-  if (V) V.init({ state, who, cleanName, esc, verdict: VERDICT, persist, render, logEvent, askName, startLog: id => { const s = state.spots[id]; if (s) startLog({ hood: s.hood, sub: s.sub, edit: id }); }, logKey: () => feedKey || (state.store === 'db' ? 'db' : null) });
+  if (V) V.init({ state, who, cleanName, esc, verdict: VERDICT, persist, render, logEvent, askName, startLog: id => { const s = state.spots[id]; if (s) startLog({ hood: s.hood, sub: s.sub, edit: id }); } });
   window.HPP = []; window.HP.forEach(h => { window.HPP[IDX[h.name]] = h.polys.map(poly => poly.map(ring => ring.map(Geom.proj))); });
   function start(saved) {
     renderLenses(); recolor(false);

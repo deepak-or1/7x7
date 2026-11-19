@@ -676,6 +676,7 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
 .af-row { grid-template-columns: auto 1fr; cursor: pointer; }
 .af-row input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); }
 .af-row .nm, .af-miss .nm { overflow-wrap: anywhere; } .af-row.off .nm { color: var(--muted); }
+.af-row .nm small { white-space: normal; } /* where a found place landed is read in full */
 .af-miss { grid-template-columns: 1fr; }
 .af-bar { position: sticky; bottom: -24px; z-index: 1; margin: 0 0 -24px; padding: 12px 0 36px; background: var(--sheet-bg, var(--paper)); border-top: 1px solid var(--line); align-items: center; } /* over the panel's bottom padding, so no row shows under it */
 .af-prog { flex: 1; margin: 0; min-width: 0; }

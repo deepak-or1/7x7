@@ -9,15 +9,17 @@ window.AddFast = (() => {
   const RESOLVE = '';
   const NAME = 80, NOTE = 400, WHERE = 120, CAP = 500, NEAR = 150, GAP = 1000, TEXT = 8192, FILE = 30 * 1024 * 1024;
   const LINE = {
-    short: 'That short link hides the place. Open it, then copy the address from the browser\'s address bar, or search the name here.',
-    unread: 'That short link could not be read. Open it, then copy the address from the browser\'s address bar, or search the name here.',
+    short: 'That short link hides the place. Open it in a browser and copy the long link, or search the name here.',
+    unread: 'That short link could not be read. Open it in a browser and copy the long link, or search the name here.',
     hidden: 'That link does not include where the place is. Search the name here, or drop a pin.',
     other: 'That is not a map link. Paste a Google Maps, Apple Maps or OpenStreetMap link, or coordinates.',
     outside: 'That place is outside the map, which covers the Bay Area from Cloverdale to Gilroy.',
     paste: 'Paste the link into the field above.',
-    noGps: 'That photo has no location. On iPhone, turn on Options › Location in the photo picker before choosing it. The photo stays attached: search the name or drop a pin.',
+    noGps: 'This photo has no location in it. It stays attached: search the name or drop a pin.',
     outPhoto: 'That photo was taken outside the map. It stays attached: search the name or drop a pin.',
     nearby: 'Nearby places are listed above: pick one, or type the name.',
+    noNear: 'No named places close by. Type the name.',
+    down: 'the place search is not available right now',
   };
   let D = null, job = null; // D: what app.js passes to init; job: the Google import in progress
   const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -29,7 +31,7 @@ window.AddFast = (() => {
   const metres = (a, b) => { const r = Math.PI / 180, x = (b.lon - a.lon) * r * Math.cos((a.lat + b.lat) * r / 2), y = (b.lat - a.lat) * r; return Math.hypot(x, y) * 6371000; };
 
   // ---------- parsing: text in, { t: 'place' | 'name' | 'short' | 'hidden' | 'other' | 'none', name, lat, lon, where, url } out ----------
-  const NONE = { t: 'none' }, OTHER = { t: 'other' }, HIDDEN = { t: 'hidden' };
+  const none = () => ({ t: 'none' }), other = () => ({ t: 'other' }), hidden = () => ({ t: 'hidden' }); // a fresh object each time: a name written on one never shows up in the next
   const dec = s => String(s).replace(/\+/g, ' ').replace(/(%[0-9A-Fa-f]{2})+/g, m => { try { return decodeURIComponent(m); } catch (e) { return m; } }); // a stray % stays as it is
   const NUM = '(-?\\d{1,3}(?:\\.\\d+)?)';
   const PAIR = new RegExp(`^\\(?\\s*${NUM}\\s*(?:,|;|\\s)\\s*${NUM}\\s*\\)?$`);
@@ -47,11 +49,11 @@ window.AddFast = (() => {
   }
   const place = (ll, name, from, where) => ({ t: 'place', name: clean(name || ll.label || ''), lat: ll.lat, lon: ll.lon, where: clean(where || '', WHERE), from });
   const named = (name, from) => { const n = clean(name); return n && !PAIR.test(n) ? { t: 'name', name: n, from } : null; }; // '0,0' or '200,300' is no name
-  function parse(input) { try { return parse1(input); } catch (e) { return NONE; } }
+  function parse(input) { try { return parse1(input); } catch (e) { return none(); } }
   function parse1(input) {
-    if (typeof input !== 'string') return NONE;
-    const text = input.slice(0, TEXT).replace(/\r\n?/g, '\n').trim(); if (!text) return NONE;
-    if (/^(javascript|data|vbscript|file|blob|about|chrome|intent):/i.test(text)) return OTHER;
+    if (typeof input !== 'string') return none();
+    const text = input.slice(0, TEXT).replace(/\r\n?/g, '\n').trim(); if (!text) return none();
+    if (/^(javascript|data|vbscript|file|blob|about|chrome|intent):/i.test(text)) return other();
     const lines = text.split('\n').map(l => clean(l, 400)).filter(Boolean), link = /(?:https?:\/\/|geo:)/i;
     const first = lines.find(l => !link.test(l)) || ''; // a share sheet's text: the name on the first line, then the address, then the link
     const m = /(?:https?:\/\/|geo:)[^\s<>"]+/i.exec(text);
@@ -61,96 +63,121 @@ window.AddFast = (() => {
       if ((r.t === 'short' || r.t === 'hidden') && first && !coords(first)) r.name = clean(first);
       return r;
     }
-    if (lines.length === 1) { const ll = coords(lines[0]); return ll ? place(ll, '', 'coords') : NONE; }
+    if (lines.length === 1) { const ll = coords(lines[0]); return ll ? place(ll, '', 'coords') : none(); }
     for (let i = lines.length - 1; i >= 0; i--) { const ll = coords(lines[i]); if (ll) return place(ll, lines.find((l, j) => j !== i && !coords(l)) || '', 'coords'); }
-    return named(lines[0], 'text') || NONE;
+    const n = named(lines[0], 'text'); if (n && lines[1]) n.where = clean(lines[1], WHERE); // 'Name\naddress': the address is kept, to choose between search results
+    return n || none();
   }
   function fromUrl(raw) {
     if (/^geo:/i.test(raw)) return geo(raw);
     raw = raw.replace(/[.,;!?'"]+$/, '');
-    let u; try { u = new URL(raw); } catch (e) { return OTHER; }
-    if (u.protocol !== 'https:' && u.protocol !== 'http:') return OTHER;
+    let u; try { u = new URL(raw); } catch (e) { return other(); }
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return other();
     const host = u.hostname.toLowerCase().replace(/^www\./, ''), p = u.pathname;
     if (host === 'maps.app.goo.gl' || (host === 'goo.gl' && /^\/maps/i.test(p)) || (host === 'maps.apple' && /^\/p\//i.test(p)) || ((host === 'osm.org' || host === 'openstreetmap.org') && /^\/go\//.test(p))) return { t: 'short', url: u.href, name: '' };
     if (/^(maps\.)?google\.[a-z]{2,3}(\.[a-z]{2})?$/.test(host) && (host.startsWith('maps.') || /^\/maps(\/|$)/.test(p))) return google(u);
     if (host === 'maps.apple.com' || host === 'maps.apple') return apple(u);
     if (host === 'openstreetmap.org' || host === 'osm.org') return osm(u);
-    return OTHER;
+    return other();
   }
   const qp = (u, ...ks) => { for (const k of ks) { const v = u.searchParams.get(k); if (v) return v.slice(0, 2000); } return ''; };
   function google(u) {
     const p = u.pathname, segs = p.split('/').map(s => s.slice(0, 1000)), href = u.href;
     const d = /!3d(-?\d{1,3}(?:\.\d+)?)!4d(-?\d{1,3}(?:\.\d+)?)/.exec(href), at = /\/@(-?\d{1,3}(?:\.\d+)?),(-?\d{1,3}(?:\.\d+)?)(?:,|\/|$)/.exec(p);
     const seg = k => { const i = segs.indexOf(k), s = i >= 0 ? segs[i + 1] : ''; return s && !/^(@|data=)/.test(s) ? dec(s) : ''; };
-    const pl = seg('place'), se = seg('search'), q = qp(u, 'q', 'query', 'daddr', 'destination'), llp = qp(u, 'll');
-    const pick = [d && { lat: +d[1], lon: +d[2] }, coords(pl), coords(se), coords(q), llp && coords(llp), (pl || (!se && !segs.includes('dir'))) && at && { lat: +at[1], lon: +at[2] }].find(x => x && okLL(x.lat, x.lon)); // the place itself (!3d!4d) before the map's centre (@)
-    const name = [pl, se, q].find(s => s && !coords(s)) || (pick && pick.label) || '';
-    if (pick) return place(pick, name, 'google');
-    const n = named(name, 'google'); if (n) return n;
-    if (u.searchParams.get('cid') || u.searchParams.get('ftid') || /place_id:/.test(q)) return HIDDEN;
-    return OTHER;
+    const pl = seg('place'), se = seg('search'), q0 = qp(u, 'q', 'query', 'daddr', 'destination'), pid = /^place_id:/i.test(q0), q = pid ? '' : q0, llp = qp(u, 'll'); // q=place_id:… is an id, not a name
+    const di = segs.indexOf('dir'), dd = di >= 0 ? dec(segs.slice(di + 1).filter(s => s && !/^(@|data=)/.test(s)).pop() || '') : ''; // /maps/dir/<from>/<destination>
+    const dn = dd && !coords(dd) ? dd.split(',') : null, dirName = dn ? clean(dn[0]) : ''; // 'Tartine, 595 Alabama St, San Francisco': the name, then its address
+    const pick = [d && { lat: +d[1], lon: +d[2] }, coords(pl), coords(se), coords(q), coords(dd), llp && coords(llp), (pl || (!se && di < 0)) && at && { lat: +at[1], lon: +at[2] }].find(x => x && okLL(x.lat, x.lon)); // the place itself (!3d!4d) before the map's centre (@)
+    const name = [pl, se, q].find(s => s && !coords(s)) || dirName || (pick && pick.label) || '', where = dirName && name === dirName ? clean(dn.slice(1).join(','), WHERE) : '';
+    if (pick) return place(pick, name, 'google', where);
+    const n = named(name, 'google'); if (n) { if (where) n.where = where; return n; }
+    if (u.searchParams.get('cid') || u.searchParams.get('ftid') || pid) return hidden();
+    return other();
   }
   function apple(u) {
-    const name = qp(u, 'name', 'q', 'query'), dest = qp(u, 'daddr', 'destination'), addr = qp(u, 'address');
+    const pin = s => /^\s*(dropped pin|marked location)\s*$/i.test(s) ? '' : s; // Apple's words for a spot without a name
+    const name = pin(qp(u, 'name', 'q', 'query')), dest = pin(qp(u, 'daddr', 'destination')), addr = qp(u, 'address');
     const pick = [coords(qp(u, 'coordinate')), coords(qp(u, 'll')), coords(name), coords(dest)].find(Boolean); // sll and center are where a search looked, not a place
     const nm = [name, dest].find(s => s && !coords(s)) || '';
     if (pick) return place(pick, nm, 'apple', addr);
-    return named(nm, 'apple') || (/^\/p\//.test(u.pathname) || u.searchParams.get('place-id') || u.searchParams.get('auid') ? HIDDEN : OTHER);
+    return named(nm, 'apple') || (/^\/p\//.test(u.pathname) || u.searchParams.get('place-id') || u.searchParams.get('auid') ? hidden() : other());
   }
   function osm(u) {
     const ml = okLL(+u.searchParams.get('mlat'), +u.searchParams.get('mlon')) && u.searchParams.get('mlat') !== null ? { lat: +u.searchParams.get('mlat'), lon: +u.searchParams.get('mlon') } : null;
     const h = /map=\d{1,2}\/(-?\d{1,3}(?:\.\d+)?)\/(-?\d{1,3}(?:\.\d+)?)/.exec(u.hash), hm = h && { lat: +h[1], lon: +h[2] };
-    const pick = [ml, hm].find(x => x && okLL(x.lat, x.lon)); if (pick) return place(pick, '', 'osm');
-    return named(qp(u, 'query'), 'osm') || (/^\/(node|way|relation)\//.test(u.pathname) ? HIDDEN : OTHER);
+    const qy = qp(u, 'query'), qc = coords(qy); // a search page: its query is the place; #map is only where the map was looking
+    if (ml) return place(ml, '', 'osm'); if (qc) return place(qc, '', 'osm');
+    const n = named(qy, 'osm'); if (n) return n;
+    if (hm && okLL(hm.lat, hm.lon)) return place(hm, '', 'osm');
+    return /^\/(node|way|relation)\//.test(u.pathname) ? hidden() : other();
   }
   function geo(raw) { // geo:37.76,-122.41?q=Name, geo:0,0?q=37.76,-122.41(Name), geo:0,0?q=Name+SF
-    const m = /^geo:([^?;#]*)(?:;[^?#]*)?(?:\?([^#]*))?/i.exec(raw.slice(0, 2000)); if (!m) return OTHER;
+    const m = /^geo:([^?;#]*)(?:;[^?#]*)?(?:\?([^#]*))?/i.exec(raw.slice(0, 2000)); if (!m) return other();
     let q = ''; try { q = new URLSearchParams(m[2] || '').get('q') || ''; } catch (e) {}
     const base = coords(m[1]), qc = coords(q);
     if (qc) return place(qc, '', 'geo');
     if (base) return place(base, q, 'geo');
-    return named(q, 'geo') || OTHER;
+    return named(q, 'geo') || other();
   }
 
   // ---------- short links: the optional resolver ----------
   async function resolve(url) {
+    const c = new AbortController(), t = setTimeout(() => c.abort(), 6000); // the timeout runs until the whole answer is read
     try {
-      const c = new AbortController(), t = setTimeout(() => c.abort(), 6000);
-      const res = await fetch(RESOLVE + (RESOLVE.includes('?') ? '&' : '?') + 'u=' + encodeURIComponent(url), { signal: c.signal, credentials: 'omit', referrerPolicy: 'no-referrer' }); clearTimeout(t);
+      const res = await fetch(RESOLVE + (RESOLVE.includes('?') ? '&' : '?') + 'u=' + encodeURIComponent(url), { signal: c.signal, credentials: 'omit', referrerPolicy: 'no-referrer' });
       if (!res.ok) return null;
-      const body = await res.json(), long = body && typeof body.url === 'string' && body.url.length < TEXT ? body.url : '';
-      const r = /^https:\/\//i.test(long) ? fromUrl(long) : NONE;
+      const text = await capped(res, c); if (text == null) return null;
+      const body = JSON.parse(text), long = body && typeof body.url === 'string' && body.url.length < TEXT ? body.url : '';
+      const r = /^https:\/\//i.test(long) ? fromUrl(long) : none();
       return r.t === 'place' || r.t === 'name' ? r : null; // another short link, a non-maps address or anything else: refused
-    } catch (e) { return null; }
+    } catch (e) { return null; } finally { clearTimeout(t); }
+  }
+  async function capped(res, c, max = 4096) { // the answer as text, at most 4 KB: anything longer is dropped unread
+    if (+res.headers.get('content-length') > max) { c.abort(); return null; }
+    if (!res.body || !res.body.getReader) { const s = await res.text(); return s.length > max ? null : s; }
+    const rd = res.body.getReader(), got = []; let n = 0;
+    for (;;) { const { done, value } = await rd.read(); if (done) break; n += value.byteLength; if (n > max) { c.abort(); return null; } got.push(value); }
+    const all = new Uint8Array(n); let o = 0; for (const g of got) { all.set(g, o); o += g.byteLength; }
+    return new TextDecoder().decode(all);
   }
 
   // ---------- the log form: paste, the Paste button, From a photo ----------
-  // d._af (only on the draft, never saved): { msg, photo: File, url: preview, taken }
-  const af = d => d._af || (d._af = { msg: '', photo: null, url: '', taken: '' });
+  // d._af (only on the draft, never saved): { msg, photo: File, url: preview, taken, kt: kind taps }
+  const af = d => d._af || (d._af = { msg: '', photo: null, url: '', taken: '', kt: 0 });
   const formOf = d => D.state.draft === d && D.state.view === 'log' && D.panel.querySelector('#logform');
   function say(d, text) { af(d).msg = text || ''; const el = formOf(d) && D.panel.querySelector('#af-msg'); if (el) { el.textContent = text || ''; el.hidden = !text; } }
+  const linked = r => r.t === 'place' || r.t === 'short' || r.t === 'hidden' || (r.t === 'name' && r.from !== 'text'); // a map link or coordinates, not any text
   function form(root, d) {
     const f = root.querySelector('#logform'), qi = f && f.querySelector('#lf-q'); if (!qi || d.id) return;
     const a = af(d), after = root.querySelector('#lf-nosearch') || qi.closest('.field');
-    after.insertAdjacentHTML('afterend', `<div class="textlinks af-add"><button type="button" id="af-paste">Paste a link</button><button type="button" id="af-photo">From a photo</button></div>`
+    const near = d.lon != null && !(d.name || '').trim() && (d.src === 'photo' || d.src === 'link'); // a position without a name: nearby names only when asked (they cost a lookup of the position)
+    after.insertAdjacentHTML('afterend', `<div class="textlinks af-add"><button type="button" id="af-paste">Paste a link</button><button type="button" id="af-photo">From a photo</button>${near ? '<button type="button" id="af-near">Suggest names nearby</button>' : ''}</div>`
       + `<p class="empty af-msg" id="af-msg" role="status" ${a.msg ? '' : 'hidden'}>${esc(a.msg)}</p>`
       + (a.photo ? `<div class="af-photo"><img alt="" src="${esc(a.url)}"><span>Photo attached${a.taken ? ' · taken ' + esc(D.niceDate(a.taken)) : ''}<small>${D.canPhoto() ? 'It is added to the spot when you save.' : 'Photos are kept only in a shared log: this one is not saved here.'}</small></span><button type="button" class="act" id="af-unphoto">Remove</button></div>` : '')
       + '<input type="file" id="af-file" accept="image/*" hidden>');
-    // a link or coordinates pasted, dropped or entered in the name field are taken before the search sees them; plain names go on as before
+    // a link or coordinates pasted, dropped or entered in the name field are taken before the search sees them; typing is left alone until Enter
     f.addEventListener('paste', e => { if (e.target !== qi) return; const t = e.clipboardData && e.clipboardData.getData('text'); if (t && parse(t).t !== 'none') { e.preventDefault(); e.stopPropagation(); take(t, d); } }, true);
-    f.addEventListener('input', e => { if (e.target !== qi) return; const v = qi.value; if ((/^insertFrom/.test(e.inputType || '') || /https?:\/\/|geo:/i.test(v)) && parse(v).t !== 'none') { e.stopPropagation(); take(v, d); } }, true);
+    f.addEventListener('input', e => {
+      if (e.target !== qi) return; const v = qi.value;
+      if (/^insertFrom(Paste|Drop)/.test(e.inputType || '')) { if (parse(v).t !== 'none') { e.stopPropagation(); take(v, d); } return; }
+      if (a.msg === LINE.nearby) say(d, ''); const nb = D.panel.querySelector('#af-near'); if (nb) nb.hidden = !!v.trim(); // typing replaces the nearby list
+      if (/^\s*(https?:|geo:)/i.test(v)) { d.name = v; e.stopPropagation(); D.hush(); } // a link being typed by hand: kept as typed, and not sent to the place search
+    }, true);
     f.addEventListener('keydown', e => { if (e.target !== qi || e.key !== 'Enter') return; if (parse(qi.value).t !== 'none') { e.preventDefault(); e.stopPropagation(); take(qi.value, d); } }, true);
     root.querySelector('#af-paste').addEventListener('click', async () => { // the clipboard is read only on this tap, and only where the browser allows it
       let t = null; try { if (navigator.clipboard && navigator.clipboard.readText) t = await navigator.clipboard.readText(); } catch (e) {}
       if (D.state.draft !== d) return;
-      if (t && parse(t).t !== 'none') take(t, d);
-      else if (t && t.trim()) { setName(d, clean(t)); D.search(clean(t)); }
+      if (t && linked(parse(t))) take(t, d);
+      else if (t && t.trim()) say(d, LINE.other); // the clipboard may hold anything: it is not shown, kept or searched
       else { say(d, LINE.paste); const q = formOf(d) && D.panel.querySelector('#lf-q'); if (q) q.focus(); }
     });
     const file = root.querySelector('#af-file');
     root.querySelector('#af-photo').addEventListener('click', () => file.click());
     file.addEventListener('change', () => { const fl = file.files && file.files[0]; file.value = ''; if (fl) photo(fl, d); });
     const un = root.querySelector('#af-unphoto'); if (un) un.addEventListener('click', () => { dropPhoto(d); D.redraw(d); });
+    const nb = root.querySelector('#af-near'); if (nb) nb.addEventListener('click', () => { nb.disabled = true; nearby(d).finally(() => { nb.hidden = true; }); });
+    const ks = root.querySelector('#lf-kind'); if (ks) ks.addEventListener('click', e => { if (e.target.closest('[data-k]')) a.kt++; });
   }
   function setName(d, name) { d.name = name; const q = formOf(d) && D.panel.querySelector('#lf-q'); if (q) q.value = name; } // a value set from script fires no input event
   async function take(text, d) {
@@ -159,7 +186,9 @@ window.AddFast = (() => {
     const keep = parse(d.name || '').t === 'none' ? clean(d.name || '') : ''; // what was typed before the paste, unless it is the link itself
     if (r.t === 'short') {
       if (!RESOLVE) { setName(d, r.name || keep); say(d, LINE.short); if (r.name) D.search(r.name); return true; }
-      say(d, 'Reading the short link…'); const got = await resolve(r.url); if (D.state.draft !== d) return true;
+      say(d, 'Reading the short link…'); const n0 = d.name, a0 = d.lat, o0 = d.lon, got = await resolve(r.url);
+      if (D.state.draft !== d) return true;
+      if (d.name !== n0 || d.lat !== a0 || d.lon !== o0) { if (af(d).msg === 'Reading the short link…') say(d, ''); return true; } // another place was chosen meanwhile: it stands
       if (got) { say(d, ''); return apply(got, d, keep); }
       setName(d, r.name || keep); say(d, LINE.unread); if (r.name) D.search(r.name); return true;
     }
@@ -167,26 +196,41 @@ window.AddFast = (() => {
     return apply(r, d, keep);
   }
   function apply(r, d, keep) {
-    if (r.t === 'name') { setName(d, r.name); D.search(r.name); return true; }
+    if (r.t === 'name') { setName(d, r.name); if (r.where) byAddress(d, r); else D.search(r.name); return true; }
     if (!inside(r.lat, r.lon)) { setName(d, r.name || keep); say(d, LINE.outside); return true; }
     D.place(d, { name: r.name || keep, lat: r.lat, lon: r.lon, where: r.where || '', src: 'link' });
-    if (r.name) kindOf(d, r); else nearby(d);
+    if (r.name) kindOf(d, r); // no name: the quiet 'Suggest names nearby' link instead
     return true;
   }
-  // the kind, when the place search knows a place of that name within about 150 m; the form changes in place, never by a rebuild
-  async function kindOf(d, r) {
-    let res = []; try { res = await window.Places.search(r.name, [r.lon, r.lat]); } catch (e) { return; }
-    if (D.state.draft !== d || d.lat !== r.lat) return;
-    const n = norm(r.name), hit = res.find(x => metres(x, r) <= NEAR && (norm(x.name) === n || norm(x.name).includes(n) || n.includes(norm(x.name))));
-    if (!hit) return;
-    if (hit.kind && D.kinds[hit.kind]) { d.kind = hit.kind; if (formOf(d)) D.panel.querySelectorAll('#lf-kind [data-k]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.k === d.kind))); }
-    if (!d.where && hit.where) d.where = clean(hit.where, WHERE);
+  // the address a place is known by: its city, or its house number and street, appear in the address given (a: normalised)
+  const SUF = /\s+(street|st|avenue|ave|boulevard|blvd|road|rd|drive|dr|lane|ln|way|place|pl|court|ct|terrace|ter|highway|hwy|parkway|pkwy)\.?$/i;
+  const cityIn = (x, a) => { const c = norm(x.city || String(x.where || '').split(' · ').pop()); return c.length >= 3 && a.includes(c); };
+  const agrees = (x, a) => { if (cityIn(x, a)) return true; const s = norm(String(x.street || '').replace(SUF, '')), h = norm(x.num || ''); return !!(s && h) && a.includes(h + s); };
+  const alike = (x, n) => { const m = norm(x.name); return m === n || (m.length >= 4 && n.length >= 4 && (m.includes(n) || n.includes(m))); };
+  // 'Name\naddress' pasted: one search result of that name whose address agrees is placed, with the pasted address as its line; otherwise the usual list
+  async function byAddress(d, r) {
+    let res = []; try { res = await window.Places.search(r.name, null, { explicit: true }); } catch (e) { res = []; }
+    if (D.state.draft !== d || d.name !== r.name || d.lon != null) return; // typed over, or placed meanwhile
+    const n = norm(r.name), a = norm(r.where); let c = (res || []).filter(x => alike(x, n) && agrees(x, a));
+    if (c.length > 1 && c.every(x => metres(x, c[0]) <= NEAR)) c = [c[0]];
+    if (c.length === 1) D.place(d, { name: r.name, lat: c[0].lat, lon: c[0].lon, where: r.where, src: 'search', kind: c[0].kind });
+    else D.search(r.name);
   }
-  // no name yet: the nearest named places from the place search, as suggestions; the user picks one or types
+  // the kind, when the place search knows a place of exactly that name within about 150 m; the form changes in place, never by a rebuild
+  async function kindOf(d, r) {
+    const n = norm(r.name), k0 = d.kind, t0 = af(d).kt; if (!n) return;
+    let res = []; try { res = await window.Places.search(r.name, [r.lon, r.lat]); } catch (e) { return; }
+    if (D.state.draft !== d || d.lat !== r.lat || d.lon !== r.lon || d.kind !== k0 || af(d).kt !== t0) return; // moved, or a kind chosen meanwhile: the user's choice stands
+    const hit = res.find(x => metres(x, r) <= NEAR && norm(x.name) === n);
+    if (hit && hit.kind && D.kinds[hit.kind]) { d.kind = hit.kind; if (formOf(d)) D.panel.querySelectorAll('#lf-kind [data-k]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.k === d.kind))); }
+  }
+  // asked for ('Suggest names nearby'): the nearest named places from the place search, as suggestions; the user picks one or types
   async function nearby(d) {
-    if (!window.Places.reverse) return; let res = [];
-    try { res = await window.Places.reverse(d.lon, d.lat); } catch (e) { return; }
-    const f = formOf(d), sug = f && D.panel.querySelector('#lf-sug'); if (!sug || !res.length || (d.name || '').trim()) return;
+    const lat = d.lat, lon = d.lon; if (lat == null || !window.Places.reverse) return; let res = [];
+    try { res = await window.Places.reverse(lon, lat); } catch (e) { res = null; }
+    if (D.state.draft !== d || d.lat !== lat || d.lon !== lon) return; // the spot moved meanwhile: these were for the old position
+    const f = formOf(d), sug = f && D.panel.querySelector('#lf-sug'); if (!sug || (d.name || '').trim()) return;
+    if (!res || !res.length) { say(d, LINE.noNear); return; }
     res = res.slice(0, 5);
     sug.innerHTML = res.map((r, i) => `<li><button type="button" data-af="${i}"><span><b>${esc(r.name)}</b><small>${esc(r.where)}</small></span><span class="k">${esc(r.osm)}</span></button></li>`).join(''); sug.hidden = false;
     say(d, LINE.nearby);
@@ -199,10 +243,13 @@ window.AddFast = (() => {
     dropPhoto(d); const a = af(d); a.photo = file; try { a.url = URL.createObjectURL(file); } catch (e) {}
     if (typeof taken === 'string' && taken <= D.today()) { a.taken = taken; d.at = taken; }
     d.status = 'been';
-    if (g && inside(g.lat, g.lon)) { a.msg = ''; D.place(d, { name: parse(d.name || '').t === 'none' ? d.name : '', lat: g.lat, lon: g.lon, where: 'Where the photo was taken', src: 'photo' }); if (!(d.name || '').trim()) nearby(d); return g; }
-    a.msg = g ? LINE.outPhoto : LINE.noGps; D.redraw(d); return g;
+    const free = d.lon == null || /^(gps|approx|pin|photo)$/.test(d.src || ''); // a place the user chose (a search pick, a link) stays: the photo is only attached
+    if (free && g && inside(g.lat, g.lon)) { a.msg = ''; D.place(d, { name: parse(d.name || '').t === 'none' ? d.name : '', lat: g.lat, lon: g.lon, where: 'Where the photo was taken', src: 'photo' }); return g; }
+    a.msg = !free ? '' : g ? LINE.outPhoto : LINE.noGps; D.redraw(d); return g;
   }
-  function saved(d, id) { const a = d && d._af; if (a && a.photo && D.canPhoto()) D.addPhoto(id, a.photo, d.name); if (a) dropPhoto(d); }
+  // the spot's save (ok: it was saved): the photo goes up as its first, or the user hears it did not; the preview is let go either way
+  function saved(d, id, ok) { const a = d && d._af; if (!a) return; if (a.photo && D.canPhoto()) { if (ok) D.addPhoto(id, a.photo, d.name); else D.toast('The photo was not added', 4000); } dropPhoto(d); }
+  function left(d) { if (d && d._af) dropPhoto(d); } // the form was cancelled
 
   // ---------- EXIF GPS: the GPS IFD of the TIFF block in a JPEG's APP1 or a HEIC's Exif item (the same walk as js/photos.js takenOf) ----------
   async function gpsOf(file) {
@@ -268,7 +315,7 @@ window.AddFast = (() => {
   const str = v => typeof v === 'string' ? v : '';
   const obj = v => v && typeof v === 'object' && !Array.isArray(v) ? v : {};
   function row(name, note, url, where, lat, lon, file) { // one candidate place: the link fills in a missing name or position
-    const l = url ? parse(url) : NONE;
+    const l = url ? parse(url) : none();
     if (!okLL(lat, lon) && l.t === 'place') { lat = l.lat; lon = l.lon; }
     name = clean(name) || (l.t === 'place' || l.t === 'name' ? l.name : '') || clean(where);
     if (!name) return null;
@@ -282,7 +329,10 @@ window.AddFast = (() => {
       const p = obj(obj(f).properties), loc = obj(p.location), old = obj(p.Location), g = obj(obj(f).geometry), c = Array.isArray(g.coordinates) ? g.coordinates : [], gc = obj(old['Geo Coordinates']);
       let lat = +c[1], lon = +c[0]; if (!okLL(lat, lon)) { lat = +gc.Latitude; lon = +gc.Longitude; }
       const r = row(str(p.Title) || str(loc.name) || str(old['Business Name']) || str(p.name), str(p.Comment) || str(p.comment) || str(p.Note), str(p.google_maps_url) || str(p['Google Maps URL']), str(loc.address) || str(old.Address), lat, lon, file);
-      if (r) out.push(r);
+      if (!r) continue;
+      const cc = str(loc.country_code).trim().toUpperCase(); if (r.lat == null && cc && cc !== 'US') { r.why = 'outside the Bay Area'; r.on = false; } // another country: not looked up
+      const t = Date.parse(str(p.date).slice(0, 40)); if (isFinite(t)) { const day = new Date(t).toISOString().slice(0, 10); if (day >= '1990-01-01' && day <= D.today()) r.at = day; } // when it was saved: the date of a 'been' import
+      out.push(r);
     }
     return out;
   }
@@ -308,87 +358,108 @@ window.AddFast = (() => {
       if (spots.some(near)) { r.dup = 'already in your log'; r.on = false; } else if (seen.some(near)) { r.dup = 'also earlier in this import'; r.on = false; }
       if (r.lat != null && !inside(r.lat, r.lon)) { r.why = 'outside the map'; r.on = false; }
       seen.push({ n, lat: r.lat, lon: r.lon });
-      if (r.lat != null && !r.why) Object.assign(r, at(r));
+      if (r.lat != null && !r.why) hood(r);
     }
     job = { rows: list, total, bad, files: files.length, status: 'want', phase: 'review', k: 0, n: 0 };
     D.go(D.state.loc, { view: 'gimport', fly: false, replace: true, sheet: D.isPhone() ? 'full' : undefined });
   }
   const at = r => { const w = D.where(r.lon, r.lat); return { hood: w.hood, sub: w.sub }; };
-  const landing = r => r.why ? r.why : r.lat == null ? 'needs a location' : r.hood ? (r.sub ? r.sub + ', ' + r.hood : r.hood) : 'outside the named places';
+  const hood = r => { Object.assign(r, at(r)); if (!r.hood) r.on = false; }; // inside the map but in no named place: it would show only on the map, so it is not ticked
+  const landing = r => r.why ? r.why : r.lat == null ? 'needs a location' : (r.hood ? (r.sub ? r.sub + ', ' + r.hood : r.hood) : 'outside the named places (only shows on the map)') + (r.found ? ' · found by name' : '');
+  const fixed = r => r.why === 'outside the map' || r.why === 'outside the Bay Area' || (r.tried && r.lat == null); // rows that cannot be imported: no tick box
   const plural = n => n + (n === 1 ? ' place' : ' places');
   function renderImport() {
     const j = job; if (!j) { D.state.view = null; D.render(); return; }
     D.setHead({ eyebrow: 'Settings', title: 'Import from Google Maps', onBack: leave, tools: [] });
     const P = D.panel, chosen = j.rows.filter(r => r.on).length;
     if (j.phase === 'done') {
-      const miss = j.rows.filter(r => r.miss);
-      P.innerHTML = `<p class="lead">${j.undone ? `Undone: ${plural(j.undone)} removed.` : `Imported ${plural(j.ids.length)} as ${j.status === 'been' ? 'been' : 'want to go'}.`}</p>`
+      const miss = j.failed ? [] : j.rows.filter(r => r.miss);
+      P.innerHTML = `<p class="lead">${j.failed ? 'The import could not be saved. Nothing was added.' : j.undone ? `Undone: ${plural(j.undone)} removed.` : `Imported ${plural(j.ids.length)} as ${j.status === 'been' ? 'been' : 'want to go'}.`}</p>`
         + (miss.length ? `<h3>Not imported <span class="n">${miss.length}</span></h3><ul class="rows">${miss.map(r => `<li><div class="row af-miss"><span class="nm">${esc(r.name)}<small>${esc(r.why || 'not found')}</small></span></div></li>`).join('')}</ul>` : '')
         + `<div class="actions af-bar"><button type="button" class="btn primary" id="af-done">Done</button></div>`;
       P.querySelector('#af-done').addEventListener('click', leave); return;
     }
-    const finding = j.phase === 'finding';
-    P.innerHTML = `<p class="lead">${plural(j.rows.length)} from ${j.files === 1 ? 'your file' : j.files + ' files'}. Untick any you do not want.</p>`
+    const finding = j.phase === 'finding', busy = j.phase === 'busy', found = j.rows.filter(r => r.found).length, files = Math.min(j.files, 20);
+    P.innerHTML = `<p class="lead">${plural(j.rows.length)} from ${files === 1 ? 'your file' : files + ' files'}. Untick any you do not want.</p>`
+      + (j.files > 20 ? `<p class="af-note">Read the first 20 of ${j.files} files.</p>` : '')
       + (j.total > CAP ? `<p class="af-note">That is ${j.total.toLocaleString()} places. One import takes at most ${CAP}, so only the first ${CAP} are listed.</p>` : '')
       + (j.bad.length ? `<p class="af-note">Not read: ${esc(j.bad.join(', '))}. Only Saved Places.json and the list .csv files from Google Takeout can be imported.</p>` : '')
+      + (j.down && !finding ? '<p class="af-note">The place search is not available right now. The places it could not look up are unticked: tick them to try again later.</p>' : '')
+      + (found && !finding ? `<p class="af-note">${plural(found)} found by name. Check where each landed, then import.</p>` : '')
       + `<div class="field"><label>Add them as</label><div class="seg" id="af-status"><button type="button" data-s="want" aria-pressed="${j.status === 'want'}" ${finding ? 'disabled' : ''}>Want to go</button><button type="button" data-s="been" aria-pressed="${j.status === 'been'}" ${finding ? 'disabled' : ''}>Been</button></div></div>`
-      + `<ul class="rows af-rows">${j.rows.map((r, i) => `<li><label class="row af-row${r.on ? '' : ' off'}"><input type="checkbox" data-i="${i}" ${r.on ? 'checked' : ''} ${r.why === 'outside the map' || finding ? 'disabled' : ''} aria-label="${esc(r.name)}"><span class="nm">${esc(r.name)}<small>${esc([landing(r), r.dup].filter(Boolean).join(' · '))}</small></span></label></li>`).join('')}</ul>`
-      + `<div class="actions af-bar" id="af-bar">${finding ? `<div class="progress af-prog"><div class="bar"><i style="width:${j.n ? (j.k / j.n * 100).toFixed(1) : 0}%"></i></div><small id="af-k" aria-live="polite">Finding ${Math.min(j.k + 1, j.n)} of ${j.n}</small></div><button type="button" class="btn" id="af-stop">Cancel</button>` : `<button type="button" class="btn primary" id="af-go" ${chosen ? '' : 'disabled'}>Import ${plural(chosen)}</button><button type="button" class="btn" id="af-cancel">Cancel</button>`}</div>`;
+      + `<ul class="rows af-rows">${j.rows.map((r, i) => `<li><label class="row af-row${r.on ? '' : ' off'}"><input type="checkbox" data-i="${i}" ${r.on ? 'checked' : ''} ${fixed(r) || finding ? 'disabled' : ''} aria-label="${esc(r.name)}"><span class="nm">${esc(r.name)}<small>${esc([landing(r), r.dup].filter(Boolean).join(' · '))}</small></span></label></li>`).join('')}</ul>`
+      + `<div class="actions af-bar" id="af-bar">${finding ? `<div class="progress af-prog"><div class="bar"><i style="width:${j.n ? (j.k / j.n * 100).toFixed(1) : 0}%"></i></div><small id="af-k" aria-live="polite">Finding ${Math.min(j.k + 1, j.n)} of ${j.n}</small></div><button type="button" class="btn" id="af-stop">Cancel</button>` : `<button type="button" class="btn primary" id="af-go" ${chosen && !busy ? '' : 'disabled'}>Import ${plural(chosen)}</button><button type="button" class="btn" id="af-cancel">Cancel</button>`}</div>`;
     P.querySelectorAll('#af-status [data-s]').forEach(b => b.addEventListener('click', () => { j.status = b.dataset.s; P.querySelectorAll('#af-status [data-s]').forEach(x => x.setAttribute('aria-pressed', String(x === b))); }));
-    P.querySelectorAll('.af-rows input').forEach(c => c.addEventListener('change', () => { const r = j.rows[+c.dataset.i]; r.on = c.checked; c.closest('.af-row').classList.toggle('off', !r.on); const n = j.rows.filter(x => x.on).length, g = P.querySelector('#af-go'); if (g) { g.textContent = `Import ${plural(n)}`; g.disabled = !n; } }));
-    const go = P.querySelector('#af-go'); if (go) go.addEventListener('click', () => run(j));
+    P.querySelectorAll('.af-rows input').forEach(c => c.addEventListener('change', () => { const r = j.rows[+c.dataset.i]; r.on = c.checked; c.closest('.af-row').classList.toggle('off', !r.on); const n = j.rows.filter(x => x.on).length, g = P.querySelector('#af-go'); if (g) { g.textContent = `Import ${plural(n)}`; g.disabled = !n || j.phase !== 'review'; } }));
+    const go = P.querySelector('#af-go'); if (go) go.addEventListener('click', () => { go.disabled = true; run(j); }); // off from the first tap
     const no = P.querySelector('#af-cancel'); if (no) no.addEventListener('click', leave);
-    const st = P.querySelector('#af-stop'); if (st) st.addEventListener('click', () => { j.cancel = true; if (j.wake) j.wake(); });
+    const st = P.querySelector('#af-stop'); if (st) st.addEventListener('click', () => stop(j));
   }
-  function leave() { if (job) { job.cancel = true; if (job.wake) job.wake(); } job = null; D.go(D.state.loc, { replace: true, fly: false }); }
+  function stop(j) { j.cancel = true; if (j.wake) j.wake(); if (j.ac) j.ac.abort(); } // Cancel: the wait between lookups and the lookup in flight both end now
+  function leave() { if (job) stop(job); job = null; D.go(D.state.loc, { replace: true, fly: false }); }
   const live = j => job === j && !j.cancel && D.state.view === 'gimport';
   let last = 0; // the last place-search request: at most one a second
   async function gap(j) { const w = last + GAP - Date.now(); if (w > 0) await new Promise(r => { const t = setTimeout(r, w); j.wake = () => { clearTimeout(t); r(); }; }); j.wake = null; last = Date.now(); }
-  async function ask(j, q) { await gap(j); if (!live(j)) return null; try { return await window.Places.search(q, null, { explicit: true }); } catch (e) { return e && e.name === 'AbortError' ? null : false; } }
-  // a row without a position: the place search by name; one match (or several within 150 m of each other) is taken, an address
-  // picks between several, and with no match by name an address of its own is searched. Anything else stays unlocated: no guess.
+  // one lookup: null when cancelled, false when the search failed (or timed out); only the first search service, never its fallback
+  async function ask(j, q) { await gap(j); if (!live(j)) return null; try { return await window.Places.search(q, null, { signal: j.ac && j.ac.signal }); } catch (e) { return e && e.name === 'AbortError' ? null : false; } }
+  // a row without a position: the place search by name. With an address, a match counts only where its city (or house number and
+  // street) is in that address, and failing that the address itself is searched, kept only when its city is in it too. Without an
+  // address, only a single place of exactly that name is taken. Anything else stays unlocated: no guess. 'down': the search failed.
   async function locate(j, r) {
-    const res = await ask(j, r.name); if (res === null) return; if (res === false) { r.why = 'the place search is not available'; return; }
-    const n = norm(r.name), exact = res.filter(x => norm(x.name) === n), part = res.filter(x => { const m = norm(x.name); return m.length >= 4 && n.length >= 4 && (m.includes(n) || n.includes(m)); });
-    let c = exact.length ? exact : part;
-    if (c.length > 1 && r.where) { const a = norm(r.where), s = c.filter(x => x.where && a.includes(norm(String(x.where).split(' · ')[0]))); if (s.length) c = s; }
-    if (c.length > 1 && c.every(x => metres(x, c[0]) <= NEAR)) c = [c[0]];
+    r.why = '';
+    const res = await ask(j, r.name); if (res === null) return; if (res === false) return 'down';
+    const n = norm(r.name), a = r.where ? norm(r.where) : '';
+    let c = a ? res.filter(x => alike(x, n) && agrees(x, a)) : res.filter(x => norm(x.name) === n);
+    if (a && c.length > 1 && c.every(x => metres(x, c[0]) <= NEAR)) c = [c[0]];
     if (c.length === 1) { const x = c[0]; Object.assign(r, { lat: x.lat, lon: x.lon, kind: x.kind || null, where: r.where || clean(x.where || '', WHERE) }); return; }
     if (c.length > 1) { r.why = 'more than one place has this name'; return; }
-    if (r.where) { const ra = await ask(j, r.where); if (ra === null) return; if (ra && ra.length) { Object.assign(r, { lat: ra[0].lat, lon: ra[0].lon }); return; } }
-    r.why = 'not found by the place search';
+    if (!a) { r.why = 'not found by the place search'; return; }
+    const ra = await ask(j, r.where); if (ra === null) return; if (ra === false) return 'down';
+    const x = ra.find(y => cityIn(y, a)); if (x) { Object.assign(r, { lat: x.lat, lon: x.lon }); return; }
+    r.why = 'not found in the Bay Area';
   }
+  // Import N places: first the rows without a position are looked up and the list comes back showing where each landed; the next tap saves
   async function run(j) {
-    await D.beforeWrite(); if (job !== j || D.state.view !== 'gimport') return;
+    if (j.phase !== 'review') return; j.phase = 'busy'; // one run at a time: a second tap does nothing
+    await D.beforeWrite(); if (job !== j || D.state.view !== 'gimport') { j.phase = 'review'; return; }
     const todo = j.rows.filter(r => r.on && r.lat == null && !r.tried);
-    j.phase = 'finding'; j.k = 0; j.n = todo.length; j.cancel = false;
-    if (todo.length) renderImport();
+    if (!todo.length) return save(j);
+    j.phase = 'finding'; j.k = 0; j.n = todo.length; j.cancel = false; j.down = false; j.ac = new AbortController();
+    renderImport();
     for (const r of todo) {
       if (!live(j)) break;
-      await locate(j, r); if (!live(j)) break;
-      r.tried = true; j.k++; if (r.lat != null) Object.assign(r, at(r));
+      const got = await locate(j, r); if (!live(j)) break;
+      if (got === 'down') { j.down = true; for (const x of todo) if (!x.tried && x.lat == null) { x.why = LINE.down; x.on = false; } break; } // the search is down: no point trying the rest
+      r.tried = true; j.k++; if (r.lat != null) { r.found = true; hood(r); } else r.on = false;
       const b = D.panel.querySelector('.af-prog'); if (b) { b.querySelector('i').style.width = (j.k / j.n * 100).toFixed(1) + '%'; b.querySelector('#af-k').textContent = `Finding ${Math.min(j.k + 1, j.n)} of ${j.n}`; }
     }
-    if (job !== j) return;
-    if (j.cancel || D.state.view !== 'gimport') { j.cancel = false; j.phase = 'review'; if (D.state.view === 'gimport') renderImport(); return; }
-    save(j);
+    j.ac = null; if (job !== j) return;
+    j.cancel = false; j.phase = 'review'; // nothing is saved yet: the list again, with where each found place landed
+    if (D.state.view === 'gimport') renderImport();
   }
   async function save(j) {
     const S = D.state, by = D.who(), day = D.today(), base = 's' + Date.now().toString(36), ids = [], snap = {};
-    j.rows.forEach(r => { r.miss = false; if (r.why === 'outside the map' && !r.dup) r.miss = true; });
+    j.rows.forEach(r => { r.miss = !r.on && !!r.why && !r.dup; });
     for (const r of j.rows) {
       if (!r.on) continue;
       if (r.lat == null) { r.miss = true; r.why = r.why || 'no location found'; continue; }
       if (!inside(r.lat, r.lon)) { r.miss = true; r.why = 'outside the map'; continue; }
       let id = base + 'g' + ids.length.toString(36); while (Object.hasOwn(S.spots, id)) id += 'x';
       const w = at(r);
-      S.spots[id] = { ...(by ? { by } : {}), name: r.name, kind: r.kind && D.kinds[r.kind] ? r.kind : 'other', status: j.status === 'been' ? 'been' : 'want', rating: 0, note: r.note, lon: +r.lon.toFixed(5), lat: +r.lat.toFixed(5), hood: w.hood, sub: w.sub || null, at: day, where: r.where, src: 'gmaps' };
+      S.spots[id] = { ...(by ? { by } : {}), name: r.name, kind: r.kind && D.kinds[r.kind] ? r.kind : 'other', status: j.status === 'been' ? 'been' : 'want', rating: 0, note: r.note, lon: +r.lon.toFixed(5), lat: +r.lat.toFixed(5), hood: w.hood, sub: w.sub || null, at: j.status === 'been' && r.at ? r.at : day, where: r.where, src: 'gmaps' };
       snap[id] = sig(S.spots[id]); ids.push(id);
     }
-    j.ids = ids; j.phase = 'done'; j.undone = 0;
-    const ok = await D.persist(); D.map.redraw();
-    if (job === j && S.view === 'gimport') renderImport();
-    if (ok === false || !ids.length) { if (!ids.length) D.toast('Nothing was imported', 2600); return; }
+    j.ids = ids; j.undone = 0; j.failed = false;
+    if (!ids.length) { j.phase = 'done'; if (job === j && S.view === 'gimport') renderImport(); D.toast('Nothing was imported', 2600); return; }
+    D.map.redraw();
+    const ok = await D.persist();
+    if (ok === false) { // not saved: the spots come out again, so nothing half-added stays behind on this device
+      for (const id of ids) delete S.spots[id];
+      j.ids = []; j.failed = true; j.phase = 'done'; D.map.redraw(); await D.persist();
+      if (job === j && S.view === 'gimport') renderImport(); else D.toast('The import could not be saved. Nothing was added.', 4000);
+      return;
+    }
+    j.phase = 'done'; if (job === j && S.view === 'gimport') renderImport();
     D.toast(`Imported ${plural(ids.length)}`, 10000, { label: 'Undo', run: () => undo(j, ids, snap) });
   }
   // the same spot: its fields as stored (null and missing alike, any key order: a synced copy comes back sorted and without nulls)
@@ -404,5 +475,5 @@ window.AddFast = (() => {
   }
 
   function init(o) { D = o; }
-  return { init, parse, form, saved, settings, renderImport, gpsOf, RESOLVE, get job() { return job; } };
+  return { init, parse, form, saved, left, settings, renderImport, gpsOf, RESOLVE, get job() { return job; } };
 })();

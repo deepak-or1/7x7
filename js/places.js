@@ -17,6 +17,7 @@
     const u = new URL('https://nominatim.openstreetmap.org/search');
     u.searchParams.set('q', q.trim()); u.searchParams.set('format', 'jsonv2'); u.searchParams.set('limit', '8'); u.searchParams.set('addressdetails', '1');
     u.searchParams.set('viewbox', `${LON0},${LAT1},${LON1},${LAT0}`); u.searchParams.set('bounded', '1');
+    if (typeof AbortSignal !== 'undefined' && AbortSignal.any && AbortSignal.timeout) signal = AbortSignal.any([signal, AbortSignal.timeout(6000)]); // a hung fallback gives up too
     const res = await fetch(u, { signal, headers: { Accept: 'application/json' } });
     if (!res.ok) throw new Error('search failed ' + res.status);
     const data = await res.json();
@@ -31,6 +32,7 @@
   async function search(q, bias, opts = {}) {
     if (!q || q.trim().length < 2) return [];
     if (ctrl) ctrl.abort(); ctrl = new AbortController();
+    if (opts.signal) { const c = ctrl; if (opts.signal.aborted) c.abort(); else opts.signal.addEventListener('abort', () => c.abort(), { once: true }); } // the caller's Cancel ends this lookup too
     if (opts.explicit && search.photonDown) return nominatim(q, ctrl.signal);
     try { return await photon(q, bias, ctrl.signal); }
     catch (e) { if (e.name === 'AbortError') throw e; search.photonDown = true; if (opts.explicit) return nominatim(q, ctrl.signal); throw e; }
@@ -53,7 +55,7 @@
     const name = p.name || [p.housenumber, p.street].filter(Boolean).join(' ') || p.city; if (!name) return null;
     const where = [p.street && !p.name ? null : (p.housenumber ? p.housenumber + ' ' + (p.street || '') : p.street), p.district || p.locality, p.city].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(' · ');
     const osm = p.osm_value || p.osm_key, kind = KIND_BY_OSM[osm] || (p.osm_key === 'shop' ? 'shop' : p.osm_key === 'leisure' ? 'park' : p.osm_key === 'tourism' ? 'view' : null);
-    return { name, where, lon, lat, kind, osm: (p.osm_value || '').replace(/_/g, ' ') };
+    return { name, where, lon, lat, kind, osm: (p.osm_value || '').replace(/_/g, ' '), city: p.city || '', street: p.street || '', num: p.housenumber || '' }; // city, street, num: to check an address against
   }
   // the named places nearest a point (a photo's position, pasted coordinates), nearest first: no streets, buildings or areas
   async function reverse(lon, lat) {

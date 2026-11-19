@@ -302,7 +302,7 @@
     else {
       const l = state.loc, v = state.view; let fresh = true;
       if (!l.spot) stamped = null; // back on this spot later, the stamp lands again
-      if (v === 'log') renderLogForm(); else if (v === 'spots') renderSpots(); else if (l.spot) fresh = renderSpot(l.spot); else if (l.sub) fresh = renderSub(l.hood, l.sub); else if (l.hood) renderHood(l.hood); else renderHome();
+      if (v === 'log') renderLogForm(); else if (v === 'spots') renderSpots(); else if (v === 'gimport' && window.AddFast) AddFast.renderImport(); else if (l.spot) fresh = renderSpot(l.spot); else if (l.sub) fresh = renderSub(l.hood, l.sub); else if (l.hood) renderHood(l.hood); else renderHome();
       if (fresh !== false) { wire(panel); if (window.Photos) Photos.mount(panel); } // fresh false: the panel was left as it was, listeners and all
       if (!v && level(l) >= 2) streetSoon();
     }
@@ -428,6 +428,7 @@
     const wi = panel.querySelector('#who-in'); if (wi) { wi.addEventListener('keydown', e => { if (e.key === 'Enter') wi.blur(); }); wi.addEventListener('change', () => { setWho(wi.value); wi.value = who(); toast(who() ? `You are ${who()} on this device` : 'No name on this device'); }); }
     const ns = panel.querySelector('#news-seen'); if (ns) ns.addEventListener('click', markSeen);
     panel.querySelectorAll('[data-news]').forEach(b => b.addEventListener('click', () => { const e = newsShown.find(x => x.key === b.dataset.news); if (e) openEv(e); }));
+    if (window.AddFast) AddFast.settings(panel); // Import from Google Maps (js/addfast.js)
   }
 
   // ---- a neighborhood ----
@@ -872,6 +873,7 @@
     const pin = panel.querySelector('#lf-pin'); if (pin) pin.addEventListener('click', () => { state.placing = true; state.pending = null; stage.classList.add('placing'); if (isPhone()) sheet.set('peek'); setHead({ eyebrow: 'Drop a pin', title: 'Tap the map', onBack: () => { stopPlacing(); renderLogForm(); if (isPhone()) sheet.set('full'); }, tools: [] }); toast('Tap the map where it is', 3200); map.redraw(); });
     const gps = panel.querySelector('#lf-gps'); if (gps) gps.addEventListener('click', () => locate(pos => { if (state.draft === d) fillGps(d, pos); }));
     form.addEventListener('submit', e => { e.preventDefault(); saveDraft(); });
+    if (window.AddFast) AddFast.form(panel, d); // paste a link, from a photo (js/addfast.js)
   }
   async function suggest(v, sug, qi, explicit) {
     const my = ++sugCtrl, d = state.draft; let res = []; if (!d) return; // the form was saved or left before the typing pause ended
@@ -909,6 +911,7 @@
     state.draft = null; state.pending = null; state.placing = false; stage.classList.remove('placing');
     toast(d.id ? 'Saved' : `${name} logged`); setSaveState('Saving…'); const ok = await persist(); go({ spot: id }, { replace: true }); if (ok !== false) setSaveState('Saved');
     if (ok !== false && state.spots[id]) { const s = state.spots[id], k = !prev ? 'spot' : was === 'want' && s.status === 'been' ? 'been' : null; if (k) logEvent(k, { id, name: s.name, hood: s.hood }); }
+    if (ok !== false && !prev && window.AddFast) AddFast.saved(d, id); // a photo the draft started from goes up as the spot's first
   }
   async function removeSpot(id) { const sp = state.spots[id]; if (!sp) return; delete state.spots[id]; go({ hood: sp.hood, sub: sp.sub }, { replace: true, fly: false }); map.redraw(); const ok = await persist(); if (ok !== false && state.store === 'sync' && window.Photos) { try { Photos.removeAll(ownerKey.spot(id)); } catch (e) {} } toast(`${sp.name} removed`); } // its photos go too, best effort, once the delete is saved
 
@@ -988,6 +991,13 @@
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { syncThemeColor(); map.refreshPalette(); recolor(false); if (window.StreetMap) StreetMap.restyle(); });
   let wasPhone = isPhone();
   window.addEventListener('resize', () => { map.resize(); map.redraw(); if (isPhone() !== wasPhone) { wasPhone = isPhone(); if (state.quiz || state.placing) fitHead(); else render(); } else fitHead(); }); // across the breakpoint the recent spots move between the header and the panel (not mid-quiz, where a render drops an answer's verdict and Next, nor mid pin-drop, whose header it replaces) // resize() also catches a devicePixelRatio change (browser zoom)
+  // adding faster (js/addfast.js): what it needs from here
+  if (window.AddFast) AddFast.init({ state, panel, map, kinds: KINDS, setHead, go, render, toast, persist, beforeWrite, who, today, niceDate, isPhone,
+    where: (lon, lat) => { const [x, y] = Geom.proj([lon, lat]); return Object.assign({ x, y }, locateXY(x, y)); },
+    redraw: d => { if (state.draft === d && state.view === 'log' && !state.placing) renderLogForm(); },
+    place(d, r) { const [x, y] = Geom.proj([r.lon, r.lat]), w = locateXY(x, y); Object.assign(d, { name: r.name || '', lon: r.lon, lat: r.lat, x, y, where: r.where || '', src: r.src, hood: w.hood, sub: w.sub }, r.kind && KINDS[r.kind] ? { kind: r.kind } : {}); state.pending = { x, y }; map.redraw(); if (!isPhone()) map.flyTo([x - .01, y - .01, x + .01, y + .01], 1, U * 0.028); if (state.draft === d && state.view === 'log' && !state.placing) renderLogForm(); },
+    search: v => { const s = panel.querySelector('#lf-sug'), qi = panel.querySelector('#lf-q'); if (s && qi && state.view === 'log') suggest(v, s, qi, true); },
+    canPhoto: () => state.store === 'sync' && !!window.Photos && !!photoOpts, addPhoto: (id, f, label) => Photos.add(ownerKey.spot(id), [f], label).catch(() => {}) });
   window.__sbs = { map, state, go, sheet, maps: { spotQuery, areaQuery, mapsLink, appleLink, spotApple, areaApple }, photos: window.Photos ? Object.assign(Object.create(window.Photos), { ownerKey }) : null, get photoOpts() { return photoOpts; }, feed: { read: readFeed, get news() { return state.news; } } }; // for tests and the console
   window.claude?.hot?.snapshot?.(() => ({ loc: state.loc }));
   window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});

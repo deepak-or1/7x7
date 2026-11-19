@@ -664,3 +664,27 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
   .chips button[aria-pressed="true"] { background: var(--seg-on, var(--ink)); color: var(--seg-on-ink, var(--paper)); border-color: var(--seg-on, var(--ink)); text-decoration: none; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* ---------- adding faster (js/addfast.js): paste a link, start from a photo, import a Google Maps list ---------- */
+.af-add { margin: -2px 0 10px; }
+.af-msg { font-size: 12.5px; margin: -4px 0 12px; line-height: 1.45; }
+.af-note { font-size: 13px; color: var(--muted); margin: -6px 0 12px; line-height: 1.45; }
+.af-photo { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; margin: 0 0 14px; font-size: 13.5px; font-weight: 600; }
+.af-photo img { width: 44px; height: 44px; border-radius: var(--r-sm); object-fit: cover; background: var(--paper-2); }
+.af-photo small { display: block; color: var(--muted); font-weight: 400; font-size: 12px; }
+.af-photo .act { border: 0; background: none; padding: 0; color: var(--accent-deep, var(--accent)); font-weight: 600; font-size: 13px; }
+.af-row { grid-template-columns: auto 1fr; cursor: pointer; }
+.af-row input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); }
+.af-row .nm, .af-miss .nm { overflow-wrap: anywhere; } .af-row.off .nm { color: var(--muted); }
+.af-miss { grid-template-columns: 1fr; }
+.af-bar { position: sticky; bottom: -24px; z-index: 1; margin: 0 0 -24px; padding: 12px 0 36px; background: var(--sheet-bg, var(--paper)); border-top: 1px solid var(--line); align-items: center; } /* over the panel's bottom padding, so no row shows under it */
+.af-prog { flex: 1; margin: 0; min-width: 0; }
+@media (max-width: 880px) {
+  .af-row { min-height: 44px; padding: 6px 0; } .af-row input { width: 22px; height: 22px; }
+  .af-photo .act { min-height: 44px; }
+  .af-bar { position: static; margin: 16px 0 0; padding: 0; border: 0; display: grid; } .af-bar .btn { height: 48px; font-size: 16px; border-radius: 12px; }
+  #af-bar { position: fixed; left: 0; right: 0; bottom: calc(var(--sheet-y) + var(--kb, 0px)); margin: 0; padding: 10px max(16px, env(safe-area-inset-right, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); border-top: 1px solid var(--line); grid-template-columns: 1fr 2fr; gap: 10px; z-index: 3; transition: bottom .42s var(--ease); } /* the log form's bar: Cancel, then the action */
+  #af-bar:has(.af-prog) { grid-template-columns: 2fr 1fr; } #af-go { order: 2; }
+  .sheet.lifting #af-bar { transition: none; }
+  .panel:has(#af-bar) { padding-bottom: calc(32px + 72px + env(safe-area-inset-bottom, 0px)); }
+}

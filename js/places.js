@@ -45,14 +45,24 @@
     const res = await fetch(u, { signal });
     if (!res.ok) throw new Error('search failed ' + res.status);
     const data = await res.json();
-    return (data.features || []).map(f => {
-      const p = f.properties || {}, [lon, lat] = f.geometry.coordinates;
-      if (lon < LON0 || lon > LON1 || lat < LAT0 || lat > LAT1) return null;
-      const name = p.name || [p.housenumber, p.street].filter(Boolean).join(' ') || p.city; if (!name) return null;
-      const where = [p.street && !p.name ? null : (p.housenumber ? p.housenumber + ' ' + (p.street || '') : p.street), p.district || p.locality, p.city].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(' · ');
-      const osm = p.osm_value || p.osm_key, kind = KIND_BY_OSM[osm] || (p.osm_key === 'shop' ? 'shop' : p.osm_key === 'leisure' ? 'park' : p.osm_key === 'tourism' ? 'view' : null);
-      return { name, where, lon, lat, kind, osm: (p.osm_value || '').replace(/_/g, ' ') };
-    }).filter(Boolean);
+    return (data.features || []).map(row).filter(Boolean);
   }
-  window.Places = { search };
+  function row(f) {
+    const p = f.properties || {}, [lon, lat] = f.geometry.coordinates;
+    if (lon < LON0 || lon > LON1 || lat < LAT0 || lat > LAT1) return null;
+    const name = p.name || [p.housenumber, p.street].filter(Boolean).join(' ') || p.city; if (!name) return null;
+    const where = [p.street && !p.name ? null : (p.housenumber ? p.housenumber + ' ' + (p.street || '') : p.street), p.district || p.locality, p.city].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(' · ');
+    const osm = p.osm_value || p.osm_key, kind = KIND_BY_OSM[osm] || (p.osm_key === 'shop' ? 'shop' : p.osm_key === 'leisure' ? 'park' : p.osm_key === 'tourism' ? 'view' : null);
+    return { name, where, lon, lat, kind, osm: (p.osm_value || '').replace(/_/g, ' ') };
+  }
+  // the named places nearest a point (a photo's position, pasted coordinates), nearest first: no streets, buildings or areas
+  async function reverse(lon, lat) {
+    const u = new URL('https://photon.komoot.io/reverse');
+    u.searchParams.set('lon', (+lon).toFixed(5)); u.searchParams.set('lat', (+lat).toFixed(5)); u.searchParams.set('limit', '10'); u.searchParams.set('radius', '0.2'); u.searchParams.set('lang', 'en');
+    const res = await fetch(u, typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? { signal: AbortSignal.timeout(4000) } : {});
+    if (!res.ok) throw new Error('search failed ' + res.status);
+    const data = await res.json();
+    return (data.features || []).filter(f => f && f.properties && f.properties.name && !/^(highway|place|boundary|building|landuse|railway|route)$/.test(f.properties.osm_key)).map(row).filter(Boolean);
+  }
+  window.Places = { search, reverse };
 })();

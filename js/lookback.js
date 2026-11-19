@@ -256,9 +256,9 @@ window.Lookback = (() => {
   }
   const otdLine = c => c.years ? (c.years === 1 ? 'A year ago today' : `${c.years} years ago today`) : c.months === 1 ? 'A month ago today' : `${c.months} months ago today`;
   const offToday = () => { try { return localStorage.getItem(DISMISS) === today(); } catch (e) { return false; } };
-  // one card, chosen from the log alone so it is in the first paint: years before months, then the longer ago, then places before
-  // spots, then by name
-  const pick = cs => cs.slice().sort((a, b) => (!!b.years - !!a.years) || ((b.years || b.months) - (a.years || a.months)) || (a.e.t === b.e.t ? a.e.name.localeCompare(b.e.name) : a.e.t === 'place' ? -1 : 1))[0];
+  // one card, chosen from the log alone so it is in the first paint: years before months, then the longer ago, then spots before
+  // places (a spot is the more particular memory), then by name
+  const pick = cs => cs.slice().sort((a, b) => (!!b.years - !!a.years) || ((b.years || b.months) - (a.years || a.months)) || (a.e.t === b.e.t ? a.e.name.localeCompare(b.e.name) : a.e.t === 'place' ? 1 : -1))[0];
   function cardHtml(c, th) {
     const e = c.e, l = look(e), what = e.t === 'place' ? 'Walked' : [A.KINDS[e.kind].label, e.sub || e.hood].filter(Boolean).join(' · ');
     return `<div class="lk-otd" id="lk-otd"><button type="button" class="lk-otd-go" data-lk-go='${A.attr(e.loc)}'><span class="lk-th${th ? ' has' : ''}" style="--c:${l.c}" aria-hidden="true"><i>${l.e}</i>${th ? `<img alt="" src="${A.esc(th)}">` : ''}</span><span class="lk-otd-t"><small>${otdLine(c)}</small><b>${A.esc(e.name)}</b><span>${A.esc(what)}</span></span></button><button type="button" class="lk-otd-x" data-lk="otd-off" aria-label="Hide until tomorrow"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`;

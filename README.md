@@ -16,11 +16,17 @@ python3 -m http.server 8123
 
 The repo ships a GitHub Pages workflow (`.github/workflows/pages.yml`). Once, in the repository settings, set **Pages → Source** to **GitHub Actions**. Every push to `main` then deploys; the workflow can also be run by hand from the Actions tab. A hosted copy is what lets the "Where am I?" button use the phone's location, which browsers block inside an embedded frame.
 
+## Offline and updates
+
+On the hosted site (and on `localhost`) `sw.js` keeps a saved copy of the app, so a repeat visit opens at once and the map works with no connection. The page and every same-origin script and stylesheet it references are saved as one set, read from `index.html` itself; after each visit the worker checks that set again in the background and replaces it only as a whole, once every file has arrived. Open pages then show "Update ready" with a Reload button; nothing reloads by itself. The log's key in `?log=` is never saved: the page is stored under its path. Other hosts (the database, map tiles, fonts) are never touched. Bump `VERSION` in `sw.js` only when the worker's own logic changes. The single-file artifact does not register it.
+
 ## Layout
 
 | Path | What it is |
 | --- | --- |
 | `index.html` | the shell |
+| `sw.js` | the service worker: the saved copy behind instant repeat visits and offline use (see below) |
+| `sw-push.js` | the service worker's notification part (imported by `sw.js`): shows a notification and opens the app on a tap |
 | `css/app.css` | all styling, light and dark |
 | `js/map.js` | the canvas map: camera, gestures with inertia, terrain cache, labels, landmarks, hit testing |
 | `js/app.js` | state, the Bay Area › region › place › section › spot hierarchy, logbook views, logging, storage |
@@ -29,6 +35,7 @@ The repo ships a GitHub Pages workflow (`.github/workflows/pages.yml`). Once, in
 | `js/glyph.js` | renderer for the 2.5D landmark glyphs |
 | `js/places.js` | place search (Photon, OpenStreetMap data) |
 | `js/sync.js`, `js/sync-config.js` | the shared logbook on the hosted site |
+| `js/push.js` | phone notifications on the page: this device's subscription beside the log, what the Notifications row in Settings shows, and asking the Worker to notify the other devices |
 | `js/photos.js` | photos on spots, sections and places (hosted site): downscale, capture date from EXIF, cache, the photo hero at the top of a panel (a section or place also shows the photos of what is inside it) and the lightbox (swipe, pinch and double-tap zoom, swipe down to close, a thumbnail strip to reorder, delete, crop and rotate); stored beside the log at `logs/<key>-ph` (full photos), `logs/<key>-pt` (480 px thumbs) and `logs/<key>-po` (the chosen order, first is the cover), with a copy in IndexedDB |
 | `js/streetmap.js` | the street map in a spot or section panel (hosted site): OpenFreeMap vector tiles in the app's palette, one shared map, its library loaded once the first place, section or spot has opened, Google's embed as the fallback |
 | `vendor/` | MapLibre GL JS 5.24.0 (BSD-3-Clause, licence in `vendor/LICENSE-maplibre-gl.txt`), used only by `js/streetmap.js` |
@@ -36,8 +43,9 @@ The repo ships a GitHub Pages workflow (`.github/workflows/pages.yml`). Once, in
 | `data/info.js` | editorial text per place |
 | `data/subareas.js` | sections inside each place (built from `data/subareas_{sf,bay,south,eastbay,north}.json`): a seed point plus a line, drawn as Voronoi cells clipped to the boundary |
 | `data/landmarks.js` | the landmark glyphs |
+| `push/` | the notification sender: a Cloudflare Worker (`worker.js`, helpers in `lib.js`), its tests (`node push/test.js`) and deploy guide; `tools/vapid.js` makes its key pair |
 | `tools/build.js` | merges `data/subareas_*.json` into `data/subareas.js` and writes `dist/artifact.html`, the single-file page for the Claude artifact |
 
 ## Data
 
-On the hosted site the log is shared: one record per secret key in a Firebase Realtime Database (`js/sync-config.js` holds the database URL, `js/sync.js` talks to it over REST with no SDK), with the key carried in the `?log=` part of the link you bookmark and a copy kept in `localStorage`. Open a link with a key on another phone and that phone joins the same log. There are no accounts: each device can give a name (asked once, before its first write; changed under Settings; kept in `localStorage`), which goes on the spots it logs and on a small activity feed beside the log at `logs/<key>-ev`. Opening the app shows what the other devices added since this one last looked, at the top of the logbook; changes made while it is open arrive as a toast. There is no server, so nothing is pushed while the app is closed. The database rules allow reads and writes only below a key, never a listing. Inside the Claude artifact the log is one shared document for everyone the artifact is shared with. Boundaries: SF Planning Department (San Francisco neighborhoods); everywhere else in the nine Bay Area counties, US Census TIGERweb generalized (1:500k, shoreline-clipped) incorporated places and census-designated places, with Census counties for the land between places and the coast. High points: Mapzen/AWS terrarium elevation tiles (zoom 12). Place search: Photon, © OpenStreetMap contributors. Street maps: OpenFreeMap tiles, © OpenStreetMap contributors, drawn with MapLibre GL JS.
+On the hosted site the log is shared: one record per secret key in a Firebase Realtime Database (`js/sync-config.js` holds the database URL, `js/sync.js` talks to it over REST with no SDK), with the key carried in the `?log=` part of the link you bookmark and a copy kept in `localStorage`. Open a link with a key on another phone and that phone joins the same log. There are no accounts: each device can give a name (asked once, before its first write; changed under Settings; kept in `localStorage`), which goes on the spots it logs and on a small activity feed beside the log at `logs/<key>-ev`. Opening the app shows what the other devices added since this one last looked, at the top of the logbook; changes made while it is open arrive as a toast. A phone can also get a notification when another device adds a spot, marks one been, walks a place or adds photos: it is turned on under Settings, and a small Cloudflare Worker (`push/`, deploy guide in `push/README.md`) sends it, without ever seeing the log or its key. On an iPhone this works only in the app added to the Home Screen; until the Worker's address is filled in `js/push.js`, none of this shows. The database rules allow reads and writes only below a key, never a listing. Inside the Claude artifact the log is one shared document for everyone the artifact is shared with. Boundaries: SF Planning Department (San Francisco neighborhoods); everywhere else in the nine Bay Area counties, US Census TIGERweb generalized (1:500k, shoreline-clipped) incorporated places and census-designated places, with Census counties for the land between places and the coast. High points: Mapzen/AWS terrarium elevation tiles (zoom 12). Place search: Photon, © OpenStreetMap contributors. Street maps: OpenFreeMap tiles, © OpenStreetMap contributors, drawn with MapLibre GL JS.

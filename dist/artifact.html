@@ -2607,7 +2607,19 @@ window.Sync = (() => {
       watch,
     };
   }
-  return { ready, connect, url, photos, events };
+  // Phone notifications, another sibling: logs/<key>-pu/<device id> = { sub, who, at }, one child per device that turned them
+  // on (js/push.js). Anyone with the link can write it: push.js checks every record before using it.
+  function push(key) {
+    const at = (...p) => `${base}/logs/${[key + '-pu', ...p].map(encodeURIComponent).join('/')}.json`;
+    const req = (u, o) => fetch(u, o).then(r => { if (!r.ok) throw err(r.status === 401 || r.status === 403 ? 'invalid_argument' : 'unavailable', 'push request failed ' + r.status); return r; });
+    const dev = id => (typeof id === 'string' && /^[A-Za-z0-9_-]{1,40}$/.test(id) ? Promise.resolve(id) : Promise.reject(err('invalid_argument', 'bad device id')));
+    return {
+      list: () => req(at()).then(r => r.json()).then(d => (d && typeof d === 'object' ? d : {})), // { <device id>: record }
+      put: (id, rec) => dev(id).then(id => req(at(id), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rec) })).then(() => {}),
+      del: id => dev(id).then(id => req(at(id), { method: 'DELETE' })).then(() => {}),
+    };
+  }
+  return { ready, connect, url, photos, events, push };
 })();
 
 </script>
@@ -3797,6 +3809,126 @@ window.Photos = (() => {
 
 </script>
 <script>
+// Phone notifications (hosted site only): when one device adds something, the others get a Web Push. A static site cannot
+// send one, so a tiny Cloudflare Worker does (push/worker.js, deploy guide in push/README.md); it never sees the log or its
+// key. Each device that turns notifications on stores its subscription beside the log at logs/<key>-pu/<device id> =
+// { sub, who, at } (Sync.push(key)); notify() reads the other devices' records, posts them to the Worker with a short
+// message, and deletes the ones the push service says are gone (404, 410). sw-push.js shows the notification.
+// init({ store, dev, who }): store is { list, put, del } (Sync.push(key)), dev this device's id, who() its display name.
+// While PUSH below is empty available() is false and everything is a no-op.
+const PUSH = { url: '', key: '' }; // url: the Worker's address (https://sbs-push.<account>.workers.dev); key: its VAPID public key (base64url, from tools/vapid.js)
+window.Push = (() => {
+  const LIM = { title: 80, body: 240, tag: 64, hash: 200 }, MAX = 10, EP = 1024, BODY = 8192, NAME = 24, WAIT = 10000; // the Worker's limits; NAME: longest stored name; WAIT: longest wait for the service worker
+  const ID = /^[A-Za-z0-9_-]{1,40}$/;
+  const HOSTS = ['fcm.googleapis.com', 'updates.push.services.mozilla.com'], SUFFIXES = ['.push.apple.com', '.notify.windows.com']; // the Worker's own list (push/lib.js): any other endpoint could never be delivered
+  let store = null, dev = '', who = () => '';
+  const own = (o, k) => !!o && typeof o === 'object' && Object.hasOwn(o, k);
+  const cut = (s, n) => { let o = ''; for (const ch of s) { if (o.length + ch.length > n) break; o += ch; } return o; }; // by code point, never splitting an emoji, at most n UTF-16 units (what the Worker counts)
+  const bytes = s => { try { const t = String(s).replace(/=+$/, ''); if (!/^[A-Za-z0-9_-]*$/.test(t)) return null; return Uint8Array.from(atob(t.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)); } catch (e) { return null; } };
+  const later = (ms, v) => new Promise(r => setTimeout(() => r(v), ms));
+  function available() { return typeof PUSH.url === 'string' && !!PUSH.url && typeof PUSH.key === 'string' && !!PUSH.key; }
+  function init(o) {
+    if ('store' in o) store = o.store || null;
+    if ('dev' in o) dev = typeof o.dev === 'string' && ID.test(o.dev) ? o.dev : '';
+    if ('who' in o) who = typeof o.who === 'function' ? o.who : () => '';
+  }
+  const ios = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1); // iPadOS reports a Mac
+  const supported = () => 'serviceWorker' in navigator && typeof PushManager === 'function' && typeof Notification === 'function';
+  const sameKey = sub => { const k = sub && sub.options && sub.options.applicationServerKey, want = bytes(PUSH.key); if (!k || !want) return true; const a = new Uint8Array(k); return a.length === want.length && a.every((b, i) => b === want[i]); }; // a subscription made for an older Worker key cannot be used
+  const current = async () => { const reg = await navigator.serviceWorker.getRegistration(); const sub = reg && await reg.pushManager.getSubscription(); return sub && sameKey(sub) ? sub : null; };
+  const clean = s => s.replace(/[\x00-\x1f\x7f]/g, ''); // control characters: one would cost the Worker six bytes of JSON
+  const name = () => { try { const n = who(); return typeof n === 'string' ? cut(clean(n).trim(), NAME) : ''; } catch (e) { return ''; } };
+  const save = sub => store && dev ? store.put(dev, { sub: sub.toJSON(), who: name(), at: Date.now() }) : Promise.resolve();
+  // the synchronous part of state(): everything but whether this device is subscribed
+  function early() {
+    if (!available()) return 'off';
+    if (navigator.standalone === false && ios()) return 'needs-install'; // iPhone and iPad Safari: web push works only for a Home Screen app
+    if (!supported()) return 'unsupported';
+    if (Notification.permission === 'denied') return 'blocked';
+    return '';
+  }
+  async function state() {
+    const s = early(); if (s) return s;
+    try { return Notification.permission === 'granted' && await current() ? 'on' : 'ready'; } catch (e) { return 'unsupported'; }
+  }
+  async function enable() { // from a tap: the permission prompt is asked before anything is awaited, so Safari still sees the tap
+    const s = early(); if (s) return s;
+    try {
+      const perm = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
+      if (perm !== 'granted') return perm === 'denied' ? 'blocked' : 'ready';
+      const reg = await Promise.race([navigator.serviceWorker.ready, later(WAIT, null)]);
+      if (!reg) return 'unsupported';
+      let sub = await reg.pushManager.getSubscription();
+      if (sub && !sameKey(sub)) { await sub.unsubscribe(); sub = null; }
+      if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: bytes(PUSH.key) });
+      await save(sub).catch(() => {}); // a failed write is retried by refresh() at the next start
+      return 'on';
+    } catch (e) { return state(); }
+  }
+  async function disable() {
+    if (!available() || !supported()) return state();
+    try { const reg = await navigator.serviceWorker.getRegistration(), sub = reg && await reg.pushManager.getSubscription(); if (sub) await sub.unsubscribe(); } catch (e) {}
+    if (store && dev) await store.del(dev).catch(() => {});
+    return state();
+  }
+  async function refresh() { // at app start: keep this device's record in step with the browser; never prompts
+    try {
+      if (!available() || !supported() || !store || !dev) return;
+      const sub = Notification.permission === 'granted' ? await current() : null;
+      const all = await store.list(), mine = own(all, dev) ? all[dev] : null;
+      if (sub) { // stored again when the endpoint or either key differs (a browser may renew them)
+        const ms = own(mine, 'sub') ? mine.sub : null, mk = own(ms, 'keys') ? ms.keys : null, j = sub.toJSON(), k = (j && j.keys) || {};
+        if (!(own(ms, 'endpoint') && ms.endpoint === sub.endpoint && own(mk, 'p256dh') && mk.p256dh === k.p256dh && own(mk, 'auth') && mk.auth === k.auth)) await save(sub);
+      } else if (mine && !(Notification.permission === 'granted' && await current())) await store.del(dev); // asked again: an enable() since this started may have saved it
+    } catch (e) {}
+  }
+  const okHost = ep => { let u; try { u = new URL(ep); } catch (e) { return false; } if (u.protocol !== 'https:' || u.port || u.username || u.password) return false; const h = u.hostname.toLowerCase(); return HOSTS.includes(h) || SUFFIXES.some(x => h.endsWith(x) && h.length > x.length); };
+  // one record from the shared log, or null: data there is written by anyone with the link
+  function okSub(rec) {
+    if (!own(rec, 'sub')) return null;
+    const s = rec.sub;
+    if (!own(s, 'endpoint') || !own(s, 'keys') || typeof s.endpoint !== 'string' || s.endpoint.length > EP || !okHost(s.endpoint)) return null;
+    const k = s.keys; if (!own(k, 'p256dh') || !own(k, 'auth') || typeof k.p256dh !== 'string' || typeof k.auth !== 'string') return null;
+    const p = bytes(k.p256dh), a = bytes(k.auth);
+    return p && p.length === 65 && p[0] === 4 && a && a.length === 16 ? { endpoint: s.endpoint, keys: { p256dh: k.p256dh, auth: k.auth } } : null;
+  }
+  function okMsg(m) {
+    if (!m || typeof m !== 'object' || typeof m.title !== 'string') return null;
+    const title = cut(clean(m.title).trim(), LIM.title); if (!title) return null;
+    const out = { title, body: typeof m.body === 'string' ? cut(clean(m.body), LIM.body) : '' };
+    const tag = typeof m.tag === 'string' ? cut(clean(m.tag), LIM.tag) : ''; if (tag) out.tag = tag;
+    if (typeof m.hash === 'string' && m.hash[0] === '#' && m.hash.length <= LIM.hash) out.hash = m.hash;
+    return out;
+  }
+  async function send(m) {
+    if (!available() || !store || typeof fetch !== 'function') return;
+    const msg = okMsg(m); if (!msg) return;
+    const all = await store.list(); if (!all || typeof all !== 'object') return;
+    const ids = [], subs = [];
+    for (const id of Object.keys(all)) {
+      if (id === dev || !ID.test(id)) continue;
+      const s = okSub(all[id]); if (!s) continue;
+      ids.push(id); subs.push(s);
+      if (subs.length === MAX) break;
+    }
+    let body = JSON.stringify({ subs, msg });
+    while (subs.length > 1 && new Blob([body]).size > BODY) { subs.pop(); ids.pop(); body = JSON.stringify({ subs, msg }); }
+    if (!subs.length || new Blob([body]).size > BODY) return;
+    // text/plain keeps it a simple request (no preflight), which a keepalive request is most likely to survive; the Worker reads JSON either way
+    const r = await fetch(PUSH.url.replace(/\/+$/, '') + '/notify', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'text/plain;charset=UTF-8' }, body });
+    if (!r.ok) return;
+    const out = await r.json(), res = own(out, 'results') && Array.isArray(out.results) ? out.results : [];
+    const gone = ids.map((id, i) => [id, subs[i].endpoint, res[i] && res[i].status]).filter(g => g[2] === 404 || g[2] === 410); // only these: -1 and 0 say nothing about the device
+    if (!gone.length) return;
+    const now = await store.list(); // read again: the other device may have replaced its record since
+    for (const [id, ep] of gone) { const rec = own(now, id) ? now[id] : null; if (own(rec, 'sub') && own(rec.sub, 'endpoint') && rec.sub.endpoint === ep) Promise.resolve().then(() => store.del(id)).catch(() => {}); }
+  }
+  function notify(m) { try { send(m).catch(() => {}); } catch (e) {} } // fire and forget: never throws, never waits
+  return { available, init, state, enable, disable, refresh, notify };
+})();
+
+</script>
+<script>
 // Seven by Seven — the app: one place in a hierarchy (Bay Area › region › neighborhood › section › spot),
 // a logbook that follows it, and a tracker saved per person.
 (function () {
@@ -3839,6 +3971,7 @@ window.Photos = (() => {
     star: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2h8v12l-4-3.2L4 14z" fill="#fff"/></svg>', // want to go: a bookmark (the gold star is a friend's pick)
     pin: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6-5.3-6-11a6 6 0 0 1 12 0c0 5.7-6 11-6 11z"/><circle cx="12" cy="10" r="2.2"/></svg>',
     close: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+    share: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M8 10H6.5A1.5 1.5 0 0 0 5 11.5v8A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5v-8a1.5 1.5 0 0 0-1.5-1.5H16"/></svg>',
   };
 
   // ---------- state ----------
@@ -4023,9 +4156,20 @@ window.Photos = (() => {
   let toastTimer = null;
   // action (optional): { label, run } adds one button; the toast is tappable only while it shows one
   function toast(t, ms = 2200, action) {
+    if (updOn) { updOn = false; updShown = false; } // the update toast is replaced before it was answered: offered again once this one is gone
     const el = $('toast'); el.textContent = t; el.classList.toggle('act', !!action);
-    if (action) { const s = document.createElement('span'), b = document.createElement('button'); s.textContent = t; b.type = 'button'; b.textContent = action.label; b.addEventListener('click', () => { el.classList.remove('on'); clearTimeout(toastTimer); action.run(); }); el.replaceChildren(s, b); } // the text in a span, so a long line shrinks and the button never does
-    el.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('on'), ms);
+    if (action) { const s = document.createElement('span'), b = document.createElement('button'); s.textContent = t; b.type = 'button'; b.textContent = action.label; b.addEventListener('click', () => { el.classList.remove('on'); clearTimeout(toastTimer); updOn = false; action.run(); }); el.replaceChildren(s, b); } // the text in a span, so a long line shrinks and the button never does
+    el.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(() => { el.classList.remove('on'); if (updOn) updOn = false; else updSoon(); }, ms);
+  }
+  // a new set of the app's files is saved (sw.js): offered once, never applied by itself. Not over the log form, a dialog, the photo
+  // viewer or a quiz (Reload would lose what is typed, a crop, the score), nor over another toast: render(), a dialog's close, the end
+  // of that toast and a short wait while the viewer is open ask again. Replaced by another toast, it is offered again once (updOn: it
+  // is the toast on screen); otherwise the next visit simply opens the new set
+  let updReady = false, updShown = false, updOn = false, updWait = null;
+  function updSoon() {
+    if (!updReady || updShown || state.view === 'log' || state.quiz || dialogOpen() || $('toast').classList.contains('on')) return;
+    if (document.querySelector('.lb')) { clearTimeout(updWait); updWait = setTimeout(updSoon, 1500); return; } // the viewer's close runs nothing of the app's
+    toast('Update ready', 12000, { label: 'Reload', run: () => location.reload() }); updShown = updOn = true;
   }
 
   // ---------- chrome: the path, lenses and their legend, search ----------
@@ -4108,6 +4252,7 @@ window.Photos = (() => {
     fitHead();
     // the peek is the header's height: when that changes (the recent spots row comes or goes) the peek follows
     const hh = head.offsetHeight; if (hh !== headH) { headH = hh; if (isPhone() && sheet.detent === 'peek') sheet.set('peek', { quiet: true }); }
+    updSoon();
   }
   function wire(root) {
     root.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => go(JSON.parse(b.dataset.go), { tap: true })));
@@ -4184,7 +4329,8 @@ window.Photos = (() => {
     const recent = Object.keys(state.spots).filter(id => IDX[state.spots[id].hood] != null && inRegion(IDX[state.spots[id].hood])).sort((a, b) => (state.spots[a].at < state.spots[b].at ? 1 : -1));
     // the first screen: the wordmark is the title, and the most recent spots are one tap away (in the phone's header, so the peek shows them)
     const chips = r === 'all' && recent.length ? `<div class="recent" role="list" aria-label="Recent spots">${recent.slice(0, 5).map(id => { const sp = state.spots[id], k = KINDS[sp.kind] || KINDS.other; return `<span role="listitem"><button type="button" data-go='${attr({ spot: id })}'><i class="${sp.status === 'want' ? 'want' : ''}" style="--c:${k.c}"></i>${esc(sp.name)}</button></span>`; }).join('')}${recent.length > 5 ? `<span role="listitem"><button type="button" class="all" data-view="spots">All ${recent.length} ›</button></span>` : ''}</div>` : '';
-    if (r === 'all') setHead({ back: false, eyebrow: 'Logbook · ' + (news ? `${news} new` : `${n} of ${total} walked`), title: 'Seven by Seven<em>.</em>', tools: [logTool(null, null)], extra: isPhone() ? chips : '' });
+    // a shared log: Share sits beside Log a place in the first screen's header (the phone's peek shows it), the same call as Settings
+    if (r === 'all') setHead({ back: false, eyebrow: 'Logbook · ' + (news ? `${news} new` : `${n} of ${total} walked`), title: 'Seven by Seven<em>.</em>', tools: state.store === 'sync' ? [{ id: 'share', label: 'Share this log', icon: ICON.share, run: shareLog }, logTool(null, null)] : [logTool(null, null)], extra: isPhone() ? chips : '' });
     else setHead({ path: { crumbs: crumbsOf(state.loc) }, title: REGIONS[r].label, tools: [logTool(null, null)] });
     const entries = NAMES.filter(x => inRegion(IDX[x]) && state.done[slug(x)]).sort((a, b) => (state.done[slug(b)].at || '').localeCompare(state.done[slug(a)].at || '') || a.localeCompare(b));
     const wantList = NAMES.filter(x => inRegion(IDX[x]) && state.want[slug(x)] && !state.done[slug(x)]);
@@ -4209,6 +4355,7 @@ window.Photos = (() => {
         <label class="switch"><span>Color every place, been or not</span><input type="checkbox" id="show-all" ${state.showAll ? 'checked' : ''}></label>
         <div class="field" style="margin-top:12px"><label>Appearance</label><div class="seg">${['system', 'light', 'dark'].map(t => `<button type="button" data-theme-pick="${t}" aria-pressed="${state.theme === t}">${t === 'system' ? 'System' : t[0].toUpperCase() + t.slice(1)}</button>`).join('')}</div></div>
         ${state.store === 'sync' ? `<div class="field"><label for="who-in">Your name on this device</label><input id="who-in" maxlength="${WHO_MAX}" autocomplete="given-name" enterkeyhint="done" placeholder="Shown on what you add" value="${esc(who())}"></div>` : ''}
+        ${pushOK() ? `<div class="field" id="push-field" ${pushSt === 'off' ? 'hidden' : ''}><label>Notifications</label><div id="push-row" data-st="${pushSt || ''}">${pushRow(pushSt)}</div></div>` : ''}
         <div class="actions" style="margin-top:4px"><button type="button" class="btn sm" id="export">Export log</button><button type="button" class="btn sm" id="import">Import</button><input type="file" id="import-file" accept="application/json" hidden>${state.store === 'sync' ? '<button type="button" class="btn sm primary" id="share-log">Share this log</button><button type="button" class="btn sm" id="join-log">Join a log</button>' + (prevKeys().length ? '<button type="button" class="btn sm quiet" id="back-log">Back to the previous log</button>' : '') : ''}</div>
         <p class="fine">${state.store === 'db' ? 'Your log, list, spots and notes are saved with this artifact and shared with everyone it is shared with.' : state.store === 'sync' ? 'This log is shared: everyone who opens your link sees it and adds to it, live. Keep the link private, and bookmark it on each phone. Photos are shared with the log the same way, but Export log does not include them.' : 'Your log is saved in this browser. Export it now and then to keep a copy, or to move it to another device.'} San Francisco boundaries from the SF Planning Department, high points from Mapzen elevation data. Marin, East Bay and Peninsula boundaries from the US Census; their high points are approximate. Place search by Photon, © OpenStreetMap contributors.</p>
       </details>`;
@@ -4226,7 +4373,32 @@ window.Photos = (() => {
     const bl = panel.querySelector('#back-log'); if (bl) bl.addEventListener('click', () => joinLog(true));
     const wi = panel.querySelector('#who-in'); if (wi) { wi.addEventListener('keydown', e => { if (e.key === 'Enter') wi.blur(); }); wi.addEventListener('change', () => { setWho(wi.value); wi.value = who(); toast(who() ? `You are ${who()} on this device` : 'No name on this device'); }); }
     const ns = panel.querySelector('#news-seen'); if (ns) ns.addEventListener('click', markSeen);
+    if (panel.querySelector('#push-row')) { pushWire(); Push.state().then(pushFill, () => {}); }
     panel.querySelectorAll('[data-news]').forEach(b => b.addEventListener('click', () => { const e = newsShown.find(x => x.key === b.dataset.news); if (e) openEv(e); }));
+  }
+
+  // ---- phone notifications (js/push.js), in Settings: one row whose content follows Push.state(). The state is read after each
+  // render and kept, so the next render draws the same row at once (no jump); before the first answer a hidden button holds its height
+  let pushSt = null;
+  const pushOK = () => state.store === 'sync' && !!window.Push && Push.available();
+  const pushText = t => `<p style="font-size:13.5px;margin:0">${t}</p>`;
+  function pushRow(st) {
+    if (st === 'ready') return '<div class="actions" style="margin:0"><button type="button" class="btn sm primary" id="push-on">Turn on notifications</button></div>';
+    if (st === 'on') return '<div class="actions" style="margin:0"><span style="font-size:13.5px;align-self:center">On for this device</span><button type="button" class="btn sm quiet" id="push-off">Turn off</button></div>';
+    if (st === 'needs-install') return pushText('On iPhone, add this app to your Home Screen first (Share, then Add to Home Screen). Open it from there and turn notifications on.');
+    if (st === 'blocked') return pushText('Notifications are blocked for this site in the browser\'s settings.');
+    if (st === 'unsupported') return pushText('This browser cannot show notifications.');
+    return '<div class="actions" style="margin:0" aria-hidden="true"><span class="btn sm" style="visibility:hidden">Turn on notifications</span></div>'; // not known yet
+  }
+  function pushFill(st) {
+    if (typeof st === 'string') pushSt = st;
+    const f = panel.querySelector('#push-field'), row = f && f.querySelector('#push-row'); if (!row || row.dataset.st === (pushSt || '')) return;
+    f.hidden = pushSt === 'off'; row.dataset.st = pushSt || ''; row.innerHTML = pushRow(pushSt); pushWire();
+  }
+  // the taps call enable() and disable() at once, inside the tap (iOS asks for the permission only from one), then show the state they return
+  function pushWire() {
+    const on = panel.querySelector('#push-on'), off = panel.querySelector('#push-off');
+    for (const [b, run] of [[on, Push.enable], [off, Push.disable]]) if (b) b.addEventListener('click', () => { const p = run(); b.disabled = true; p.then(st => { b.disabled = false; pushFill(st); }, () => { b.disabled = false; pushFill(); }); });
   }
 
   // ---- a neighborhood ----
@@ -4428,7 +4600,15 @@ window.Photos = (() => {
     try { await navigator.clipboard.writeText(link); toast('Link copied'); } catch (e) { prompt('Copy this link', link); }
   }
   const keyOf = raw => { let k = String(raw || '').trim(); try { const u = new URL(k); k = u.searchParams.get('log') || ''; } catch (e) { const m = k.match(/log=([A-Za-z0-9_-]+)/); if (m) k = m[1]; } return KEY_RE.test(k) ? k : null; };
-  function switchLog(k) { keepPrevKey(k); try { localStorage.setItem('sbs-log-key', k); localStorage.removeItem('sbs-explored'); } catch (e) {} location.href = location.pathname + '?log=' + k; }
+  // leaving a log: this device's notification record there goes first (best effort, at most 1.5 s); the browser stays subscribed and
+  // Push.refresh() writes the record under the new log once it opens
+  function switchLog(k) {
+    let old = feedKey; try { old = old || localStorage.getItem('sbs-log-key'); } catch (e) {}
+    keepPrevKey(k); try { localStorage.setItem('sbs-log-key', k); localStorage.removeItem('sbs-explored'); } catch (e) {}
+    const next = () => { location.href = location.pathname + '?log=' + k; };
+    if (old && old !== k && KEY_RE.test(old) && window.Push && Push.available() && window.Sync && Sync.push) Promise.race([Sync.push(old).del(deviceId).catch(() => {}), new Promise(r => setTimeout(r, 1500))]).then(next);
+    else next();
+  }
   // joining another log: the link goes in an in-page dialog that says first that this device switches logs, and that the log it
   // leaves keeps its key here (keepPrevKey). Nothing is replaced until Switch logs is tapped. back: the same dialog, without the
   // field, takes this device back to the log it left last (Settings offers it only when there is one)
@@ -4513,7 +4693,12 @@ window.Photos = (() => {
     if (!feed || state.store !== 'sync' || !state.canWrite) return;
     const ev = { t: new Date().toISOString(), by: who(), d: deviceId, k, id: String(o.id || '').slice(0, 120), name: String(o.name || '').slice(0, 80), hood: String(o.hood || '').slice(0, 80) };
     if (k === 'photo') ev.n = Math.max(1, o.n | 0);
-    feed.push(ev).catch(e => console.warn('event not saved', e));
+    feed.push(ev).then(id => { // the other devices get a notification once the event is saved (nothing while js/push.js is not configured)
+      if (!window.Push) return; const l = evLoc(ev);
+      const msg = { title: 'Seven by Seven', body: evLine(ev), tag: typeof id === 'string' && EV_KEY.test(id) ? id : ev.t.replace(/[^A-Za-z0-9_-]/g, '') }; // one tag per event: never a silent replacement
+      if (l) msg.hash = hashOf(normalize(l));
+      Push.notify(msg);
+    }, e => console.warn('event not saved', e));
   }
   const seenId = () => { let s = null; try { s = localStorage.getItem('sbs-seen-' + feedKey); } catch (e) {} return s === '' || EV_KEY.test(s) ? s : null; }; // '': before every event; anything else unknown: never seen
   const setSeen = id => { if (id !== '' && !EV_KEY.test(id)) return; try { localStorage.setItem('sbs-seen-' + feedKey, id); } catch (e) {} };
@@ -4576,6 +4761,7 @@ window.Photos = (() => {
     if (!window.Sync || !Sync.ready()) { state.store = 'local'; return; }
     const key = syncKey(); state.store = 'sync';
     if (Sync.events) { feed = Sync.events(key); feedKey = key; }
+    if (window.Push && Sync.push) { Push.init({ store: Sync.push(key), dev: deviceId, who }); Push.refresh(); } // phone notifications: this device's record beside this log follows the browser
     if (window.Photos && Sync.photos) Photos.init(photoOpts = { api: Sync.photos(key), toast, canWrite: () => state.canWrite, who, onAdded: photoAdded, onTaken: photoTaken });
     { const sp = state.loc.spot || (state.bootLoc && state.bootLoc.spot); if (sp && window.Photos && Photos.preload) Photos.preload(ownerKey.spot(sp)); } // a #spot-- link: its photos set off now, beside the log, not after it
     let seeded = false, fed = false;
@@ -4787,6 +4973,22 @@ window.Photos = (() => {
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { syncThemeColor(); map.refreshPalette(); recolor(false); if (window.StreetMap) StreetMap.restyle(); });
   let wasPhone = isPhone();
   window.addEventListener('resize', () => { map.resize(); map.redraw(); if (isPhone() !== wasPhone) { wasPhone = isPhone(); if (state.quiz || state.placing) fitHead(); else render(); } else fitHead(); }); // across the breakpoint the recent spots move between the header and the panel (not mid-quiz, where a render drops an answer's verdict and Next, nor mid pin-drop, whose header it replaces) // resize() also catches a devicePixelRatio change (browser zoom)
+  // a tap on a notification while the app is open (sw-push.js): the hash is checked again and read like a link's; never over the log form
+  function openTapped(h) {
+    if (typeof h !== 'string' || h[0] !== '#' || h.length > 200 || state.view === 'log') return;
+    const l = parseHash(h); if (level(normalize(l)) > 0) go(l, { tap: true }); // a notification always points somewhere: what is not in this log does nothing
+  }
+  // the saved copy (sw.js): instant repeat visits and the app with no connection. Only over https or on this machine, and only on the
+  // page with its own script files (not the single-file artifact, whose scripts are inline); any failure leaves the site as it is
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) && document.querySelector('script[src$="js/app.js"]')) {
+    try {
+      navigator.serviceWorker.addEventListener('message', e => { const d = e.data; if (!d) return; if (d.type === 'sbs-update') { updReady = true; updSoon(); } else if (d.type === 'sbs-open') openTapped(d.hash); });
+      navigator.serviceWorker.startMessages?.(); // a message sent while the page was still loading is delivered now
+      document.addEventListener('close', () => setTimeout(updSoon), true); // a dialog closed (close does not bubble: caught on the way down)
+      const reg = () => navigator.serviceWorker.register('sw.js').catch(() => {});
+      if (document.readyState === 'complete') reg(); else window.addEventListener('load', reg);
+    } catch (e) {}
+  }
   window.__sbs = { map, state, go, sheet, maps: { spotQuery, areaQuery, mapsLink, appleLink, spotApple, areaApple }, photos: window.Photos ? Object.assign(Object.create(window.Photos), { ownerKey }) : null, get photoOpts() { return photoOpts; }, feed: { read: readFeed, get news() { return state.news; } } }; // for tests and the console
   window.claude?.hot?.snapshot?.(() => ({ loc: state.loc }));
   window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});

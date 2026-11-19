@@ -1,0 +1,11 @@
+# Cloudflare Worker that sends the logbook's phone notifications. Deploy guide: README.md in this folder.
+# No secrets here: the VAPID private key is set with `npx wrangler secret put VAPID_PRIVATE`.
+name = "sbs-push"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+
+[vars]
+# The VAPID public key printed by `node tools/vapid.js` (base64url, 87 characters). The same string goes in js/push.js.
+VAPID_PUBLIC = ""
+# Optional: extra page origins allowed to call /notify, comma separated, for a local copy of the site.
+# ALLOW_ORIGINS = "http://localhost:8123"

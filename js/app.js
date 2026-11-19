@@ -633,7 +633,7 @@
     try { await navigator.clipboard.writeText(link); toast('Link copied'); } catch (e) { prompt('Copy this link', link); }
   }
   const keyOf = raw => { let k = String(raw || '').trim(); try { const u = new URL(k); k = u.searchParams.get('log') || ''; } catch (e) { const m = k.match(/log=([A-Za-z0-9_-]+)/); if (m) k = m[1]; } return KEY_RE.test(k) ? k : null; };
-  function switchLog(k) { const leave = () => { keepPrevKey(k); try { localStorage.setItem('sbs-log-key', k); localStorage.removeItem('sbs-explored'); } catch (e) {} location.href = location.pathname + '?log=' + k; }; if (window.Safe) Safe.snap('Before switching logs').then(leave, leave); else leave(); } // a copy of the log it leaves first
+  function switchLog(k) { const leave = () => { keepPrevKey(k); try { localStorage.setItem('sbs-log-key', k); localStorage.removeItem('sbs-explored'); } catch (e) {} location.href = location.pathname + '?log=' + k; }; if (window.Safe) Safe.snap('Before switching logs', 3000).then(leave, leave); else leave(); } // a copy of the log it leaves first
   // joining another log: the link goes in an in-page dialog that says first that this device switches logs, and that the log it
   // leaves keeps its key here (keepPrevKey). Nothing is replaced until Switch logs is tapped. back: the same dialog, without the
   // field, takes this device back to the log it left last (Settings offers it only when there is one)
@@ -798,7 +798,7 @@
     }, e => { console.warn('sync ended', e); if (e && e.code === 'invalid_argument') { state.canWrite = false; if (unwatch) unwatch(); render(); } }); // the log stream closed: the feed's goes too
     render();
   }
-  const exportBody = () => ({ app: 'seven-by-seven', exportedAt: new Date().toISOString(), hoods: state.done, want: state.want, spots: Object.fromEntries(Object.entries(state.spots).map(([id, sp]) => { const { _xy, ...rest } = sp; return [id, rest]; })) });
+  const exportBody = () => { const spots = Object.fromEntries(Object.entries(state.spots).map(([id, sp]) => { const { _xy, ...rest } = sp; return [id, rest]; })); return { app: 'seven-by-seven', exportedAt: new Date().toISOString(), hoods: state.done, want: state.want, spots: window.Safe ? Safe.withTrash(spots) : spots }; }; // the log as stored: removed spots in it, marked
   async function exportLog() {
     const payload = exportBody();
     const text = JSON.stringify(payload, null, 1), filename = `seven-by-seven-${today()}.json`;
@@ -996,7 +996,7 @@
   let wasPhone = isPhone();
   window.addEventListener('resize', () => { map.resize(); map.redraw(); if (isPhone() !== wasPhone) { wasPhone = isPhone(); if (state.quiz || state.placing) fitHead(); else render(); } else fitHead(); }); // across the breakpoint the recent spots move between the header and the panel (not mid-quiz, where a render drops an answer's verdict and Next, nor mid pin-drop, whose header it replaces) // resize() also catches a devicePixelRatio change (browser zoom)
   if (window.Safe) Safe.init({ state, persist, adopt, go, setHead, toast, esc, who, cleanName, ownerKey, kinds: KINDS, render, redraw: () => map.redraw(), refresh: () => { if (state.lens === 'done') recolor(false); map.redraw(); render(); },
-    logKey: () => state.store === 'sync' ? feedKey : null, photoApi: () => photoOpts && photoOpts.api, fetchLog: () => docRef && docRef.get ? docRef.get() : null, exportBody,
+    logKey: () => state.store === 'sync' ? feedKey : null, placeName: k => Object.hasOwn(BY_SLUG, k) ? BY_SLUG[k] : k, photoApi: () => photoOpts && photoOpts.api, fetchLog: () => docRef && docRef.get ? docRef.get() : null, exportBody,
     ownerNames: () => Object.keys(state.spots).map(id => [ownerKey.spot(id), state.spots[id].name]).concat(NAMES.flatMap(h => [[ownerKey.place(h), h], ...subs(h).map(s => [ownerKey.section(h, s.name), h + ' - ' + s.name])])) }); // recently deleted, backups, Download everything
   window.__sbs = { map, state, go, sheet, maps: { spotQuery, areaQuery, mapsLink, appleLink, spotApple, areaApple }, photos: window.Photos ? Object.assign(Object.create(window.Photos), { ownerKey }) : null, get photoOpts() { return photoOpts; }, feed: { read: readFeed, get news() { return state.news; } } }; // for tests and the console
   window.claude?.hot?.snapshot?.(() => ({ loc: state.loc }));

@@ -40,15 +40,20 @@ window.Photos = (() => {
   const okOrder = r => r && typeof r === 'object' && Array.isArray(r.ids) ? [...new Set(r.ids.slice(0, OMAX).filter(s => typeof s === 'string' && s.length <= 64 && !/[.$#[\]/]/.test(s)))] : null;
   // one owner's photos in display order (the chosen order, then id order); d is the best copy in memory (the full photo,
   // else the thumb, else '': a loading slide), q says which; t: the thumb, for the strip
-  const ordered = o => {
+  const allOrdered = o => { // every id in display order (the chosen order, then id order), hidden ones too: what an order written now keeps
     const e = cache[o]; if (!e || !e.ids) return [];
     const rank = new Map(); (e.order || []).forEach((id, i) => rank.has(id) || rank.set(id, i));
     const at = id => rank.has(id) ? rank.get(id) : Infinity;
-    return Object.keys(e.ids).filter(id => !e.bad[id] && shown(o, id)).sort((a, b) => at(a) - at(b) || (a < b ? -1 : a > b ? 1 : 0)).map(id => {
+    return Object.keys(e.ids).filter(id => !e.bad[id]).sort((a, b) => at(a) - at(b) || (a < b ? -1 : a > b ? 1 : 0));
+  };
+  const ordered = o => {
+    const e = cache[o]; if (!e || !e.ids) return [];
+    return allOrdered(o).filter(id => shown(o, id)).map(id => {
       const f = e.full[id], t = e.th[id], r = f || t;
       return { id, d: r ? r.d : '', w: r ? r.w : 0, h: r ? r.h : 0, q: f ? 'f' : r ? 't' : '', t: t ? t.d : '', at: f && f.at, by: (f && f.by) || (t && t.by), taken: (f && f.taken) || (t && t.taken) };
     });
   };
+  const withHidden = (o, next) => { const out = next.slice(); let after = null; allOrdered(o).forEach(id => { if (shown(o, id)) { after = id; return; } const i = after === null ? -1 : out.indexOf(after); out.splice(i + 1, 0, id); after = id; }); return out; }; // a hidden photo stays right after the photo it followed, so a restore puts it back there
   const newId = () => 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 4).padEnd(2, '0');
   const later = ms => new Promise(r => setTimeout(() => r(null), ms));
   const call = (fn, ...a) => { if (typeof fn === 'function') { try { fn(...a); } catch (err) { console.warn('photos hook failed', err); } } };
@@ -249,7 +254,7 @@ window.Photos = (() => {
     if (!api) { toast('Could not add the photo. Try again.', 3000); throw new Error('photos are not available'); }
     const e = entry(owner);
     try { await load(owner); } catch (err) {} // count what is there first; offline, the add itself fails below
-    const had = count(owner, e), room = Math.max(0, MAX - had), take = files.slice(0, room);
+    const had = count(owner, e), any = Object.keys(e.ids || {}).length, room = Math.max(0, MAX - had), take = files.slice(0, room); // a restored photo may make 9 show; adding waits until fewer than 8 show
     if (!take.length) { toast(`${MAX} photos is the limit here`, 2600); return []; }
     e.busy++; refresh(owner);
     toast(`Adding ${plural(take.length)}…`, 60000);
@@ -267,7 +272,7 @@ window.Photos = (() => {
     }
     e.busy--; refresh(owner);
     if (failed) toast('Could not add the photo. Try again.', 3000);
-    else if (!had && added.length && label) { if (window.Confetti) window.Confetti.burst(); toast(`First photo of ${label}`, 2600); } // its very first photo: a small party
+    else if (!any && added.length && label) { if (window.Confetti) window.Confetti.burst(); toast(`First photo of ${label}`, 2600); } // its very first photo: a small party
     else toast(`${plural(added.length)} added${take.length < files.length ? ` (${MAX} is the limit)` : ''}`);
     if (added.length) { call(onAdded, owner, added.slice(), label); if (days.length) call(onTaken, owner, days.sort()[0], label); }
     return added;
@@ -292,8 +297,9 @@ window.Photos = (() => {
   async function reorder(owner, ids) {
     if (!api || !api.putOrder || !canWrite()) return false;
     const e = entry(owner), have = ordered(owner).map(p => p.id), before = e.order;
-    const next = (okOrder({ ids }) || []).filter(id => have.includes(id)); have.forEach(id => next.includes(id) || next.push(id));
+    let next = (okOrder({ ids }) || []).filter(id => have.includes(id)); have.forEach(id => next.includes(id) || next.push(id));
     if (next.join() === have.join()) return true;
+    next = withHidden(owner, next); // the order written keeps the hidden ones (js/safe.js) in their places
     const w = e.ow || (e.ow = { p: Promise.resolve(), n: 0, saved: before }), me = ++w.n; w.ids = next; // e.ow: this owner's order writes; saved: the order the server holds
     e.ver++; e.order = next; keepOrder(owner, next); refresh(owner);
     let err = null;
@@ -306,7 +312,7 @@ window.Photos = (() => {
   // An edited photo: a new id (records never change), put in the old one's place in the order, then the old one goes.
   async function replace(owner, old, rec, th) {
     if (!api || !api.putOrder) throw new Error('photos are not available');
-    const e = entry(owner), id = newId(), base = ordered(owner).map(p => p.id);
+    const e = entry(owner), id = newId(), base = allOrdered(owner); // hidden ones too, so they keep their places
     await api.put(owner, id, rec);
     e.ver++; e.ids = Object.assign({}, e.ids, { [id]: true }); e.full[id] = rec; e.th[id] = th; e.fk.add(id); idb.put('f', owner, id, rec); idb.put('t', owner, id, th);
     await api.putThumb(owner, id, th).catch(err => console.warn('thumb upload failed', err));

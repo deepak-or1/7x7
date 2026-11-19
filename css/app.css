@@ -664,3 +664,28 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
   .chips button[aria-pressed="true"] { background: var(--seg-on, var(--ink)); color: var(--seg-on-ink, var(--paper)); border-color: var(--seg-on, var(--ink)); text-decoration: none; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* place details (js/details.js): a quiet label / value list between the note and the street map; nothing until it is ready */
+.pdet:empty { display: none; } .panel .pdet > h3:first-child { margin-top: 22px; } /* not the panel's first heading */
+.pd { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 6px 12px; margin: 0; font-size: 14px; line-height: 1.4; align-items: baseline; }
+.pd dt { color: var(--muted); font-size: 12.5px; }
+.pd dd { margin: 0; color: var(--ink-2); overflow-wrap: anywhere; min-width: 0; }
+.pd a { color: var(--ink); font-weight: 500; text-decoration: underline; text-decoration-color: var(--line-2); text-underline-offset: 3px; }
+.pd a:hover { text-decoration-color: var(--ink); }
+.pd-open { color: var(--good); font-weight: 600; } .pd-closed { color: var(--bad); font-weight: 600; }
+.pd-now { display: inline-flex; align-items: center; gap: 8px; border: 0; background: transparent; padding: 0; margin: 0; font: inherit; color: var(--ink-2); text-align: left; cursor: pointer; }
+.pd-chev { display: inline-block; flex: none; width: 6px; height: 6px; border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted); transform: rotate(45deg); margin: -3px 2px 0; transition: transform .15s; }
+.pd-now[aria-expanded="true"] .pd-chev { transform: rotate(-135deg); margin-top: 3px; }
+.pd-week { list-style: none; margin: 6px 0 2px; padding: 0; font-size: 13px; font-variant-numeric: tabular-nums; }
+.pd-week li { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 8px; padding: 2px 0; color: var(--ink-2); }
+.pd-week li span:first-child { color: var(--muted); }
+.pd-week li.today, .pd-week li.today span:first-child { color: var(--ink); font-weight: 600; }
+.pd-raw { color: var(--ink-2); }
+.panel .pd-src { margin: 8px 0 0; font-size: 12px; } .pd-src a { color: var(--muted); text-decoration: underline; text-decoration-color: var(--line-2); text-underline-offset: 3px; }
+@media (max-width: 880px) { /* phone: rows tall enough to tap, 44px for the hours button and the links */
+  .pd { grid-template-columns: 88px minmax(0, 1fr); gap: 0 12px; }
+  .pd { margin-top: -6px; } .pd dt, .pd dd { padding: 9px 0; } .pd dd:has(.pd-now) { padding: 0; }
+  .pd-now { min-height: 44px; }
+  .pd a { display: inline-block; padding: 12px 0; margin: -12px 0; }
+  .panel .pd-src { margin: 2px 0 0; } .pd-src a { display: inline-block; padding: 14px 0; margin: -10px 0 -14px; }
+}

@@ -1,24 +1,33 @@
 // Place details on a spot's page: opening hours, cuisine, website, phone and a few plain facts, from OpenStreetMap through the
 // Overpass API (keyless; it answers a browser with CORS headers). A polite client: one small query per spot, asked only when the
-// spot's page has stayed open 600 ms (never for a list or the map), one request in flight, 1.5 s between requests, a 10 s
-// timeout, no retries. The answer, or "nothing found", is kept on this device per spot for 30 days (localStorage, at most 300
-// spots) and asked again after that or when the spot's name, position or OpenStreetMap id changes. Nothing is written to the
-// log: details are fetched data, not the couple's. Everything from OpenStreetMap is untrusted text: escaped, capped, and a URL
-// only after validation. app.js puts an empty slot in the spot panel and calls mount(); the block appears when it is ready.
+// spot's page has stayed open 600 ms (never for a list or the map; leaving and coming back starts the wait again), one request in
+// flight, 1.5 s between requests, a 10 s timeout, no retries; after a busy answer (429, 502-504), a timeout or no answer at all the
+// server is left alone for 60 s. The answer, or "nothing found", is kept on this device per spot for 30 days (localStorage, at most
+// 300 spots, under a hash: no name, position or log key is readable there) and asked again after that or when the spot's name,
+// position or OpenStreetMap id changes. Nothing is written to the log: details are fetched data, not the couple's. Everything from
+// OpenStreetMap is untrusted text: escaped, capped, and a URL only after validation. app.js puts an empty slot in the spot panel
+// below the Maps buttons and calls mount(); the block appears when it is ready, and its open-now line is worked out again every
+// minute and whenever the page comes back on screen.
 (function () {
-  const API = 'https://overpass-api.de/api/interpreter', WAIT = 600, GAP = 1500, TIMEOUT = 10000, TTL = 30 * 864e5, MAX = 300, KEY = 'sbs-details-v1';
-  const NEAR = 60, NEAR_AREA = 250, LINE = 200, OH_MAX = 1000, TZ = 'America/Los_Angeles', RETRY_AFTER = 5 * 60e3;
+  const API = 'https://overpass-api.de/api/interpreter', WAIT = 600, GAP = 1500, TIMEOUT = 10000, TTL = 30 * 864e5, MAX = 300, KEY = 'sbs-details-v2';
+  const NEAR = 60, NEAR_AREA = 250, LINE = 200, OH_MAX = 1000, URL_MAX = 500, TZ = 'America/Los_Angeles', RETRY_AFTER = 5 * 60e3, PAUSE = 60e3, TICK = 60e3, CAP = 100;
+  // the servers asked, in order; a busy or silent one is skipped for PAUSE and the next is asked once (no second public server
+  // could be confirmed to answer this query with CORS headers, so there is one)
+  const SERVERS = [API];
   const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   const own = (o, k) => !!o && typeof o === 'object' && Object.prototype.hasOwnProperty.call(o, k);
   // one line of text: no control characters, spaces collapsed, at most n characters (an ellipsis marks a cut)
   const cap = (s, n = LINE) => { const a = [...String(s ?? '').replace(/[\x00-\x1f\x7f-\x9f\u2028\u2029]/g, ' ').replace(/\s+/g, ' ').trim()]; return a.length > n ? a.slice(0, n - 1).join('') + '…' : a.join(''); };
-  let opts = { ok: () => true, isOpen: () => null };
+  let opts = { ok: () => true, isOpen: () => null, scope: () => 'local' };
+  const now = () => api.now();
 
   // ---------- opening_hours: the common subset ----------
   // Day ranges and lists (Mo-Fr, Sa,Su, Fr-Mo), several time ranges per rule, ';' rules where a later rule replaces the days it
   // names, ',' additional rules that add to them, off/closed, 24/7, times past midnight (18:00-02:00, 18:00-26:00), and PH rules
   // (kept for the week, never used for open now). Anything else (months, weeks, sunrise, comments, '||', open ends) is "unknown":
-  // the raw text is shown and no claim is made. Pure; never throws.
+  // the raw text is shown and no claim is made. So is a range that starts before noon and lasts more than 18 hours (the common
+  // '9:00-5:00' slip), and the hours after midnight that a later rule may have taken back ('Mo-Su 22:00-03:00; Su off' early on
+  // Sunday). Pure; never throws.
   const DAYS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'], DAY_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   const TOK = /\s*(?:(Mo|Tu|We|Th|Fr|Sa|Su|PH)(?![a-z])|(\d{1,2}):(\d{2})(?!\d)|([-‐-―])|(,)|(off|closed|open)(?![a-z]))/iy;
   function tokens(s) {
@@ -57,6 +66,7 @@
           if (s0 >= 1440) return false;
           if (e <= s0) { if (e > 1440) return false; e += 1440; } // past midnight
           if (e > s0 + 1440) return false;
+          if (s0 < 720 && e - s0 > 18 * 60 && !(s0 === 0 && e === 1440)) return false; // '9:00-5:00' meant 9 to 5: not guessed
           times.push([s0, e]);
           if (t[i] && t[i].comma && t[i + 1] && t[i + 1].tm != null) { i++; continue; }
           break;
@@ -74,25 +84,32 @@
     }
     return true;
   }
-  const merge = list => { const a = list.slice().sort((p, q) => p[0] - q[0]), out = []; for (const x of a) { const l = out[out.length - 1]; if (l && x[0] <= l[1]) l[1] = Math.max(l[1], x[1]); else out.push(x.slice()); } return out; };
-  // { ok: true, week: [7 lists of [start, end] minutes, Monday first; end may pass 1440], ph: list or null } or { ok: false, raw }
+  const merge = list => { const a = list.slice().sort((p, q) => p[0] - q[0]), out = []; for (const x of a) { const l = out[out.length - 1]; if (l && x[0] <= l[1]) l[1] = Math.max(l[1], x[1]); else out.push(x.slice(0, 2)); } return out; };
+  // { ok: true, week: [7 lists of [start, end] minutes, Monday first; end may pass 1440], ph: list or null, amb: [day, start, end]
+  // stretches after midnight that spill from the day before into a day a later rule replaced } or { ok: false, raw }
   function parseHours(raw) {
     const s = typeof raw === 'string' ? raw.trim() : '';
     try {
       if (!s || s.length > OH_MAX) return { ok: false, raw: s };
-      const subs = [];
+      const subs = []; let r = 0;
       for (const part of s.split(';')) {
         const p = part.trim(); if (!p) continue;
-        if (/^24\s*\/\s*7$/.test(p)) { subs.push({ days: [0, 1, 2, 3, 4, 5, 6], ph: false, times: [[0, 1440]], off: false, add: false }); continue; }
-        if (!parseRule(p, subs)) return { ok: false, raw: s };
+        const n0 = subs.length;
+        if (/^24\s*\/\s*7$/.test(p)) subs.push({ days: [0, 1, 2, 3, 4, 5, 6], ph: false, times: [[0, 1440]], off: false, add: false });
+        else if (!parseRule(p, subs)) return { ok: false, raw: s };
+        for (let k = n0; k < subs.length; k++) subs[k].rule = r; r++;
       }
-      if (!subs.some(r => r.days.length)) return { ok: false, raw: s }; // holidays alone say nothing about an ordinary day
-      const week = DAYS.map(() => []); let ph = null;
-      for (const r of subs) {
-        for (const d of r.days) week[d] = r.off ? [] : r.add ? week[d].concat(r.times) : r.times.slice();
-        if (r.ph) ph = r.off ? [] : r.add && ph ? ph.concat(r.times) : r.times.slice();
+      if (!subs.some(x => x.days.length)) return { ok: false, raw: s }; // holidays alone say nothing about an ordinary day
+      // each range keeps the ';' rule it came from; setAt: the last rule that replaced the day
+      const week = DAYS.map(() => []), setAt = DAYS.map(() => -1); let ph = null;
+      for (const x of subs) {
+        const rs = x.times.map(([a, b]) => [a, b, x.rule]);
+        for (const d of x.days) { if (x.off) { week[d] = []; setAt[d] = x.rule; } else if (x.add) week[d] = week[d].concat(rs); else { week[d] = rs.slice(); setAt[d] = x.rule; } }
+        if (x.ph) ph = x.off ? [] : x.add && ph ? ph.concat(x.times) : x.times.slice();
       }
-      return { ok: true, week: week.map(merge), ph: ph && merge(ph) };
+      const amb = [];
+      for (let d = 0; d < 7; d++) for (const [a, b, rule] of week[d]) if (b > 1440 && setAt[(d + 1) % 7] > rule) amb.push([(d + 1) % 7, 0, b - 1440]);
+      return { ok: true, week: week.map(merge), ph: ph && merge(ph), amb, raw: s };
     } catch (e) { return { ok: false, raw: s }; }
   }
   // the day and minute in the Bay Area, whatever the device's time zone
@@ -108,20 +125,26 @@
   const clock = (m, mid = 'midnight') => { m = ((m % 1440) + 1440) % 1440; if (m === 0) return mid; const h = Math.floor(m / 60), mm = m % 60; return (h % 12 || 12) + (mm ? ':' + String(mm).padStart(2, '0') : '') + (h < 12 ? ' am' : ' pm'); };
   const span = ([s, e]) => s === 0 && e === 1440 ? 'Open 24 hours' : `${clock(s, '12 am')} – ${clock(e)}`;
   const daySpans = list => list.length ? list.map(span).join(', ') : 'Closed';
-  // the answer at a moment: { state: 'open' | 'closed' | 'unknown', text ('until 10 pm', 'opens 5 pm', 'Open 24 hours', ''), today
-  // (0 is Monday), week (7 display lines), ph (display line or null), raw }
+  const dayOf = m => DAY_SHORT[((Math.floor(m / 1440) % 7) + 7) % 7];
+  // the answer at a moment: { state: 'open' | 'closed' | 'unknown', text ('until 10 pm', 'until Sat 11 pm', 'opens 5 pm', 'opens
+  // next Mon 9 am', 'Open 24 hours', ''), today (0 is Monday), week (7 display lines), ph (display line or null), raw }
   function hoursAt(raw, date) {
     try {
       const p = parseHours(raw); if (!p.ok) return { state: 'unknown', text: '', raw: p.raw };
       const at = laNow(date instanceof Date ? date : new Date());
       // every range of last week, this week and next week on one line of minutes from this Monday 00:00, joined where they touch
-      const all = []; for (let w = -1; w <= 1; w++) for (let d = 0; d < 7; d++) for (const [s, e] of p.week[d]) all.push([(w * 7 + d) * 1440 + s, (w * 7 + d) * 1440 + e]);
-      const runs = merge(all), now = at.d * 1440 + at.m, week = p.week.map(daySpans), ph = p.ph ? daySpans(p.ph) : null;
+      const all = [], amb = []; for (let w = -1; w <= 1; w++) { for (let d = 0; d < 7; d++) for (const [s, e] of p.week[d]) all.push([(w * 7 + d) * 1440 + s, (w * 7 + d) * 1440 + e]); for (const [d, s, e] of p.amb) amb.push([(w * 7 + d) * 1440 + s, (w * 7 + d) * 1440 + e]); }
+      const runs = merge(all), now = at.d * 1440 + at.m, day0 = at.d * 1440, week = p.week.map(daySpans), ph = p.ph ? daySpans(p.ph) : null;
+      if (amb.some(([s, e]) => s <= now && now < e)) return { state: 'unknown', text: '', raw: p.raw }; // hours a later rule may have taken back: no claim
       const cur = runs.find(([s, e]) => s <= now && now < e);
-      if (cur) return { state: 'open', text: cur[1] - now >= 1440 ? 'Open 24 hours' : 'until ' + clock(cur[1]), today: at.d, week, ph, raw: p.raw };
+      if (cur) {
+        // around the clock today and tomorrow: 'Open 24 hours'; an end that a later rule may have moved: no end given
+        const text = cur[0] <= day0 && cur[1] >= day0 + 2 * 1440 ? 'Open 24 hours' : amb.some(([s]) => now < s && s < cur[1]) ? '' : 'until ' + (cur[1] - now <= 1440 ? '' : dayOf(cur[1] - 1) + ' ') + clock(cur[1]);
+        return { state: 'open', text, today: at.d, week, ph, raw: p.raw };
+      }
       const next = runs.find(([s]) => s > now);
       let text = '';
-      if (next && next[0] - now <= 7 * 1440) { const day = Math.floor(next[0] / 1440), ahead = day - at.d; text = 'opens ' + (ahead === 0 ? '' : ahead === 1 ? 'tomorrow ' : DAY_SHORT[((day % 7) + 7) % 7] + ' ') + clock(next[0], '12 am'); }
+      if (next && next[0] - now <= 7 * 1440) { const day = Math.floor(next[0] / 1440), ahead = day - at.d; text = 'opens ' + (ahead === 0 ? '' : ahead === 1 ? 'tomorrow ' : (ahead === 7 ? 'next ' : '') + dayOf(next[0]) + ' ') + clock(next[0], '12 am'); }
       return { state: 'closed', text, today: at.d, week, ph, raw: p.raw };
     } catch (e) { return { state: 'unknown', text: '', raw: typeof raw === 'string' ? raw.trim() : '' }; }
   }
@@ -140,14 +163,14 @@
     }
     return cap(out.join(', '));
   }
-  // https only (an http tag is upgraded); no other scheme, no credentials, a real host name. { href, host } or null
+  // http or https as written (an http site may have no TLS: not upgraded); at most 500 characters (longer is refused, never cut);
+  // no other scheme, no credentials, a real host name. { href, host } or null
   function safeUrl(v) {
     if (typeof v !== 'string') return null;
     const s = v.trim().split(/\s*;\s*/)[0];
-    if (!s || s.length > 500 || /[\s<>"'`\\\x00-\x1f\x7f]/.test(s) || !/^https?:\/\//i.test(s)) return null;
+    if (!s || s.length > URL_MAX || /[\s<>"'`\\\x00-\x1f\x7f]/.test(s) || !/^https?:\/\//i.test(s)) return null;
     let u; try { u = new URL(s); } catch (e) { return null; }
-    if (u.protocol === 'http:') u.protocol = 'https:'; else if (u.protocol !== 'https:') return null;
-    if (u.protocol !== 'https:' || u.username || u.password || !/^(?=.{4,253}$)[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z][a-z0-9-]+$/i.test(u.hostname)) return null;
+    if ((u.protocol !== 'https:' && u.protocol !== 'http:') || u.username || u.password || !/^(?=.{4,253}$)[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z][a-z0-9-]+$/i.test(u.hostname)) return null;
     return { href: u.href, host: cap(u.hostname.replace(/^www\./i, ''), 80) };
   }
   // a phone number: shown as written, dialled as digits and a leading plus; letters (1-800-FLOWERS, "ext") are not guessed
@@ -159,19 +182,29 @@
     return /^\+?\d{7,15}$/.test(tel) ? { tel, show: s } : null;
   }
   const FACTS = [['outdoor_seating', 'Outdoor seating', 'No outdoor seating'], ['takeaway', 'Takeaway', 'No takeaway'], ['wheelchair', 'Wheelchair accessible', 'Not wheelchair accessible'], ['reservation', 'Takes reservations', 'No reservations']];
-  const KEEP = ['name', 'opening_hours', 'cuisine', 'website', 'contact:website', 'url', 'phone', 'contact:phone', ...FACTS.map(f => f[0])];
+  const WEB = ['website', 'contact:website', 'url'], TEL = ['phone', 'contact:phone'];
 
   // ---------- finding the place ----------
-  // names compared after folding case, accents and punctuation, '&' as 'and', a leading 'the' and common trailing words
-  // ('Zuni Café' = 'Zuni Cafe' = 'Zuni'; 'The Buena Vista' = 'Buena Vista Cafe'), spaces ignored
-  const SUFFIX = new Set(['restaurant', 'cafe', 'bar', 'bakery', 'coffee', 'pub', 'museum', 'shop', 'kitchen', 'sf', 'inc', 'llc', 'co', 'company']);
-  function normName(s) {
+  // A name is compared two ways. Exact: case, accents, punctuation and spaces ignored, '&' read as 'and'. Folded: also without a
+  // leading 'the', a trailing 'San Francisco', 'SF' or company form (Inc, LLC, Co, Company), and the kind of place at the end
+  // (cafe, bar, bakery...), which is kept aside. A folded match needs the same stem and the same kind, or a kind on one side only
+  // ('Zuni Café' = 'Zuni'), never two different kinds ('Golden Gate Bakery' is not 'Golden Gate Restaurant').
+  const NOISE = new Set(['sf', 'inc', 'llc', 'co', 'company']), KIND = new Set(['restaurant', 'cafe', 'bar', 'bakery', 'coffee', 'pub', 'museum', 'shop', 'kitchen']);
+  function nameKey(s) {
     const w = String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/&/g, ' and ').replace(/['‘’`]/g, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim().split(' ').filter(Boolean);
-    if (w[0] === 'the' && w.length > 1) w.shift();
-    if (w.length > 2 && w[w.length - 2] === 'san' && w[w.length - 1] === 'francisco') w.length -= 2;
-    while (w.length > 1 && SUFFIX.has(w[w.length - 1])) w.pop();
-    return w.join('');
+    const exact = w.join(''), f = w.slice(), kind = [];
+    if (f[0] === 'the' && f.length > 1) f.shift();
+    for (;;) {
+      const l = f[f.length - 1];
+      if (f.length > 2 && f[f.length - 2] === 'san' && l === 'francisco') f.length -= 2;
+      else if (f.length > 1 && NOISE.has(l)) f.pop();
+      else if (f.length > 1 && KIND.has(l)) kind.unshift(f.pop());
+      else break;
+    }
+    return { exact, stem: f.join(''), kind: kind.join(' ') };
   }
+  // 2: the same name; 1: the same after folding; 0: not the same place
+  const sameName = (a, b) => !a.exact || !b.exact ? 0 : a.exact === b.exact ? 2 : a.stem && a.stem === b.stem && (a.kind === b.kind || !a.kind !== !b.kind) ? 1 : 0;
   const TYPES = new Set(['node', 'way', 'relation']);
   // a stored id on the spot: 'node/123', 'way/45', 'relation/6' (or n123, w45, r6)
   function parseOsm(v) {
@@ -181,54 +214,69 @@
   }
   const tagNames = tags => ['name', 'name:en', 'official_name', 'short_name', 'alt_name'].flatMap(k => own(tags, k) && typeof tags[k] === 'string' ? tags[k].split(';') : []);
   const metres = (a, b, lat) => Math.hypot((a[0] - b[0]) * Math.cos(lat * Math.PI / 180), a[1] - b[1]) * 111320;
-  // the feature for a spot: its stored id; otherwise the nearest feature whose name matches, within 60 m (a building or area
-  // within 60 m may have its centre further off: 250 m); none: null, no guess
+  // stops, platforms and station entrances share names with the places beside them; never a place page (the query leaves them out too)
+  const RAIL_STOP = /^(stop|platform|halt|tram_stop|subway_entrance|train_station_entrance)$/;
+  const transit = t => own(t, 'highway') || own(t, 'public_transport') || (own(t, 'railway') && RAIL_STOP.test(String(t.railway)));
+  // the feature for a spot: its stored id; otherwise, within 60 m (a building or area may have its centre further off: 250 m), the
+  // best name match: the same name before a folded one at any distance, then one with something to show, then the nearest. None: null
   function pick(sp, els, osm) {
     if (!Array.isArray(els)) return null;
-    const n = normName(sp.name); let best = null, bd = Infinity;
+    const n = nameKey(sp.name); let best = null, bq = 0, bs = false, bd = Infinity;
     for (const e of els) {
       if (!e || typeof e !== 'object' || !TYPES.has(e.type) || !Number.isSafeInteger(e.id) || e.id <= 0) continue;
       if (!e.tags || typeof e.tags !== 'object' || Array.isArray(e.tags)) continue;
       if (osm) { if (e.type === osm.type && e.id === osm.id) return e; continue; }
-      if (!n) return null;
+      if (!n.exact) return null;
+      if (transit(e.tags)) continue;
       const c = e.type === 'node' ? e : e.center; if (!c || typeof c.lat !== 'number' || typeof c.lon !== 'number' || !isFinite(c.lat) || !isFinite(c.lon)) continue;
       const d = metres([c.lon, c.lat], [sp.lon, sp.lat], sp.lat);
-      if (d > (e.type === 'node' ? NEAR : NEAR_AREA) || d >= bd) continue;
-      if (tagNames(e.tags).some(x => normName(x) === n)) { best = e; bd = d; }
+      if (d > (e.type === 'node' ? NEAR : NEAR_AREA)) continue;
+      const q = tagNames(e.tags).reduce((m, x) => Math.max(m, sameName(n, nameKey(x))), 0); if (!q) continue;
+      const s = Object.keys(keep(e).tags).length > 0;
+      if (q > bq || (q === bq && ((s && !bs) || (s === bs && d < bd)))) { best = e; bq = q; bs = s; bd = d; }
     }
     return best;
   }
-  // only the tags shown are kept (strings, bounded); a too-long opening_hours stays too long, so it is never parsed cut short
+  // only the tags shown are kept: hours (a too-long one stays too long, so it is never parsed cut short), a cuisine with a plain
+  // word, the first valid website and phone, the yes/no facts
   function keep(e) {
-    const tags = {};
-    for (const k of KEEP) if (own(e.tags, k) && typeof e.tags[k] === 'string') tags[k] = e.tags[k].slice(0, k === 'opening_hours' ? OH_MAX + 1 : 500);
+    const t = e.tags, g = k => own(t, k) && typeof t[k] === 'string' ? t[k] : '', tags = {};
+    if (g('opening_hours').trim()) tags.opening_hours = g('opening_hours').slice(0, OH_MAX + 1);
+    if (tidyCuisine(g('cuisine'))) tags.cuisine = g('cuisine').slice(0, 500);
+    const wk = WEB.find(k => safeUrl(g(k))); if (wk) tags[wk] = g(wk).trim().split(/\s*;\s*/)[0];
+    const pk = TEL.find(k => cleanPhone(g(k))); if (pk) tags[pk] = g(pk).split(';')[0].slice(0, 80);
+    for (const [k] of FACTS) { const v = g(k).trim(); if (v === 'yes' || v === 'no') tags[k] = v; }
     return { type: e.type, id: e.id, tags };
   }
 
   // ---------- the block ----------
   const okLL = (lat, lon) => typeof lat === 'number' && typeof lon === 'number' && isFinite(lat) && isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180;
-  // what the cached answer belongs to: a renamed or moved spot (or a new stored id) asks again
-  const spotKey = sp => sp && okLL(sp.lat, sp.lon) && typeof sp.name === 'string' && sp.name.trim() ? [sp.name.trim(), sp.lat.toFixed(5), sp.lon.toFixed(5), parseOsm(sp.osm) ? sp.osm.trim() : ''].join('|') : null;
+  // a short hash (two 53-bit halves): the cache's key shows nothing of what went in
+  const hash = s => { const h = seed => { let a = 0xdeadbeef ^ seed, b = 0x41c6ce57 ^ seed; for (let i = 0; i < s.length; i++) { const c = s.charCodeAt(i); a = Math.imul(a ^ c, 2654435761); b = Math.imul(b ^ c, 1597334677); } a = Math.imul(a ^ (a >>> 16), 2246822507) ^ Math.imul(b ^ (b >>> 13), 3266489909); b = Math.imul(b ^ (b >>> 16), 2246822507) ^ Math.imul(a ^ (a >>> 13), 3266489909); return (4294967296 * (2097151 & b) + (a >>> 0)).toString(36); }; return h(1) + h(2); };
+  // what the cached answer belongs to: this log (or 'local'), the spot, its name and position, a stored id. A renamed or moved spot
+  // (or a new stored id) asks again
+  const spotKey = (id, sp) => sp && okLL(sp.lat, sp.lon) && typeof sp.name === 'string' && sp.name.trim() ? hash([String(opts.scope() || 'local'), id, sp.name.trim(), sp.lat.toFixed(5), sp.lon.toFixed(5), parseOsm(sp.osm) ? sp.osm.trim() : ''].join('\u0001')) : null;
   let uid = 0;
+  const PH_RULE = /(^|[^a-z])PH(?![a-z])/i;
+  // the Hours row at this moment: the raw text (no claim), or the line for now and the week's lines; a quiet note when PH is named
+  function hoursParts(oh) {
+    const h = hoursAt(oh, new Date(now())), note = PH_RULE.test(oh) ? '<small class="pd-note">Holiday hours may differ</small>' : '';
+    if (h.state === 'unknown') return { raw: `<span class="pd-raw">${esc(cap(h.raw))}</span>${note}` };
+    const line = h.state === 'open' && h.text === 'Open 24 hours' ? '<b class="pd-open">Open 24 hours</b>' : h.state === 'open' ? `<b class="pd-open">Open now</b>${h.text ? ' · ' + esc(h.text) : ''}` : `<b class="pd-closed">Closed</b>${h.text ? ' · ' + esc(h.text) : ''}`;
+    const days = h.week.map((x, i) => `<li${i === h.today ? ' class="today"' : ''}><span>${DAY_SHORT[i]}</span><span>${esc(x)}</span></li>`).join('') + (h.ph ? `<li><span>Holidays</span><span>${esc(h.ph)}</span></li>` : '');
+    return { line, days, note };
+  }
+  const hoursHTML = (p, open) => { if (p.raw != null) return p.raw; const id = 'pd-week-' + (++uid); return `<button type="button" class="pd-now" aria-expanded="${open}" aria-controls="${id}"><span class="pd-line">${p.line}</span><i class="pd-chev" aria-hidden="true"></i></button>${p.note}<ul class="pd-week" id="${id}"${open ? '' : ' hidden'}>${p.days}</ul>`; };
   function html(d) {
     if (!d || !d.tags || !TYPES.has(d.type) || !Number.isSafeInteger(d.id)) return '';
     const t = d.tags, g = k => own(t, k) && typeof t[k] === 'string' ? t[k] : '', rows = [];
-    const row = (label, value) => `<dt>${label}</dt><dd>${value}</dd>`;
+    const row = (label, value, cls) => `<dt>${label}</dt><dd${cls ? ` class="${cls}"` : ''}>${value}</dd>`;
     const oh = g('opening_hours').trim();
-    if (oh) {
-      const h = hoursAt(oh, new Date(api.now()));
-      if (h.state === 'unknown') rows.push(row('Hours', `<span class="pd-raw">${esc(cap(h.raw))}</span>`));
-      else {
-        const id = 'pd-week-' + (++uid), all = h.state === 'open' && h.text === 'Open 24 hours';
-        const now = all ? '<b class="pd-open">Open 24 hours</b>' : h.state === 'open' ? `<b class="pd-open">Open now</b>${h.text ? ' · ' + esc(h.text) : ''}` : `<b class="pd-closed">Closed</b>${h.text ? ' · ' + esc(h.text) : ''}`;
-        const days = h.week.map((x, i) => `<li${i === h.today ? ' class="today"' : ''}><span>${DAY_SHORT[i]}</span><span>${esc(x)}</span></li>`).join('') + (h.ph ? `<li><span>Holidays</span><span>${esc(h.ph)}</span></li>` : '');
-        rows.push(row('Hours', `<button type="button" class="pd-now" aria-expanded="false" aria-controls="${id}"><span>${now}</span><i class="pd-chev" aria-hidden="true"></i></button><ul class="pd-week" id="${id}" hidden>${days}</ul>`));
-      }
-    }
+    if (oh) rows.push(row('Hours', hoursHTML(hoursParts(oh), false), 'pd-hours'));
     const cu = tidyCuisine(g('cuisine')); if (cu) rows.push(row('Cuisine', esc(cu)));
-    const web = safeUrl(g('website')) || safeUrl(g('contact:website')) || safeUrl(g('url'));
+    const web = WEB.reduce((v, k) => v || safeUrl(g(k)), null);
     if (web) rows.push(row('Website', `<a href="${esc(web.href)}" target="_blank" rel="noopener noreferrer">${esc(web.host)}</a>`));
-    const ph = cleanPhone(g('phone')) || cleanPhone(g('contact:phone'));
+    const ph = TEL.reduce((v, k) => v || cleanPhone(g(k)), null);
     if (ph) rows.push(row('Phone', `<a href="tel:${esc(ph.tel)}">${esc(ph.show)}</a>`));
     const facts = FACTS.map(([k, yes, no]) => { const v = g(k).trim(); return v === 'yes' ? yes : v === 'no' ? no : ''; }).filter(Boolean);
     if (facts.length) rows.push(row('Good to know', esc(facts.join(' · '))));
@@ -236,38 +284,83 @@
     return `<h3>Details</h3><dl class="pd">${rows.join('')}</dl><p class="pd-src"><a href="https://www.openstreetmap.org/${d.type}/${d.id}" target="_blank" rel="noopener noreferrer">Details from OpenStreetMap</a></p>`;
   }
   function fill(el, d) {
+    stop();
     const h = html(d);
     if (!h) { el.replaceChildren(); return; }
     el.innerHTML = h;
-    const b = el.querySelector('.pd-now'), w = b && el.querySelector('.pd-week');
-    if (b && w) b.addEventListener('click', () => { const on = b.getAttribute('aria-expanded') !== 'true'; b.setAttribute('aria-expanded', String(on)); w.hidden = !on; });
+    el.onclick = e => { const b = e.target.closest && e.target.closest('.pd-now'), w = b && el.contains(b) && b.parentNode.querySelector('.pd-week'); if (!w) return; const on = b.getAttribute('aria-expanded') !== 'true'; b.setAttribute('aria-expanded', String(on)); w.hidden = !on; };
+    const oh = own(d.tags, 'opening_hours') && typeof d.tags.opening_hours === 'string' ? d.tags.opening_hours.trim() : '';
+    if (oh && el.querySelector('.pd-hours')) watch(el, oh);
+  }
+
+  // ---------- keeping "open now" true while the page stays on screen ----------
+  // The open-now line is worked out again every minute while the block is on the page, when the page comes back on screen and when
+  // it is restored from the back-forward cache. Only that row changes, so an open week stays open. Everything stops when the block
+  // leaves the page (the panel drew something else).
+  let live = null, mo = null;
+  const onShow = () => { if (document.visibilityState !== 'hidden') refresh(); };
+  function watch(el, oh) {
+    const p = hoursParts(oh);
+    live = { el, oh, sig: p.raw != null ? 'raw' + p.raw : p.line + p.days, iv: setInterval(refresh, TICK) };
+    document.addEventListener('visibilitychange', onShow); window.addEventListener('pageshow', onShow);
+    guard(el);
+  }
+  function stop() {
+    if (!live) return;
+    clearInterval(live.iv); live = null;
+    document.removeEventListener('visibilitychange', onShow); window.removeEventListener('pageshow', onShow);
+  }
+  function refresh() {
+    const L = live; if (!L) return;
+    const dd = L.el.isConnected && L.el.querySelector('.pd-hours'); if (!dd) { stop(); return; }
+    const p = hoursParts(L.oh), sig = p.raw != null ? 'raw' + p.raw : p.line + p.days; if (sig === L.sig) return;
+    L.sig = sig;
+    const b = dd.querySelector('.pd-now'), line = b && b.querySelector('.pd-line'), w = dd.querySelector('.pd-week');
+    if (p.raw == null && line && w) { line.innerHTML = p.line; w.innerHTML = p.days; return; } // the button stays (focus, open week)
+    dd.innerHTML = hoursHTML(p, !!b && b.getAttribute('aria-expanded') === 'true'); // a no-claim stretch began or ended
+  }
+  // the panel replaces its content when the page changes: a wait for a spot that was left, and the minute timer, end at once
+  function guard(el) {
+    if (typeof MutationObserver === 'undefined' || !el.parentNode) return;
+    if (!mo) mo = new MutationObserver(sweep);
+    mo.observe(el.parentNode, { childList: true });
+  }
+  function sweep() {
+    if (want && !want.el.isConnected) { clearTimeout(timer); want = null; }
+    if (live && !live.el.isConnected) stop();
+    if (!want && !live && mo) mo.disconnect();
   }
 
   // ---------- the cache (this device only) ----------
+  // [hash, { t, d: { type, id, tags shown } or null }]: no name, position or log key
   let cache = null;
   function load() {
     if (cache) return cache;
     cache = new Map();
-    try { const a = JSON.parse(localStorage.getItem(KEY) || '[]'); if (Array.isArray(a)) for (const x of a) if (Array.isArray(x) && typeof x[0] === 'string' && x[1] && typeof x[1] === 'object' && typeof x[1].k === 'string' && typeof x[1].t === 'number') cache.set(x[0], x[1]); } catch (e) {}
+    try { localStorage.removeItem('sbs-details-v1'); } catch (e) {} // the first version's keys held names and positions
+    try { const a = JSON.parse(localStorage.getItem(KEY) || '[]'); if (Array.isArray(a)) for (const x of a) if (Array.isArray(x) && typeof x[0] === 'string' && x[1] && typeof x[1] === 'object' && typeof x[1].t === 'number') cache.set(x[0], x[1]); } catch (e) {}
     return cache;
   }
-  function put(id, k, d) {
-    load().delete(id); cache.set(id, { k, t: Date.now(), d: d || null });
+  function put(k, d) {
+    load().delete(k); cache.set(k, { t: Date.now(), d: d || null });
     const a = [...cache].sort((p, q) => q[1].t - p[1].t).slice(0, MAX); cache = new Map(a);
     try { localStorage.setItem(KEY, JSON.stringify(a)); } catch (e) {}
   }
-  const cached = (id, k) => { const c = load().get(id); return c && c.k === k && Date.now() - c.t < TTL ? c : null; };
+  const cached = k => { const c = load().get(k); return c && Date.now() - c.t < TTL ? c : null; };
 
   // ---------- asking, politely ----------
   let want = null, busy = false, last = -Infinity, timer = null;
   const failed = new Map(); // a lookup that failed is not asked again for 5 minutes (it is never cached)
-  const still = w => w.el.isConnected && spotKey(opts.isOpen(w.id)) === w.key;
+  const paused = new Map(); // server -> until when it is left alone (a busy answer, a timeout, no answer)
+  const still = w => w.el.isConnected && spotKey(w.id, opts.isOpen(w.id)) === w.key;
+  const later = ms => { clearTimeout(timer); timer = setTimeout(pump, ms); };
   function mount(el, id, sp) {
     if (!el) return;
-    const key = spotKey(sp); if (!key) return;
-    const c = cached(id, key);
+    const key = spotKey(id, sp); if (!key) return;
+    const c = cached(key);
     if (c) { fill(el, c.d); return; } // known (found or not): no request
-    if (!opts.ok() || failed.get(key) > Date.now() - RETRY_AFTER) return;
+    if (!opts.ok() || failed.get(key) > now() - RETRY_AFTER) return;
+    guard(el);
     if (want && want.key === key && want.id === id) { want.el = el; return; } // a re-render of the same spot: the wait goes on
     const w = want = { el, id, key, sp: { name: sp.name, lat: sp.lat, lon: sp.lon, osm: sp.osm } };
     clearTimeout(timer); timer = setTimeout(() => { if (want === w) pump(); }, WAIT);
@@ -275,35 +368,57 @@
   function pump() {
     const w = want; if (!w || busy) return;
     if (!still(w)) { want = null; return; }
-    const c = cached(w.id, w.key); if (c) { want = null; fill(w.el, c.d); return; }
-    const gap = last + GAP - Date.now(); if (gap > 0) { clearTimeout(timer); timer = setTimeout(pump, gap); return; }
+    const c = cached(w.key); if (c) { want = null; fill(w.el, c.d); return; }
+    if (failed.get(w.key) > now() - RETRY_AFTER) { want = null; return; } // it failed while the panel was redrawn: not asked again
+    const gap = last + GAP - Date.now(); if (gap > 0) { later(gap); return; }
+    const free = SERVERS.filter(s => !(paused.get(s) > now()));
+    if (!free.length) { later(Math.max(GAP, Math.min(...SERVERS.map(s => paused.get(s))) - now())); return; } // every server resting
     want = null; busy = true;
-    lookup(w.sp).then(d => {
-      put(w.id, w.key, d);
+    lookup(w.sp, free).then(d => {
+      put(w.key, d);
       const tgt = want && want.key === w.key && want.id === w.id ? want : w; // the panel was redrawn while this was asked
       if (tgt === want) want = null;
       if (still(tgt)) fill(tgt.el, d);
-    }, () => { failed.set(w.key, Date.now()); }).finally(() => { busy = false; last = Date.now(); if (want) { clearTimeout(timer); timer = setTimeout(pump, GAP); } });
+    }, () => { failed.set(w.key, now()); }).finally(() => { busy = false; last = Date.now(); if (want) later(GAP); });
   }
-  async function lookup(sp) {
+  // each free server at most once, in order; the next one only after a busy answer or no answer
+  async function lookup(sp, servers) {
     const osm = parseOsm(sp.osm);
-    const q = '[out:json][timeout:10];' + (osm ? `${osm.type}(${osm.id});out tags center 1;` : `nwr(around:${NEAR},${sp.lat.toFixed(5)},${sp.lon.toFixed(5)})[name];out tags center 20;`);
+    // 'out center': coordinates for nodes, a centre for ways and relations ('out tags' prints no node coordinates)
+    const q = '[out:json][timeout:10];' + (osm ? `${osm.type}(${osm.id});out center 1;` : `nwr(around:${NEAR},${sp.lat.toFixed(5)},${sp.lon.toFixed(5)})[name][!highway][!public_transport][!route][railway!~"${RAIL_STOP.source}"];out center ${CAP};`);
+    for (let i = 0; ; i++) {
+      try { return await ask(servers[i], q, sp, osm); } catch (e) {
+        if (!e.busy) throw e;
+        paused.set(servers[i], now() + PAUSE);
+        if (i + 1 >= servers.length) throw e;
+      }
+    }
+  }
+  async function ask(server, q, sp, osm) {
     const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null, t = ctl && setTimeout(() => ctl.abort(), TIMEOUT);
-    const log = { at: Date.now(), q }; api.requests.push(log); // for tests and the console: when, what, and how it went
+    const log = { at: Date.now(), server, q }; api.requests.push(log); // for tests and the console: when, where, what, and how it went
+    const fail = (msg, busy) => Object.assign(new Error(msg), { busy });
     try {
+      let r;
       // no referrer: the page address carries the private log key
-      const r = await (api.fetcher || fetch)(API + '?data=' + encodeURIComponent(q), { signal: ctl && ctl.signal, referrerPolicy: 'no-referrer', credentials: 'omit' });
+      try { r = await (api.fetcher || fetch)(server + '?data=' + encodeURIComponent(q), { signal: ctl && ctl.signal, referrerPolicy: 'no-referrer', credentials: 'omit' }); }
+      catch (e) { throw fail(e && e.name === 'AbortError' ? 'timeout' : 'no answer', true); } // a timeout, or no answer the page may read
       log.status = r && r.status; log.ms = Date.now() - log.at;
-      if (!r || !r.ok) throw new Error('details: ' + (r && r.status));
-      const j = await r.json(), e = pick(sp, j && j.elements, osm);
+      if (!r || !r.ok) throw fail('details: ' + (r && r.status), !!r && [429, 502, 503, 504].includes(r.status));
+      const j = await r.json();
+      // the server's own complaint (a timeout, too busy) or no list: a failed lookup, not "nothing here"
+      if (!j || typeof j !== 'object' || !Array.isArray(j.elements) || typeof j.remark === 'string') throw fail('details: no usable answer', false);
+      const e = pick(sp, j.elements, osm);
+      if (!e && !osm && j.elements.length >= CAP) throw fail('details: answer cut at ' + CAP, false); // the place may be past the cut
+      log.n = j.elements.length;
       return e ? keep(e) : null;
-    } catch (e) { log.error = e.name === 'AbortError' ? 'timeout' : String(e.message || e).slice(0, 80); throw e; } finally { clearTimeout(t); }
+    } catch (e) { log.error = String(e.message || e).slice(0, 80); throw e; } finally { clearTimeout(t); }
   }
 
   // o: { ok() (may this page reach OpenStreetMap; false inside the artifact), isOpen(id) (the spot when its page is the one open,
-  // else null) }
+  // else null), scope() (the log's key, or 'local': part of the hashed cache key) }
   function init(o) { opts = Object.assign(opts, o); }
-  // the slot app.js puts between the note and the street map: empty (and not displayed) until there is something to show
+  // the slot app.js puts below the Maps buttons: empty (and not displayed) until there is something to show, so nothing above it moves
   const slot = '<div class="pdet"></div>';
-  const api = window.Details = { init, mount, slot, parseHours, hoursAt, normName, pick, tidyCuisine, safeUrl, cleanPhone, parseOsm, html, now: () => Date.now(), fetcher: null, requests: [], clear() { cache = null; failed.clear(); try { localStorage.removeItem(KEY); } catch (e) {} } };
+  const api = window.Details = { init, mount, slot, parseHours, hoursAt, nameKey, sameName, pick, keep, tidyCuisine, safeUrl, cleanPhone, parseOsm, html, now: () => Date.now(), fetcher: null, requests: [], state: () => ({ waiting: !!want, ticking: !!live, busy, paused: [...paused].map(([s, u]) => [s, u - now()]) }), clear() { cache = null; failed.clear(); paused.clear(); try { localStorage.removeItem(KEY); } catch (e) {} } };
 })();

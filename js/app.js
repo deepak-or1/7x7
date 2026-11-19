@@ -344,7 +344,7 @@
   // the street-map preview (js/streetmap.js). Not inside the Claude artifact, whose host blocks third-party content
   const streetOK = () => (state.store === 'sync' || state.store === 'local') && !(window.claude && window.claude.use);
   const streetMap = v => streetOK() && window.StreetMap ? `<h3>Street map</h3>${StreetMap.box(v)}` : '';
-  if (window.Details) Details.init({ ok: streetOK, isOpen: id => !state.view && !state.query && !state.quiz && state.loc.spot === id ? state.spots[id] || null : null }); // place details: only for the spot page that is open
+  if (window.Details) Details.init({ ok: streetOK, isOpen: id => !state.view && !state.query && !state.quiz && state.loc.spot === id ? state.spots[id] || null : null, scope: () => state.store === 'sync' ? feedKey || 'sync' : 'local' }); // place details: only for the spot page that is open; cached per log
   // the street map mounts once the camera has landed (mounting during the fly cost a 60-365 ms hitch); a re-render with no fly
   // (a sync echo, a save) mounts at once, so the same view stays drawn without a blink
   const mountStreet = v => { const now = () => { const el = panel.querySelector('.mapprev'); if (el && el.dataset.key === v.key && window.StreetMap) StreetMap.mount(el, v); }; if (goFly || flyQ.length) afterFly(now); else now(); };
@@ -487,8 +487,8 @@
       ${sp.where ? `<p class="lead"><span class="kbody" hidden><i style="--c:${k.c}"></i>${esc(k.label)} · </span>${esc(sp.where)}</p>` : `<p class="lead kbody" hidden><i style="--c:${k.c}"></i>${esc(k.label)}</p>`}
       <div class="vrow">${r ? `<span class="vstars" role="img" aria-label="${r} of 5 stars"><span aria-hidden="true">${'★'.repeat(r)}<i>${'★'.repeat(5 - r)}</i></span></span><b class="vword">${VERDICT[r]}</b>` : ''}<span class="pstamp ${want ? 'want' : 'been'}">${want ? 'Want to go' : `Been${sp.at ? ' · ' + esc(niceDate(sp.at)) : ''}`}</span></div>
       ${by ? `<p class="vby">Logged by ${esc(by)}</p>` : ''}
-      ${sp.note ? `<p class="pull">${esc(sp.note)}</p>` : ''}${window.Details ? Details.slot : ''}
-      ${okLL(sp.lat, sp.lon) ? streetMap(sv) : ''}${mapBtns(mq, aq)}
+      ${sp.note ? `<p class="pull">${esc(sp.note)}</p>` : ''}
+      ${okLL(sp.lat, sp.lon) ? streetMap(sv) : ''}${mapBtns(mq, aq)}${window.Details ? Details.slot : ''}
       <div class="actions" style="margin-top:18px">${sp.status === 'want' ? `<button type="button" class="btn primary" id="been-now">Mark as been</button>` : ''}<button type="button" class="btn quiet" id="del" style="color:var(--bad)">Delete</button></div>
       <div class="actions" id="del-confirm" hidden><span style="font-size:13.5px;align-self:center">Remove ${esc(sp.name)} from your log?</span><button type="button" class="btn sm" id="del-yes" style="color:var(--bad);border-color:var(--bad)">Delete</button><button type="button" class="btn sm quiet" id="del-no">Keep</button></div>`)) return false;
     mountStreet(Object.assign(sv, { dots: spotDots(id) })); // the other spots in the log, as small dots

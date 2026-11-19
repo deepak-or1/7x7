@@ -67,7 +67,7 @@
 
   // ---------- map ----------
   const stage = $('stage'), canvas = $('map'), panel = $('panel'), head = $('head'), sheetEl = $('sheet'), tip = $('tip');
-  const spotList = () => { const out = []; for (const id in state.spots) { const sp = state.spots[id]; if (!sp._xy) sp._xy = Geom.proj([sp.lon, sp.lat]); out.push({ id, x: sp._xy[0], y: sp._xy[1], c: (KINDS[sp.kind] || KINDS.other).c, name: sp.name, status: sp.status || 'been', hood: sp.hood }); } if (state.pending) out.push({ id: 'pending', x: state.pending.x, y: state.pending.y, c: 'var(--accent)', name: '', status: 'pending' }); return out; };
+  const spotList = () => { const out = [], keep = state.view === 'whereto' && window.WhereTo ? WhereTo.onMap() : null; for (const id in state.spots) { if (keep && !keep.has(id)) continue; const sp = state.spots[id]; if (!sp._xy) sp._xy = Geom.proj([sp.lon, sp.lat]); out.push({ id, x: sp._xy[0], y: sp._xy[1], c: (KINDS[sp.kind] || KINDS.other).c, name: sp.name, status: sp.status || 'been', hood: sp.hood }); } if (state.pending) out.push({ id: 'pending', x: state.pending.x, y: state.pending.y, c: 'var(--accent)', name: '', status: 'pending' }); return out; };
   const marksFor = () => HOODS.map((h, i) => isDone(i) ? 'flag' : isWant(i) ? 'star' : null);
   const matches = i => { if (!inRegion(i)) return false; const info = INFO[HOODS[i].name]; for (const t of state.filters) if (!info.tags.includes(t)) return false; return true; };
   const map = window.MapView(canvas, {
@@ -148,13 +148,13 @@
     // a tap on the map or a list that opens a starred section (never a hash load, back/forward, or a step up)
     if ((opts.fromMap || opts.tap) && !opts.view && next.sub && !next.spot && !(prev.hood === next.hood && prev.sub === next.sub)) { const s = subByName(next.hood, next.sub); if (s && s.star) celebrate(s); }
   }
-  function up() { const l = state.loc; if (state.view) { go(l, { replace: true, fly: false }); return; } if (l.spot) go({ hood: l.hood, sub: l.sub }); else if (l.sub) go({ hood: l.hood }); else if (l.hood) go({ region: l.region }); else if (l.region !== 'all') go({ region: 'all' }); }
+  function up() { const l = state.loc; if (state.view === 'whereto' && window.WhereTo) { if (!WhereTo.back()) WhereTo.leave(); return; } if (state.view) { go(l, { replace: true, fly: false }); return; } if (l.spot) go({ hood: l.hood, sub: l.sub }); else if (l.sub) go({ hood: l.hood }); else if (l.hood) go({ region: l.region }); else if (l.region !== 'all') go({ region: 'all' }); }
   // the phone's swipe down from half: back to the previous screen when it is ours, else one level up. go() then settles the sheet
   // where that screen wants it (the first screen and a region at the peek)
   // (a list opened from the same screen, like all spots, is not a step down: go() leaves the sheet as the drag left it, so it is set here)
   let backing = null; // dismiss() went back and waits for the popstate that answers it
   function dismiss() {
-    if (state.view) { up(); if (isPhone()) sheet.set(level(state.loc) >= 2 ? 'half' : 'peek', { quiet: true }); return; }
+    if (state.view) { if (isPhone()) sheet.set(window.WhereTo && WhereTo.stepsBack() || level(state.loc) >= 2 ? 'half' : 'peek', { quiet: true }); up(); return; } // the sheet first, so a camera fly frames the space left
     if (hDepth() < 1) { up(); return; }
     const was = state.loc, n = hDepth(), b = backing = { late: false }; history.back();
     // the popstate is late (else two navigations, and a history that no longer matches the panel). The history has stepped back
@@ -180,6 +180,7 @@
     map.flyToView(v, dur);
   }
   function flyToLoc(dur) {
+    if (state.view === 'whereto' && window.WhereTo && WhereTo.frame(dur)) return; // the spots it lists
     const l = state.loc;
     if (l.spot && state.spots[l.spot]) { const sp = state.spots[l.spot], [x, y] = sp._xy || Geom.proj([sp.lon, sp.lat]); frame([x - .01, y - .01, x + .01, y + .01], 1, U * 0.028, dur, [[[[x, y]]]]); return; }
     if (l.sub) { const s = subByName(l.hood, l.sub); if (s) { const pb = map.hoodBBox(IDX[l.hood]); frame(s.bbox, isPhone() ? 1.3 : 1.5, Math.max(U * 0.03, (s.bbox[2] - s.bbox[0]) * 3, (pb[2] - pb[0]) * .5), dur, (s.rings || []).map(r => [r])); return; } } // keep the parent place in view around a small section
@@ -302,7 +303,7 @@
     else {
       const l = state.loc, v = state.view; let fresh = true;
       if (!l.spot) stamped = null; // back on this spot later, the stamp lands again
-      if (v === 'log') renderLogForm(); else if (v === 'spots') renderSpots(); else if (l.spot) fresh = renderSpot(l.spot); else if (l.sub) fresh = renderSub(l.hood, l.sub); else if (l.hood) renderHood(l.hood); else renderHome();
+      if (v === 'log') renderLogForm(); else if (v === 'spots') renderSpots(); else if (v === 'whereto' && window.WhereTo) fresh = WhereTo.render(); else if (l.spot) fresh = renderSpot(l.spot); else if (l.sub) fresh = renderSub(l.hood, l.sub); else if (l.hood) renderHood(l.hood); else renderHome();
       if (fresh !== false) { wire(panel); if (window.Photos) Photos.mount(panel); } // fresh false: the panel was left as it was, listeners and all
       if (!v && level(l) >= 2) streetSoon();
     }
@@ -318,6 +319,7 @@
   const rowSpot = (id, withPlace) => { const sp = state.spots[id], k = KINDS[sp.kind] || KINDS.other; const meta = [k.label, withPlace ? (sp.sub || sp.hood) : sp.sub, sp.note].filter(Boolean).join(' · '); const rt = sp.status === 'want' ? 'want to go' : (sp.rating ? '★'.repeat(sp.rating) : niceDate(sp.at)); return `<li><button type="button" class="row" data-go='${attr({ spot: id })}'><span class="ic" style="--c:${k.c};${sp.status === 'want' ? 'background:transparent;box-shadow:0 0 0 2px ' + k.c + ' inset' : ''}"></span><span class="nm">${esc(sp.name)}<small>${esc(meta)}</small></span><span class="rt">${esc(rt)}</span></button></li>`; };
   const spotsIn = (hood, sub) => Object.keys(state.spots).filter(id => state.spots[id].hood === hood && (!sub || state.spots[id].sub === sub)).sort((a, b) => (state.spots[a].at < state.spots[b].at ? 1 : -1));
   const logTool = (hood, sub) => ({ id: 'log', label: 'Log a place', icon: ICON.plus, run: () => startLog({ hood, sub }) });
+  const homeTools = () => (window.WhereTo ? [WhereTo.tool()] : []).concat(logTool(null, null)); // Where to? (js/whereto.js) and +
   // ---- Google Maps: a text query lands on the real place; a pinned, GPS or approximate spot keeps its coordinates
   // (a made-up name resolves to the wrong place). From place search, `where` is 'street · district · city'; the
   // district is unreliable, so only a street that starts with a number and the last part (the city) are used.
@@ -385,8 +387,8 @@
     const recent = Object.keys(state.spots).filter(id => IDX[state.spots[id].hood] != null && inRegion(IDX[state.spots[id].hood])).sort((a, b) => (state.spots[a].at < state.spots[b].at ? 1 : -1));
     // the first screen: the wordmark is the title, and the most recent spots are one tap away (in the phone's header, so the peek shows them)
     const chips = r === 'all' && recent.length ? `<div class="recent" role="list" aria-label="Recent spots">${recent.slice(0, 5).map(id => { const sp = state.spots[id], k = KINDS[sp.kind] || KINDS.other; return `<span role="listitem"><button type="button" data-go='${attr({ spot: id })}'><i class="${sp.status === 'want' ? 'want' : ''}" style="--c:${k.c}"></i>${esc(sp.name)}</button></span>`; }).join('')}${recent.length > 5 ? `<span role="listitem"><button type="button" class="all" data-view="spots">All ${recent.length} ›</button></span>` : ''}</div>` : '';
-    if (r === 'all') setHead({ back: false, eyebrow: 'Logbook · ' + (news ? `${news} new` : `${n} of ${total} walked`), title: 'Seven by Seven<em>.</em>', tools: [logTool(null, null)], extra: isPhone() ? chips : '' });
-    else setHead({ path: { crumbs: crumbsOf(state.loc) }, title: REGIONS[r].label, tools: [logTool(null, null)] });
+    if (r === 'all') setHead({ back: false, eyebrow: 'Logbook · ' + (news ? `${news} new` : `${n} of ${total} walked`), title: 'Seven by Seven<em>.</em>', tools: homeTools(), extra: isPhone() ? chips : '' });
+    else setHead({ path: { crumbs: crumbsOf(state.loc) }, title: REGIONS[r].label, tools: homeTools() });
     const entries = NAMES.filter(x => inRegion(IDX[x]) && state.done[slug(x)]).sort((a, b) => (state.done[slug(b)].at || '').localeCompare(state.done[slug(a)].at || '') || a.localeCompare(b));
     const wantList = NAMES.filter(x => inRegion(IDX[x]) && state.want[slug(x)] && !state.done[slug(x)]);
     const active = state.filters.size > 0, hits = active ? NAMES.filter(x => matches(IDX[x])) : [];
@@ -916,18 +918,18 @@
   // o.quiet: no message on failure, o.fail() instead (the log form's own lookup)
   function locate(onPos, o = {}) {
     const btn = $('locate');
-    if (!navigator.geolocation) { if (o.quiet) { if (o.fail) o.fail(); } else toast('Location is not available here', 3000); return; }
+    if (!navigator.geolocation) { if (o.quiet) { if (o.fail) o.fail({ code: 'none' }); } else toast('Location is not available here', 3000); return; }
     btn.classList.add('busy');
     navigator.geolocation.getCurrentPosition(pos => {
       btn.classList.remove('busy'); const lon = pos.coords.longitude, lat = pos.coords.latitude, [LON0, LAT0, LON1, LAT1] = G.bbox;
-      if (lon < LON0 || lon > LON1 || lat < LAT0 || lat > LAT1) { if (o.quiet) { if (o.fail) o.fail(); } else toast('You are outside the map', 3000); return; }
+      if (lon < LON0 || lon > LON1 || lat < LAT0 || lat > LAT1) { if (o.quiet) { if (o.fail) o.fail({ code: 'outside' }); } else toast('You are outside the map', 3000); return; }
       const [x, y] = Geom.proj([lon, lat]); map.setMe([x, y]);
       if (onPos) { onPos([lon, lat]); return; }
       const w = locateXY(x, y);
       if (w.hood) { toast('You are in ' + (w.sub ? w.sub + ', ' + w.hood : w.hood), 3000); go(w.sub ? { hood: w.hood, sub: w.sub } : { hood: w.hood }, { fromMap: true }); }
       else { toast('You are here', 3000); map.flyTo([x - .01, y - .01, x + .01, y + .01], 1, U * 0.08); }
     }, err => {
-      btn.classList.remove('busy'); if (o.quiet) { if (o.fail) o.fail(); return; } const framed = window.top !== window.self;
+      btn.classList.remove('busy'); if (o.quiet) { if (o.fail) o.fail(err); return; } const framed = window.top !== window.self;
       if (err.code === 1 && framed) toast('Location is blocked inside this frame. Open the app on its own.', 3600); else toast(err.code === 1 ? 'Location permission was refused' : 'Could not get a location', 3000);
     }, { enableHighAccuracy: true, timeout: o.quiet ? 10000 : 12000, maximumAge: 60000 });
   }
@@ -988,6 +990,7 @@
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { syncThemeColor(); map.refreshPalette(); recolor(false); if (window.StreetMap) StreetMap.restyle(); });
   let wasPhone = isPhone();
   window.addEventListener('resize', () => { map.resize(); map.redraw(); if (isPhone() !== wasPhone) { wasPhone = isPhone(); if (state.quiz || state.placing) fitHead(); else render(); } else fitHead(); }); // across the breakpoint the recent spots move between the header and the panel (not mid-quiz, where a render drops an answer's verdict and Next, nor mid pin-drop, whose header it replaces) // resize() also catches a devicePixelRatio change (browser zoom)
+  if (window.WhereTo) WhereTo.init({ state, panel, map, sheet, Geom, U, KINDS, REGIONS, HOODS, IDX, ICON, esc, attr, setHead, render, go, up, locate, surprise, okLL, isPhone, reduceMotion, spotQuery, spotApple, mapBtns, extBtn, APPLE, toast, inMap: (lon, lat) => lon >= G.bbox[0] && lon <= G.bbox[2] && lat >= G.bbox[1] && lat <= G.bbox[3] }); // inMap: the box locate() accepts
   window.__sbs = { map, state, go, sheet, maps: { spotQuery, areaQuery, mapsLink, appleLink, spotApple, areaApple }, photos: window.Photos ? Object.assign(Object.create(window.Photos), { ownerKey }) : null, get photoOpts() { return photoOpts; }, feed: { read: readFeed, get news() { return state.news; } } }; // for tests and the console
   window.claude?.hot?.snapshot?.(() => ({ loc: state.loc }));
   window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});

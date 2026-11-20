@@ -28,7 +28,7 @@ window.Photos = (() => {
   // owner -> { ids: {id: true} | null, known: ids came from the server (not only the local copy), th / full: {id: rec},
   //            bad: {id: true} (not a photo), fk: ids whose full photo is in IndexedDB, got / miss: full photo in flight / failed at,
   //            order: [id] a writer chose | null, at, ver, loading, busy, local: IndexedDB was read, ow: order writes in flight }
-  const cache = {};
+  const cache = Object.create(null); // keyed by owner ids from the log: no prototype, so an id like '__proto__' is just a key
   const entry = o => cache[o] || (cache[o] = { ids: null, known: false, th: {}, full: {}, bad: {}, fk: new Set(), got: {}, miss: {}, order: null, at: 0, ver: 0, loading: null, busy: 0, local: false });
   const isImg = d => typeof d === 'string' && /^data:image\/(jpeg|png|webp);base64,/.test(d); // never a remote URL: a record is written by anyone with the link
   const okName = s => typeof s === 'string' ? Array.from(s.replace(/[\x00-\x1f\x7f]/g, '').replace(/\s+/g, ' ').trim()).slice(0, NAME).join('').trim() : ''; // cut by code point, so an emoji is never split

@@ -75,7 +75,7 @@ window.Lookback = (() => {
   // the stamp on a spot page: one visit reads as before ('Been · Nov 10'); more: 'Been 3 times · last Nov 10'
   function stamp(sp) {
     const v = visitsOf(sp);
-    if (v.length < 2) return 'Been' + (v.length ? ' · ' + A.niceDate(v[0]) : sp && sp.at ? ' · ' + A.niceDate(str(sp.at)) : '');
+    if (v.length < 2) { const d = A.niceDate(v.length ? v[0] : sp && sp.at ? str(sp.at) : ''); return 'Been' + (d ? ' · ' + d : ''); }
     return `Been ${v.length === 2 ? 'twice' : v.length + ' times'} · last ${shortY(v[v.length - 1])}`;
   }
   // the log form saved a spot (app.js rebuilt it from the form, without `visits`). Returns a line for the toast, or ''.

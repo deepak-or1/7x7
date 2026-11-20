@@ -51,7 +51,6 @@ window.Sync = (() => {
       putOrder: (owner, rec) => put(po(owner), rec), // null removes it
       del: (owner, id) => del(ph(owner, id)).then(() => del(pt(owner, id)).catch(() => {})).then(() => {}), // the thumb after the photo: a thumb left behind is ignored, a photo left without one gets a new one
       delAll: owner => Promise.all([del(ph(owner)), del(pt(owner)).catch(() => {}), del(po(owner)).catch(() => {})]).then(() => {}),
-      owners: () => get(ph() + '?shallow=true').then(d => Object.keys(obj(d))), // every owner that has photos, without their bytes (Download everything)
     };
   }
   // Photos someone removed, kept 30 days before they go for good (js/safe.js): logs/<key>-pd/<owner>/<photoId> = { at, by? }.

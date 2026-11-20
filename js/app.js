@@ -304,7 +304,7 @@
     else {
       const l = state.loc, v = state.view; let fresh = true;
       if (!l.spot) stamped = null; // back on this spot later, the stamp lands again
-      if (v === 'log') renderLogForm(); else if (v === 'spots') renderSpots(); else if (v && window.Safe && Safe.has(v)) Safe.render(v); else if (window.Lookback && Lookback.view(v)) {} else if (l.spot) fresh = renderSpot(l.spot); else if (l.sub) fresh = renderSub(l.hood, l.sub); else if (l.hood) renderHood(l.hood); else renderHome();
+      if (v === 'log') renderLogForm(); else if (v === 'spots') renderSpots(); else if (window.Lookback && Lookback.view(v)) {} else if (v && window.Safe && Safe.has(v)) Safe.render(v); else if (l.spot) fresh = renderSpot(l.spot); else if (l.sub) fresh = renderSub(l.hood, l.sub); else if (l.hood) renderHood(l.hood); else renderHome();
       if (fresh !== false) { wire(panel); if (window.Photos) Photos.mount(panel); } // fresh false: the panel was left as it was, listeners and all
       if (!v && level(l) >= 2) streetSoon();
     }
@@ -412,7 +412,7 @@
         <label class="switch"><span>Color every place, been or not</span><input type="checkbox" id="show-all" ${state.showAll ? 'checked' : ''}></label>
         <div class="field" style="margin-top:12px"><label>Appearance</label><div class="seg">${['system', 'light', 'dark'].map(t => `<button type="button" data-theme-pick="${t}" aria-pressed="${state.theme === t}">${t === 'system' ? 'System' : t[0].toUpperCase() + t.slice(1)}</button>`).join('')}</div></div>
         ${state.store === 'sync' ? `<div class="field"><label for="who-in">Your name on this device</label><input id="who-in" maxlength="${WHO_MAX}" autocomplete="given-name" enterkeyhint="done" placeholder="Shown on what you add" value="${esc(who())}"></div>` : ''}
-        <div class="actions" style="margin-top:4px"><button type="button" class="btn sm" id="export">Export log</button>${window.Safe ? Safe.dlBtn() : ''}<button type="button" class="btn sm" id="import">Import</button><input type="file" id="import-file" accept="application/json" hidden>${state.store === 'sync' ? '<button type="button" class="btn sm primary" id="share-log">Share this log</button><button type="button" class="btn sm" id="join-log">Join a log</button>' + (prevKeys().length ? '<button type="button" class="btn sm quiet" id="back-log">Back to the previous log</button>' : '') : ''}</div>${window.Safe ? Safe.settings() : ''}
+        <div class="actions" style="margin-top:4px"><button type="button" class="btn sm" id="export">Export log</button><button type="button" class="btn sm" id="import">Import</button><input type="file" id="import-file" accept="application/json" hidden>${state.store === 'sync' ? '<button type="button" class="btn sm primary" id="share-log">Share this log</button><button type="button" class="btn sm" id="join-log">Join a log</button>' + (prevKeys().length ? '<button type="button" class="btn sm quiet" id="back-log">Back to the previous log</button>' : '') : ''}</div>${window.Safe ? Safe.settings() : ''}
         <p class="fine">${state.store === 'db' ? 'Your log, list, spots and notes are saved with this artifact and shared with everyone it is shared with.' : state.store === 'sync' ? 'This log is shared: everyone who opens your link sees it and adds to it, live. Keep the link private, and bookmark it on each phone. Photos are shared with the log the same way, but Export log does not include them.' : 'Your log is saved in this browser. Export it now and then to keep a copy, or to move it to another device.'} San Francisco boundaries from the SF Planning Department, high points from Mapzen elevation data. Marin, East Bay and Peninsula boundaries from the US Census; their high points are approximate. Place search by Photon, © OpenStreetMap contributors.</p>
       </details>`;
     panel.querySelector('#surprise').addEventListener('click', surprise);
@@ -429,7 +429,6 @@
     const bl = panel.querySelector('#back-log'); if (bl) bl.addEventListener('click', () => joinLog(true));
     const wi = panel.querySelector('#who-in'); if (wi) { wi.addEventListener('keydown', e => { if (e.key === 'Enter') wi.blur(); }); wi.addEventListener('change', () => { setWho(wi.value); wi.value = who(); toast(who() ? `You are ${who()} on this device` : 'No name on this device'); }); }
     const ns = panel.querySelector('#news-seen'); if (ns) ns.addEventListener('click', markSeen);
-    if (window.Safe) Safe.wire(panel);
     panel.querySelectorAll('[data-news]').forEach(b => b.addEventListener('click', () => { const e = newsShown.find(x => x.key === b.dataset.news); if (e) openEv(e); }));
   }
 
@@ -554,8 +553,8 @@
   function setSaveState(t) { const el = $('savestate'); if (el) el.textContent = t; }
   function adopt(body) {
     state.done = bare(clone(body.hoods)); state.want = bare(clone(body.want)); state.spots = bare(clone(body.spots));
-    if (window.Safe) Safe.adopt(body); // removed spots move to state.trash
     for (const id in state.spots) { const sp = state.spots[id]; if (!sp || typeof sp !== 'object' || Array.isArray(sp)) { delete state.spots[id]; continue; } if (!sp.status) sp.status = 'been'; if (!sp.sub && IDX[sp.hood] != null) { const [x, y] = Geom.proj([sp.lon, sp.lat]); const j = map.subIndexAt(IDX[sp.hood], x, y); if (j >= 0) sp.sub = subs(sp.hood)[j].name; } }
+    if (window.Safe) Safe.adopt(body); // removed spots move to state.trash, with their status and section filled in like the rest
   }
   async function toggleDone(name) {
     if (!state.canWrite) return;
@@ -635,7 +634,7 @@
     try { await navigator.clipboard.writeText(link); toast('Link copied'); } catch (e) { prompt('Copy this link', link); }
   }
   const keyOf = raw => { let k = String(raw || '').trim(); try { const u = new URL(k); k = u.searchParams.get('log') || ''; } catch (e) { const m = k.match(/log=([A-Za-z0-9_-]+)/); if (m) k = m[1]; } return KEY_RE.test(k) ? k : null; };
-  function switchLog(k) { const leave = () => { keepPrevKey(k); try { localStorage.setItem('sbs-log-key', k); localStorage.removeItem('sbs-explored'); } catch (e) {} location.href = location.pathname + '?log=' + k; }; if (window.Safe) Safe.snap('Before switching logs', 3000).then(leave, leave); else leave(); } // a copy of the log it leaves first
+  function switchLog(k) { keepPrevKey(k); try { localStorage.setItem('sbs-log-key', k); localStorage.removeItem('sbs-explored'); } catch (e) {} location.href = location.pathname + '?log=' + k; }
   // joining another log: the link goes in an in-page dialog that says first that this device switches logs, and that the log it
   // leaves keeps its key here (keepPrevKey). Nothing is replaced until Switch logs is tapped. back: the same dialog, without the
   // field, takes this device back to the log it left last (Settings offers it only when there is one)
@@ -796,13 +795,12 @@
       const boot = state.bootLoc; state.bootLoc = null;
       if (boot && state.spots[boot.spot] && !state.loc.spot) go(boot, { replace: true });
       else if (state.loc.spot && !state.spots[state.loc.spot]) go({ hood: state.loc.hood }, { replace: true }); else render();
-      if (window.Safe) Safe.loaded(); // the log is in: the daily copy and the 30-day clean-up
+      if (window.Safe) Safe.loaded(); // the log is in: the 30-day clean-up
     }, e => { console.warn('sync ended', e); if (e && e.code === 'invalid_argument') { state.canWrite = false; if (unwatch) unwatch(); render(); } }); // the log stream closed: the feed's goes too
     render();
   }
-  const exportBody = () => { const spots = Object.fromEntries(Object.entries(state.spots).map(([id, sp]) => { const { _xy, ...rest } = sp; return [id, rest]; })); return { app: 'seven-by-seven', exportedAt: new Date().toISOString(), hoods: state.done, want: state.want, spots: window.Safe ? Safe.withTrash(spots) : spots }; }; // the log as stored: removed spots in it, marked
   async function exportLog() {
-    const payload = exportBody();
+    const payload = { app: 'seven-by-seven', exportedAt: new Date().toISOString(), hoods: state.done, want: state.want, spots: Object.fromEntries(Object.entries(state.spots).map(([id, sp]) => { const { _xy, ...rest } = sp; return [id, rest]; })) };
     const text = JSON.stringify(payload, null, 1), filename = `seven-by-seven-${today()}.json`;
     if (window.claude && window.claude.use) { // inside claude.ai the page cannot start a download itself; the viewer offers the save
       try { const dl = await claude.use('downloads'); if (dl) { await dl.save({ filename, data: text }); toast('Exported'); return; } } catch (e) { if (e && e.code !== 'cancelled') toast('Export was not allowed here', 3000); return; }
@@ -813,7 +811,6 @@
     if (!file) return;
     try {
       const body = JSON.parse(await file.text()); if (!body || typeof body !== 'object' || !(body.hoods || body.spots)) throw new Error('not a log');
-      if (window.Safe) await Safe.snap('Before import');
       let n = 0; for (const k in body.hoods || {}) if (!state.done[k]) { state.done[k] = body.hoods[k]; n++; } for (const k in body.want || {}) if (!state.want[k] && !state.done[k]) { state.want[k] = body.want[k]; n++; } for (const id in body.spots || {}) if (!state.spots[id]) { state.spots[id] = body.spots[id]; n++; }
       adopt({ hoods: state.done, want: state.want, spots: state.spots }); await persist(); if (state.lens === 'done') recolor(true); map.redraw(); render(); toast(`Imported ${n} ${n === 1 ? 'thing' : 'things'}`);
     } catch (e) { toast('That file is not a Seven by Seven log', 3000); }
@@ -920,7 +917,7 @@
     toast(said || (d.id ? 'Saved' : `${name} logged`)); setSaveState('Saving…'); const ok = await persist(); go({ spot: id }, { replace: true }); if (ok !== false) setSaveState('Saved');
     if (ok !== false && state.spots[id]) { const s = state.spots[id], k = !prev ? 'spot' : was === 'want' && s.status === 'been' ? 'been' : null; if (k) logEvent(k, { id, name: s.name, hood: s.hood }); }
   }
-  async function removeSpot(id) { if (window.Safe) return Safe.trashSpot(id); const sp = state.spots[id]; if (!sp) return; delete state.spots[id]; go({ hood: sp.hood, sub: sp.sub }, { replace: true, fly: false }); map.redraw(); const ok = await persist(); if (ok !== false && state.store === 'sync' && window.Photos) { try { Photos.removeAll(ownerKey.spot(id)); } catch (e) {} } toast(`${sp.name} removed`); } // its photos go too, best effort, once the delete is saved
+  async function removeSpot(id) { if (window.Safe && await Safe.trashSpot(id) !== false) return; const sp = state.spots[id]; if (!sp) return; delete state.spots[id]; go({ hood: sp.hood, sub: sp.sub }, { replace: true, fly: false }); map.redraw(); const ok = await persist(); if (ok !== false && state.store === 'sync' && window.Photos) { try { Photos.removeAll(ownerKey.spot(id)); } catch (e) {} } toast(`${sp.name} removed`); } // its photos go too, best effort, once the delete is saved
 
   // ---------- where am I ----------
   // o.quiet: no message on failure, o.fail() instead (the log form's own lookup)
@@ -999,9 +996,9 @@
   let wasPhone = isPhone();
   window.addEventListener('resize', () => { map.resize(); map.redraw(); if (isPhone() !== wasPhone) { wasPhone = isPhone(); if (state.quiz || state.placing) fitHead(); else render(); } else fitHead(); }); // across the breakpoint the recent spots move between the header and the panel (not mid-quiz, where a render drops an answer's verdict and Next, nor mid pin-drop, whose header it replaces) // resize() also catches a devicePixelRatio change (browser zoom)
   if (window.Lookback) Lookback.init({ state, panel, go, render, persist, beforeWrite, toast, setHead, esc, attr, KINDS, IDX, BY_SLUG, ownerKey, cleanName, niceDate, isPhone, look: vibeLook, VERDICT });
-  if (window.Safe) Safe.init({ state, persist, adopt, go, setHead, toast, esc, who, cleanName, ownerKey, kinds: KINDS, render, redraw: () => map.redraw(), refresh: () => { if (state.lens === 'done') recolor(false); map.redraw(); render(); },
-    logKey: () => state.store === 'sync' ? feedKey : null, placeName: k => Object.hasOwn(BY_SLUG, k) ? BY_SLUG[k] : k, photoApi: () => photoOpts && photoOpts.api, fetchLog: () => docRef && docRef.get ? docRef.get() : null, exportBody,
-    ownerNames: () => Object.keys(state.spots).map(id => [ownerKey.spot(id), state.spots[id].name]).concat(NAMES.flatMap(h => [[ownerKey.place(h), h], ...subs(h).map(s => [ownerKey.section(h, s.name), h + ' - ' + s.name])])) }); // recently deleted, backups, Download everything
+  if (window.Safe) Safe.init({ state, persist, go, setHead, toast, esc, who, cleanName, ownerKey, kinds: KINDS, render, redraw: () => map.redraw(), refresh: () => { if (state.lens === 'done') recolor(false); map.redraw(); render(); },
+    logKey: () => state.store === 'sync' ? feedKey : null, photoApi: () => photoOpts && photoOpts.api, fetchLog: () => docRef && docRef.get ? docRef.get() : null,
+    ownerNames: () => Object.keys(state.spots).map(id => [ownerKey.spot(id), state.spots[id].name]).concat(NAMES.flatMap(h => [[ownerKey.place(h), h], ...subs(h).map(s => [ownerKey.section(h, s.name), h + ' - ' + s.name])])) }); // recently deleted (js/safe.js)
   window.__sbs = { map, state, go, sheet, maps: { spotQuery, areaQuery, mapsLink, appleLink, spotApple, areaApple }, photos: window.Photos ? Object.assign(Object.create(window.Photos), { ownerKey }) : null, get photoOpts() { return photoOpts; }, feed: { read: readFeed, get news() { return state.news; } } }; // for tests and the console
   window.claude?.hot?.snapshot?.(() => ({ loc: state.loc }));
   window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});

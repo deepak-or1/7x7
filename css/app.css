@@ -730,3 +730,20 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
   .lk-ctl { align-items: center; gap: 14px; } .lk-ag, .lk-dsum { font-size: 14.5px; } .lk-od { font-size: 13.5px; }
   .lk-yr { min-height: 56px; }
 }
+/* Recently deleted (js/safe.js) */
+.safe-links { margin-top: 14px; border-top: 1px solid var(--line); }
+.safe-list li { padding-bottom: 12px; }
+.safe-list .row { padding-bottom: 6px; }
+.safe-list .row:hover .nm { color: inherit; } /* a row here is not a link */
+.safe-list .row + .actions { margin: 0 0 0 20px; } /* under the name, past the dot */
+.safe-list li:has(.safe-th) .row + .actions { margin-left: 54px; } /* past the thumbnail */
+.safe-th { width: 44px; height: 44px; border-radius: 6px; overflow: hidden; background: var(--paper-2); box-shadow: 0 0 0 1px var(--line) inset; }
+.safe-th img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.safe-th img:not([src]) { visibility: hidden; }
+.safe-bad { color: var(--bad); }
+.btn.safe-yes { border-color: var(--bad); }
+.safe-ask > span { flex-basis: 100%; font-size: 13.5px; color: var(--ink-2); }
+.safe-ro { margin-top: 12px; }
+@media (max-width: 880px) {
+  .safe-list .row + .actions .btn { flex: 1 1 0; } /* two 44 pt buttons share the line */
+}

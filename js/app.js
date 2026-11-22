@@ -51,8 +51,8 @@
 
   // ---------- state ----------
   const state = { loc: { region: 'all', hood: null, sub: null, spot: null }, view: null, lens: 'vibe', filters: new Set(), query: '', showAll: true, theme: 'system', done: bare(), want: bare(), spots: bare(), placing: false, pending: null, draft: null, canWrite: true, store: 'none', quiz: null, hover: -1 };
-  try { const s = JSON.parse(localStorage.getItem('sbs-prefs-v3') || localStorage.getItem('sbs-prefs-v2') || '{}'); if (LENSES[s.lens || s.mode]) state.lens = s.lens || s.mode; if (s.showAll === false) state.showAll = false; if (s.theme === 'light' || s.theme === 'dark') state.theme = s.theme; } catch (e) {}
-  const savePrefs = () => { try { localStorage.setItem('sbs-prefs-v3', JSON.stringify({ lens: state.lens, showAll: state.showAll, theme: state.theme })); } catch (e) {} };
+  try { const s = JSON.parse(localStorage.getItem('sbs-prefs-v3') || localStorage.getItem('sbs-prefs-v2') || '{}'); if (LENSES[s.lens || s.mode]) state.lens = s.lens || s.mode; if (s.showAll === false) state.showAll = false; if (s.theme === 'light' || s.theme === 'dark') state.theme = s.theme; if (AWAY.includes(s.area)) state.lastArea = s.area; } catch (e) {}
+  const savePrefs = () => { try { localStorage.setItem('sbs-prefs-v3', JSON.stringify({ lens: state.lens, showAll: state.showAll, theme: state.theme, area: areaKey(state.loc.region) })); } catch (e) {} }; // area: the app opens in the area it was left in
   function applyTheme() { if (state.theme === 'light' || state.theme === 'dark') document.documentElement.setAttribute('data-theme', state.theme); else document.documentElement.removeAttribute('data-theme'); syncThemeColor(); if (window.StreetMap) StreetMap.restyle(); }
   // the browser / PWA status band follows the theme the page actually shows: the paper tone at the top of the map
   function syncThemeColor() { const c = getComputedStyle(document.documentElement).getPropertyValue('--land-other').trim(); if (c) document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.setAttribute('content', c)); } // both metas (their media attributes only matter before this runs)
@@ -81,12 +81,12 @@
     // framing: above the phone sheet; the desktop clear of the search pill (top left) and the control capsule (a column beside the
     // logbook). The phone frames across the full width, and in the column left of its capsule only when the shape would run under
     // it (insetClear, set by frame())
-    insets() { const c = document.querySelector('#ctl .stack').getBoundingClientRect(), right = Math.max(0, window.innerWidth - c.left) + 8; if (isPhone()) return { top: sheet && sheet.detent === 'full' ? 0 : c.top + 4, right: insetClear ? right : 0, bottom: (sheet ? sheet.visible : 0) + 12, left: 0 }; return { top: document.querySelector('.top .search').getBoundingClientRect().bottom + 10, right, bottom: 12, left: 0 }; },
+    insets() { const c = document.querySelector('#ctl .stack').getBoundingClientRect(), right = Math.max(0, window.innerWidth - c.left) + 8; if (isPhone()) return { top: sheet && sheet.detent === 'full' ? 0 : Math.max(c.top + 4, insetPill ? $('areas').getBoundingClientRect().bottom + 8 : 0), right: insetClear ? right : 0, bottom: (sheet ? sheet.visible : 0) + 12, left: 0 }; return { top: document.querySelector('.top .search').getBoundingClientRect().bottom + 10, right, bottom: 12, left: 0 }; },
     spots: spotList, marks: marksFor, selectedSpot: () => state.loc.spot,
     alphaFor(i) { if (state.quiz) return 1; const filtered = state.filters.size > 0 && !matches(i) ? .25 : 1; const veil = !state.showAll && state.lens !== 'done' && !isDone(i) ? .35 : 1; return filtered * veil; },
     onTap, onHover, onGestureStart() { closeLenses(); },
     // the floating chrome (the control capsule; the search field, which on the phone sits in the capsule's top slot) reserves its footprint so map labels avoid it
-    occluders() { if (isPhone() && document.documentElement.classList.contains('sheet-full')) return []; return ['.top .search', '#ctl .stack'].map(s => document.querySelector(s)).filter(el => el && el.offsetParent !== null && getComputedStyle(el).opacity !== '0').map(el => el.getBoundingClientRect()).filter(b => b.height > 0).map(b => [b.left - 4, b.top - 4, b.right + 4, b.bottom + 4]); },
+    occluders() { if (isPhone() && document.documentElement.classList.contains('sheet-full')) return []; return ['.top .search', '#ctl .stack', '#areas'].map(s => document.querySelector(s)).filter(el => el && el.offsetParent !== null && getComputedStyle(el).opacity !== '0').map(el => el.getBoundingClientRect()).filter(b => b.height > 0).map(b => [b.left - 4, b.top - 4, b.right + 4, b.bottom + 4]); },
   });
 
   // each area's lon/lat box (the Bay canvas; an away area's camera box, which is its places plus a margin), for "am I on the map"
@@ -94,10 +94,12 @@
   const BOXES = map.areas.map(a => { if (a.id === 'bay') return { area: 'bay', b: G.bbox }; const sw = Geom.unproj(a.r[0], a.r[3]), ne = Geom.unproj(a.r[2], a.r[1]); return { area: a.id, b: [sw[0], sw[1], ne[0], ne[1]] }; });
   const boxAt = (lon, lat) => BOXES.find(({ b }) => lon >= b[0] && lon <= b[2] && lat >= b[1] && lat <= b[3]) || null;
 
+  // the colour a place is drawn in under the Character lens: its kind's, unless it carries a tone of its own (the Strip's stretches)
+  const toneOf = name => INFO[name].tone || VIBES[INFO[name].vibe].cls;
   function colorFor(i) {
     const h = HOODS[i], info = INFO[h.name];
     if (state.quiz) return h.name === state.quiz.lit ? 'var(--accent)' : 'var(--grey-fill)';
-    if (state.lens === 'vibe') return `var(--${VIBES[info.vibe].cls})`;
+    if (state.lens === 'vibe') return `var(--${toneOf(h.name)})`;
     if (state.lens === 'fog') return `var(--fog${info.fog})`;
     if (state.lens === 'elev') { const low = REGIONS[h.region].low ? REGIONS[h.region].low.m : 0; return `var(--hill${1 + Math.min(4, Math.floor(Math.sqrt(Math.max(0, h.max - low) / (AREA_MAX[areaKey(h.region)] - low)) * 5))})`; } // from the area's floor (sea level, or an away region's own) to its highest point
     return isDone(i) ? 'var(--accent)' : 'var(--grey-fill)';
@@ -149,6 +151,7 @@
     if (state.quiz && !opts.keepQuiz) endQuiz(true);
     if (state.placing && !opts.keepPlacing) stopPlacing();
     state.loc = next; state.view = opts.view || null;
+    if (areaKey(next.region) !== areaKey(prev.region)) savePrefs();
     if (opts.push !== false) { try { const url = location.pathname + location.search + hashOf(next), n = hDepth(); if (opts.replace || level(next) === level(prev) && next.hood === prev.hood && next.sub === prev.sub) history.replaceState({ loc: next, s: SESSION, n }, '', url); else history.pushState({ loc: next, s: SESSION, n: n + 1 }, '', url); } catch (e) {} }
     map.setState({ region: next.region, sel: next.hood ? IDX[next.hood] : -1, selSub: next.sub ? subIndex(next.hood, next.sub) : -1 });
     if (state.lens === 'done' || state.quiz) recolor(false);
@@ -180,22 +183,28 @@
   }
   // phone: frame the selection across the full width, unless a vertex of its shape (or a corner of the capsule inside the shape)
   // would land under the capsule: then frame it again in the column left of the capsule
-  let insetClear = false;
-  function frame(bb, pad, minW, dur, polys) {
-    let v = map.fitView(bb[0], bb[1], bb[2], bb[3], pad, minW);
+  // the same for the area switch (top left): a shape that would land under it is framed below it (insetPill)
+  let insetClear = false, insetPill = false;
+  function fitClear(bb, pad, minW, polys) {
+    const fit = () => map.fitView(bb[0], bb[1], bb[2], bb[3], pad, minW); let v = fit();
     if (isPhone() && polys) {
-      const c = document.querySelector('#ctl .stack').getBoundingClientRect(), k = map.W / v.w, x0 = c.left - 6, y0 = c.top - 6, x1 = c.right + 6, y1 = c.bottom + 6;
-      const under = polys.some(poly => poly.some(ring => ring.some(([x, y]) => { const sx = (x - v.x) * k, sy = (y - v.y) * k; return sx > x0 && sx < x1 && sy > y0 && sy < y1; })))
-        || [[x0, y0], [x0, y1], [x1, y0], [x1, y1]].some(([sx, sy]) => Geom.inPolys(polys, v.x + sx / k, v.y + sy / k));
-      if (under) { insetClear = true; v = map.fitView(bb[0], bb[1], bb[2], bb[3], pad, minW); insetClear = false; }
+      const under = el => { if (!el || !el.offsetParent) return false; const c = el.getBoundingClientRect(), k = map.W / v.w, x0 = c.left - 6, y0 = c.top - 6, x1 = c.right + 6, y1 = c.bottom + 6;
+        return polys.some(poly => poly.some(ring => ring.some(([x, y]) => { const sx = (x - v.x) * k, sy = (y - v.y) * k; return sx > x0 && sx < x1 && sy > y0 && sy < y1; })))
+          || [[x0, y0], [x0, y1], [x1, y0], [x1, y1]].some(([sx, sy]) => Geom.inPolys(polys, v.x + sx / k, v.y + sy / k)); };
+      if (under($('areas'))) { insetPill = true; v = fit(); }
+      if (under(document.querySelector('#ctl .stack'))) { insetClear = true; v = fit(); }
+      insetClear = insetPill = false;
     }
-    map.flyToView(v, dur);
+    return v;
   }
+  const frame = (bb, pad, minW, dur, polys) => map.flyToView(fitClear(bb, pad, minW, polys), dur);
+  const regionPolys = r => AWAY.includes(r) ? HOODS.flatMap((h, i) => h.region === r ? window.HPP[i] : []) : null; // an away region is small enough to frame by its shape
   function flyToLoc(dur) {
     const l = state.loc;
     if (l.spot && state.spots[l.spot]) { const sp = state.spots[l.spot], [x, y] = sp._xy || Geom.proj([sp.lon, sp.lat]); frame([x - .01, y - .01, x + .01, y + .01], 1, U * 0.028, dur, [[[[x, y]]]]); return; }
     if (l.sub) { const s = subByName(l.hood, l.sub); if (s) { const pb = map.hoodBBox(IDX[l.hood]); frame(s.bbox, isPhone() ? 1.3 : 1.5, Math.max(U * 0.03, (s.bbox[2] - s.bbox[0]) * 3, (pb[2] - pb[0]) * .5), dur, (s.rings || []).map(r => [r])); return; } } // keep the parent place in view around a small section
     if (l.hood) { const ph = isPhone(); frame(map.hoodBBox(IDX[l.hood]), ph ? 1.25 : 1.75, U * (ph ? 0.06 : 0.08), dur, window.HPP[IDX[l.hood]]); return; }
+    const rp = regionPolys(l.region); if (rp) { map.userMoved = false; frame(map.regionBBox(l.region), 1.06, 0, dur, rp); return; }
     map.flyTo(map.regionBBox(l.region), 1.06, 0, dur); // 'all' is the bay core box, padded like a region
   }
   window.addEventListener('popstate', e => { const b = backing; backing = null; if (b) { clearTimeout(b.t); if (b.late) return; } const l = (e.state && e.state.loc) || parseHash(location.hash); go(l, { push: false }); });
@@ -276,7 +285,8 @@
   function renderLegend() {
     const el = $('legend'), k = state.lens; if (!el) return;
     if (state.quiz) { el.innerHTML = ''; return; }
-    if (k === 'vibe') el.innerHTML = Object.values(VIBES).map(v => `<span><i style="--c:var(--${v.cls})"></i>${v.label}</span>`).join('');
+    if (k === 'vibe') el.innerHTML = AWAY.includes(state.loc.region) && HOODS.some(h => h.region === state.loc.region && INFO[h.name].tone) ? HOODS.filter(h => h.region === state.loc.region).map(h => `<span><i style="--c:var(--${toneOf(h.name)})"></i>${esc(h.name)}</span>`).join('') // a region of toned places: the legend names them
+      : Object.values(VIBES).map(v => `<span><i style="--c:var(--${v.cls})"></i>${v.label}</span>`).join('');
     else if (k === 'fog') el.innerHTML = `<span>Sunny</span><span class="ramp">${swatches('fog')}</span><span>Always foggy</span>`;
     else if (k === 'elev') { const r = state.loc.region, low = REGIONS[r] && REGIONS[r].low; el.innerHTML = `<span>${low ? esc(low.label) : 'Sea level'}</span><span class="ramp">${swatches('elev')}</span><span>${ft(AREA_MAX[areaKey(r)]).toLocaleString()} ft</span>`; }
     else el.innerHTML = `<span><i style="--c:var(--accent)"></i>Been</span><span><i style="--c:var(--grey-fill)"></i>Everywhere else</span>`;
@@ -307,8 +317,12 @@
     if (o.extra) wire(head);
   }
   let headH = 0;
+  // the area switch on the map: the Bay Area and each away region, one tap apart. A tap opens that area's first screen
+  const areasEl = $('areas');
+  function renderAreas() { if (!areasEl || !AWAY.length) return; const cur = areaKey(state.loc.region); if (areasEl.dataset.cur === cur) return; areasEl.dataset.cur = cur; areasEl.innerHTML = [['bay', 'Bay Area', 'all']].concat(AWAY.map(r => [r, REGIONS[r].label, r])).map(([k, label, region]) => `<button type="button" data-area="${region}" aria-pressed="${cur === k}">${esc(label)}</button>`).join(''); }
+  if (areasEl) areasEl.addEventListener('click', e => { const b = e.target.closest('[data-area]'); if (b) go({ region: b.dataset.area }, { tap: true }); });
   function render() {
-    renderLegend();
+    renderLegend(); renderAreas();
     if (state.query) renderSearch();
     else if (state.quiz) renderQuiz();
     else {
@@ -387,7 +401,7 @@
   // (a local log, the artifact) it is the same coloured cover with the emoji, purely decorative, so every mode looks alike.
   const hero = (owner, label, o) => !window.Photos ? '' : state.store === 'sync' ? Photos.block(owner, label, state.canWrite, o) : Photos.cover(o);
   const spotSrc = id => ({ owner: ownerKey.spot(id), label: state.spots[id].name });
-  const vibeLook = hood => { const v = INFO[hood].vibe; return { c: `var(--${VIBES[v].cls})`, e: VIBE_E[v] || '📍' }; };
+  const vibeLook = hood => { const v = INFO[hood].vibe; return { c: `var(--${toneOf(hood)})`, e: VIBE_E[v] || '📍' }; };
   let stamped = null; // the spot (and status) whose stamp last landed: it thunks once per spot, not on every re-render
 
   // ---- home: Bay Area or a region ----
@@ -462,7 +476,7 @@
       </div>
       ${done ? `<textarea class="note" id="note" placeholder="What did you eat, see, or climb?" aria-label="Notes for ${esc(name)}">${esc(keepNote ?? done.note ?? '')}</textarea>` : ''}<div class="savestate" id="savestate">${state.canWrite ? '' : 'Sign in to keep a list'}</div>
       ${secs.length ? `<h3>Sections <span class="n">${secs.length}</span></h3><ul class="rows">${secs.map((s, j) => [s, j]).sort((a, b) => !!b[0].star - !!a[0].star).map(([s, j]) => rowSub(name, s, j)).join('')}</ul>` : ''}
-      <div class="facts"><span class="vibe"><i style="--c:var(--${VIBES[info.vibe].cls})"></i><b>${VIBES[info.vibe].label}</b></span><span><b>${ft(h.max).toLocaleString()} ft</b> high point${roof ? ' · ' + REGIONS[h.region].roof : ''}</span><span><b>Fog</b> <span class="dots">${[1, 2, 3, 4, 5].map(n => `<i class="${n <= info.fog ? 'on' : ''}"></i>`).join('')}</span> ${FOG_WORDS[info.fog - 1]}</span></div>
+      <div class="facts"><span class="vibe"><i style="--c:var(--${toneOf(name)})"></i><b>${VIBES[info.vibe].label}</b></span><span><b>${ft(h.max).toLocaleString()} ft</b> high point${roof ? ' · ' + REGIONS[h.region].roof : ''}</span><span><b>Fog</b> <span class="dots">${[1, 2, 3, 4, 5].map(n => `<i class="${n <= info.fog ? 'on' : ''}"></i>`).join('')}</span> ${FOG_WORDS[info.fog - 1]}</span></div>
       ${mapBtns(areaQuery(name), areaApple(name))}
       <h3>Spots <span class="n">${mine.length || ''}</span></h3>
       ${mine.length ? `<ul class="rows">${mine.map(id => rowSpot(id, false)).join('')}</ul>` : `<p class="empty">Nothing logged here yet.</p>`}
@@ -991,7 +1005,7 @@
   window.HPP = []; window.HP.forEach(h => { window.HPP[IDX[h.name]] = h.polys.map(poly => poly.map(ring => ring.map(Geom.proj))); });
   function start(saved) {
     renderLenses(); recolor(false);
-    const fromHash = (saved && saved.loc) || parseHash(location.hash);
+    const fromHash = (saved && saved.loc) || (!location.hash && state.lastArea ? { region: state.lastArea } : parseHash(location.hash)); // no link to follow: the area the app was left in
     loadLocal(); // spots must be known before a #spot-- link can resolve
     state.loc = normalize(fromHash); state.bootLoc = fromHash.spot && !state.loc.spot ? fromHash : null;
     sheet.set(isPhone() ? (level(state.loc) >= 2 ? 'half' : 'peek') : 'full', { instant: true, quiet: true });
@@ -1000,7 +1014,7 @@
     goFly = level(state.loc) >= 2; render(); goFly = false; // a deep link flies in below: its street map waits for that
     if (isPhone()) sheet.set(sheet.detent, { instant: true, quiet: true }); // the peek is the header's height, known only now
     { // synchronously, so the very first frame is already the fitted view
-      const l = state.loc; const v = l.hood ? null : map.fitView(...map.regionBBox(l.region), 1.06, 0); if (v) { map.jumpTo(v); } else { const bb = map.regionBBox(l.region); map.jumpTo(map.fitView(bb[0], bb[1], bb[2], bb[3], 1.06, 0)); flyToLoc(900); }
+      const l = state.loc; const v = l.hood ? null : fitClear(map.regionBBox(l.region), 1.06, 0, regionPolys(l.region)); if (v) { map.jumpTo(v); } else { const bb = map.regionBBox(l.region); map.jumpTo(map.fitView(bb[0], bb[1], bb[2], bb[3], 1.06, 0)); flyToLoc(900); }
     }
     connectStore();
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { map.redraw(); fitHead(); }); // the path folds by measured width: measure again in the real font

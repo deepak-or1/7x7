@@ -426,7 +426,8 @@ function writeGeoFile(GEO, HP) {
   report.anchorFallbacks = newHoods.filter(h => h._method !== bestMethod).map(h => h.name);
   if (report.anchorFallbacks.length) note('anchor fallback to pole of inaccessibility for: ' + report.anchorFallbacks.join(', '));
   const all = [...hoods, ...newHoods];
-  const polysOf = h => hpByName.get(h.name) || places.find(p => p.name === h.name).polys;
+  const customPolys = new Map(places.filter(p => p.kind === 'custom').map(p => [p.name, p.polys])); // the list's polygon wins over the file's copy, in every step from here
+  const polysOf = h => customPolys.get(h.name) || hpByName.get(h.name) || places.find(p => p.name === h.name).polys;
 
   // 9. elevation sampling: cells from z=12 (the scale CELL_SCALE was pinned on), max from z=14 (z=12 pixels, about 30 m, flatten small summits)
   const tileKeys = [...new Set(all.flatMap(h => tilesFor(polysOf(h), Z)))];

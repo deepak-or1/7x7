@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// tools/geo-build.js: rebuilds data/geo.js for the nine-county Bay Area (Node 24, no npm deps).
+// tools/geo-build.js: rebuilds data/geo.js for the nine-county Bay Area and the away regions (Las Vegas) (Node 24, no npm deps).
 //
 //   node tools/geo-build.js [--places PATH] [--cache DIR] [--dry]
 //   node tools/geo-build.js --reencode [--dry]
@@ -33,6 +33,13 @@
 // pinned so reruns are stable; the calibrations are still recomputed into the report as diagnostics.
 // Network responses and tiles are cached in tools/geo-cache (gitignored) so reruns work offline; a JSON report
 // is written to <cache>/report.json.
+//
+// Away regions (the `away` map in tools/geo-places.json: region key -> { state: Census state FIPS }) are places far from the Bay
+// Area, drawn at their true position in the same projection (the map keeps one camera box per area). Their places are fetched
+// like any other, from that state's layers, and go through the same anchor, elevation and adjacency steps, but they stay out of
+// the canvas bbox (so the Bay canvas and every existing number are untouched) and get no county filler (the page paints land
+// there). Their inland water is every areal hydrography feature within AWAY_WATER_PAD degrees of the region's places that passes
+// the size rules (still water from AWAY_WATER_MIN_M2), appended to `water`, each ring whole in `outline` (all of it is shore).
 'use strict';
 const fs = require('fs'), path = require('path'), zlib = require('zlib'), crypto = require('crypto'), vm = require('vm');
 
@@ -58,12 +65,13 @@ const WATER_MIN_M2 = 1.24e6, WATER_CHANNEL_MIN_M2 = 5e5, WATER_GEN_DEG = 0.0003,
 const WATER_IN_FILLER = 0.5;  // keep a feature when at least this share of its area lies on the county filler
 const WATER_SHORE_EPS = 0.0005; // deg: side offset that tells a shore (land on one side) from a seam or open water
 const WATER_SHORE_MIN_M = 200;  // open shore pieces shorter than this (about 1.4 map units) are dropped from the halo as noise
+const AWAY_WATER_PAD = 0.15, AWAY_WATER_MIN_M2 = 1e6; // away regions: the hydrography window around the places (degrees), and the bar for still water there
 const COAST_PAD = 0.3; // outline edges beyond bbox + this many degrees are county lines inland, not shore
 const TERRARIUM = (z, x, y) => `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${z}/${x}/${y}.png`;
 const Z = 12, ZMAX = 14; // z=12 samples give `cells` (pinned CELL_SCALE); z=14 samples (about 7.5 m) give `max`
 const SPIKE_M = 10; // z=14 max: a pixel more than this above the second-highest of its 8 neighbours is a tile artefact (seen: 54 m in flat Oakley), not a summit
 const MARGIN = 0.04, GRID = 0.005, ADJ_M = 250, ADJ_CAP = 8, FALLBACK_N = 2, FALLBACK_M = 25000;
-const REGION_KEYS = ['sf', 'marin', 'east', 'penin', 'south', 'north'];
+const REGION_KEYS = ['sf', 'marin', 'east', 'penin', 'south', 'north', 'vegas'];
 // pinned calibration (measured against the original hand-made 90-place file; see the header)
 const UNIT_REF = { nx: 400, ny: 584, bbox: [-122.755, 37.41, -122.105, 38.16] }; // the original canvas: map units per degree
 const CELL_SCALE = 0.31248124238846825; // terrarium z=12 samples -> the original `cells` scale (1 / median new/old ratio)
@@ -314,7 +322,9 @@ function writeGeoFile(GEO, HP) {
 
   // 2. place list
   const spec = JSON.parse(fs.readFileSync(PLACES, 'utf8'));
-  const places = []; spec.batches.forEach(b => b.places.forEach(p => places.push({ ...p, region: p.region || b.region, batch: b.id })));
+  const AWAY = spec.away || {}; // region key -> { state }: regions drawn outside the Bay canvas
+  Object.keys(AWAY).forEach(k => { if (!REGION_KEYS.includes(k) || !/^\d{2}$/.test(AWAY[k].state || '')) throw new Error('bad away region ' + k); });
+  const places = []; spec.batches.forEach(b => b.places.forEach(p => { const region = p.region || b.region, aw = AWAY[region]; places.push({ ...p, region, batch: b.id, state: aw ? aw.state : '06', away: !!aw }); }));
   places.forEach(p => { if (!REGION_KEYS.includes(p.region)) throw new Error(`bad region ${p.region} for ${p.name}`); });
   const listed = new Set(places.map(p => p.name)); if (listed.size !== places.length) throw new Error('duplicate place names in ' + PLACES);
   const OLDX = OLD.hoods.filter(h => !listed.has(h.name)); // existing hoods: kept verbatim
@@ -323,25 +333,28 @@ function writeGeoFile(GEO, HP) {
   note(`places list: ${places.length} places (${places.length - toFetch.length} already in data/geo.js, ${toFetch.length} to fetch); ${OLDX.length} existing hoods kept`);
 
   // 3. county polygons for the named counties (used to disambiguate duplicate BASENAMEs)
-  const countyNames = [...new Set(toFetch.map(p => p.county))];
-  const cq = !toFetch.length ? { features: [] } : await fetchJSON(`${COUNTY_URL}?where=${encodeURIComponent(`STATE='06' AND BASENAME IN (${countyNames.map(n => `'${n}'`).join(',')})`)}&outFields=BASENAME,GEOID,STATE&f=geojson&outSR=4326`);
-  const countyPolys = new Map(cq.features.map(f => [f.properties.BASENAME, geomToPolys(f.geometry)]));
-  countyNames.forEach(n => { if (!countyPolys.has(n)) throw new Error('county not found: ' + n); });
+  const states = [...new Set(toFetch.map(p => p.state))].sort(), countyPolys = new Map(); // key: state|county
+  for (const st of states) {
+    const countyNames = [...new Set(toFetch.filter(p => p.state === st).map(p => p.county))];
+    const cq = await fetchJSON(`${COUNTY_URL}?where=${encodeURIComponent(`STATE='${st}' AND BASENAME IN (${countyNames.map(n => `'${n}'`).join(',')})`)}&outFields=BASENAME,GEOID,STATE&f=geojson&outSR=4326`);
+    cq.features.forEach(f => countyPolys.set(st + '|' + f.properties.BASENAME, geomToPolys(f.geometry)));
+    countyNames.forEach(n => { if (!countyPolys.has(st + '|' + n)) throw new Error(`county not found: ${n} (state ${st})`); });
+  }
 
   // 4. place polygons (batched IN lists per layer)
   const missing = [], ambiguous = [];
-  for (const kind of ['city', 'cdp']) {
-    const list = toFetch.filter(p => p.kind === kind);
+  for (const st of states) for (const kind of ['city', 'cdp']) {
+    const list = toFetch.filter(p => p.kind === kind && p.state === st);
     for (let i = 0; i < list.length; i += 12) {
       const batch = list.slice(i, i + 12);
-      const where = `STATE='06' AND BASENAME IN (${batch.map(p => `'${p.census.replace(/'/g, "''")}'`).join(',')})`;
+      const where = `STATE='${st}' AND BASENAME IN (${batch.map(p => `'${p.census.replace(/'/g, "''")}'`).join(',')})`;
       const url = `${TIGER}/Places_CouSub_ConCity_SubMCD/MapServer/${PLACE_LAYER[kind]}/query?where=${encodeURIComponent(where)}&outFields=BASENAME,NAME,GEOID,LSADC,AREALAND,CENTLAT,CENTLON&f=geojson&outSR=4326`;
       const j = await fetchJSON(url);
       if (j.exceededTransferLimit) throw new Error('transfer limit exceeded; use smaller batches');
       for (const p of batch) {
         let feats = j.features.filter(f => f.properties.BASENAME === p.census);
         if (feats.length > 1) {
-          const cp = countyPolys.get(p.county);
+          const cp = countyPolys.get(p.state + '|' + p.county);
           const inCounty = feats.filter(f => inPolys(cp, +f.properties.CENTLON, +f.properties.CENTLAT));
           ambiguous.push(`${p.name}: ${feats.length} features (${feats.map(f => f.properties.NAME + '/' + f.properties.GEOID).join(', ')}) -> ${inCounty.length ? 'picked ' + inCounty[0].properties.GEOID : 'none in county, picked first'}`);
           feats = inCounty.length ? inCounty : feats;
@@ -359,7 +372,8 @@ function writeGeoFile(GEO, HP) {
   // 5. new bbox at the old unit density
   const unitX = (UNIT_REF.bbox[2] - UNIT_REF.bbox[0]) / UNIT_REF.nx;                  // deg lon per unit
   const unitY = (mercY(UNIT_REF.bbox[3]) - mercY(UNIT_REF.bbox[1])) / UNIT_REF.ny;    // mercator per unit (positive)
-  const everyPoly = [...OLDX.map(h => hpByName.get(h.name)), ...places.map(p => p.polys)];
+  const awayRegion = r => !!AWAY[r]; // by region, so it holds for hoods kept from the file too
+  const everyPoly = [...OLDX.filter(h => !awayRegion(h.region)).map(h => hpByName.get(h.name)), ...places.filter(p => !p.away).map(p => p.polys)]; // the canvas is the Bay Area: away places lie outside it
   const ub = bboxOf(everyPoly.flatMap(allRings));
   const lon0 = Math.floor((ub[0] - MARGIN) / GRID) * GRID, lat1 = Math.ceil((ub[3] + MARGIN) / GRID) * GRID;
   const lon1g = Math.ceil((ub[2] + MARGIN) / GRID) * GRID, lat0g = Math.floor((ub[1] - MARGIN) / GRID) * GRID;
@@ -499,7 +513,7 @@ function writeGeoFile(GEO, HP) {
   }
   note('regions: ' + JSON.stringify(regions));
 
-  // 12. other: every California county intersecting bbox + 0.6 deg (queried), filtered to those meeting bbox + COAST_PAD
+  // 12. other: every California county intersecting bbox + 0.6 deg (queried), filtered to those meeting bbox + COAST_PAD (the Bay canvas only: away regions have no filler)
   const env = [bbox[0] - 0.6, bbox[1] - 0.6, bbox[2] + 0.6, bbox[3] + 0.6].map(v => +v.toFixed(3));
   const oq = await fetchJSON(`${COUNTY_URL}?where=${encodeURIComponent("STATE='06'")}&geometry=${env.join(',')}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=BASENAME,GEOID,STATE&f=geojson&outSR=4326`);
   if (oq.exceededTransferLimit) throw new Error('county query exceeded transfer limit');
@@ -515,16 +529,20 @@ function writeGeoFile(GEO, HP) {
   note(`other: ${counties.length} counties (${report.counties.join(', ')}), ${other.length} polygons, ${other.flat().reduce((s, r) => s + r.length, 0)} vertices`);
 
   // 12b. water: inland areal hydrography on the canvas (drawn in the water colour over the county filler); rules at WATER_* above
-  const wBase = `${HYDRO_URL}?where=${encodeURIComponent(`AREAWATER>${WATER_CHANNEL_MIN_M2}`)}&geometry=${bbox.join(',')}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=OBJECTID,NAME,MTFCC,AREAWATER&outSR=4326&maxAllowableOffset=${WATER_GEN_DEG}&orderByFields=OBJECTID&f=geojson`;
-  const wFeats = [], wSeen = new Set();
-  for (let off = 0, page = 0; ; page++) { // paged by resultOffset; a page cut short by the server's transfer limit just moves the offset by what came back
-    if (page > 200) throw new Error('water query: too many pages');
-    const j = await fetchJSON(`${wBase}&resultOffset=${off}&resultRecordCount=${WATER_PAGE}`);
-    const more = j.exceededTransferLimit || (j.properties && j.properties.exceededTransferLimit);
-    j.features.forEach(f => { const id = f.properties.OBJECTID; if (!wSeen.has(id)) { wSeen.add(id); wFeats.push(f); } });
-    off += j.features.length;
-    if (!j.features.length || (!more && j.features.length < WATER_PAGE)) break;
+  async function hydroFeatures(env) { // every areal hydrography feature over WATER_CHANNEL_MIN_M2 meeting the lon/lat envelope
+    const wBase = `${HYDRO_URL}?where=${encodeURIComponent(`AREAWATER>${WATER_CHANNEL_MIN_M2}`)}&geometry=${env.join(',')}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=OBJECTID,NAME,MTFCC,AREAWATER&outSR=4326&maxAllowableOffset=${WATER_GEN_DEG}&orderByFields=OBJECTID&f=geojson`;
+    const feats = [], seen = new Set();
+    for (let off = 0, page = 0; ; page++) { // paged by resultOffset; a page cut short by the server's transfer limit just moves the offset by what came back
+      if (page > 200) throw new Error('water query: too many pages');
+      const j = await fetchJSON(`${wBase}&resultOffset=${off}&resultRecordCount=${WATER_PAGE}`);
+      const more = j.exceededTransferLimit || (j.properties && j.properties.exceededTransferLimit);
+      j.features.forEach(f => { const id = f.properties.OBJECTID; if (!seen.has(id)) { seen.add(id); feats.push(f); } });
+      off += j.features.length;
+      if (!j.features.length || (!more && j.features.length < WATER_PAGE)) break;
+    }
+    return feats;
   }
+  const wFeats = await hydroFeatures(bbox);
   const isStill = f => WATER_STILL.includes(f.properties.MTFCC), wArea = f => +f.properties.AREAWATER;
   wFeats.forEach(f => { f.polys = geomToPolys(f.geometry); f.bb = bboxOf(f.polys.map(p => p[0])); });
   const bigStill = wFeats.filter(f => isStill(f) && wArea(f) >= WATER_MIN_M2 && f.properties.NAME);
@@ -574,6 +592,21 @@ function writeGeoFile(GEO, HP) {
   }
   report.waterShores = { polylines: shoreLines.length, vertices: shoreLines.reduce((s, l) => s + l.length, 0), shortDropped: shortDropped[0] };
   note(`water shores (halo): ${shoreLines.length} polylines, ${report.waterShores.vertices} vertices (${shortDropped[0]} pieces under ${WATER_SHORE_MIN_M} m dropped)`);
+  // 12c. away regions: the inland water around their places. There is no filler there (the page paints land), so nothing is tested
+  // against one and every ring is a shore; appended after the Bay's water and shores, whose order stays as it was
+  report.awayWater = {};
+  for (const k of Object.keys(AWAY)) {
+    const members = all.filter(h => h.region === k); if (!members.length) continue;
+    const mb = bboxOf(members.flatMap(h => allRings(polysOf(h))));
+    const win = [mb[0] - AWAY_WATER_PAD, mb[1] - AWAY_WATER_PAD, mb[2] + AWAY_WATER_PAD, mb[3] + AWAY_WATER_PAD].map(v => +v.toFixed(3));
+    const feats = await hydroFeatures(win);
+    feats.forEach(f => { f.polys = geomToPolys(f.geometry); f.bb = bboxOf(f.polys.map(p => p[0])); });
+    const big = feats.filter(f => isStill(f) && wArea(f) >= AWAY_WATER_MIN_M2 && f.properties.NAME);
+    const kept = feats.filter(f => !isStill(f) || wArea(f) >= AWAY_WATER_MIN_M2 || big.some(g => g.properties.NAME === f.properties.NAME && touches(f.bb, g.bb))).sort((a, b) => a.properties.OBJECTID - b.properties.OBJECTID);
+    kept.forEach(f => { f.polys.forEach(p => water.push(p)); f.polys.flat().forEach(ring => shoreLines.push(ring)); });
+    report.awayWater[k] = { window: win, queried: feats.length, kept: kept.slice().sort(byArea).map(f => ({ name: f.properties.NAME || '(unnamed)', mtfcc: f.properties.MTFCC, km2: r2(wArea(f) / 1e6), vertices: f.polys.flat().reduce((s, r) => s + r.length, 0) })) };
+    note(`away water (${k}, window ${win}): ${feats.length} features, ${kept.length} kept, ${kept.reduce((s, f) => s + f.polys.flat().reduce((t, r) => t + r.length, 0), 0)} vertices: ${report.awayWater[k].kept.map(w => `${w.name} ${w.km2}`).join(', ')}`);
+  }
 
   // 13. outline: union of the county polygons by directed-edge cancellation
   const key = p => p[0] + ',' + p[1];

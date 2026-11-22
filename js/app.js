@@ -1,4 +1,5 @@
-// Seven by Seven — the app: one place in a hierarchy (Bay Area › region › neighborhood › section › spot),
+// Seven by Seven — the app: one place in a hierarchy (the map › region › neighborhood › section › spot; the regions are the
+// Bay Area's six and, far outside it, Las Vegas),
 // a logbook that follows it, and a tracker saved per person.
 (function () {
   const $ = id => document.getElementById(id);
@@ -12,7 +13,13 @@
   const slug = n => String(n).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   const BY_SLUG = bare(Object.fromEntries(NAMES.map(n => [slug(n), n])));
   const ft = m => Math.round(m * 3.28084);
-  const MAXM = Math.max(...HOODS.map(h => h.max));
+  // Areas: the Bay Area, and each away region (REGIONS[key].away: Las Vegas), which the map draws at its true position, far outside
+  // the Bay canvas. areaKey: a region's area; AREA_MAX: the highest point per area (the Hills lens ramps within one area);
+  // BOXES: each area's lon/lat box (the Bay canvas; an away region's places plus a margin), for "am I on the map" and place search
+  const AWAY = Object.keys(REGIONS).filter(r => REGIONS[r].away && G.regions[r]), areaKey = r => AWAY.includes(r) ? r : 'bay';
+  const AREA_MAX = {}; HOODS.forEach(h => { const a = areaKey(h.region); AREA_MAX[a] = Math.max(AREA_MAX[a] || 0, h.max); });
+  const BOXES = [{ area: 'bay', b: G.bbox }].concat(AWAY.map(r => { const b = G.regions[r], m = Math.max(b[2] - b[0], b[3] - b[1]) * .12, sw = Geom.unproj(b[0] - m, b[3] + m), ne = Geom.unproj(b[2] + m, b[1] - m); return { area: r, b: [sw[0], sw[1], ne[0], ne[1]] }; }));
+  const boxAt = (lon, lat) => BOXES.find(({ b }) => lon >= b[0] && lon <= b[2] && lat >= b[1] && lat <= b[3]) || null;
   const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   const attr = o => esc(JSON.stringify(o)); // for data-go='...' (names like Blackie's Pasture)
   const today = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }; // the local calendar day (toISOString is UTC: a day off in the evening or the early morning). Dates written by older code may be that UTC date, a day ahead in the evening, which is why js/lookback.js accepts stored dates up to tomorrow
@@ -30,6 +37,7 @@
     { id: 'south', label: 'Down the Peninsula', test: s => s.penin >= 1, icon: '280' }, { id: 'penin', label: 'Whole Peninsula', test: s => s.penin >= REGION_N.penin, icon: 'P' },
     { id: 'sj', label: 'Down to the South Bay', test: s => s.south >= 1, icon: 'SJ' }, { id: 'southbay', label: 'Whole South Bay', test: s => s.south >= REGION_N.south, icon: 'SB' },
     { id: 'nb', label: 'Up to the North Bay', test: s => s.north >= 1, icon: 'N' }, { id: 'north', label: 'Whole North Bay', test: s => s.north >= REGION_N.north, icon: 'NB' },
+    { id: 'lv', label: 'Viva Las Vegas', test: s => s.vegas >= 1, icon: 'LV' }, { id: 'vegas', label: 'Whole valley', test: s => s.vegas >= REGION_N.vegas, icon: '♠' },
     { id: 'bay', label: 'The whole map', test: s => s.n >= REGION_N.all, icon: '∞' },
     { id: 'sun', label: 'Sun belt', test: s => s.vibe.sun, icon: '☀' }, { id: 'fog', label: 'Fog belt', test: s => s.vibe.fog, icon: '☁' }, { id: 'hills', label: 'Hill climber', test: s => s.vibe.hills, icon: '▲' },
     { id: 'water', label: 'Shoreline', test: s => s.vibe.water, icon: '≈' }, { id: 'buzz', label: 'Night owl', test: s => s.vibe.buzz, icon: '♪' }, { id: 'green', label: 'Park ranger', test: s => s.vibe.green, icon: '✿' },
@@ -89,7 +97,7 @@
     if (state.quiz) return h.name === state.quiz.lit ? 'var(--accent)' : 'var(--grey-fill)';
     if (state.lens === 'vibe') return `var(--${VIBES[info.vibe].cls})`;
     if (state.lens === 'fog') return `var(--fog${info.fog})`;
-    if (state.lens === 'elev') return `var(--hill${1 + Math.min(4, Math.floor(Math.sqrt(h.max / MAXM) * 5))})`;
+    if (state.lens === 'elev') { const low = REGIONS[h.region].low ? REGIONS[h.region].low.m : 0; return `var(--hill${1 + Math.min(4, Math.floor(Math.sqrt(Math.max(0, h.max - low) / (AREA_MAX[areaKey(h.region)] - low)) * 5))})`; } // from the area's floor (sea level, or an away region's own) to its highest point
     return isDone(i) ? 'var(--accent)' : 'var(--grey-fill)';
   }
   const recolor = animate => map.setColors(HOODS.map((h, i) => colorFor(i)), animate && !reduceMotion);
@@ -234,7 +242,7 @@
   // ---------- chrome: the path, lenses and their legend, search ----------
   // the path to where you are, the current item left out (it is the title under it): each crumb opens its level
   function crumbsOf(l) {
-    const c = [{ label: 'Bay Area', loc: { region: 'all' } }];
+    const c = [{ label: AWAY.includes(l.region) ? 'Home' : 'Bay Area', loc: { region: 'all' } }]; // the first screen: the Bay Area, unless the path leads out of it
     if (l.region !== 'all') c.push({ label: REGIONS[l.region].label, loc: { region: l.region } });
     if (l.hood) c.push({ label: l.hood, loc: { hood: l.hood } });
     if (l.sub) c.push({ label: l.sub, loc: { hood: l.hood, sub: l.sub } });
@@ -268,7 +276,7 @@
     if (state.quiz) { el.innerHTML = ''; return; }
     if (k === 'vibe') el.innerHTML = Object.values(VIBES).map(v => `<span><i style="--c:var(--${v.cls})"></i>${v.label}</span>`).join('');
     else if (k === 'fog') el.innerHTML = `<span>Sunny</span><span class="ramp">${swatches('fog')}</span><span>Always foggy</span>`;
-    else if (k === 'elev') el.innerHTML = `<span>Sea level</span><span class="ramp">${swatches('elev')}</span><span>${ft(MAXM).toLocaleString()} ft</span>`;
+    else if (k === 'elev') { const r = state.loc.region, low = REGIONS[r] && REGIONS[r].low; el.innerHTML = `<span>${low ? esc(low.label) : 'Sea level'}</span><span class="ramp">${swatches('elev')}</span><span>${ft(AREA_MAX[areaKey(r)]).toLocaleString()} ft</span>`; }
     else el.innerHTML = `<span><i style="--c:var(--accent)"></i>Been</span><span><i style="--c:var(--grey-fill)"></i>Everywhere else</span>`;
     el.setAttribute('aria-label', 'Legend: ' + LENSES[k].label);
   }
@@ -324,14 +332,16 @@
   // (a made-up name resolves to the wrong place). From place search, `where` is 'street · district · city'; the
   // district is unreliable, so only a street that starts with a number and the last part (the city) are used.
   const isSF = hood => IDX[hood] != null && HOODS[IDX[hood]].region === 'sf';
+  // the state a query ends in: the place's region's, or for a spot outside every place, the area its coordinates are in
+  const stOf = (hood, sp) => { const r = IDX[hood] != null ? HOODS[IDX[hood]].region : sp && okLL(sp.lat, sp.lon) ? (boxAt(sp.lon, sp.lat) || {}).area : null; return (REGIONS[r] && REGIONS[r].st) || 'CA'; };
   const joinQ = parts => parts.filter((p, i, a) => p && a.indexOf(p) === i).join(', ');
   function spotQuery(sp) {
     if (sp.src !== 'search' || !sp.name) return `${sp.lat},${sp.lon}`;
     const parts = String(sp.where || '').split(' · ').map(s => s.trim()).filter(Boolean), sf = isSF(sp.hood);
     const street = /^\d/.test(parts[0] || '') ? parts[0] : null, city = parts.length > 1 ? parts[parts.length - 1] : sf ? 'San Francisco' : sp.hood;
-    return joinQ([sp.name, street || (sf ? sp.hood : null), city, 'CA']);
+    return joinQ([sp.name, street || (sf ? sp.hood : null), city, stOf(sp.hood, sp)]);
   }
-  const areaQuery = (hood, sub) => joinQ([sub, hood, isSF(hood) ? 'San Francisco' : null, 'CA']);
+  const areaQuery = (hood, sub) => joinQ([sub, hood, isSF(hood) ? 'San Francisco' : null, stOf(hood)]);
   const mapsLink = q => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
   // Apple Maps, in the legacy URL format every iOS and macOS version opens: q searches near sll; ll with q drops a labelled pin
   const appleLink = (q, o = {}) => 'https://maps.apple.com/?' + (o.ll ? `ll=${o.ll}&q=${encodeURIComponent(q)}` : `q=${encodeURIComponent(q)}${o.sll ? '&sll=' + o.sll : ''}`) + (o.z ? '&z=' + o.z : '');
@@ -380,7 +390,7 @@
   const doneCount = (r = state.loc.region) => HOODS.reduce((s, h, i) => s + (inRegion(i, r) && isDone(i) ? 1 : 0), 0);
   const climbedFt = (r = state.loc.region) => HOODS.reduce((s, h, i) => s + (inRegion(i, r) && isDone(i) ? ft(h.max) : 0), 0);
   const areaPct = (r = state.loc.region) => { let a = 0, t = 0; HOODS.forEach((h, i) => { if (inRegion(i, r)) { t += h.cells; if (isDone(i)) a += h.cells; } }); return t ? a / t : 0; };
-  function stampState() { const vibe = {}; for (const k in VIBES) vibe[k] = HOODS.every((h, i) => INFO[h.name].vibe !== k || isDone(i)); return { n: doneCount('all'), sf: doneCount('sf'), marin: doneCount('marin'), east: doneCount('east'), penin: doneCount('penin'), south: doneCount('south'), north: doneCount('north'), ft: climbedFt('all'), vibe }; }
+  function stampState() { const vibe = {}; for (const k in VIBES) vibe[k] = HOODS.every((h, i) => AWAY.includes(h.region) || INFO[h.name].vibe !== k || isDone(i)); return { n: doneCount('all'), sf: doneCount('sf'), marin: doneCount('marin'), east: doneCount('east'), penin: doneCount('penin'), south: doneCount('south'), north: doneCount('north'), vegas: doneCount('vegas'), ft: climbedFt('all'), vibe }; } // the six character stamps are the Bay Area's: an away region does not move them
   function renderHome() {
     const r = state.loc.region, n = doneCount(), total = REGION_N[r], s = stampState(), earned = STAMPS.filter(st => st.test(s)), next = STAMPS.find(st => !st.test(s));
     const news = r === 'all' ? state.news.length : 0; // the only sign of news, in the sheet's own eyebrow: it shows at the peek too
@@ -413,7 +423,7 @@
         <div class="field" style="margin-top:12px"><label>Appearance</label><div class="seg">${['system', 'light', 'dark'].map(t => `<button type="button" data-theme-pick="${t}" aria-pressed="${state.theme === t}">${t === 'system' ? 'System' : t[0].toUpperCase() + t.slice(1)}</button>`).join('')}</div></div>
         ${state.store === 'sync' ? `<div class="field"><label for="who-in">Your name on this device</label><input id="who-in" maxlength="${WHO_MAX}" autocomplete="given-name" enterkeyhint="done" placeholder="Shown on what you add" value="${esc(who())}"></div>` : ''}
         <div class="actions" style="margin-top:4px"><button type="button" class="btn sm" id="export">Export log</button><button type="button" class="btn sm" id="import">Import</button><input type="file" id="import-file" accept="application/json" hidden>${state.store === 'sync' ? '<button type="button" class="btn sm primary" id="share-log">Share this log</button><button type="button" class="btn sm" id="join-log">Join a log</button>' + (prevKeys().length ? '<button type="button" class="btn sm quiet" id="back-log">Back to the previous log</button>' : '') : ''}</div>
-        <p class="fine">${state.store === 'db' ? 'Your log, list, spots and notes are saved with this artifact and shared with everyone it is shared with.' : state.store === 'sync' ? 'This log is shared: everyone who opens your link sees it and adds to it, live. Keep the link private, and bookmark it on each phone. Photos are shared with the log the same way, but Export log does not include them.' : 'Your log is saved in this browser. Export it now and then to keep a copy, or to move it to another device.'} San Francisco boundaries from the SF Planning Department, high points from Mapzen elevation data. Marin, East Bay and Peninsula boundaries from the US Census; their high points are approximate. Place search by Photon, © OpenStreetMap contributors.</p>
+        <p class="fine">${state.store === 'db' ? 'Your log, list, spots and notes are saved with this artifact and shared with everyone it is shared with.' : state.store === 'sync' ? 'This log is shared: everyone who opens your link sees it and adds to it, live. Keep the link private, and bookmark it on each phone. Photos are shared with the log the same way, but Export log does not include them.' : 'Your log is saved in this browser. Export it now and then to keep a copy, or to move it to another device.'} San Francisco boundaries from the SF Planning Department, high points from Mapzen elevation data. Boundaries everywhere else, Las Vegas included, from the US Census; their high points are approximate. Place search by Photon, © OpenStreetMap contributors.</p>
       </details>`;
     panel.querySelector('#surprise').addEventListener('click', surprise);
     panel.querySelector('#quiz').addEventListener('click', startQuiz);
@@ -878,7 +888,8 @@
   async function suggest(v, sug, qi, explicit) {
     const my = ++sugCtrl, d = state.draft; let res = []; if (!d) return; // the form was saved or left before the typing pause ended
     const bias = d.hood ? (() => { const bb = map.hoodBBox(IDX[d.hood]); return Geom.unproj((bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2); })() : null;
-    try { res = await window.Places.search(v, bias, { explicit }); } catch (e) { if (e.name === 'AbortError') return; sug.hidden = true; if (!state.searchDown) { state.searchDown = true; const n = panel.querySelector('#lf-nosearch'); if (n) n.hidden = false; } return; }
+    const at = bias || Geom.unproj(map.cam.x + map.cam.w / 2, map.cam.y + map.cam.w * map.H / map.W / 2), box = boxAt(at[0], at[1]); // search the area of the chosen place, else of the map view
+    try { res = await window.Places.search(v, bias, { explicit, bbox: box ? box.b : null }); } catch (e) { if (e.name === 'AbortError') return; sug.hidden = true; if (!state.searchDown) { state.searchDown = true; const n = panel.querySelector('#lf-nosearch'); if (n) n.hidden = false; } return; }
     if (window.Places.search.photonDown && !state.searchDown) { state.searchDown = true; const n = panel.querySelector('#lf-nosearch'); if (n) n.hidden = false; }
     if (my !== sugCtrl || !state.draft || state.view !== 'log') return;
     if (!res.length) { sug.hidden = true; return; }
@@ -922,8 +933,8 @@
     if (!navigator.geolocation) { if (o.quiet) { if (o.fail) o.fail(); } else toast('Location is not available here', 3000); return; }
     btn.classList.add('busy');
     navigator.geolocation.getCurrentPosition(pos => {
-      btn.classList.remove('busy'); const lon = pos.coords.longitude, lat = pos.coords.latitude, [LON0, LAT0, LON1, LAT1] = G.bbox;
-      if (lon < LON0 || lon > LON1 || lat < LAT0 || lat > LAT1) { if (o.quiet) { if (o.fail) o.fail(); } else toast('You are outside the map', 3000); return; }
+      btn.classList.remove('busy'); const lon = pos.coords.longitude, lat = pos.coords.latitude;
+      if (!boxAt(lon, lat)) { if (o.quiet) { if (o.fail) o.fail(); } else toast('You are outside the map', 3000); return; }
       const [x, y] = Geom.proj([lon, lat]); map.setMe([x, y]);
       if (onPos) { onPos([lon, lat]); return; }
       const w = locateXY(x, y);
@@ -937,14 +948,16 @@
   $('locate').addEventListener('click', () => locate());
 
   // ---------- suggest & quiz ----------
+  // from the first screen both stay in the Bay Area: an away region's places are suggested, and asked, from that region's own screen
+  const inPlay = i => inRegion(i) && (state.loc.region !== 'all' || !AWAY.includes(HOODS[i].region));
   function surprise() {
-    let pool = HOODS.map((h, i) => i).filter(i => inRegion(i) && (state.filters.size ? matches(i) : true));
+    let pool = HOODS.map((h, i) => i).filter(i => inPlay(i) && (state.filters.size ? matches(i) : true));
     const fresh = pool.filter(i => !isDone(i)); if (fresh.length) pool = fresh;
     pool = pool.filter(i => HOODS[i].name !== state.loc.hood); if (!pool.length) return;
     go({ hood: HOODS[pool[Math.floor(Math.random() * pool.length)]].name });
   }
   function startQuiz() {
-    const pool = NAMES.filter(n => inRegion(IDX[n])), rounds = Math.min(10, pool.length);
+    const pool = NAMES.filter(n => inPlay(IDX[n])), rounds = Math.min(10, pool.length);
     const order = pool.slice(); for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
     state.quiz = { order: order.slice(0, rounds), rounds, round: 0, score: 0, locked: false, lit: null, region: state.loc.region };
     map.setState({ quiz: true, sel: -1, selSub: -1 }); recolor(true); go({ region: state.loc.region }, { keepQuiz: true, replace: true, sheet: isPhone() ? 'half' : undefined });
@@ -953,9 +966,9 @@
   function renderQuiz(verdict) {
     const qz = state.quiz; if (!qz) return;
     if (qz.round >= qz.rounds) {
-      const s = qz.score, rank = s >= 10 ? 'Muni operator' : s >= 8 ? 'Certified local' : s >= 5 ? 'Transplant, two years in' : s >= 2 ? 'Tourist with a good map' : 'Just landed at SFO';
+      const s = qz.score, away = AWAY.includes(qz.region), rank = s >= 10 ? (away ? 'Pit boss' : 'Muni operator') : s >= 8 ? 'Certified local' : s >= 5 ? 'Transplant, two years in' : s >= 2 ? 'Tourist with a good map' : away ? 'Just landed at Harry Reid' : 'Just landed at SFO';
       setHead({ eyebrow: 'Where is it?', title: `${s} out of ${qz.rounds}`, onBack: () => endQuiz(), tools: [] });
-      panel.innerHTML = `<div class="quiz"><p class="verdict good">${rank}</p><p class="lead">${s === qz.rounds ? 'Perfect. You could give the fog directions.' : 'Play again to meet the ones you missed.'}</p><div class="actions"><button type="button" class="btn primary" id="again">Play again</button><button type="button" class="btn" id="done">Back to the map</button></div></div>`;
+      panel.innerHTML = `<div class="quiz"><p class="verdict good">${rank}</p><p class="lead">${s === qz.rounds ? (away ? 'Perfect. You could find the exit from any casino floor.' : 'Perfect. You could give the fog directions.') : 'Play again to meet the ones you missed.'}</p><div class="actions"><button type="button" class="btn primary" id="again">Play again</button><button type="button" class="btn" id="done">Back to the map</button></div></div>`;
       panel.querySelector('#again').addEventListener('click', startQuiz); panel.querySelector('#done').addEventListener('click', () => endQuiz()); return;
     }
     const target = qz.order[qz.round];

@@ -1,0 +1,108 @@
+{
+"Las Vegas":[
+{"name":"Fremont Street","lon":-115.1445,"lat":36.1707,"line":"The canopy, Vegas Vic and the original casino row from Main Street to Fourth.","known":["Fremont Street Experience and its Viva Vision canopy","Golden Nugget, open since 1946","The Mob Museum, in the 1933 federal courthouse"],"tags":["nightlife","historic","food"]},
+{"name":"Fremont East","lon":-115.1385,"lat":36.1686,"line":"Restored neon, El Cortez and the bar blocks east of Las Vegas Boulevard.","known":["El Cortez, open since 1941","Atomic Liquors, the city’s oldest freestanding bar","Downtown Container Park"],"tags":["nightlife","food","historic"]},
+{"name":"Arts District","lon":-115.1535,"lat":36.1585,"line":"The 18b: breweries, vintage shops and murals around Main and Charleston.","known":["First Friday","Main Street’s antique and vintage shops","Brewery Row"],"tags":["artsy","food","nightlife"]},
+{"name":"Symphony Park","lon":-115.154,"lat":36.1672,"line":"Concert halls, a children’s museum and furniture marts on the old Union Pacific rail yard.","known":["The Smith Center for the Performing Arts","Discovery Children’s Museum","World Market Center"],"tags":["artsy","food"]},
+{"name":"Cultural Corridor","lon":-115.134,"lat":36.179,"line":"Retired casino signs and the adobe fort where the town began, north along the Boulevard.","known":["The Neon Museum and its Boneyard","Old Las Vegas Mormon Fort, built 1855","Las Vegas Natural History Museum"],"tags":["historic","artsy"]},
+{"name":"Historic Westside","lon":-115.152,"lat":36.181,"line":"Jackson Avenue and the Moulin Rouge site: Black Las Vegas in the segregation years.","known":["The Moulin Rouge site, the first integrated casino (1955)","Westside School, built 1923","Harrison House, where Black headliners had to board"],"tags":["historic","quiet"]},
+{"name":"The STRAT","lon":-115.156,"lat":36.1478,"line":"The tower at the top of the Strip, just inside the city line at Sahara.","known":["The STRAT tower, 1,149 feet","Bonanza Gift Shop","Wedding chapel row on Las Vegas Boulevard"],"tags":["views","nightlife"]},
+{"name":"Huntridge","lon":-115.134,"lat":36.1575,"line":"Wartime bungalows and the John S. Park district around the Huntridge Theater.","known":["Huntridge Theater, opened 1944","John S. Park Historic District","Charleston and Maryland Parkway"],"tags":["historic","quiet","food"]},
+{"name":"Medical District","lon":-115.17,"lat":36.16,"line":"The county hospital and the medical school, beside the ranch estates of the Scotch 80s.","known":["University Medical Center","UNLV’s Kirk Kerkorian School of Medicine","The Scotch 80s"],"tags":["quiet","historic"]},
+{"name":"Springs Preserve","lon":-115.1935,"lat":36.1717,"line":"The springs that gave Las Vegas its name, now 180 acres of desert gardens and museums.","known":["Springs Preserve","Nevada State Museum","Meadows Mall"],"tags":["parks","historic"]},
+{"name":"Charleston Heights","lon":-115.23,"lat":36.17,"line":"Tract-house Las Vegas of the 1950s and 60s, between Decatur and Rainbow.","known":["Charleston Heights Arts Center","Las Vegas Golf Club, the municipal course since 1938","Decatur Boulevard"],"tags":["quiet","sunny"]},
+{"name":"Summerlin","lon":-115.297,"lat":36.178,"line":"The first villages of the Hughes master plan, with the Rampart Boulevard shops below.","known":["TPC Summerlin","Tivoli Village and Boca Park","Angel Park Golf Club"],"tags":["shops","food","sunny"]},
+{"name":"The Lakes","lon":-115.288,"lat":36.142,"line":"Houses with boat docks on man-made Lake Sahara, and Peccole Ranch’s walking paths.","known":["Lake Sahara","Peccole Ranch","Sahara West Library"],"tags":["quiet","waterfront"]},
+{"name":"Lone Mountain","lon":-115.26,"lat":36.24,"line":"Horse lots and newer tracts in the northwest, under the lone limestone peak.","known":["Lone Mountain’s short, steep summit trail","Rancho Drive"],"tags":["quiet","hilly","views"]},
+{"name":"Centennial Hills","lon":-115.265,"lat":36.28,"line":"The far northwest, grown up since 2000 around the 95 and the 215.","known":["Centennial Hills Park","Gilcrease Orchard, pick-your-own","Centennial Center"],"tags":["quiet","shops","sunny"]},
+{"name":"Tule Springs","lon":-115.268,"lat":36.322,"line":"Spring-fed ponds and an old divorce ranch at the top of the valley.","known":["Floyd Lamb Park at Tule Springs","Skye Canyon","Kyle Canyon Road, the turn for Mount Charleston"],"tags":["parks","historic","quiet"]},
+{"name":"East Las Vegas","lon":-115.105,"lat":36.165,"line":"The city’s Latino east side, along Eastern Avenue and East Charleston.","known":["Eastern Avenue’s taquerías and panaderías","East Las Vegas Library","Freedom Park"],"tags":["food","sunny"]}
+],
+"Paradise":[
+{"name":"Wynn & Venetian","lon":-115.169,"lat":36.1245,"line":"The Strip from Fashion Show to the Venetian’s canals.","known":["Wynn and Encore","The Venetian’s Grand Canal Shoppes","Fashion Show mall"],"tags":["nightlife","food","shops"]},
+{"name":"Center Strip","lon":-115.1725,"lat":36.115,"line":"The fountains, the Forum Shops and the wheel: the Strip at Flamingo Road.","known":["Fountains of Bellagio","Caesars Palace and the Forum Shops","The LINQ Promenade and the High Roller"],"tags":["nightlife","food","views"]},
+{"name":"CityCenter","lon":-115.1765,"lat":36.1065,"line":"Aria’s glass towers, the Cosmopolitan and the arena behind Park MGM.","known":["Aria and the Shops at Crystals","The Cosmopolitan","T-Mobile Arena, home of the Golden Knights"],"tags":["nightlife","food","shops"]},
+{"name":"South Strip","lon":-115.174,"lat":36.0965,"line":"MGM Grand to Mandalay Bay, past the skyline, the castle and the pyramid.","known":["MGM Grand and New York-New York","Luxor’s pyramid and sky beam","Mandalay Bay and Shark Reef"],"tags":["nightlife","food","views"]},
+{"name":"Welcome Sign","lon":-115.1735,"lat":36.083,"line":"The 1959 sign in the median, where Las Vegas Boulevard leaves the resorts behind.","known":["Welcome to Fabulous Las Vegas sign","Pinball Hall of Fame","Bali Hai Golf Club"],"tags":["historic","views"]},
+{"name":"Sphere & Paradise Road","lon":-115.159,"lat":36.119,"line":"The Sphere behind the Venetian, and the off-Strip hotels and old dining rooms east of it.","known":["Sphere","Virgin Hotels, the old Hard Rock","Howard Hughes Center"],"tags":["nightlife","food","views"]},
+{"name":"UNLV","lon":-115.143,"lat":36.1075,"line":"The university campus and the Maryland Parkway strip across from it.","known":["Thomas & Mack Center","Marjorie Barrick Museum of Art","Maryland Parkway"],"tags":["food","artsy","sunny"]},
+{"name":"Paradise Palms","lon":-115.13,"lat":36.124,"line":"Palmer & Krisel’s 1960s desert-modern tract, behind the valley’s first enclosed mall.","known":["Paradise Palms’ mid-century houses","The Boulevard mall, opened 1968","Maryland Parkway and Desert Inn"],"tags":["historic","quiet","shops"]},
+{"name":"Harry Reid Airport","lon":-115.15,"lat":36.083,"line":"The runways at the foot of the Strip, with slot machines at the gates.","known":["Terminals 1 and 3","The plane-watching lot on Sunset Road","Slot machines in the concourses"],"tags":["views","sunny"]},
+{"name":"Allegiant Stadium","lon":-115.184,"lat":36.0909,"line":"The black-glass Raiders stadium across the freeway from Mandalay Bay.","known":["Allegiant Stadium, opened 2020","The game-day walk over the Hacienda Avenue bridge","Dean Martin Drive"],"tags":["nightlife","views"]},
+{"name":"Rio & Palms","lon":-115.192,"lat":36.116,"line":"Three off-Strip towers on West Flamingo, a mile behind Caesars.","known":["Rio","Palms","Gold Coast"],"tags":["nightlife","food","views"]},
+{"name":"Chinatown","lon":-115.1975,"lat":36.1265,"line":"The east end of Spring Mountain Road, where Chinatown Plaza started it all in 1995.","known":["Chinatown Plaza and its paifang gate","Shanghai Plaza","Noodle, dumpling and hot pot houses in every strip mall"],"tags":["food","nightlife","shops"]},
+{"name":"The Orleans","lon":-115.201,"lat":36.1024,"line":"West Tropicana’s locals casino and arena, among warehouses and tract streets.","known":["The Orleans","Orleans Arena","Tropicana and Decatur"],"tags":["nightlife","food"]},
+{"name":"Sunset Park","lon":-115.113,"lat":36.066,"line":"The county’s big park: a lake, ball fields and a patch of original dunes and mesquite.","known":["Sunset Park’s lake","The disc golf course","Sunset Road and Eastern Avenue"],"tags":["parks","quiet","sunny"]}
+],
+"Winchester":[
+{"name":"North Strip","lon":-115.163,"lat":36.1375,"line":"Sahara to Resorts World: the Strip’s north end, half new towers and half empty lots.","known":["Resorts World, on the old Stardust site","Fontainebleau","Circus Circus and the Adventuredome"],"tags":["nightlife","food","views"]},
+{"name":"Convention Center","lon":-115.1525,"lat":36.132,"line":"The convention halls and their Tesla tunnels, with the Westgate next door.","known":["Las Vegas Convention Center and the Vegas Loop","Westgate, where Elvis played 636 shows","The Monorail’s north end"],"tags":["nightlife","historic"]},
+{"name":"Commercial Center","lon":-115.142,"lat":36.142,"line":"A 1963 shopping plaza on East Sahara, now Thai, Korean and karaoke.","known":["Commercial Center","Lotus of Siam’s original dining room","Las Vegas Country Club"],"tags":["food","nightlife","historic"]},
+{"name":"East Desert Inn","lon":-115.115,"lat":36.137,"line":"Ranch houses and a Rat Pack-era golf course between Maryland Parkway and Boulder Highway.","known":["Las Vegas National Golf Club, opened 1961","Desert Inn Road","Eastern Avenue"],"tags":["quiet","historic","sunny"]}
+],
+"Spring Valley":[
+{"name":"Chinatown West","lon":-115.226,"lat":36.1262,"line":"Spring Mountain Road west of Decatur: izakayas, Korean barbecue and boba out to Rainbow.","known":["Aburiya Raku","Korean barbecue and hot pot near Jones","Late-night dessert and boba shops"],"tags":["food","nightlife","shops"]},
+{"name":"Desert Breeze","lon":-115.275,"lat":36.125,"line":"The big park and its pools in the middle of the 1980s and 90s tracts.","known":["Desert Breeze Park","Desert Breeze Aquatic Facility","Durango Drive"],"tags":["parks","quiet","sunny"]},
+{"name":"Spanish Trail","lon":-115.255,"lat":36.098,"line":"A gated golf community off Tropicana, with restaurant strips on Rainbow.","known":["Spanish Trail Country Club","Rainbow Boulevard","Tropicana Avenue"],"tags":["quiet","food","sunny"]},
+{"name":"Durango & the 215","lon":-115.279,"lat":36.067,"line":"The southwest’s new centre where Durango Drive meets the Beltway.","known":["Durango Casino, opened 2023","UnCommons","IKEA"],"tags":["food","shops","nightlife"]},
+{"name":"Rhodes Ranch","lon":-115.29,"lat":36.042,"line":"A golf community and a water park at the valley’s southwest edge.","known":["Rhodes Ranch Golf Club","Cowabunga Canyon water park","Fort Apache Road"],"tags":["quiet","sunny","parks"]}
+],
+"Summerlin South":[
+{"name":"Downtown Summerlin","lon":-115.333,"lat":36.15,"line":"An open-air shopping district, a ballpark and a casino under the Red Rock cliffs.","known":["Downtown Summerlin","Las Vegas Ballpark, home of the Aviators","Red Rock Casino"],"tags":["shops","food","nightlife"]},
+{"name":"The Mesa","lon":-115.328,"lat":36.128,"line":"Villages and trail-linked parks between Town Center Drive and the Beltway.","known":["Mesa Park","The Gardens Park","Summerlin’s trail network"],"tags":["quiet","parks","sunny"]},
+{"name":"The Ridges","lon":-115.335,"lat":36.105,"line":"Custom houses climbing the foothills, around a Jack Nicklaus course.","known":["The Ridges","Bear’s Best Las Vegas","Views across the valley to the Strip"],"tags":["hilly","views","quiet"]}
+],
+"Enterprise":[
+{"name":"Town Square","lon":-115.1757,"lat":36.0694,"line":"An outdoor mall and the outlet centre on Las Vegas Boulevard south of the airport.","known":["Town Square","Las Vegas South Premium Outlets","Las Vegas Boulevard South"],"tags":["shops","food","sunny"]},
+{"name":"Silverton","lon":-115.186,"lat":36.041,"line":"A lodge-themed casino with a mermaid aquarium, where Blue Diamond Road meets the 15.","known":["Silverton’s aquarium","Bass Pro Shops","Blue Diamond Road"],"tags":["nightlife","shops"]},
+{"name":"South Point","lon":-115.176,"lat":36.0117,"line":"The big locals casino at the south end of the Boulevard, with its own horse arena.","known":["South Point Arena and Equestrian Center","South Point bowling and bingo","Las Vegas Boulevard South"],"tags":["nightlife","food"]},
+{"name":"Southern Highlands","lon":-115.205,"lat":35.985,"line":"A master-planned community at the valley’s south rim, around a private course.","known":["Southern Highlands Golf Club","Southern Highlands Parkway","Views back up the valley"],"tags":["quiet","hilly","sunny"]},
+{"name":"Mountain’s Edge","lon":-115.27,"lat":36.01,"line":"Tracts below the southwest foothills, with a small peak to climb.","known":["Exploration Peak Park","Mountain’s Edge Regional Park","Buffalo Drive"],"tags":["parks","quiet","views"]}
+],
+"Henderson":[
+{"name":"Water Street","lon":-114.985,"lat":36.0325,"line":"Old downtown Henderson: small casinos, breweries and a rink on the 1940s main street.","known":["Water Street District","Lifeguard Arena","Emerald Island and Rainbow Club"],"tags":["food","historic","nightlife"]},
+{"name":"Green Valley","lon":-115.085,"lat":36.02,"line":"The valley’s first master-planned community, around the District and its resort.","known":["The District at Green Valley Ranch","Green Valley Ranch Resort","Dollar Loan Center arena"],"tags":["shops","food","sunny"]},
+{"name":"Sunset & Galleria","lon":-115.043,"lat":36.066,"line":"The mall, the locals casino and a chocolate factory with a cactus garden.","known":["Galleria at Sunset","Sunset Station","Ethel M Chocolates and its Botanical Cactus Garden"],"tags":["shops","food","sunny"]},
+{"name":"Anthem","lon":-115.1,"lat":35.975,"line":"Country-club and retirement villages high on the Black Mountain foothills.","known":["Anthem Country Club","Sun City Anthem","Anthem Hills Park trailheads"],"tags":["hilly","views","quiet"]},
+{"name":"Seven Hills","lon":-115.125,"lat":35.992,"line":"Golf-course canyons between Green Valley and Anthem.","known":["Rio Secco Golf Club","Seven Hills Drive","St. Rose Parkway"],"tags":["hilly","quiet","views"]},
+{"name":"West Henderson","lon":-115.164,"lat":35.966,"line":"The M Resort, the Raiders’ headquarters and the executive airport at the south end of the Boulevard.","known":["M Resort","Raiders headquarters and practice fields","Henderson Executive Airport"],"tags":["nightlife","views","sunny"]},
+{"name":"Lake Las Vegas","lon":-114.928,"lat":36.104,"line":"A Mediterranean-style resort village on a private reservoir, over the hill from town.","known":["The Village at Lake Las Vegas","Reflection Bay Golf Club","Paddleboards and kayaks on the lake"],"tags":["waterfront","views","quiet"]},
+{"name":"Cadence","lon":-114.96,"lat":36.05,"line":"New streets on the old Basic Magnesium land, around a 50-acre central park.","known":["Cadence Central Park","Chimera Golf Club","Lake Mead Parkway"],"tags":["quiet","parks","sunny"]},
+{"name":"Railroad Pass","lon":-114.94,"lat":35.995,"line":"Boulder Highway’s last miles, from the county museum to the pass.","known":["Clark County Museum and Heritage Street","Railroad Pass casino, open since 1931","Nevada State University"],"tags":["historic","quiet","views"]},
+{"name":"Sloan Canyon","lon":-115.12,"lat":35.925,"line":"Empty desert and the McCullough Range at the city’s south edge.","known":["Sloan Canyon petroglyph trail","McCullough Hills Trail","Black Mountain"],"tags":["parks","hilly","quiet"]}
+],
+"Whitney":[
+{"name":"Boulder Highway","lon":-115.045,"lat":36.097,"line":"The old road to the dam, between Flamingo and Russell.","known":["Whitney Library","Whitney Park","Boulder Highway’s RV parks and locals casinos"],"tags":["quiet","historic"]},
+{"name":"Wetlands Park","lon":-115.0224,"lat":36.1006,"line":"Cottonwoods, ponds and boardwalks where the valley drains into the Las Vegas Wash.","known":["Clark County Wetlands Park Nature Center","The Las Vegas Wash","Duck Creek Trail"],"tags":["parks","waterfront","quiet"]}
+],
+"Sunrise Manor":[
+{"name":"Frenchman Mountain","lon":-115.005,"lat":36.18,"line":"The east foothills, under the tilted ridge everyone calls Sunrise Mountain.","known":["The Great Unconformity roadside stop","Las Vegas Nevada Temple","The Frenchman Mountain summit trail"],"tags":["hilly","views","quiet"]},
+{"name":"Nellis","lon":-115.065,"lat":36.225,"line":"The streets outside the air base gate, under the fighter jets’ landing pattern.","known":["Nellis Air Force Base, home of the Thunderbirds","Las Vegas Boulevard North","Aviation Nation air show"],"tags":["sunny","quiet"]},
+{"name":"East Charleston","lon":-115.063,"lat":36.159,"line":"Taquerías, swap-meet stalls and ranch houses along Charleston and Nellis.","known":["Charleston and Nellis","The Club at Sunrise golf course","Eastside taquerías"],"tags":["food","sunny"]},
+{"name":"Sam’s Town","lon":-115.062,"lat":36.1125,"line":"The Boulder Strip: western-themed locals casinos on the highway to Henderson.","known":["Sam’s Town and Mystic Falls Park","Boulder Station","Boulder Highway"],"tags":["nightlife","food","historic"]}
+],
+"North Las Vegas":[
+{"name":"Downtown North Las Vegas","lon":-115.12,"lat":36.199,"line":"The old city centre on Las Vegas Boulevard North, with a swap meet up the road.","known":["Jerry’s Nugget, open since 1964","City Hall and Liberty Park","Broadacres Marketplace"],"tags":["food","historic","sunny"]},
+{"name":"North Las Vegas Airport","lon":-115.195,"lat":36.211,"line":"The valley’s general aviation field, where the Grand Canyon tour planes take off.","known":["North Las Vegas Airport","Rancho Drive","Tour flights to the Grand Canyon"],"tags":["views","sunny"]},
+{"name":"Craig Ranch","lon":-115.156,"lat":36.238,"line":"A golf course turned into a 170-acre park, with an amphitheater.","known":["Craig Ranch Regional Park","The Amp at Craig Ranch","Craig Road"],"tags":["parks","quiet","sunny"]},
+{"name":"Cheyenne","lon":-115.105,"lat":36.219,"line":"The community college and the Cannery, east of the freeway.","known":["College of Southern Nevada’s planetarium","Cannery Casino","Cheyenne Avenue"],"tags":["sunny","nightlife"]},
+{"name":"Aliante","lon":-115.18,"lat":36.285,"line":"A master-planned north end around a casino, a golf course and a dinosaur playground.","known":["Aliante Casino","Aliante Nature Discovery Park","Aliante Golf Club"],"tags":["quiet","parks","nightlife"]},
+{"name":"Tule Springs Fossil Beds","lon":-115.19,"lat":36.325,"line":"Ice Age badlands at the top of the city: mammoths, camels and sloths in the wash.","known":["Tule Springs Fossil Beds National Monument","Ice Age Fossils State Park","The Upper Las Vegas Wash"],"tags":["parks","historic","quiet"]},
+{"name":"I-15 North","lon":-115.096,"lat":36.285,"line":"Empty desert and industrial parks out the 15, past the VA hospital and the Speedway turn.","known":["VA Southern Nevada medical center","The Las Vegas Motor Speedway exit","Apex Industrial Park"],"tags":["quiet","sunny"]}
+],
+"Boulder City":[
+{"name":"Historic Downtown","lon":-114.8345,"lat":35.9785,"line":"The 1930s government town built for the dam: arcaded shops, lawns and no casinos.","known":["Boulder Dam Hotel and its museum","Nevada Way’s antique shops and diners","Wilbur Square"],"tags":["historic","food","quiet"]},
+{"name":"Hemenway","lon":-114.825,"lat":35.995,"line":"The slope above Lake Mead, where bighorn sheep graze the park lawn.","known":["Hemenway Park’s bighorn sheep","Lake Mead views","River Mountains Loop Trail"],"tags":["views","parks","waterfront"]},
+{"name":"Bootleg Canyon","lon":-114.865,"lat":35.99,"line":"Mountain-bike trails and ziplines on the hills behind town.","known":["Bootleg Canyon mountain bike park","Flightlinez zipline","Nevada State Railroad Museum"],"tags":["hilly","parks","views"]},
+{"name":"Eldorado Valley","lon":-114.95,"lat":35.83,"line":"A dry lake bed and miles of solar panels, all inside the city limits.","known":["Eldorado Dry Lake","The solar fields along US 95","Open desert to the McCullough Range"],"tags":["sunny","quiet","views"]}
+],
+"Blue Diamond":[
+{"name":"The Village","lon":-115.405,"lat":36.0465,"line":"A few shaded streets, a general store and a bike shop below the Red Rock cliffs.","known":["The village store","The bike outpost","Wild burros along Highway 159"],"tags":["quiet","historic","views"]},
+{"name":"Cottonwood Valley","lon":-115.42,"lat":36.022,"line":"Joshua trees and mountain-bike singletrack south of the village.","known":["Cottonwood Valley trails","Views of the Red Rock escarpment","Highway 160 trailheads"],"tags":["parks","hilly","views"]}
+],
+"Mount Charleston":[
+{"name":"Kyle Canyon","lon":-115.6,"lat":36.265,"line":"Cabins among the ponderosas along the canyon road, a mile above the Strip.","known":["Kyle Canyon Road","Fletcher Canyon Trail","Mount Charleston Library"],"tags":["hilly","quiet","parks"]},
+{"name":"Cathedral Rock","lon":-115.652,"lat":36.26,"line":"The head of the canyon: trailheads under the limestone cliffs, snow into spring.","known":["Cathedral Rock Trail","Mary Jane Falls","The South Loop to Charleston Peak"],"tags":["hilly","views","parks"]},
+{"name":"Deer Creek","lon":-115.62,"lat":36.295,"line":"The high road north toward Lee Canyon, with a view over the desert.","known":["Deer Creek Road","Desert View Overlook","Robbers Roost"],"tags":["hilly","views","quiet"]}
+]
+}

@@ -20,8 +20,14 @@
     PP[i] = polys; PATH[i] = Geom.pathOf(polys.flat()); BB[i] = Geom.bboxOf(polys.flat());
   });
   const OTHER = Geom.pathOf(G.other.flat().map(r => r.map(proj)));
+  // Areas: the Bay canvas, and each away region (REGIONS[key].away, e.g. Las Vegas) at its true position far outside it, in the
+  // same projection. The camera lives in one area at a time: its pan and zoom limits are that area's box, and a move to another
+  // area is a cut that settles in, not a flight across 600 km of nothing. The Bay's box is the canvas, as it always was.
+  const AREAS = [{ id: 'bay', r: [0, 0, NX, NY] }].concat(Object.keys(window.REGIONS || {}).filter(r => window.REGIONS[r].away && G.regions[r]).map(r => { const b = G.regions[r], m = Math.max(b[2] - b[0], b[3] - b[1]) * .12; return { id: r, r: [b[0] - m, b[1] - m, b[2] + m, b[3] + m] }; }));
+  const areaAt = (x, y) => AREAS.find((a, i) => i && x >= a.r[0] && x <= a.r[2] && y >= a.r[1] && y <= a.r[3]) || AREAS[0];
   // the Central Valley and the Sierra east of the county filler: land, so a wide zoomed-out view has no false sea there
-  const FAR_LAND = (() => { const p = new Path2D(), a = proj([-121.3, 42.5]), b = proj([-114, 34.5]); p.rect(a[0], a[1], b[0] - a[0], b[1] - a[1]); return p; })();
+  // and around an away area, as far as its camera can see: desert, with no coast to draw
+  const FAR_LAND = (() => { const p = new Path2D(), a = proj([-121.3, 42.5]), b = proj([-114, 34.5]); p.rect(a[0], a[1], b[0] - a[0], b[1] - a[1]); AREAS.slice(1).forEach(({ r }) => { const m = Math.max(r[2] - r[0], r[3] - r[1]) * 3.2; p.rect(r[0] - m, r[1] - m, r[2] - r[0] + 2 * m, r[3] - r[1] + 2 * m); }); return p; })();
   const WATER = Geom.pathOf((G.water || []).flat().map(r => r.map(proj))); // straits, bays and river mouths inside the county filler
   const OUTLINE = new Path2D(); G.outline.flat().forEach(l => l.forEach((p, k) => { const q = proj(p); if (k) OUTLINE.lineTo(q[0], q[1]); else OUTLINE.moveTo(q[0], q[1]); })); // shore polylines: open, never closed
   const REGION_BB = Object.assign({ all: [0, 0, NX, NY] }, G.regions);
@@ -75,7 +81,7 @@
     } else b.humps.forEach(f => { const a = P(f - b.w, 0), m = P(f, b.h * 2), bb = P(f + b.w, 0); out.humps.moveTo(a[0], a[1]); out.humps.quadraticCurveTo(m[0], m[1], bb[0], bb[1]); });
     return out;
   });
-  const WATER_LBL = [['Pacific Ocean', -122.80, 37.35], ['San Francisco Bay', -122.25, 37.63, .8], ['San Pablo Bay', -122.40, 38.06, .8], ['Suisun Bay', -122.05, 38.08, 1.2], ['Tomales Bay', -122.89, 38.17, 1.2], ['South Bay', -122.06, 37.48, 1.2]].map(([t, lon, lat, kMin]) => ({ t: t.toUpperCase(), p: proj([lon, lat]), kMin: kMin || 0 })); // kMin: the bays are too narrow to name in the whole-Bay view
+  const WATER_LBL = [['Pacific Ocean', -122.80, 37.35], ['San Francisco Bay', -122.25, 37.63, .8], ['San Pablo Bay', -122.40, 38.06, .8], ['Suisun Bay', -122.05, 38.08, 1.2], ['Tomales Bay', -122.89, 38.17, 1.2], ['South Bay', -122.06, 37.48, 1.2], ['Lake Mead', -114.735, 36.075]].map(([t, lon, lat, kMin]) => ({ t: t.toUpperCase(), p: proj([lon, lat]), kMin: kMin || 0 })); // kMin: the bays are too narrow to name in the whole-Bay view
 
   // San Francisco's 38 small hoods rarely win a label at Bay Area scale: the city gets one name of its own there
   const SF_LBL = (() => { let w = 0, x = 0, y = 0; HOODS.forEach(h => { if (h.region === 'sf') { w += h.cells; x += h.cx * h.cells; y += h.cy * h.cells; } }); return w ? [x / w, y / w] : null; })();
@@ -93,6 +99,7 @@
     const ctx = canvas.getContext('2d', { alpha: false });
     const stage = canvas.parentElement;
     let W = 1, H = 1, dpr = 1;
+    let area = AREAS[0];                           // the area the camera is in (see AREAS)
     const cam = { x: 0, y: 0, w: NX };            // on screen now
     const goal = { x: 0, y: 0, w: NX };           // where smooth zoom is heading
     let mode = 'still';                            // still | smooth | fly | drag | inertia
@@ -118,14 +125,15 @@
     function haloStar(x, y, size, halo = true) { const r = size * .5; starPath(ctx, x, y, r); if (halo && !lite) { ctx.strokeStyle = P.labelHalo; ctx.lineWidth = Math.max(2, size * .26); ctx.lineJoin = 'round'; ctx.stroke(); } ctx.fillStyle = P.star; ctx.fill(); }
 
     // ---- camera helpers ----
-    const maxW = () => Math.max(NX, NY * W / H) * 2.2; // zoomed out: the whole canvas fits either way, with room
-    function clampCam(c) { c.w = clamp(c.w, U * 0.012, maxW()); const h = c.w * H / W; c.x = clamp(c.x, -c.w * .55, NX - c.w * .45); c.y = clamp(c.y, -h * .55, NY - h * .45); return c; }
+    const maxW = (a = area) => Math.max(a.r[2] - a.r[0], (a.r[3] - a.r[1]) * W / H) * 2.2; // zoomed out: the whole area fits either way, with room
+    function clampCam(c, a = area) { c.w = clamp(c.w, U * 0.012, maxW(a)); const h = c.w * H / W; c.x = clamp(c.x, a.r[0] - c.w * .55, a.r[2] - c.w * .45); c.y = clamp(c.y, a.r[1] - h * .55, a.r[3] - h * .45); return c; }
+    const areaOfView = v => areaAt(v.x + v.w / 2, v.y + v.w * H / W / 2);
     function insets() { return o.insets ? o.insets() : { top: 0, right: 0, bottom: 0, left: 0 }; }
     function fitView(x0, y0, x1, y1, pad, minW) {
       const I = insets(), vw = Math.max(80, W - I.left - I.right), vh = Math.max(80, H - I.top - I.bottom);
       let wVis = Math.max(minW || 0, (x1 - x0) * pad, (y1 - y0) * pad * vw / vh);
       const w = wVis * W / vw, k = W / w, cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
-      return clampCam({ x: cx - (I.left + vw / 2) / k, y: cy - (I.top + vh / 2) / k, w });
+      return clampCam({ x: cx - (I.left + vw / 2) / k, y: cy - (I.top + vh / 2) / k, w }, areaAt(cx, cy)); // limits of the area the target is in
     }
     function toScreen(x, y) { const k = kNow(); return [(x - cam.x) * k, (y - cam.y) * k]; }
     function toMap(sx, sy) { const k = kNow(); return [cam.x + sx / k, cam.y + sy / k]; }
@@ -133,6 +141,12 @@
     function hoodPx(i) { return (BB[i][2] - BB[i][0]) * kNow(); }
 
     function startFly(to, dur) {
+      const ta = areaOfView(to);
+      if (ta !== area) { // another area: cut to a view a little wider than the target, same centre, and settle in from there
+        area = ta; clampCam(to); const f = 1.45, ar = H / W;
+        Object.assign(cam, clampCam({ w: to.w * f, x: to.x - to.w * (f - 1) / 2, y: to.y - to.w * ar * (f - 1) / 2 })); cache.valid = false; dirty = true;
+        if (canvas.animate && !matchMedia('(prefers-reduced-motion: reduce)').matches) canvas.animate([{ opacity: .15 }, { opacity: 1 }], { duration: 380, easing: 'ease-out' });
+      }
       const from = { x: cam.x, y: cam.y, w: cam.w }; clampCam(to);
       const d = Math.hypot((to.x + to.w / 2) - (from.x + from.w / 2), (to.y + to.w * H / W / 2) - (from.y + from.w * H / W / 2));
       const wArc = Math.max(from.w, to.w, d * 1.1), bump = Math.max(0, Math.log(wArc) - Math.max(Math.log(from.w), Math.log(to.w))) * .9;
@@ -150,7 +164,7 @@
     }
     function zoomAt(sx, sy, factor, instant) { // keep the map point under (sx,sy) fixed
       const base = instant ? cam : goal, k = W / base.w, mx = base.x + sx / k, my = base.y + sy / k;
-      const w = clamp(base.w * factor, U * 0.012, maxW()), k2 = W / w;
+      const w = clamp(base.w * factor, U * 0.012, maxW()), k2 = W / w; // within the camera's own area
       const n = clampCam({ x: mx - sx / k2, y: my - sy / k2, w });
       if (instant) { Object.assign(cam, n); Object.assign(goal, n); mode = 'drag'; } else { Object.assign(goal, n); if (mode !== 'smooth') { fly = null; mode = 'smooth'; } }
       userMoved = true; kick();
@@ -539,7 +553,8 @@
       landmarks: LANDS, bbox: BB,
       flyTo(bb, pad, minW, dur) { const v = fitView(bb[0], bb[1], bb[2], bb[3], pad, minW); userMoved = false; startFly(v, dur); },
       flyToView(v, dur) { userMoved = false; startFly(v, dur); },
-      jumpTo(v) { Object.assign(cam, clampCam(v)); Object.assign(goal, cam); fly = null; mode = 'still'; kick(); },
+      jumpTo(v) { area = areaOfView(v); Object.assign(cam, clampCam(v)); Object.assign(goal, cam); fly = null; mode = 'still'; kick(); },
+      get area() { return area.id; }, areaAt: (x, y) => areaAt(x, y).id,
       zoom(f) { zoomAt(W / 2, H / 2, f); },
       setColors(colors, animate) { colors.forEach((c, i) => { const rgb = hex2rgb(cssColor(c)); colTo[i] = rgb; if (!animate) colNow[i] = rgb.slice(); }); colAnim = !!animate; dirty = true; kick(); },
       setState(s) { if (s.region !== undefined) region = s.region; if (s.sel !== undefined) sel = s.sel; if (s.selSub !== undefined) selSub = s.selSub; if (s.quiz !== undefined) quiz = s.quiz; dirty = true; kick(); },

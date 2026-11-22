@@ -34,9 +34,14 @@
 // Network responses and tiles are cached in tools/geo-cache (gitignored) so reruns work offline; a JSON report
 // is written to <cache>/report.json.
 //
+// A place may also carry its own polygon in the list ("kind":"custom", "polys": [[[lon, lat], ...]], one closed outer ring per
+// polygon, rounded here to 5 decimals): it is not fetched, and the list's polygon always wins over the one in data/geo.js. The
+// Las Vegas Strip is drawn this way (it is no Census place): five stretches between I-15 and Paradise Rd / Koval Ln.
+// Hoods kept from data/geo.js whose region is an away region and which are no longer in the list are dropped, not kept.
+//
 // Away regions (the `away` map in tools/geo-places.json: region key -> { state: Census state FIPS }) are places far from the Bay
 // Area, drawn at their true position in the same projection (the map keeps one camera box per area). Their places are fetched
-// like any other, from that state's layers, and go through the same anchor, elevation and adjacency steps, but they stay out of
+// like any other (from that state's layers) or custom, and go through the same anchor, elevation and adjacency steps, but they stay out of
 // the canvas bbox (so the Bay canvas and every existing number are untouched) and get no county filler (the page paints land
 // there). Their inland water is every areal hydrography feature within AWAY_WATER_PAD degrees of the region's places that passes
 // the size rules (still water from AWAY_WATER_MIN_M2), appended to `water`, each ring whole in `outline` (all of it is shore).
@@ -327,8 +332,13 @@ function writeGeoFile(GEO, HP) {
   const places = []; spec.batches.forEach(b => b.places.forEach(p => { const region = p.region || b.region, aw = AWAY[region]; places.push({ ...p, region, batch: b.id, state: aw ? aw.state : '06', away: !!aw }); }));
   places.forEach(p => { if (!REGION_KEYS.includes(p.region)) throw new Error(`bad region ${p.region} for ${p.name}`); });
   const listed = new Set(places.map(p => p.name)); if (listed.size !== places.length) throw new Error('duplicate place names in ' + PLACES);
-  const OLDX = OLD.hoods.filter(h => !listed.has(h.name)); // existing hoods: kept verbatim
-  places.forEach(p => { if (hpByName.has(p.name)) p.polys = hpByName.get(p.name); }); // listed and already in the file: reuse the polygon
+  const dropped = OLD.hoods.filter(h => !listed.has(h.name) && AWAY[h.region]).map(h => h.name); // an away region is only what the list says
+  if (dropped.length) note('away hoods no longer listed, dropped: ' + dropped.join(', '));
+  const OLDX = OLD.hoods.filter(h => !listed.has(h.name) && !AWAY[h.region]).map(h => ({ ...h, adj: h.adj.filter(a => !dropped.includes(a)) })); // existing hoods: kept verbatim
+  places.forEach(p => { // a custom place brings its polygon; any other that is already in the file reuses the file's
+    if (p.kind === 'custom') { if (!Array.isArray(p.polys) || !p.polys.length) throw new Error('custom place without polys: ' + p.name); p.polys = p.polys.map(poly => poly.map(cleanRing)); }
+    else if (hpByName.has(p.name)) p.polys = hpByName.get(p.name);
+  });
   const toFetch = places.filter(p => !p.polys);
   note(`places list: ${places.length} places (${places.length - toFetch.length} already in data/geo.js, ${toFetch.length} to fetch); ${OLDX.length} existing hoods kept`);
 
@@ -654,7 +664,7 @@ function writeGeoFile(GEO, HP) {
   const counts = {}; finalHoods.forEach(h => counts[h.region] = (counts[h.region] || 0) + 1);
   report.regionCounts = counts; note('hoods per region: ' + JSON.stringify(counts) + `, total ${finalHoods.length}`);
   OLDX.forEach((o, i) => { if (finalHoods[i].name !== o.name || finalHoods[i].region !== o.region || JSON.stringify(HP[i].polys) !== JSON.stringify(hpByName.get(o.name))) throw new Error('existing hood changed: ' + o.name); o.adj.forEach(a => { if (!finalHoods[i].adj.includes(a)) throw new Error('lost adj ' + a); }); });
-  places.forEach(p => { if (hpByName.has(p.name) && JSON.stringify(HP.find(h => h.name === p.name).polys) !== JSON.stringify(hpByName.get(p.name))) throw new Error('reused polygon changed: ' + p.name); });
+  places.forEach(p => { if (p.kind !== 'custom' && hpByName.has(p.name) && JSON.stringify(HP.find(h => h.name === p.name).polys) !== JSON.stringify(hpByName.get(p.name))) throw new Error('reused polygon changed: ' + p.name); });
 
   // 15. write
   const GEO = { nx, ny, bbox, regions, hoods: finalHoods, other, water, outline }; // outline: shore polylines (open or closed), stroked, never filled

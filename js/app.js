@@ -1,5 +1,5 @@
 // Seven by Seven — the app: one place in a hierarchy (the map › region › neighborhood › section › spot; the regions are the
-// Bay Area's six and, far outside it, Las Vegas),
+// Bay Area's six and, far outside it, the Las Vegas Strip),
 // a logbook that follows it, and a tracker saved per person.
 (function () {
   const $ = id => document.getElementById(id);
@@ -13,13 +13,10 @@
   const slug = n => String(n).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   const BY_SLUG = bare(Object.fromEntries(NAMES.map(n => [slug(n), n])));
   const ft = m => Math.round(m * 3.28084);
-  // Areas: the Bay Area, and each away region (REGIONS[key].away: Las Vegas), which the map draws at its true position, far outside
-  // the Bay canvas. areaKey: a region's area; AREA_MAX: the highest point per area (the Hills lens ramps within one area);
-  // BOXES: each area's lon/lat box (the Bay canvas; an away region's places plus a margin), for "am I on the map" and place search
+  // Areas: the Bay Area, and each away region (REGIONS[key].away: the Las Vegas Strip), which the map draws at its true position,
+  // far outside the Bay canvas. areaKey: a region's area; AREA_MAX: the highest point per area (the Hills lens ramps within one area)
   const AWAY = Object.keys(REGIONS).filter(r => REGIONS[r].away && G.regions[r]), areaKey = r => AWAY.includes(r) ? r : 'bay';
   const AREA_MAX = {}; HOODS.forEach(h => { const a = areaKey(h.region); AREA_MAX[a] = Math.max(AREA_MAX[a] || 0, h.max); });
-  const BOXES = [{ area: 'bay', b: G.bbox }].concat(AWAY.map(r => { const b = G.regions[r], m = Math.max(b[2] - b[0], b[3] - b[1]) * .12, sw = Geom.unproj(b[0] - m, b[3] + m), ne = Geom.unproj(b[2] + m, b[1] - m); return { area: r, b: [sw[0], sw[1], ne[0], ne[1]] }; }));
-  const boxAt = (lon, lat) => BOXES.find(({ b }) => lon >= b[0] && lon <= b[2] && lat >= b[1] && lat <= b[3]) || null;
   const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   const attr = o => esc(JSON.stringify(o)); // for data-go='...' (names like Blackie's Pasture)
   const today = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }; // the local calendar day (toISOString is UTC: a day off in the evening or the early morning). Dates written by older code may be that UTC date, a day ahead in the evening, which is why js/lookback.js accepts stored dates up to tomorrow
@@ -37,7 +34,7 @@
     { id: 'south', label: 'Down the Peninsula', test: s => s.penin >= 1, icon: '280' }, { id: 'penin', label: 'Whole Peninsula', test: s => s.penin >= REGION_N.penin, icon: 'P' },
     { id: 'sj', label: 'Down to the South Bay', test: s => s.south >= 1, icon: 'SJ' }, { id: 'southbay', label: 'Whole South Bay', test: s => s.south >= REGION_N.south, icon: 'SB' },
     { id: 'nb', label: 'Up to the North Bay', test: s => s.north >= 1, icon: 'N' }, { id: 'north', label: 'Whole North Bay', test: s => s.north >= REGION_N.north, icon: 'NB' },
-    { id: 'lv', label: 'Viva Las Vegas', test: s => s.vegas >= 1, icon: 'LV' }, { id: 'vegas', label: 'Whole valley', test: s => s.vegas >= REGION_N.vegas, icon: '♠' },
+    { id: 'lv', label: 'Viva Las Vegas', test: s => s.vegas >= 1, icon: 'LV' }, { id: 'vegas', label: 'Whole Strip', test: s => s.vegas >= REGION_N.vegas, icon: '♠' },
     { id: 'bay', label: 'The whole map', test: s => s.n >= REGION_N.all, icon: '∞' },
     { id: 'sun', label: 'Sun belt', test: s => s.vibe.sun, icon: '☀' }, { id: 'fog', label: 'Fog belt', test: s => s.vibe.fog, icon: '☁' }, { id: 'hills', label: 'Hill climber', test: s => s.vibe.hills, icon: '▲' },
     { id: 'water', label: 'Shoreline', test: s => s.vibe.water, icon: '≈' }, { id: 'buzz', label: 'Night owl', test: s => s.vibe.buzz, icon: '♪' }, { id: 'green', label: 'Park ranger', test: s => s.vibe.green, icon: '✿' },
@@ -91,6 +88,11 @@
     // the floating chrome (the control capsule; the search field, which on the phone sits in the capsule's top slot) reserves its footprint so map labels avoid it
     occluders() { if (isPhone() && document.documentElement.classList.contains('sheet-full')) return []; return ['.top .search', '#ctl .stack'].map(s => document.querySelector(s)).filter(el => el && el.offsetParent !== null && getComputedStyle(el).opacity !== '0').map(el => el.getBoundingClientRect()).filter(b => b.height > 0).map(b => [b.left - 4, b.top - 4, b.right + 4, b.bottom + 4]); },
   });
+
+  // each area's lon/lat box (the Bay canvas; an away area's camera box, which is its places plus a margin), for "am I on the map"
+  // and place search
+  const BOXES = map.areas.map(a => { if (a.id === 'bay') return { area: 'bay', b: G.bbox }; const sw = Geom.unproj(a.r[0], a.r[3]), ne = Geom.unproj(a.r[2], a.r[1]); return { area: a.id, b: [sw[0], sw[1], ne[0], ne[1]] }; });
+  const boxAt = (lon, lat) => BOXES.find(({ b }) => lon >= b[0] && lon <= b[2] && lat >= b[1] && lat <= b[3]) || null;
 
   function colorFor(i) {
     const h = HOODS[i], info = INFO[h.name];
@@ -332,16 +334,18 @@
   // (a made-up name resolves to the wrong place). From place search, `where` is 'street · district · city'; the
   // district is unreliable, so only a street that starts with a number and the last part (the city) are used.
   const isSF = hood => IDX[hood] != null && HOODS[IDX[hood]].region === 'sf';
-  // the state a query ends in: the place's region's, or for a spot outside every place, the area its coordinates are in
-  const stOf = (hood, sp) => { const r = IDX[hood] != null ? HOODS[IDX[hood]].region : sp && okLL(sp.lat, sp.lon) ? (boxAt(sp.lon, sp.lat) || {}).area : null; return (REGIONS[r] && REGIONS[r].st) || 'CA'; };
+  // the region a query is about: the place's, or for a spot outside every place, the area its coordinates are in. Its state ends the
+  // query; an away region also names the city (its places are stretches of the Strip, which no map service knows as towns)
+  const regOf = (hood, sp) => REGIONS[IDX[hood] != null ? HOODS[IDX[hood]].region : sp && okLL(sp.lat, sp.lon) ? (boxAt(sp.lon, sp.lat) || {}).area : null] || {};
+  const stOf = (hood, sp) => regOf(hood, sp).st || 'CA';
   const joinQ = parts => parts.filter((p, i, a) => p && a.indexOf(p) === i).join(', ');
   function spotQuery(sp) {
     if (sp.src !== 'search' || !sp.name) return `${sp.lat},${sp.lon}`;
     const parts = String(sp.where || '').split(' · ').map(s => s.trim()).filter(Boolean), sf = isSF(sp.hood);
-    const street = /^\d/.test(parts[0] || '') ? parts[0] : null, city = parts.length > 1 ? parts[parts.length - 1] : sf ? 'San Francisco' : sp.hood;
+    const street = /^\d/.test(parts[0] || '') ? parts[0] : null, city = regOf(sp.hood, sp).city || (parts.length > 1 ? parts[parts.length - 1] : sf ? 'San Francisco' : sp.hood);
     return joinQ([sp.name, street || (sf ? sp.hood : null), city, stOf(sp.hood, sp)]);
   }
-  const areaQuery = (hood, sub) => joinQ([sub, hood, isSF(hood) ? 'San Francisco' : null, stOf(hood)]);
+  const areaQuery = (hood, sub) => { const city = regOf(hood).city; return city ? joinQ([sub || hood, city, stOf(hood)]) : joinQ([sub, hood, isSF(hood) ? 'San Francisco' : null, stOf(hood)]); };
   const mapsLink = q => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
   // Apple Maps, in the legacy URL format every iOS and macOS version opens: q searches near sll; ll with q drops a labelled pin
   const appleLink = (q, o = {}) => 'https://maps.apple.com/?' + (o.ll ? `ll=${o.ll}&q=${encodeURIComponent(q)}` : `q=${encodeURIComponent(q)}${o.sll ? '&sll=' + o.sll : ''}`) + (o.z ? '&z=' + o.z : '');
@@ -404,14 +408,14 @@
     const active = state.filters.size > 0, hits = active ? NAMES.filter(x => matches(IDX[x])) : [];
     const places = r === 'all'
       ? Object.keys(REGIONS).filter(k => k !== 'all').map(k => `<li><button type="button" class="row" data-go='${attr({ region: k })}'><span class="ic ${doneCount(k) === REGION_N[k] ? 'flag' : doneCount(k) ? 'sq' : 'none'}" style="--c:var(--accent)"></span><span class="nm">${REGIONS[k].label}</span><span class="rt">${doneCount(k)} of ${REGION_N[k]}<span class="chev"></span></span></button></li>`).join('')
-      : NAMES.filter(x => inRegion(IDX[x])).map(x => `<li><button type="button" class="row" data-go='${attr({ hood: x })}'><span class="ic ${isDone(IDX[x]) ? 'flag' : isWant(IDX[x]) ? 'star' : 'none'}"></span><span class="nm">${esc(x)}${starOf(x) ? '<span class="st" role="img" aria-label="Starred"></span>' : ''}</span><span class="rt">${ft(HOODS[IDX[x]].max).toLocaleString()} ft</span></button></li>`).join('');
+      : (REGIONS[r].ordered ? HOODS.filter(h => h.region === r).map(h => h.name) : NAMES.filter(x => inRegion(IDX[x]))).map(x => `<li><button type="button" class="row" data-go='${attr({ hood: x })}'><span class="ic ${isDone(IDX[x]) ? 'flag' : isWant(IDX[x]) ? 'star' : 'none'}"></span><span class="nm">${esc(x)}${starOf(x) ? '<span class="st" role="img" aria-label="Starred"></span>' : ''}</span><span class="rt">${ft(HOODS[IDX[x]].max).toLocaleString()} ft</span></button></li>`).join('');
     // the phone puts the tappable list right under the progress bar, so the half sheet shows rows, not instructions
     const progress = `<div class="progress"><div class="bar"><i style="width:${(n / total * 100).toFixed(1)}%"></i></div><small>${n === 0 ? (state.store === 'sync' && !Object.keys(state.spots).length ? 'Nothing walked yet · <button type="button" class="act" id="join-log-hint">Already have a log? Join it</button>' : 'Nothing walked yet') : `<b>${n}</b> of ${total} walked · ${Math.round(areaPct() * 100)}% by area · ${climbedFt().toLocaleString()} ft climbed`}</small></div>`;
     const lead = `<p class="lead">${n === 0 ? `Tap a place on the map, or pick one ${isPhone() ? 'above' : 'below'}. When you have set foot in it, log it and it gets a flag.` : n === total ? `All ${total}. You have been all over ${REGIONS[r].the}.` : `${total - n} to go.${next ? ' Next stamp: ' + next.label + '.' : ''}`}</p>`;
     const links = `<div class="textlinks">${r === 'all' && window.Lookback ? '<button type="button" data-view="timeline">Timeline</button>' : ''}<button type="button" id="surprise">Suggest a place</button><button type="button" id="quiz">Quiz me</button><button type="button" data-mood-toggle>Find by mood${active ? ' (' + state.filters.size + ')' : ''}</button></div>
       <div id="moods" ${active ? '' : 'hidden'}><h3>Mood</h3><div class="textlinks">${MOODS.map(t => `<button type="button" data-mood="${t}" aria-pressed="${state.filters.has(t)}">${t}</button>`).join('')}</div>
         ${active ? `<h3>${hits.length ? hits.length + ' match' + (hits.length === 1 ? '' : 'es') : 'No matches'}</h3><div class="textlinks">${hits.map(a => `<button type="button" class="${isDone(IDX[a]) ? 'done' : isWant(IDX[a]) ? 'want' : ''}" data-go='${attr({ hood: a })}'>${esc(a)}</button>`).join('')}</div>` : ''}</div>`;
-    const list = `<h3>${r === 'all' ? 'Regions' : 'Places'} <span class="n">${r === 'all' ? '' : total}</span></h3><ul class="rows ${r === 'all' ? '' : 'cols2'}">${places}</ul>`;
+    const list = `<h3>${r === 'all' ? 'Regions' : 'Places'} <span class="n">${r === 'all' ? '' : total}</span></h3><ul class="rows ${r === 'all' || REGIONS[r].ordered ? '' : 'cols2'}">${places}</ul>`; // an ordered region (the Strip, north to south) reads down one column
     panel.innerHTML = (news ? newsBlock() : '') + (r === 'all' && window.Lookback ? Lookback.card() : '') + progress + (isPhone() ? list + lead + links : chips + lead + links + list) + `
       ${entries.length ? `<h3>Been <span class="n">${entries.length}</span></h3><ul class="rows">${entries.map(x => `<li><button type="button" class="row" data-go='${attr({ hood: x })}'><span class="ic flag"></span><span class="nm">${esc(x)}${state.done[slug(x)].note ? `<small>${esc(state.done[slug(x)].note)}</small>` : ''}</span><span class="rt">${niceDate(state.done[slug(x)].at)}</span></button></li>`).join('')}</ul>` : ''}
       ${wantList.length ? `<h3>Want to go <span class="n">${wantList.length}</span></h3><div class="textlinks">${wantList.map(a => `<button type="button" class="want" data-go='${attr({ hood: a })}'>${esc(a)}</button>`).join('')}</div>` : ''}
@@ -423,7 +427,7 @@
         <div class="field" style="margin-top:12px"><label>Appearance</label><div class="seg">${['system', 'light', 'dark'].map(t => `<button type="button" data-theme-pick="${t}" aria-pressed="${state.theme === t}">${t === 'system' ? 'System' : t[0].toUpperCase() + t.slice(1)}</button>`).join('')}</div></div>
         ${state.store === 'sync' ? `<div class="field"><label for="who-in">Your name on this device</label><input id="who-in" maxlength="${WHO_MAX}" autocomplete="given-name" enterkeyhint="done" placeholder="Shown on what you add" value="${esc(who())}"></div>` : ''}
         <div class="actions" style="margin-top:4px"><button type="button" class="btn sm" id="export">Export log</button><button type="button" class="btn sm" id="import">Import</button><input type="file" id="import-file" accept="application/json" hidden>${state.store === 'sync' ? '<button type="button" class="btn sm primary" id="share-log">Share this log</button><button type="button" class="btn sm" id="join-log">Join a log</button>' + (prevKeys().length ? '<button type="button" class="btn sm quiet" id="back-log">Back to the previous log</button>' : '') : ''}</div>
-        <p class="fine">${state.store === 'db' ? 'Your log, list, spots and notes are saved with this artifact and shared with everyone it is shared with.' : state.store === 'sync' ? 'This log is shared: everyone who opens your link sees it and adds to it, live. Keep the link private, and bookmark it on each phone. Photos are shared with the log the same way, but Export log does not include them.' : 'Your log is saved in this browser. Export it now and then to keep a copy, or to move it to another device.'} San Francisco boundaries from the SF Planning Department, high points from Mapzen elevation data. Boundaries everywhere else, Las Vegas included, from the US Census; their high points are approximate. Place search by Photon, © OpenStreetMap contributors.</p>
+        <p class="fine">${state.store === 'db' ? 'Your log, list, spots and notes are saved with this artifact and shared with everyone it is shared with.' : state.store === 'sync' ? 'This log is shared: everyone who opens your link sees it and adds to it, live. Keep the link private, and bookmark it on each phone. Photos are shared with the log the same way, but Export log does not include them.' : 'Your log is saved in this browser. Export it now and then to keep a copy, or to move it to another device.'} San Francisco boundaries from the SF Planning Department, high points from Mapzen elevation data. Boundaries everywhere else in the Bay Area from the US Census; their high points are approximate. The Las Vegas Strip is drawn between I-15 and Paradise Road, cut at its cross streets. Place search by Photon, © OpenStreetMap contributors.</p>
       </details>`;
     panel.querySelector('#surprise').addEventListener('click', surprise);
     panel.querySelector('#quiz').addEventListener('click', startQuiz);

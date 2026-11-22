@@ -20,10 +20,11 @@
     PP[i] = polys; PATH[i] = Geom.pathOf(polys.flat()); BB[i] = Geom.bboxOf(polys.flat());
   });
   const OTHER = Geom.pathOf(G.other.flat().map(r => r.map(proj)));
-  // Areas: the Bay canvas, and each away region (REGIONS[key].away, e.g. Las Vegas) at its true position far outside it, in the
-  // same projection. The camera lives in one area at a time: its pan and zoom limits are that area's box, and a move to another
-  // area is a cut that settles in, not a flight across 600 km of nothing. The Bay's box is the canvas, as it always was.
-  const AREAS = [{ id: 'bay', r: [0, 0, NX, NY] }].concat(Object.keys(window.REGIONS || {}).filter(r => window.REGIONS[r].away && G.regions[r]).map(r => { const b = G.regions[r], m = Math.max(b[2] - b[0], b[3] - b[1]) * .12; return { id: r, r: [b[0] - m, b[1] - m, b[2] + m, b[3] + m] }; }));
+  // Areas: the Bay canvas, and each away region (REGIONS[key].away: the Las Vegas Strip) at its true position far outside it, in
+  // the same projection. The camera lives in one area at a time: its pan and zoom limits are that area's box, and a move to another
+  // area is a cut that settles in, not a flight across 600 km of nothing. The Bay's box is the canvas, as it always was; an away
+  // area's is its places plus a margin (at least 40 units, about 6 km: room to pin a spot off the Strip).
+  const AREAS = [{ id: 'bay', r: [0, 0, NX, NY] }].concat(Object.keys(window.REGIONS || {}).filter(r => window.REGIONS[r].away && G.regions[r]).map(r => { const b = G.regions[r], m = Math.max(40, Math.max(b[2] - b[0], b[3] - b[1]) * .12); return { id: r, r: [b[0] - m, b[1] - m, b[2] + m, b[3] + m] }; }));
   const areaAt = (x, y) => AREAS.find((a, i) => i && x >= a.r[0] && x <= a.r[2] && y >= a.r[1] && y <= a.r[3]) || AREAS[0];
   // the Central Valley and the Sierra east of the county filler: land, so a wide zoomed-out view has no false sea there
   // and around an away area, as far as its camera can see: desert, with no coast to draw
@@ -81,7 +82,9 @@
     } else b.humps.forEach(f => { const a = P(f - b.w, 0), m = P(f, b.h * 2), bb = P(f + b.w, 0); out.humps.moveTo(a[0], a[1]); out.humps.quadraticCurveTo(m[0], m[1], bb[0], bb[1]); });
     return out;
   });
-  const WATER_LBL = [['Pacific Ocean', -122.80, 37.35], ['San Francisco Bay', -122.25, 37.63, .8], ['San Pablo Bay', -122.40, 38.06, .8], ['Suisun Bay', -122.05, 38.08, 1.2], ['Tomales Bay', -122.89, 38.17, 1.2], ['South Bay', -122.06, 37.48, 1.2], ['Lake Mead', -114.735, 36.075]].map(([t, lon, lat, kMin]) => ({ t: t.toUpperCase(), p: proj([lon, lat]), kMin: kMin || 0 })); // kMin: the bays are too narrow to name in the whole-Bay view
+  // Las Vegas Boulevard through the Strip's five stretches, as a road line: the resorts sit either side of it
+  const ROADS = [[[-115.1532, 36.15], [-115.1545, 36.148], [-115.1571, 36.144], [-115.1598, 36.14], [-115.1624, 36.136], [-115.165, 36.132], [-115.1676, 36.128], [-115.1703, 36.124], [-115.1725, 36.12], [-115.1729, 36.116], [-115.173, 36.108], [-115.1729, 36.1], [-115.1728, 36.088], [-115.1727, 36.08]]].map(l => { const p = new Path2D(); l.forEach((q, k) => { const [x, y] = proj(q); if (k) p.lineTo(x, y); else p.moveTo(x, y); }); return p; });
+  const WATER_LBL = [['Pacific Ocean', -122.80, 37.35], ['San Francisco Bay', -122.25, 37.63, .8], ['San Pablo Bay', -122.40, 38.06, .8], ['Suisun Bay', -122.05, 38.08, 1.2], ['Tomales Bay', -122.89, 38.17, 1.2], ['South Bay', -122.06, 37.48, 1.2]].map(([t, lon, lat, kMin]) => ({ t: t.toUpperCase(), p: proj([lon, lat]), kMin: kMin || 0 })); // kMin: the bays are too narrow to name in the whole-Bay view
 
   // San Francisco's 38 small hoods rarely win a label at Bay Area scale: the city gets one name of its own there
   const SF_LBL = (() => { let w = 0, x = 0, y = 0; HOODS.forEach(h => { if (h.region === 'sf') { w += h.cells; x += h.cx * h.cells; y += h.cy * h.cells; } }); return w ? [x / w, y / w] : null; })();
@@ -235,6 +238,7 @@
       for (const i of vis) if (subF[i] > 0.01) { c.globalAlpha = subF[i] * .9; clipTo(c, i, () => subsOf(i).forEach(cell => c.stroke(cell.path))); }
       // starred sections: a gold band just inside the cell edge, with a dark-gold rim, so it reads on any base colour
       for (const i of vis) if (STAR[i] && subF[i] > 0.01) { c.globalAlpha = subF[i]; clipTo(c, i, () => subsOf(i).forEach(cell => { if (!cell.star) return; c.save(); c.clip(cell.path); c.strokeStyle = P.star; c.lineWidth = 6 / k; c.stroke(cell.path); c.strokeStyle = P.starInk; c.lineWidth = 2 / k; c.stroke(cell.path); c.restore(); })); }
+      c.globalAlpha = .8; c.strokeStyle = P.paper; c.lineWidth = Math.min(3 / k, .12); for (const r of ROADS) c.stroke(r); // 3 px, never wider than the road (17 m)
       c.globalAlpha = 1; tick('t-borders');
       for (const b of BRIDGES) {
         const col = b.gg ? P.gg : P.steel; c.strokeStyle = col;
@@ -554,7 +558,7 @@
       flyTo(bb, pad, minW, dur) { const v = fitView(bb[0], bb[1], bb[2], bb[3], pad, minW); userMoved = false; startFly(v, dur); },
       flyToView(v, dur) { userMoved = false; startFly(v, dur); },
       jumpTo(v) { area = areaOfView(v); Object.assign(cam, clampCam(v)); Object.assign(goal, cam); fly = null; mode = 'still'; kick(); },
-      get area() { return area.id; }, areaAt: (x, y) => areaAt(x, y).id,
+      get area() { return area.id; }, areaAt: (x, y) => areaAt(x, y).id, areas: AREAS,
       zoom(f) { zoomAt(W / 2, H / 2, f); },
       setColors(colors, animate) { colors.forEach((c, i) => { const rgb = hex2rgb(cssColor(c)); colTo[i] = rgb; if (!animate) colNow[i] = rgb.slice(); }); colAnim = !!animate; dirty = true; kick(); },
       setState(s) { if (s.region !== undefined) region = s.region; if (s.sel !== undefined) sel = s.sel; if (s.selSub !== undefined) selSub = s.selSub; if (s.quiz !== undefined) quiz = s.quiz; dirty = true; kick(); },

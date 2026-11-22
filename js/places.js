@@ -1,7 +1,7 @@
-// Place search for logging spots: Photon (OpenStreetMap data, komoot's free geocoder), limited to the map's
-// bounding box. Falls back silently when the network is blocked; the app then offers "drop a pin" instead.
+// Place search for logging spots: Photon (OpenStreetMap data, komoot's free geocoder), limited to one lon/lat
+// box: opts.bbox (the area being logged in: the Bay Area, or an away region such as Las Vegas), else the Bay canvas. Falls back silently when the network is blocked; the app then offers "drop a pin" instead.
 (function () {
-  const G = window.GEO, [LON0, LAT0, LON1, LAT1] = G.bbox;
+  const G = window.GEO;
   const KIND_BY_OSM = {
     restaurant: 'food', fast_food: 'food', food_court: 'food', bakery: 'food', ice_cream: 'food', deli: 'food', butcher: 'food', greengrocer: 'food', supermarket: 'food', marketplace: 'food',
     bar: 'drink', pub: 'drink', biergarten: 'drink', nightclub: 'drink', wine: 'drink', alcohol: 'drink', brewery: 'drink',
@@ -13,7 +13,7 @@
   let ctrl = null;
   // Fallback for when Photon is unreachable: Nominatim, whose usage policy rules out per-keystroke
   // autocomplete, so it is only called for an explicit search (Enter), never while typing.
-  async function nominatim(q, signal) {
+  async function nominatim(q, signal, [LON0, LAT0, LON1, LAT1]) {
     const u = new URL('https://nominatim.openstreetmap.org/search');
     u.searchParams.set('q', q.trim()); u.searchParams.set('format', 'jsonv2'); u.searchParams.set('limit', '8'); u.searchParams.set('addressdetails', '1');
     u.searchParams.set('viewbox', `${LON0},${LAT1},${LON1},${LAT0}`); u.searchParams.set('bounded', '1');
@@ -31,11 +31,12 @@
   async function search(q, bias, opts = {}) {
     if (!q || q.trim().length < 2) return [];
     if (ctrl) ctrl.abort(); ctrl = new AbortController();
-    if (opts.explicit && search.photonDown) return nominatim(q, ctrl.signal);
-    try { return await photon(q, bias, ctrl.signal); }
-    catch (e) { if (e.name === 'AbortError') throw e; search.photonDown = true; if (opts.explicit) return nominatim(q, ctrl.signal); throw e; }
+    const box = opts.bbox || G.bbox;
+    if (opts.explicit && search.photonDown) return nominatim(q, ctrl.signal, box);
+    try { return await photon(q, bias, ctrl.signal, box); }
+    catch (e) { if (e.name === 'AbortError') throw e; search.photonDown = true; if (opts.explicit) return nominatim(q, ctrl.signal, box); throw e; }
   }
-  async function photon(q, bias, signal) {
+  async function photon(q, bias, signal, [LON0, LAT0, LON1, LAT1]) {
     // a hung connection should not hold up the fallback: give Photon four seconds
     if (typeof AbortSignal !== 'undefined' && AbortSignal.any && AbortSignal.timeout) signal = AbortSignal.any([signal, AbortSignal.timeout(4000)]);
     const u = new URL('https://photon.komoot.io/api/');

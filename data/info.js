@@ -667,8 +667,32 @@ window.INFO = {
   line:'Redwoods, river beaches, and the Russian River’s queer resort scene.',
   known:['Armstrong Redwoods State Natural Reserve','Johnson’s Beach on the Russian River','Main Street’s bars and the old steel bridge'],
   fact:'The logging camp was called Stumptown for the redwood stumps its mills left behind, then renamed for Swiss sawmill owner George Guerne. The June parade is still called Stumptown Daze.' },
+'North Strip': { vibe:'buzz', fog:1, hills:1, tags:['sunny','nightlife','food','views'],
+  line:'The quiet end: the tower, the newest resorts and the lots where the old ones stood.',
+  known:['The STRAT’s observation deck','Resorts World and Fontainebleau','Circus Circus and the Adventuredome'],
+  fact:'Fontainebleau’s blue tower stood unfinished for more than a decade before it opened in December 2023. Resorts World, opened in 2021, stands where the Stardust was imploded in 2007.' },
+'Wynn & Venetian': { vibe:'buzz', fog:1, hills:1, tags:['sunny','nightlife','food','dense'],
+  line:'The four corners at Spring Mountain Road: Wynn, the mall, the pirate lagoon and the canals, with the Sphere behind.',
+  known:['Wynn and Encore','The Venetian’s Grand Canal','Sphere'],
+  fact:'Wynn stands on the site of the Desert Inn, where Howard Hughes moved in on Thanksgiving 1966 and, asked to leave, bought the hotel instead. Sphere, opened in 2023, is 366 feet tall and wrapped in 580,000 square feet of LED screen.' },
+'Center Strip': { vibe:'buzz', fog:1, hills:1, tags:['sunny','nightlife','food','dense','views'],
+  line:'The fountains, the Forum Shops and the wheel: the Strip at Flamingo Road.',
+  known:['Fountains of Bellagio','Caesars Palace and the Forum Shops','The LINQ Promenade and the High Roller'],
+  fact:'Bugsy Siegel opened the Flamingo here in December 1946. It is the oldest resort still operating on the Strip, though nothing of the original building is left. The High Roller, 550 feet tall, takes half an hour to go round once.' },
+'CityCenter & MGM': { vibe:'buzz', fog:1, hills:1, tags:['sunny','nightlife','food','dense'],
+  line:'Aria’s glass towers, the arena and a pocket Manhattan, down to the corner of Tropicana.',
+  known:['Aria and the Shops at Crystals','T-Mobile Arena, home of the Golden Knights','MGM Grand and New York-New York'],
+  fact:'CityCenter opened in 2009 as one of the most expensive privately funded building projects in American history. The bronze lion outside the MGM Grand is 45 feet tall.' },
+'South Strip': { vibe:'buzz', fog:1, hills:1, tags:['sunny','nightlife','views','historic'],
+  line:'A castle, a pyramid and the sign at the end of the road.',
+  known:['Luxor’s pyramid and Sky Beam','Mandalay Bay and Shark Reef','The Welcome to Fabulous Las Vegas sign'],
+  fact:'Betty Willis designed the Welcome sign in 1959 and never copyrighted it; she called it her gift to the city. The Tropicana, which opened in 1957, was imploded in 2024 to make room for the Athletics’ ballpark.' },
 };window.VIBES = { fog:{label:'Fog belt',cls:'v-fog'}, hills:{label:'Hills & views',cls:'v-hills'}, water:{label:'Waterfront',cls:'v-water'}, sun:{label:'Sun belt',cls:'v-sun'}, buzz:{label:'The buzz',cls:'v-buzz'}, green:{label:'Parks & quiet',cls:'v-green'} };
 window.MOODS = ['sunny','foggy','hilly','waterfront','food','nightlife','parks','quiet'];
 window.FOG_WORDS = ['Sunbelt','Mostly sunny','Fog visits','Fog lives here','Permanent cloud'];
-window.SHORT = { 'Castro/Upper Market':'Castro', 'Downtown/Civic Center':'Civic Center', 'Treasure Island/YBI':'Treasure Island', 'Financial District':'FiDi', 'South of Market':'SoMa', 'Haight Ashbury':'Haight', 'Visitacion Valley':'Vis Valley', 'Presidio Heights':'Presidio Hts', 'Pacific Heights':'Pac Heights', 'Diamond Heights':'Diamond Hts', 'Bernal Heights':'Bernal', 'Mount Tam & Muir Woods':'Mount Tam', 'San Geronimo Valley':'San Geronimo', 'Marin Headlands':'Headlands', 'South San Francisco':'South SF', 'Montara & Moss Beach':'Montara', 'San Bruno Mountain':'San Bruno Mtn', 'Point Reyes Station':'Pt Reyes Sta', 'East Palo Alto':'E. Palo Alto', 'Portola Valley':'Portola Vly', 'Castro Valley':'Castro Vly', 'American Canyon':'Am. Canyon' };
-window.REGIONS = { all:{label:'Bay Area', the:'the whole map', roof:'the roof of the map'}, sf:{label:'The City', the:'the whole city', roof:'the city’s roof'}, marin:{label:'Marin', the:'all of Marin', roof:'Marin’s roof'}, east:{label:'East Bay', the:'the whole East Bay', roof:'the East Bay’s roof'}, penin:{label:'Peninsula', the:'the whole Peninsula', roof:'the Peninsula’s roof'}, south:{label:'South Bay', the:'the whole South Bay', roof:'the South Bay’s roof'}, north:{label:'North Bay', the:'the whole North Bay', roof:'the North Bay’s roof'} };
+window.SHORT = { 'Castro/Upper Market':'Castro', 'Downtown/Civic Center':'Civic Center', 'Treasure Island/YBI':'Treasure Island', 'Financial District':'FiDi', 'South of Market':'SoMa', 'Haight Ashbury':'Haight', 'Visitacion Valley':'Vis Valley', 'Presidio Heights':'Presidio Hts', 'Pacific Heights':'Pac Heights', 'Diamond Heights':'Diamond Hts', 'Bernal Heights':'Bernal', 'Mount Tam & Muir Woods':'Mount Tam', 'San Geronimo Valley':'San Geronimo', 'Marin Headlands':'Headlands', 'South San Francisco':'South SF', 'Montara & Moss Beach':'Montara', 'San Bruno Mountain':'San Bruno Mtn', 'Point Reyes Station':'Pt Reyes Sta', 'East Palo Alto':'E. Palo Alto', 'Portola Valley':'Portola Vly', 'Castro Valley':'Castro Vly', 'American Canyon':'Am. Canyon', 'Wynn & Venetian':'Wynn-Venetian', 'CityCenter & MGM':'CityCenter' };
+window.REGIONS = { all:{label:'Bay Area', the:'the whole map', roof:'the roof of the map'}, sf:{label:'The City', the:'the whole city', roof:'the city’s roof'}, marin:{label:'Marin', the:'all of Marin', roof:'Marin’s roof'}, east:{label:'East Bay', the:'the whole East Bay', roof:'the East Bay’s roof'}, penin:{label:'Peninsula', the:'the whole Peninsula', roof:'the Peninsula’s roof'}, south:{label:'South Bay', the:'the whole South Bay', roof:'the South Bay’s roof'}, north:{label:'North Bay', the:'the whole North Bay', roof:'the North Bay’s roof'},
+  // away: a region outside the Bay Area, drawn at its true position with a camera box of its own (js/map.js). st and city: what
+  // a map link ends in (its places are stretches of the Strip, not towns); low: where its Hills ramp starts (the Bay's: sea level);
+  // ordered: its places are listed in map order (north to south), not by name
+  vegas:{label:'Las Vegas', the:'the whole Strip', roof:'the Strip’s high point', away:true, ordered:true, st:'NV', city:'Las Vegas', low:{m:640, label:'2,100 ft'}} };

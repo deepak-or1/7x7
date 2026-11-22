@@ -1,0 +1,44 @@
+{
+"North Strip":[
+{"name":"The STRAT","lon":-115.1556,"lat":36.1475,"line":"The tower at the top of the Strip, just inside the city line at Sahara.","known":["The observation deck and the rides on top, at 1,149 feet","Bonanza Gift Shop","Wedding chapel row, north up the Boulevard"],"tags":["views","nightlife"]},
+{"name":"Sahara","lon":-115.156,"lat":36.142,"line":"The 1952 hotel at the corner of Sahara Avenue, where the Monorail ends.","known":["Sahara Las Vegas","The Monorail’s last stop","The festival grounds across the Boulevard"],"tags":["nightlife","historic","food"]},
+{"name":"Fontainebleau","lon":-115.1594,"lat":36.1378,"line":"The blue tower that stood unfinished for years, open since December 2023.","known":["Fontainebleau Las Vegas","The tallest occupied building in Nevada","LIV nightclub"],"tags":["nightlife","food","views"]},
+{"name":"Circus Circus","lon":-115.164,"lat":36.1373,"line":"The pink big top from 1968, with circus acts over the casino floor.","known":["The Adventuredome","The Midway’s free circus acts","Lucky the Clown, the neon sign"],"tags":["historic","nightlife"]},
+{"name":"Resorts World","lon":-115.167,"lat":36.1348,"line":"Three hotels behind one red tower, on the site of the Stardust.","known":["Famous Foods Street Eats","The LED screen that covers the tower","The Vegas Loop station"],"tags":["food","nightlife","shops"]},
+{"name":"Peppermill & West Hall","lon":-115.1605,"lat":36.1322,"line":"A 24-hour diner with a fire-pit lounge, beside the newest convention hall.","known":["Peppermill and its Fireside Lounge","Las Vegas Convention Center West Hall","The Vegas Loop’s Tesla tunnels"],"tags":["food","nightlife","historic"]}
+],
+"Wynn & Venetian":[
+{"name":"Wynn & Encore","lon":-115.1655,"lat":36.1272,"line":"Two curved bronze towers and a golf course, where the Desert Inn stood.","known":["The Lake of Dreams","Wynn Golf Club","Encore Beach Club and XS"],"tags":["nightlife","food","shops"]},
+{"name":"Fashion Show","lon":-115.1712,"lat":36.1275,"line":"The Strip’s big mall, under a steel cloud that hangs over the sidewalk.","known":["Fashion Show mall","The Cloud canopy","Trump International’s gold tower behind it"],"tags":["shops","food"]},
+{"name":"Treasure Island","lon":-115.1722,"lat":36.1247,"line":"Pirate ships in a lagoon out front, from the family-friendly 1990s.","known":["TI’s lagoon and ships","Mystère by Cirque du Soleil","The footbridges at Spring Mountain Road"],"tags":["nightlife","historic"]},
+{"name":"Venetian & Palazzo","lon":-115.169,"lat":36.1222,"line":"Canals with gondolas on the second floor, under a painted sky.","known":["Grand Canal Shoppes","Gondola rides","The Campanile and Rialto Bridge out front"],"tags":["shops","food","nightlife"]},
+{"name":"Hard Rock","lon":-115.1742,"lat":36.1212,"line":"The Mirage closed in 2024; a guitar-shaped hotel tower is rising where its volcano erupted.","known":["The guitar tower under construction","The Mirage’s volcano site","Mirage, 1989: the first of the megaresorts"],"tags":["historic","nightlife"]},
+{"name":"Sphere","lon":-115.1617,"lat":36.1208,"line":"The 366-foot ball behind the Venetian, a screen inside and out.","known":["The Exosphere, lit all night","Concert residencies and films inside","The footbridge from the Venetian Expo"],"tags":["views","nightlife"]}
+],
+"Center Strip":[
+{"name":"Harrah’s","lon":-115.1712,"lat":36.119,"line":"A mid-priced old hand, with a tiny cheap casino next door.","known":["Harrah’s Las Vegas","Casino Royale’s low-limit tables","The Monorail station behind"],"tags":["nightlife","food"]},
+{"name":"The LINQ","lon":-115.1685,"lat":36.1176,"line":"An alley of bars and shops that leads from the Boulevard to the wheel.","known":["The High Roller, 550 feet tall","The LINQ Promenade","The zipline over the alley"],"tags":["nightlife","food","views"]},
+{"name":"Flamingo","lon":-115.1712,"lat":36.116,"line":"Bugsy Siegel’s resort, with real flamingos in the garden and the Cromwell on the corner.","known":["The Wildlife Habitat’s flamingos","The pink neon plumes","The Cromwell and Drai’s on its roof"],"tags":["historic","nightlife","food"]},
+{"name":"Caesars Palace","lon":-115.175,"lat":36.1162,"line":"Roman columns, fountains and statues since 1966, and a mall with a painted sky.","known":["The Forum Shops","The Colosseum theatre","The fountains Evel Knievel tried to jump"],"tags":["shops","food","nightlife"]},
+{"name":"Horseshoe","lon":-115.17,"lat":36.1142,"line":"The old Bally’s on the Flamingo corner, now home of the World Series of Poker.","known":["The World Series of Poker","The Monorail station","The Grand Bazaar Shops out front"],"tags":["nightlife","historic"]},
+{"name":"Bellagio","lon":-115.1767,"lat":36.1126,"line":"The lake with the dancing fountains, and a glass-flower ceiling in the lobby.","known":["Fountains of Bellagio","The Conservatory and Botanical Gardens","Chihuly’s glass flowers over the lobby"],"tags":["views","food","nightlife"]},
+{"name":"Paris","lon":-115.1707,"lat":36.1125,"line":"A half-size Eiffel Tower with its legs through the casino roof.","known":["The Eiffel Tower viewing deck","The Arc de Triomphe out front","Sidewalk tables facing the fountains"],"tags":["views","food","nightlife"]},
+{"name":"Planet Hollywood","lon":-115.1714,"lat":36.11,"line":"The old Aladdin, wrapped in a mall that curves round the whole block.","known":["Miracle Mile Shops","The theatre for concert residencies","Harmon Corner’s giant screen"],"tags":["shops","nightlife","food"]},
+{"name":"The Cosmopolitan","lon":-115.174,"lat":36.1098,"line":"Two glass towers squeezed beside the Bellagio lake, with balconies over the fountains.","known":["The Chandelier bar, three storeys of crystal","Secret Pizza","Marquee and the Boulevard Pool"],"tags":["nightlife","food","views"]}
+],
+"CityCenter & MGM":[
+{"name":"Aria","lon":-115.1766,"lat":36.1073,"line":"The curved glass heart of CityCenter, set back from the Boulevard.","known":["Aria Resort","The public art collection, Maya Lin and Henry Moore","The free tram to Bellagio and Park MGM"],"tags":["nightlife","food","views"]},
+{"name":"Crystals","lon":-115.1741,"lat":36.1068,"line":"A jagged steel-roofed luxury mall, with the Waldorf Astoria next door.","known":["The Shops at Crystals","James Turrell’s light installation","Waldorf Astoria’s 23rd-floor tea lounge"],"tags":["shops","food","views"]},
+{"name":"Showcase Mall","lon":-115.1722,"lat":36.1045,"line":"Four floors of candy and a giant Coke bottle, on the east side of the Boulevard.","known":["M&M’s World","The 100-foot Coca-Cola bottle","Hard Rock Cafe’s guitar sign"],"tags":["shops","food"]},
+{"name":"Park MGM","lon":-115.1772,"lat":36.1032,"line":"The old Monte Carlo, with an arena and a tree-lined plaza behind it.","known":["T-Mobile Arena, home of the Golden Knights","Dolby Live theatre","The Park and Toshiba Plaza"],"tags":["nightlife","food"]},
+{"name":"New York-New York","lon":-115.1745,"lat":36.1022,"line":"A skyline of twelve towers, with a roller coaster looped around them.","known":["The Big Apple Coaster","The Statue of Liberty and the Brooklyn Bridge","Hershey’s Chocolate World"],"tags":["nightlife","views","food"]},
+{"name":"MGM Grand","lon":-115.1695,"lat":36.1024,"line":"The green giant on the Tropicana corner, with more than 5,000 rooms.","known":["The bronze lion on the corner","MGM Grand Garden Arena","The south end of the Monorail"],"tags":["nightlife","food"]}
+],
+"South Strip":[
+{"name":"Excalibur","lon":-115.1754,"lat":36.0987,"line":"A red-and-blue turreted castle from 1990, still the cheap bed on the corner.","known":["The castle’s turrets","Tournament of Kings dinner show","The free tram to Luxor and Mandalay Bay"],"tags":["nightlife","historic"]},
+{"name":"Tropicana Corner","lon":-115.1712,"lat":36.0995,"line":"Where the Tropicana stood from 1957 until its 2024 implosion; the Athletics’ ballpark is going up.","known":["The ballpark construction site","The footbridges over the busiest corner on the Strip","Oyo, the old Hooters, behind it"],"tags":["historic","views"]},
+{"name":"Luxor","lon":-115.1761,"lat":36.0955,"line":"A black glass pyramid with a sphinx at the door and a light beam from its tip.","known":["The Sky Beam","The pyramid’s slanted elevators","The atrium inside the pyramid"],"tags":["views","nightlife"]},
+{"name":"Mandalay Bay","lon":-115.175,"lat":36.0914,"line":"The gold tower at the south end, with a beach, an aquarium and a convention centre.","known":["Shark Reef Aquarium","Mandalay Bay Beach and its wave pool","Michelob Ultra Arena"],"tags":["nightlife","food","views"]},
+{"name":"Welcome Sign","lon":-115.1728,"lat":36.082,"line":"The 1959 sign in the median, where the Boulevard leaves the resorts behind.","known":["Welcome to Fabulous Las Vegas sign","Pinball Hall of Fame","Little Church of the West"],"tags":["historic","views"]}
+]
+}

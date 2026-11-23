@@ -24,7 +24,12 @@
   // the same projection. The camera lives in one area at a time: its pan and zoom limits are that area's box, and a move to another
   // area is a cut that settles in, not a flight across 600 km of nothing. The Bay's box is the canvas, as it always was; an away
   // area's is its places plus a margin (at least 40 units, about 6 km: room to pin a spot off the Strip).
-  const AREAS = [{ id: 'bay', r: [0, 0, NX, NY] }].concat(Object.keys(window.REGIONS || {}).filter(r => window.REGIONS[r].away && G.regions[r]).map(r => { const b = G.regions[r], m = Math.max(40, Math.max(b[2] - b[0], b[3] - b[1]) * .12); return { id: r, r: [b[0] - m, b[1] - m, b[2] + m, b[3] + m] }; }));
+  const AREAS = [{ id: 'bay', r: [0, 0, NX, NY] }].concat(Object.keys(window.REGIONS || {}).filter(r => window.REGIONS[r].away && G.regions[r]).map(r => { const b = G.regions[r], m = Math.max(40, Math.max(b[2] - b[0], b[3] - b[1]) * .12); return { id: r, r: [b[0] - m, b[1] - m, b[2] + m, b[3] + m], detail: window.REGIONS[r].detail || 1 }; }));
+  // REGIONS[key].detail: the places of that region count as this many times their size on screen (hoodPx), so their sections show
+  // and take taps from the region view. The Strip's sections are single resorts: the whole of it is five places on one screen
+  const DETAIL = HOODS.map(h => (window.REGIONS && window.REGIONS[h.region] && window.REGIONS[h.region].detail) || 1);
+  // such a place is named beside it, to the right of its edge at the height of its anchor: its own ground belongs to its sections' names
+  const SIDE_X = HOODS.map((h, i) => { if (DETAIL[i] <= 1 || !PP[i]) return 0; const band = (BB[i][3] - BB[i][1]) * .2; let x = -Infinity; PP[i].flat().forEach(r => r.forEach(q => { if (Math.abs(q[1] - h.cy) <= band && q[0] > x) x = q[0]; })); return x > -Infinity ? x : BB[i][2]; });
   const areaAt = (x, y) => AREAS.find((a, i) => i && x >= a.r[0] && x <= a.r[2] && y >= a.r[1] && y <= a.r[3]) || AREAS[0];
   // the Central Valley and the Sierra east of the county filler: land, so a wide zoomed-out view has no false sea there
   // and around an away area, as far as its camera can see: desert, with no coast to draw
@@ -82,8 +87,13 @@
     } else b.humps.forEach(f => { const a = P(f - b.w, 0), m = P(f, b.h * 2), bb = P(f + b.w, 0); out.humps.moveTo(a[0], a[1]); out.humps.quadraticCurveTo(m[0], m[1], bb[0], bb[1]); });
     return out;
   });
-  // Las Vegas Boulevard through the Strip's five stretches, as a road line: the resorts sit either side of it
-  const ROADS = [[[-115.1532, 36.15], [-115.1545, 36.148], [-115.1571, 36.144], [-115.1598, 36.14], [-115.1624, 36.136], [-115.165, 36.132], [-115.1676, 36.128], [-115.1703, 36.124], [-115.1725, 36.12], [-115.1729, 36.116], [-115.173, 36.108], [-115.1729, 36.1], [-115.1728, 36.088], [-115.1727, 36.08]]].map(l => { const p = new Path2D(); l.forEach((q, k) => { const [x, y] = proj(q); if (k) p.lineTo(x, y); else p.moveTo(x, y); }); return p; });
+  // The roads of an away area, drawn over its places: Las Vegas Boulevard down the middle of the Strip's ribbon (main), and the four
+  // cross streets everyone steers by, run out a little past each side and named at their west end
+  const ROADS = [
+    { main: true, pts: [[-115.15383, 36.1505], [-115.15497, 36.1475], [-115.15682, 36.1445], [-115.15878, 36.1415], [-115.16075, 36.1385], [-115.16271, 36.1355], [-115.16467, 36.1325], [-115.16664, 36.1295], [-115.16862, 36.1265], [-115.1705, 36.1235], [-115.17193, 36.1205], [-115.17265, 36.1175], [-115.17287, 36.1145], [-115.17294, 36.1115], [-115.17298, 36.1085], [-115.17297, 36.1055], [-115.17296, 36.1025], [-115.17293, 36.0995], [-115.17291, 36.0965], [-115.17289, 36.0935], [-115.17287, 36.0905], [-115.17285, 36.0875], [-115.17281, 36.0845], [-115.17275, 36.0815], [-115.17273, 36.0795]] },
+    { name: 'Sahara', pts: [[-115.1725, 36.1441], [-115.1375, 36.1441]] }, { name: 'Spring Mtn', pts: [[-115.1851, 36.125], [-115.1501, 36.125]] },
+    { name: 'Flamingo', pts: [[-115.1884, 36.1147], [-115.1534, 36.1147]] }, { name: 'Tropicana', pts: [[-115.1884, 36.1009], [-115.1534, 36.1009]] },
+  ].map(r => { const p = new Path2D(); r.pts.forEach((q, k) => { const [x, y] = proj(q); if (k) p.lineTo(x, y); else p.moveTo(x, y); }); return { main: !!r.main, path: p, name: r.name ? r.name.toUpperCase() : null, lbl: r.name ? proj(r.pts[0]) : null }; });
   const WATER_LBL = [['Pacific Ocean', -122.80, 37.35], ['San Francisco Bay', -122.25, 37.63, .8], ['San Pablo Bay', -122.40, 38.06, .8], ['Suisun Bay', -122.05, 38.08, 1.2], ['Tomales Bay', -122.89, 38.17, 1.2], ['South Bay', -122.06, 37.48, 1.2]].map(([t, lon, lat, kMin]) => ({ t: t.toUpperCase(), p: proj([lon, lat]), kMin: kMin || 0 })); // kMin: the bays are too narrow to name in the whole-Bay view
 
   // San Francisco's 38 small hoods rarely win a label at Bay Area scale: the city gets one name of its own there
@@ -115,7 +125,7 @@
     // state from the app
     let region = 'all', sel = -1, selSub = -1, hover = -1, hoverSub = -1, hoverSpot = null, quiz = false;
     const colNow = HOODS.map(() => [200, 200, 200]), colTo = HOODS.map(() => [200, 200, 200]); let colAnim = false;
-    const lblA = HOODS.map(() => 0), subA = {}, lmA = LANDS.map(() => 0), bridgeLblA = [0], waterLblA = [0], sfA = [0], starA = {};
+    const lblA = HOODS.map(() => 0), subA = {}, lmA = LANDS.map(() => 0), bridgeLblA = [0], waterLblA = [0], roadLblA = [0], sfA = [0], starA = {};
     const farA = [1]; // how strongly places outside the selected region fade: 1 while the camera is where the app put it, 0 once the user moves it by hand (else the map is grey exactly where they look)
     const markAnim = {}; let me = null, meT0 = 0;
     const measureCache = new Map(); let drawnSpots = [];
@@ -141,7 +151,7 @@
     function toScreen(x, y) { const k = kNow(); return [(x - cam.x) * k, (y - cam.y) * k]; }
     function toMap(sx, sy) { const k = kNow(); return [cam.x + sx / k, cam.y + sy / k]; }
     function visible(bb, k, m = 0) { return bb[2] > cam.x - m / k && bb[0] < cam.x + (W + m) / k && bb[3] > cam.y - m / k && bb[1] < cam.y + (H + m) / k; }
-    function hoodPx(i) { return (BB[i][2] - BB[i][0]) * kNow(); }
+    function hoodPx(i) { return (BB[i][2] - BB[i][0]) * kNow() * DETAIL[i]; }
 
     function startFly(to, dur) {
       const ta = areaOfView(to);
@@ -238,7 +248,7 @@
       for (const i of vis) if (subF[i] > 0.01) { c.globalAlpha = subF[i] * .9; clipTo(c, i, () => subsOf(i).forEach(cell => c.stroke(cell.path))); }
       // starred sections: a gold band just inside the cell edge, with a dark-gold rim, so it reads on any base colour
       for (const i of vis) if (STAR[i] && subF[i] > 0.01) { c.globalAlpha = subF[i]; clipTo(c, i, () => subsOf(i).forEach(cell => { if (!cell.star) return; c.save(); c.clip(cell.path); c.strokeStyle = P.star; c.lineWidth = 6 / k; c.stroke(cell.path); c.strokeStyle = P.starInk; c.lineWidth = 2 / k; c.stroke(cell.path); c.restore(); })); }
-      c.globalAlpha = .8; c.strokeStyle = P.paper; c.lineWidth = Math.min(3 / k, .12); for (const r of ROADS) c.stroke(r); // 3 px, never wider than the road (17 m)
+      for (const r of ROADS) { c.globalAlpha = r.main ? .85 : .4; c.strokeStyle = r.main ? P.paper : P.muted; c.lineWidth = r.main ? Math.min(3 / k, .2) : Math.min(1.2 / k, .1); c.stroke(r.path); } // px widths, never wider than the road itself
       c.globalAlpha = 1; tick('t-borders');
       for (const b of BRIDGES) {
         const col = b.gg ? P.gg : P.steel; c.strokeStyle = col;
@@ -296,6 +306,9 @@
       anim = fade(bridgeLblA, 0, k > 3.2 && k < 40 && !quiz ? 1 : 0, dt) || anim;
       if (bridgeLblA[0] > 0.01) { ctx.globalAlpha = bridgeLblA[0]; ctx.textAlign = 'center'; ctx.font = `500 ${isPhone() ? 9.5 : 10.5}px Figtree, system-ui, sans-serif`; for (const b of BRIDGES) if (b.lbl) { const [sx, sy] = toScreen(b.lbl.p[0], b.lbl.p[1]); if (sx > -100 && sx < W + 100 && sy > -20 && sy < H + 20 && (!isPhone() || Math.abs(sx - W / 2) + measure(b.lbl.text, 500, 9.5) / 2 < W / 2 - 2)) { ctx.fillStyle = P.water; for (let q = 0; q < 6; q++) { const a = q * Math.PI / 3; ctx.fillText(b.lbl.text, sx + Math.cos(a) * 1.2, sy + Math.sin(a) * 1.2); } ctx.fillStyle = P.muted; ctx.fillText(b.lbl.text, sx, sy); } } ctx.globalAlpha = 1; }
 
+      // cross-street names at the west end of an away area's roads; place labels keep clear of them
+      anim = fade(roadLblA, 0, area !== AREAS[0] && k > 3 && k < 60 && !quiz ? 1 : 0, dt) || anim;
+      if (roadLblA[0] > 0.01) { const fs = isPhone() ? 9.5 : 10.5; ctx.globalAlpha = roadLblA[0]; ctx.textAlign = 'right'; ctx.font = `500 ${fs}px Figtree, system-ui, sans-serif`; ctx.fillStyle = P.muted; for (const r of ROADS) if (r.lbl) { const [sx, sy] = toScreen(r.lbl[0], r.lbl[1]), tw = measure(r.name, 500, fs); if (sx - tw > 6 && sx < W + 40 && sy > 0 && sy < H) { ctx.fillText(r.name, sx - 6, sy); waterBoxes.push([sx - 8 - tw, sy - fs * .7, sx - 4, sy + fs * .7]); } } ctx.globalAlpha = 1; }
       tick('waterlbl');
       // labels: hoods first (priority order, no overlaps), then sections, then spot names
       const placed = [];
@@ -304,7 +317,7 @@
       for (const b of waterBoxes) placed.push(b);
       const marks = o.marks ? o.marks() : [];
       // landmark glyphs cannot move, so their footprints are reserved first (they are drawn later, above the fills)
-      const lmF = quiz ? 0 : smooth(k, 7, 10.5), lmH = clamp(k * 1.7, 16, 44);
+      const lmK = k * (area.detail > 1 ? 2 : 1), lmF = quiz ? 0 : smooth(lmK, 7, 10.5), lmH = clamp(lmK * 1.7, 16, 44); // a detailed area shows its landmarks from half the scale
       LANDS.forEach((l, j) => {
         const hi = IDX[l.hood]; const far = farOn && region !== 'all' && hi != null && HOODS[hi].region !== region;
         const [sx, sy] = toScreen(l.x, l.y); const onScreen = sx > -60 && sx < W + 60 && sy > -60 && sy < H + 60;
@@ -335,17 +348,18 @@
         let target = 0, box = null, size = base, ghost = false, st = 0;
         if (!quiz && !far) {
           const hot = i === sel || i === hover, text = (window.SHORT[h.name] || h.name).toUpperCase();
-          ghost = subF[i] > 0.6 && (isPhone() ? i === sel : !hot); // phone: only the selected place becomes a watermark (its sections get the room); neighbours keep normal labels
+          const side = DETAIL[i] > 1;
+          ghost = !side && subF[i] > 0.6 && (isPhone() ? i === sel : !hot); // phone: only the selected place becomes a watermark (its sections get the room); neighbours keep normal labels
           size = ghost ? base * 1.55 : hot ? base * 1.15 : base;
           st = STAR[i] ? size * (ghost ? .75 : .85) + size * .3 : 0; // a starred place: a small gold star after its name, inside the label's box
           const tw = measure(text, 600, size) + text.length * size * (ghost ? .14 : .05) + st, th = size * 1.2;
-          const [cx, cy0] = toScreen(h.cx, h.cy); const cy = cy0 + (marks[i] && !ghost ? size * 1.25 : 0);
+          const [cx0, cy0] = toScreen(h.cx, h.cy), cx = side ? toScreen(SIDE_X[i], 0)[0] + 12 + tw / 2 : cx0; const cy = cy0 + (marks[i] && !ghost && !side ? size * 1.25 : 0);
           const gx = isPhone() ? 4 : 2, gy = isPhone() ? 1 : 0; // phone labels keep wider clearance
           const at = y => [cx - tw / 2 - gx, y - th / 2 - gy, cx + tw / 2 + gx, y + th / 2 + gy];
           box = at(cy);
-          const fits = (BB[i][2] - BB[i][0]) * k >= tw * .72 && (BB[i][3] - BB[i][1]) * k >= th;
+          const fits = side || ((BB[i][2] - BB[i][0]) * k >= tw * .72 && (BB[i][3] - BB[i][1]) * k >= th);
           const keep = hot || marks[i] || STAR[i] || h.cells < 10;
-          const onOwn = b => { if (!isPhone()) return true; const [x0, y0] = toScreen(BB[i][0], BB[i][1]), [x1, y1] = toScreen(BB[i][2], BB[i][3]), my = (b[1] + b[3]) / 2; return my >= Math.min(y0, y1) - th * .6 && my <= Math.max(y0, y1) + th * .6; }; // phone: never move a label off its own place; hide it instead
+          const onOwn = b => { if (!isPhone() || side) return true; const [x0, y0] = toScreen(BB[i][0], BB[i][1]), [x1, y1] = toScreen(BB[i][2], BB[i][3]), my = (b[1] + b[3]) / 2; return my >= Math.min(y0, y1) - th * .6 && my <= Math.max(y0, y1) + th * .6; }; // phone: never move a label off its own place; hide it instead
           if (!ghost && (fits || keep) && clash(box, i)) { for (const dy of [th * 1.15, -th * 1.15, th * 2.2]) { const alt = at(cy + dy); if (onOwn(alt) && !clash(alt, i)) { box = alt; break; } } }
           const inView = b => !isPhone() || hot || (b[0] >= 2 && b[2] <= W - 2 && b[1] >= 0 && b[3] <= H); // phone: no labels sliced by the screen edge
           target = ghost ? (i === sel ? .5 : (fits ? .32 : 0)) : (hot || ((fits || keep) && !clash(box, i) && inView(box))) ? 1 : 0;

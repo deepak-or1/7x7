@@ -64,6 +64,7 @@
     const DETAIL = HOODS.map((h, i) => Math.round(base.hoodPx(i) / ((BB[i][2] - BB[i][0]) * base.k) * 1e6) / 1e6 || 1); // the flat map's own detail factor per place
     const subsOf = i => base.subs(i);
     const PP = []; window.HP.forEach(h => { const i = IDX[h.name]; if (i != null) PP[i] = h.polys.map(poly => poly.map(ring => ring.map(proj))); }); // place polygons in map units, as js/map.js makes them
+    const COV = land.covered(), PPD = PP.map((polys, i) => polys.filter((p, k) => !COV[i].has(k))); // the pieces that carry a block: not the ground a later place also claims (js/map3d/land.js)
     const HT = HOODS.map((h, i) => land.topOf(i));                        // the top of each block
     const HMAX = Math.max.apply(null, HT) + LIFT;
     const STAR = HOODS.map(h => (SUBD[h.name] || []).some(s => s && s.star));
@@ -137,14 +138,16 @@
     function sync() { cam.x = cur.cx - cur.w / 2; cam.y = cur.cz - cur.w * H / W / 2; cam.w = cur.w; }
 
     // ---- what stands where ----
-    function hoodAt(x, y) { for (let i = 0; i < HOODS.length; i++) { const bb = BB[i]; if (x < bb[0] || x > bb[2] || y < bb[1] || y > bb[3]) continue; if (Geom.inPolys(PP[i], x, y)) return i; } return -1; }
+    const placeAt = (L, x, y) => { for (let i = 0; i < HOODS.length; i++) { const bb = BB[i]; if (x < bb[0] || x > bb[2] || y < bb[1] || y > bb[3]) continue; if (Geom.inPolys(L[i], x, y)) return i; } return -1; };
+    const hoodAt = (x, y) => placeAt(PPD, x, y);                          // the place whose block stands at a point
+    const firstAt = (x, y) => placeAt(PP, x, y);                          // the place the flat map's hit test gives there: the first in the list
     const hoodOf = (x, y) => { const k = x + ',' + y; let i = hoodCache.get(k); if (i === undefined) { if (hoodCache.size > 4000) hoodCache.clear(); i = hoodAt(x, y); hoodCache.set(k, i); } return i; };
     const ringNear = (r, x, y, d2) => { for (let i = 0, j = r.length - 1; i < r.length; j = i++) { const ax = r[j][0], ay = r[j][1], dx = r[i][0] - ax, dy = r[i][1] - ay, l2 = dx * dx + dy * dy; let t = l2 ? ((x - ax) * dx + (y - ay) * dy) / l2 : 0; t = t < 0 ? 0 : t > 1 ? 1 : t; const qx = ax + dx * t - x, qy = ay + dy * t - y; if (qx * qx + qy * qy <= d2) return true; } return false; };
     // the height of what stands at a map point: the top of the place there (the tallest one within `near` of it: a point on a
     // boundary belongs to the block it edges), else the water
     function surfaceAt(x, y, near) {
       let h = -1;
-      for (let i = 0; i < HOODS.length; i++) { const bb = BB[i]; if (x < bb[0] - near || x > bb[2] + near || y < bb[1] - near || y > bb[3] + near || topAt(i) <= h) continue; if (Geom.inPolys(PP[i], x, y) || (near > 0 && PP[i].some(poly => ringNear(poly[0], x, y, near * near)))) h = topAt(i); }
+      for (let i = 0; i < HOODS.length; i++) { const bb = BB[i]; if (x < bb[0] - near || x > bb[2] + near || y < bb[1] - near || y > bb[3] + near || topAt(i) <= h) continue; if (Geom.inPolys(PPD[i], x, y) || (near > 0 && PPD[i].some(poly => ringNear(poly[0], x, y, near * near)))) h = topAt(i); }
       return h < 0 ? 0 : h;
     }
     // the first thing a ray from a screen point meets: the top of a block, or its wall, else the water. { i, x, y } in map units
@@ -158,14 +161,15 @@
         const bb = BB[i]; if (bb[2] < x0 || bb[0] > x1 || bb[3] < y0 || bb[1] > y1) continue;
         const ti = Math.max(0, tOf(topAt(i) * c.vex)); if (ti >= bt) continue;
         const qx = c.px + r[0] * ti, qy = c.pz + r[2] * ti;
-        if (Geom.inPolys(PP[i], qx, qy)) { best = i; bt = ti; continue; }
+        if (Geom.inPolys(PPD[i], qx, qy)) { best = i; bt = ti; continue; }
         // below its top: the ray may come in through the wall. The first crossing of the place's outline between there and the ground
         const ex = gx - qx, ey = gy - qy; let s = Infinity;
-        for (const poly of PP[i]) { const ring = poly[0]; for (let a = 0, b = ring.length - 1; a < ring.length; b = a++) { const px = ring[b][0], py = ring[b][1], fx = ring[a][0] - px, fy = ring[a][1] - py, den = ex * fy - ey * fx; if (Math.abs(den) < 1e-12) continue; const u = ((px - qx) * fy - (py - qy) * fx) / den, w = ((px - qx) * ey - (py - qy) * ex) / den; if (u >= 0 && u <= 1 && w >= 0 && w <= 1 && u < s) s = u; } }
+        for (const poly of PPD[i]) { const ring = poly[0]; for (let a = 0, b = ring.length - 1; a < ring.length; b = a++) { const px = ring[b][0], py = ring[b][1], fx = ring[a][0] - px, fy = ring[a][1] - py, den = ex * fy - ey * fx; if (Math.abs(den) < 1e-12) continue; const u = ((px - qx) * fy - (py - qy) * fx) / den, w = ((px - qx) * ey - (py - qy) * ex) / den; if (u >= 0 && u <= 1 && w >= 0 && w <= 1 && u < s) s = u; } }
         if (s <= 1) { const t = ti + (tg - ti) * s + 1e-4 * (tg - ti); if (t < bt) { best = i; bt = t; } }
       }
       let x = c.px + r[0] * bt, y = c.pz + r[2] * bt;
-      if (best >= 0 && !Geom.inPolys(PP[best], x, y)) { const hl = Math.hypot(r[0], r[2]) || 1; x += r[0] / hl * .03; y += r[2] / hl * .03; } // a wall: a point just inside it
+      if (best >= 0 && !Geom.inPolys(PPD[best], x, y)) { const hl = Math.hypot(r[0], r[2]) || 1; x += r[0] / hl * .03; y += r[2] / hl * .03; } // a wall: a point just inside it
+      if (best >= 0 && COV.some(c => c.size)) { const j = firstAt(x, y); if (j >= 0) best = j; } // ground two places claim: the flat map's answer, the first in the list
       return { i: best, x, y };
     }
 
@@ -348,7 +352,7 @@
         const cx = (b[0] + b[2]) / 2, cz = (b[1] + b[3]) / 2, rad = Math.hypot(b[2] - b[0], b[3] - b[1]) / 2, n = Math.ceil(rad / pitch), i0 = list.length;
         for (let i = -n; i <= n; i++) for (let j = -n; j <= n; j++) {
           if (R() > keep) continue; const u = (i + (R() - 0.5) * 0.3) * pitch, v = (j + (R() - 0.5) * 0.3) * pitch, x = cx + u * ca - v * sa, z = cz + u * sa + v * ca;
-          if (x < b[0] || x > b[2] || z < b[1] || z > b[3] || !Geom.inPolys(PP[t], x, z)) continue;
+          if (x < b[0] || x > b[2] || z < b[1] || z > b[3] || !Geom.inPolys(PPD[t], x, z)) continue;
           const k = R(); list.push({ x, y: HT[t] + 0.06, z, kind: k > 0.93 ? '#cfe2ff' : k > 0.55 ? '#ffd39a' : '#ffb866', size: (city ? 0.24 : 0.8) * (0.7 + R() * 0.6) });
         }
         tiles[t].l0 = i0; tiles[t].l1 = list.length;

@@ -15,7 +15,7 @@
   const HOODS = G.hoods, POLYS = []; { const idx = {}; HOODS.forEach((h, i) => { idx[h.name] = i; }); HP.forEach(h => { if (idx[h.name] != null) POLYS[idx[h.name]] = h.polys; }); } // lon/lat, by place index (as js/map.js pairs them)
 
   // ---- the numbers (world units) ----
-  const VERSION = 1;       // of the outline recipe below: part of the signature
+  const VERSION = 2;       // of the outline recipe below: part of the signature
   const LAND_TOP = 0.16;   // the quiet land around and under the blocks (the floor seen in the gaps)
   const FLOOR = -0.06;     // wall feet: just under the water and the land, so a lifted block shows no seam
   const TOP0 = 0.5;        // the top of a block at sea level
@@ -171,6 +171,16 @@
     return out;
   }
 
+  // Where two places claim the same ground (Tiburon's boundary takes in Angel Island, which is also a place of its own), the later
+  // place in the list keeps it, as the flat map paints later places over earlier ones: the earlier place's piece gets no block.
+  // covered()[i]: which of place i's pieces (by their order in its boundary) lie under a later place
+  let COVERED = null;
+  function covered() {
+    if (COVERED) return COVERED;
+    const P = HOODS.map((hd, i) => (POLYS[i] || []).map(poly => { const r = poly[0].map(proj); return { r, c: Geom.centroid(r), bb: Geom.bboxOf([r]) }; }));
+    const inside = (a, b) => a.c[0] >= b.bb[0] && a.c[0] <= b.bb[2] && a.c[1] >= b.bb[1] && a.c[1] <= b.bb[3] && pip(b.r, a.c[0], a.c[1]); // a's centre in b
+    return COVERED = P.map((list, i) => { const out = new Set(); list.forEach((a, k) => { for (let j = i + 1; j < P.length && !out.has(k); j++) if (P[j].some(b => inside(a, b) && inside(b, a))) out.add(k); }); return out; });
+  }
   // what the outlines were made from: the canvas, every place's name, region and anchor, and the size and first point of every ring
   function signature() {
     let h = 2166136261; const eat = s => { for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } };
@@ -181,8 +191,8 @@
   // Every block's outline: per place, its pieces, each [outer, hole, ...] of [x, y] in map units, the outer wound with the solid on
   // its left. About a second of work (see the head of this file).
   function outlines() {
-    const pcs = HOODS.map((hd, i) => {
-      const parts = (POLYS[i] || []).map(poly => poly.map((ring, k) => cleanRing(ring, 0.008, k > 0))).map(rs => rs[0] ? rs.filter(Boolean) : null).filter(Boolean);
+    const cov = covered(), pcs = HOODS.map((hd, i) => {
+      const parts = (POLYS[i] || []).map((poly, q) => cov[i].has(q) ? [] : poly.map((ring, k) => cleanRing(ring, 0.008, k > 0))).map(rs => rs[0] ? rs.filter(Boolean) : null).filter(Boolean);
       // how far from San Francisco: places seen only from across the bay are traced more loosely
       const far = REG[hd.region] && REG[hd.region].away ? 0 : clamp((Math.hypot(hd.cx - SFC[0], hd.cy - SFC[1]) - 45) / 260, 0, 1), city = hd.region === 'sf' || !!(REG[hd.region] && REG[hd.region].away);
       return parts.map(rs => {
@@ -300,5 +310,5 @@
   }
 
   window.M3D = window.M3D || {};
-  window.M3D.land = { topOf, signature, outlines, pack, unpack, blocks, buildTiles, buildLand, buildInland, extent, tri2, proj, KIND, LAND_TOP, TOP0, FLOOR, GAP, BEV, UNIT_M: Geom.UNIT_M };
+  window.M3D.land = { topOf, signature, covered, outlines, pack, unpack, blocks, buildTiles, buildLand, buildInland, extent, tri2, proj, KIND, LAND_TOP, TOP0, FLOOR, GAP, BEV, UNIT_M: Geom.UNIT_M };
 })();

@@ -47,8 +47,10 @@
     <div class="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg><input type="search" id="q" placeholder="Find a place" autocomplete="off" aria-label="Find a place" enterkeyhint="search"></div>
   </div>
 
-  <!-- the area switch (Bay Area | Las Vegas), filled by js/app.js: beside the search field; top left of the map on the phone -->
-  <div class="areas" id="areas" role="group" aria-label="Map area"></div>
+  <!-- the map chip (the area you are on), filled by js/app.js: beside the search field; top left of the map on the phone. Its menu
+       of areas is a sibling, so #areas stays the chip's own footprint (the map's insets and label occluders measure it) -->
+  <div class="areas" id="areas"></div>
+  <div class="amenu" id="areas-menu" role="group" aria-label="Maps" hidden></div>
 
   <!-- one capsule of map controls: top right of the map (desktop: left of the logbook). On the phone its first slot is where the search
        field above sits (laid over it by z-index), so search, locate and layers read as one capsule; the search field is a real input there
@@ -80,6 +82,7 @@
 <script src="js/map.js"></script>
 <script src="js/sheet.js"></script>
 <script src="js/places.js"></script>
+<script src="js/link.js"></script>
 <script src="js/sync-config.js"></script>
 <script src="js/sync.js"></script>
 <script src="js/confetti.js"></script>

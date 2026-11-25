@@ -7,6 +7,7 @@
     sfGold: ['#d6b25c', '#a3833f'], sfDome: ['#c2cbc6', '#56626e'], sfLawn: ['#aac190', '#3d5142'], sfTurf: ['#90b27b', '#3a5a3e'], sfSeat: ['#5f7a74', '#28383b'],
     sfHedge: ['#8aa877', '#33483a'], sfTree: ['#7d9a6c', '#2e4034'], sfJade: ['#78a891', '#3e5e53'], sfMaroon: ['#9b4b44', '#5c3030'], sfCopper: ['#a28b6b', '#55493a'],
     sfPatina: ['#8db3a0', '#46645a'], sfGranite: ['#715b58', '#372e31'], sfRose: ['#5e6c82', '#e2aa6a'], sfWood: ['#b9a385', '#584b3d'], sfSign: ['#f3ecda', '#ffe2a8'],
+    sfStucco: ['#e3cfb2', '#5e564b'], sfRock: ['#8e7c6b', '#3d3732'],
     sfR1: ['#d9614f', '#b4473b'], sfR2: ['#e8964f', '#c27639'], sfR3: ['#ecd06a', '#c6ac4e'], sfR4: ['#79b071', '#548c55'], sfR5: ['#5f8fc4', '#40699c'], sfR6: ['#8c6fb3', '#674f8c'],
   };
   const mats = (...names) => Object.fromEntries(names.map(n => [n, M[n]]));
@@ -25,6 +26,16 @@
   // a round tree crown on a short trunk
   const tree = (b, x, z, r, h, y0 = 0, m = 'sfTree') => b.lathe(m, x, z, [[0.3, y0], [r * 0.8, y0 + h * 0.3], [r, y0 + h * 0.6], [r * 0.6, y0 + h * 0.9], [0, y0 + h]], 6, { cap: false });
   const lawn = (b, m, x, z, rx, rz, n = 14) => b.loft(m, [se(x, -1, z, rx, rz, n, 2.4), se(x, 0.5, z, rx, rz, n, 2.4)]);
+  // a flat one-sided panel through a ring of points (a fan from its middle), turned to face n
+  const panel = (b, m, pts, n, o) => {
+    const c = [0, 1, 2].map(k => pts.reduce((s, p) => s + p[k], 0) / pts.length); let d = 0;
+    pts.forEach((p, j) => { const q = pts[(j + 1) % pts.length], u = [0, 1, 2].map(k => p[k] - c[k]), v = [0, 1, 2].map(k => q[k] - c[k]); d += (u[1] * v[2] - u[2] * v[1]) * n[0] + (u[2] * v[0] - u[0] * v[2]) * n[1] + (u[0] * v[1] - u[1] * v[0]) * n[2]; });
+    const r = d < 0 ? pts.slice().reverse() : pts; b.loft(m, [r, r], o || {});
+  };
+  // an upright arch outline through (x, z) along (ax, az): straight sides from y0 to y1 and a half circle of radius r on top (y0 = y1: the half circle only)
+  const archP = (x, z, ax, az, y0, y1, r, n = 6) => [...(y1 > y0 ? [[x - ax * r, y0, z - az * r], [x + ax * r, y0, z + az * r]] : []), ...Array.from({ length: n + 1 }, (_, i) => { const a = i / n * Math.PI, c = Math.cos(a) * r; return [x + ax * c, y1 + Math.sin(a) * r, z + az * c]; })];
+  // an upright rectangle centred on (x, y, z), w wide along (ax, az) and h tall
+  const vrect = (x, y, z, ax, az, w, h) => [[x - ax * w / 2, y - h / 2, z - az * w / 2], [x + ax * w / 2, y - h / 2, z + az * w / 2], [x + ax * w / 2, y + h / 2, z + az * w / 2], [x - ax * w / 2, y + h / 2, z - az * w / 2]];
 
   // ---------- Golden Gate Park and the ocean edge ----------
   X.push({ id: 'windmill', lon: -122.5085, lat: 37.7707, ex: 5.5, ry: 45, label: 'Dutch Windmill', mats: mats('sfLawn'),
@@ -64,22 +75,30 @@
       b.box('dome', -14, 1, 30, 20, 2.6, 0.5); b.box('sfR3', 14, 1, 30, 20, 2.6, 0.5); b.box('sfHedge', 0, 1, 30, 3, 10, 0.7);
     } });
 
-  X.push({ id: 'cliffhouse', lon: -122.5127, lat: 37.7784, ex: 3.4, ry: 0, label: 'Cliff House & Sutro Baths',
-    // the Cliff House and the Sutro Baths: the low white 1909 Cliff House on the cliff edge with its glass wing, and the ruined pools of the baths in the cove to the north
+  X.push({ id: 'cliffhouse', lon: -122.5138, lat: 37.7784, ex: 3.4, ry: 0, label: 'Cliff House & Sutro Baths', mats: mats('sfRock'),
+    // the Cliff House and the Sutro Baths: the white 1909 Cliff House with its glass wing on the edge of a rock headland above the ocean, the little Camera Obscura on the terrace below it, the rectangular pool foundations of the ruined baths at the foot of the cliff to the north and Seal Rocks offshore (the block top is about 83 m above the water here)
     build(b) {
-      b.box('white', 0, -22, 0, 26, 38, 31);
-      b.box('whiteShade', 1, 9, 0, 22, 34, 4.5, { win: [9, 1], glow: 1 });
-      b.box('white', 1, 13.5, 0, 24, 36, 1.2);
-      b.box('glass', -1, -22, 25, 22, 13, 33, { win: [5, 2], glow: 1 });
-      b.box('white', -1, 11, 25, 23, 14, 0.8);
-      b.box('concrete', -16, -22, 4, 8, 44, 25);
-      const zb = -78;
-      b.box('concrete', -4, -22, zb, 74, 50, 22.5);
-      for (const [x, z, w, d] of [[-16, zb - 6, 40, 24], [22, zb - 8, 14, 18], [-12, zb + 16, 30, 9]]) {
-        b.box('lagoon', x, 0.5, z, w, d, 0.4);
-        b.box('concreteLight', x, 0.5, z - d / 2 - 1, w + 4, 2, 2.4); b.box('concreteLight', x - w / 2 - 1, 0.5, z, 2, d, 2.4);
-        b.box('concreteLight', x + w / 2 + 1, 0.5, z - d / 4, 2, d / 2, 1.6); b.box('concreteLight', x - w / 4, 0.5, z + d / 2 + 1, w / 2, 2, 1.2);
+      const W = -83; // the water, in model metres below the block top
+      const head = [[-27, -42], [-12, -44], [0, -30], [6, -10], [4, 10], [-6, 22], [-16, 24], [-24, 14], [-28, 0], [-30, -22]];
+      b.loft('sfRock', [[W - 15, 1.28], [W + 30, 1.12], [-12, 1.02], [-1.5, 0.94]].map(([y, k], i) => head.map(([x, z], j) => [-14 + (x + 14) * k + ((j * 7 + i * 3) % 5 - 2) * 0.9, y, z * k + ((j * 3 + i) % 3 - 1) * 0.8])), { flat: true });
+      b.box('white', -2, -20, -4, 24, 24, 31, { win: [6, 2], glow: 1 });
+      b.box('whiteShade', -2, 11, -4, 25.4, 25.4, 1.1);
+      b.box('white', -3, 12.1, -4, 15, 13, 2.6, { win: [5, 1], glow: 0.8 });
+      b.box('glass', 17, -20, -3, 14, 22, 28, { win: [4, 2], glow: 1.1 }); b.box('concreteLight', 17, 8, -3, 15, 23, 1);
+      b.box('concreteLight', -21, -8, -4, 8, 24, 7.6);
+      b.box('stone', -23, -6, 11, 6, 6, 9.5); b.frustum('dark', -23, 3.5, 11, 3.4, 3.4, 1.8, 1.8, 2.4); b.rod('dark', [-23, 5.2, 11], [-25.6, 5.9, 11], 0.8, 0.8, 6); // the Camera Obscura
+      // the baths: a rock shelf at the foot of the cliff with three pools of seawater in their concrete walls
+      const zb = -58, ledge = [[-62, -86], [-36, -88], [-20, -72], [-18, -44], [-28, -31], [-52, -29], [-66, -46]];
+      b.loft('sfRock', [[W - 15, 1.12], [W + 12, 1]].map(([y, k], i) => ledge.map(([x, z], j) => [-40 + (x + 40) * k + ((j + i) % 3 - 1), y, zb + (z - zb) * k])), { flat: true });
+      const yb = W + 12;
+      for (const [x, z, w, d] of [[-46, -64, 22, 30], [-28, -64, 7, 30], [-42, -38, 26, 9]]) {
+        b.box('lagoon', x, yb - 1, z, w, d, 1.5);
+        b.box('concreteLight', x, yb - 1, z - d / 2 - 1, w + 4, 2, 2.6); b.box('concreteLight', x, yb - 1, z + d / 2 + 1, w + 4, 2, 2.6);
+        b.box('concreteLight', x - w / 2 - 1, yb - 1, z, 2, d, 2.6); b.box('concreteLight', x + w / 2 + 1, yb - 1, z, 2, d, 2.6);
       }
+      for (const [x, z, w] of [[-57, -50, 8], [-50, -79, 12]]) b.box('concrete', x, yb, z, w, 1.6, 6);
+      for (const [x, z, r, h] of [[-82, -4, 6, W + 13], [-73, 10, 4.2, W + 9], [-90, 8, 3.6, W + 7]]) b.lathe('sfRock', x, z, [[r * 1.3, W - 15], [r, h - 6], [r * 0.6, h], [0, h + 1.6]], 6, { cap: false });
+      b.light([-15, 6, -4], 'warm', 1.2);
     } });
 
   // ---------- Nob Hill, Civic Center, Japantown ----------
@@ -212,17 +231,30 @@
       b.light([0, 3, -4.4], 'warm', 0.6); b.light([0, 3, 4.4], 'warm', 0.6);
     } });
 
-  X.push({ id: 'pier39', lon: -122.4064, lat: 37.8089, ex: 2, ry: 5, label: 'Pier 39', mats: mats('sfWood'),
-    // Pier 39: two rows of weathered timber shops down the pier, the carousel at its end, and the sea lions hauled out on their floats
+  X.push({ id: 'pier39', lon: -122.4064, lat: 37.8089, ex: 3.3, ry: 5, label: 'Pier 39', mats: mats('sfWood', 'sfR1', 'sfR3', 'sfR5'),
+    // Pier 39: two rows of two-storey weathered-timber shops down the pier under brown shingle roofs, flags along the walk, the double-decker carousel near the end, the sea lions hauled out on the K-dock floats in the marina on the west side, the PIER 39 sign at the entrance
     build(b) {
-      b.box('sfWood', 0, -20, 0, 22, 106, 21.2);
-      for (const s of [-1, 1]) for (const [z, l] of [[-28, 26], [0, 24], [27, 24], [47, 12]]) { b.box('sfWood', s * 6.2, 1.2, z, 8, l, 6.5, { win: [4, 2], glow: 0.8 }); gableZ(b, 'roof', z - l / 2, z + l / 2, 7.7, s * 6.2, 4.4, 2.6); }
-      b.cyl('white', 0, 1.2, -46, 5, 5, 4, 12, { win: [12, 1], glow: 1.2 }); b.lathe('red', 0, -46, [[5.8, 5], [3, 7], [0, 8.4]], 12, { cap: false });
-      b.light([0, 4, -46], 'gold', 1.4);
-      for (const s of [-1, 1]) {
-        const z = -48; b.box('concrete', s * 8.6, 1.2, z, 4, 9, 0.6);
-        for (let k = 0; k < 3; k++) b.lathe('bronzeShade', s * (8 + (k % 2) * 1.3), z - 2.8 + k * 2.8, [[0, 1.8], [0.9, 2.1], [0.5, 2.9], [0, 3.1]], 5, { cap: false });
+      b.box('sfWood', -0.5, -20, 0, 17, 106, 20.8);
+      b.box('lagoon', -6.6, 0.8, -28, 4.6, 46, 0.2);
+      for (const z of [-46, -35, -24, -13]) {
+        b.box('concrete', -6.6, 1, z, 3.6, 8, 0.4);
+        for (const [dx, dz, a] of [[-0.6, -2.4, 0.4], [0.7, 0.2, -0.3], [-0.4, 2.6, 0.1]]) { const p = [-6.6 + dx, 1.9, z + dz]; b.rod('bronzeShade', [p[0] - 1.6 * Math.sin(a), p[1], p[2] - 1.6 * Math.cos(a)], [p[0] + 1.6 * Math.sin(a), p[1] + 0.9, p[2] + 1.6 * Math.cos(a)], 0.9, 0.5, 4); }
       }
+      const shop = (x, z, w, l, h) => { b.box('sfWood', x, 0.8, z, w, l, h, { win: [Math.round(l / 3), 2], glow: 0.8 }); gableZ(b, 'bronze', z - l / 2 - 0.3, z + l / 2 + 0.3, h + 0.8, x, w / 2 + 0.5, 2.8); };
+      for (const [z, l, h] of [[44, 13, 7.6], [29, 14, 8.4], [14, 13, 7.2], [1, 10, 7.8]]) shop(-4.6, z, 7.6, l, h);
+      for (const [z, l, h] of [[-13, 12, 7.2], [-26, 9, 6.8]]) shop(-1.6, z, 3.6, l, h);
+      for (const [z, l, h] of [[44, 13, 8], [30, 12, 7.4], [16, 13, 8.4], [2, 12, 7.6], [-12, 12, 7.8], [-25, 10, 7.2]]) shop(4.6, z, 5, l, h);
+      // the carousel
+      b.cyl('trim', 2, 0.8, -43, 4.8, 4.8, 3.6, 10, { win: [10, 1], glow: 1.3 }); b.lathe('red', 2, -43, [[5.6, 4.4], [3.4, 5.8]], 10, { cap: false });
+      b.cyl('trim', 2, 5.6, -43, 3.4, 3.4, 2.4, 10, { win: [10, 1], glow: 1.3 }); b.lathe('red', 2, -43, [[4, 8], [1.2, 9.8], [0, 10.2]], 10, { cap: false });
+      b.rod('sfR3', [2, 10, -43], [2, 11.6, -43], 0.35, 0.1, 4);
+      b.light([2, 4, -43], 'gold', 1.6);
+      // flags down the walk
+      ['sfR1', 'sfR5', 'sfR3', 'sfR1', 'sfR5'].forEach((m, i) => { const z = 38 - i * 13; b.rod('dark', [1.3, 0.8, z], [1.3, 13, z], 0.16, 0.12, 4); for (const f of [-1, 1]) panel(b, m, vrect(2.6, 12.1, z + f * 0.03, 1, 0, 2.6, 1.6), [0, 0, f]); });
+      // the PIER 39 sign over the entrance
+      for (const x of [-3.6, 3.6]) b.box('dark', x, 0.8, 52, 0.5, 0.5, 9.6);
+      b.box('sfR5', 0, 8.6, 52, 9.4, 0.6, 2.8);
+      [-3.4, -2.3, -1.2, -0.1, 1.6, 2.9].forEach(x => panel(b, 'trim', vrect(x, 10, 52.32, 1, 0, 0.75, 1.8), [0, 0, 1], { lit: 0.9 }));
     } });
 
   X.push({ id: 'balclutha', lon: -122.4177, lat: 37.8100, ex: 2.6, ry: 45, label: 'Balclutha',
@@ -242,17 +274,27 @@
       b.light([0, 49, -1], 'warm', 0.7);
     } });
 
-  X.push({ id: 'wharfsign', lon: -122.4157, lat: 37.8080, ex: 6.5, ry: 9, label: "Fisherman's Wharf sign",
-    // the Fisherman's Wharf sign: a ship's wheel with the red crab at its hub, on its post at Jefferson and Taylor
+  X.push({ id: 'wharfsign', lon: -122.4157, lat: 37.8080, ex: 8.5, ry: 9, label: "Fisherman's Wharf sign",
+    // the Fisherman's Wharf sign: a wooden ship's wheel with its eight handles round a blue face, the big red crab at the hub with its claws raised, on its post at Jefferson and Taylor
     build(b) {
-      b.cyl('stone', 0, -20, 0, 2.2, 2.2, 21, 8);
-      b.rod('dark', [0, 1, 0], [0, 6.2, 0], 0.4, 0.35, 6);
-      const c = [0, 9.4, 0]; b.rod('p0', [0, 9.4, -0.25], [0, 9.4, 0.25], 3.2, 3.2, 16);
-      b.tube('sfWood', Array.from({ length: 17 }, (_, i) => { const a = i / 16 * Math.PI * 2; return [Math.cos(a) * 3.35, 9.4 + Math.sin(a) * 3.35, 0]; }), 0.3, 4);
-      for (let i = 0; i < 8; i++) { const a = (i + 0.5) / 8 * Math.PI * 2; b.rod('sfWood', [Math.cos(a) * 3.3, 9.4 + Math.sin(a) * 3.3, 0], [Math.cos(a) * 4.5, 9.4 + Math.sin(a) * 4.5, 0], 0.28, 0.4, 5); }
-      b.lathe('red', 0, 0.3, [[0, 8.2], [1.4, 8.4], [1.7, 9.4], [1.4, 10.4], [0, 10.6]], 8, { cap: false });
-      for (const s of [-1, 1]) b.beam('red', [s * 1.2, 10, 0.4], [s * 2.2, 11.4, 0.4], 0.5, 0.5);
-      b.light([0, 9.4, 1.5], 'warm', 0.8);
+      b.cyl('stone', 0, -20, 0, 1.6, 1.6, 20.8, 8);
+      b.rod('dark', [0, 0.8, 0], [0, 6, 0], 0.5, 0.42, 6);
+      b.rod('p0', [0, 9.4, -0.3], [0, 9.4, 0.3], 3.2, 3.2, 16);
+      b.tube('sfWood', Array.from({ length: 17 }, (_, i) => { const a = i / 16 * Math.PI * 2; return [Math.cos(a) * 3.45, 9.4 + Math.sin(a) * 3.45, 0]; }), 0.5, 5);
+      for (let i = 0; i < 8; i++) { const a = (i + 0.5) / 8 * Math.PI * 2; b.rod('sfWood', [Math.cos(a) * 3.4, 9.4 + Math.sin(a) * 3.4, 0], [Math.cos(a) * 4.9, 9.4 + Math.sin(a) * 4.9, 0], 0.36, 0.55, 5); }
+      // the crab: a wide shell on both faces, two raised claws with open pincers, three legs a side, eyes on stalks
+      for (const f of [-1, 1]) {
+        b.push(new THREE.Matrix4().compose(new THREE.Vector3(0, 9.2, 0), new THREE.Quaternion(), new THREE.Vector3(1.35, 0.9, 1)));
+        axial(b, 'red', [0, 0, f * 0.25], [0, 0, f * 1.6], [[1.75, 0], [1.6, 0.6], [1.05, 1.1], [0, 1.35]], 8, { cap: false });
+        b.pop();
+      }
+      for (const s of [-1, 1]) {
+        b.beam('red', [s * 1.9, 9.7, 0.7], [s * 2.6, 11.2, 0.7], 0.6, 0.6);
+        b.beam('red', [s * 2.6, 11.2, 0.7], [s * 2.2, 12.6, 0.7], 0.7, 0.55); b.beam('red', [s * 2.6, 11.2, 0.7], [s * 3.4, 12.3, 0.7], 0.6, 0.5);
+        for (let k = 0; k < 3; k++) b.beam('red', [s * 2, 9 - k * 0.5, 0.6], [s * 3.1, 8.3 - k * 0.75, 0.6], 0.32, 0.32);
+        b.rod('dark', [s * 0.5, 10.1, 1.2], [s * 0.6, 10.8, 1.3], 0.16, 0.24, 4);
+      }
+      b.light([0, 9.4, 1.8], 'warm', 1);
     } });
 
   // ---------- Chinatown, North Beach, the Financial District ----------
@@ -281,7 +323,7 @@
       b.rod('sfPatina', [2.4, 36.4, 11.4], [2.4, 38.6, 11.4], 0.3, 0.12, 4);
     } });
 
-  X.push({ id: 'ca555', lon: -122.4036, lat: 37.7920, ex: 2.2, ry: 9, label: '555 California Street', mats: mats('sfGranite'),
+  X.push({ id: 'ca555', lon: -122.4036, lat: 37.7920, ex: 1.5, ry: 9, label: '555 California Street', mats: mats('sfGranite'),
     // 555 California Street, 237 m: a dark red granite tower whose walls fold into narrow bay windows on every side, with a stepped, notched top
     build(b) {
       const zig = (y, x0, rx, rz, nx, nz) => { const C = [[x0 - rx, -rz], [x0 + rx, -rz], [x0 + rx, rz], [x0 - rx, rz]], out = []; for (let k = 0; k < 4; k++) { const a = C[k], c = C[(k + 1) % 4], nb = k % 2 ? nz : nx, L = Math.hypot(c[0] - a[0], c[1] - a[1]), n = [(c[1] - a[1]) / L, -(c[0] - a[0]) / L]; for (let i = 0; i < nb; i++) { const t = i / nb, m = (i + 0.5) / nb; out.push([lerp(a[0], c[0], t), y, lerp(a[1], c[1], t)]); out.push([lerp(a[0], c[0], m) - n[0] * 1.8, y, lerp(a[1], c[1], m) - n[1] * 1.8]); } } return out; };
@@ -291,16 +333,16 @@
       b.light([-13, 240, 0], 'red', 1.2);
     } });
 
-  X.push({ id: 'cupidsspan', lon: -122.3909, lat: 37.7910, ex: 5, ry: -40, label: "Cupid's Span", mats: mats('sfLawn', 'sfGold'),
-    // Cupid's Span, Rincon Park, 18 m: a giant bow sunk to its grip in the lawn, its two arms rising to a taut string, the arrow driven into the ground with its feathers high
+  X.push({ id: 'cupidsspan', lon: -122.3909, lat: 37.7910, ex: 6.2, ry: -40, label: "Cupid's Span", mats: mats('sfLawn', 'sfGold'),
+    // Cupid's Span, Rincon Park, 18 m: a giant gold bow sunk to its grip in the lawn, its two thick arms rising to a taut white string, the red arrow driven into the ground with its feathers high (parts thickened so they read from afar)
     build(b) {
-      lawn(b, 'sfLawn', 0, 0, 19, 11);
+      lawn(b, 'sfLawn', 0, 0, 17, 10);
       b.push(new THREE.Matrix4().makeRotationX(-18 * D2R));
       const arm = Array.from({ length: 11 }, (_, i) => { const x = -13 + i * 2.6; return [x, -5 + 22 * Math.pow(x / 13, 2), 0]; });
-      b.tube('sfGold', arm, 1.1, 6, { cap: true, cap0: true });
-      b.tube('white', [arm[0], arm[10]], 0.3, 4);
-      b.rod('red', [0, -3, 0], [0, 24, 0], 0.6, 0.6, 6);
-      b.beam('red', [0, 18.5, 0], [0, 24.5, 0], 3.2, 0.2); b.beam('red', [0, 18.5, 0], [0, 24.5, 0], 0.2, 3.2);
+      b.tube('sfGold', arm, 1.7, 6, { cap: true, cap0: true });
+      b.tube('white', [arm[0], arm[10]], 0.5, 4);
+      b.rod('red', [0, -3, 0], [0, 24, 0], 1, 1, 6);
+      b.beam('red', [0, 17.5, 0], [0, 24.8, 0], 4.4, 0.35); b.beam('red', [0, 17.5, 0], [0, 24.8, 0], 0.35, 4.4);
       b.pop();
       b.light([0, 17, -6], 'warm', 1);
     } });
@@ -349,28 +391,51 @@
       { const [x, , z] = at(180, 54, 0); b.box('rust', x, -20, z, 10, 10, 62); for (const [dx, dz] of [[1, 0], [0, 1], [0, -1]]) b.rod('clock', [x + dx * 5, 36, z + dz * 5], [x + dx * 5.5, 36, z + dz * 5.5], 2.8, 2.8, 10, { lit: 1.3 }); b.frustum('roof', x, 42, z, 11, 11, 2, 2, 7); b.rod('metal', [x, 49, z], [x, 56, z], 0.3, 0.1, 4); }
     } });
 
-  X.push({ id: 'chasecenter', lon: -122.3877, lat: 37.7680, ex: 2.3, ry: 0, label: 'Chase Center',
-    // Chase Center, 41 m: a rounded white arena drum on a glass base, its skin swelling outwards and rolling over into a low domed roof, on its plaza
+  X.push({ id: 'chasecenter', lon: -122.3877, lat: 37.7688, ex: 2.1, ry: 0, label: 'Chase Center', mats: mats('sfTree'),
+    // Chase Center, 41 m: a rounded arena wrapped in layered white bands that swoop up and down round its dark glass body and roll over into a low white roof, the tall glass entrance on its plaza to the south-west (set at the north of its site so the higher Potrero block in front does not hide it)
     build(b) {
-      b.loft('concreteLight', [se(0, -20, 0, 94, 78, 20), se(0, 0.6, 0, 94, 78, 20)]);
-      b.loft('glassDark', [se(0, -20, 0, 76, 61, 28), se(0, 9, 0, 76, 61, 28)], { win: [40, 2], glow: 1.1, cap: false });
-      const R = [[9, 78, 62], [15, 81, 65], [26, 80.5, 64.5], [33, 76, 60], [38, 66, 51], [41, 52, 39], [42.5, 30, 22]];
-      b.loft('white', R.map(([y, rx, rz]) => se(0, y, 0, rx, rz, 28)), { win: [28, 5], glow: 0.35 });
+      const N = 24, ring = (y0, amp, ph, rx, rz) => se(0, 0, 0, rx, rz, N).map(([x, , z], j) => { const a = j / N * Math.PI * 2 + Math.PI / N; return [x, y0 + amp * Math.sin(2 * a + ph), z]; });
+      b.loft('concreteLight', [se(-8, -20, 8, 100, 82, 20), se(-8, 0.6, 8, 100, 82, 20)]);
+      b.loft('glassDark', [se(0, -20, 0, 74, 59, N), se(0, 39, 0, 72, 57, N)], { win: [36, 6], glow: 1.1, cap: false });
+      [[11, 4.4, 0.2], [19.5, 5, 1.5], [28, 4.2, 2.8], [35.5, 2.2, 4]].forEach(([y, amp, ph], k) => {
+        const rx = 76 - k * 0.8, rz = 61 - k * 0.8;
+        b.loft('white', [ring(y - 2.4, amp, ph, rx, rz), ring(y, amp, ph, rx + 3.8, rz + 3.8), ring(y + 2.4, amp, ph, rx + 0.6, rz + 0.6)], { cap: false });
+      });
+      b.loft('white', [[38.4, 73, 58], [41, 62, 49], [43, 40, 31], [44, 12, 9]].map(([y, rx, rz]) => se(0, y, 0, rx, rz, N)));
+      b.box('glass', -68, -20, 55, 36, 12, 46, { ry: -45, win: [9, 4], glow: 1.3 });
+      b.box('white', -69, 26, 56, 42, 17, 1.4, { ry: -45 });
+      for (const [x, z] of [[-98, 18], [-80, 76], [-44, 92]]) tree(b, x, z, 5, 12, 0.6);
       for (let i = 0; i < 8; i++) { const a = (i + 0.5) / 8 * Math.PI * 2; b.light([Math.cos(a) * 84, 18, Math.sin(a) * 68], 'cool', 2.2); }
     } });
 
   // ---------- the Castro, the Mission ----------
-  X.push({ id: 'castrotheatre', lon: -122.4349, lat: 37.7620, ex: 3.8, ry: 0, label: 'Castro Theatre',
-    // the Castro Theatre, 1922: the tall Spanish Baroque front on Castro Street with its great arched window and stepped crest, the lit marquee over the sidewalk, the red CASTRO sign rising above the roof
+  X.push({ id: 'castrotheatre', lon: -122.4349, lat: 37.7620, ex: 3.8, ry: 0, label: 'Castro Theatre', mats: mats('sfStucco', 'sfR3'),
+    // the Castro Theatre, 1922: the Spanish Colonial Baroque front on Castro Street (pilasters, the great arched window, an ornate stepped crest with urn finials) on a cream stucco auditorium and stage house, the V-shaped lit marquee over the sidewalk, and the tall vertical CASTRO sign, red letters on cream, standing out over the street and above the crest
     build(b) {
-      b.box('stoneShade', -17, -20, 0, 32, 22, 33); gableX(b, 'roof', -33, -1, 13, 0, 11.2, 3);
-      b.box('stone', 0.5, -20, 0, 4, 26, 44);
-      b.box('stone', 0.5, 24, 0, 3.6, 16, 3.6); b.box('stone', 0.5, 27.6, 0, 3.2, 8, 3); b.cyl('stone', 0.5, 30.6, 0, 1.4, 0.2, 3, 6);
-      for (const s of [-1, 1]) { b.box('stone', 0.5, 24, s * 11, 3.6, 4, 2); b.cyl('stone', 0.5, 26, s * 11, 1.2, 0.2, 2.6, 6); }
-      b.box('glassDark', 2.6, 10, 0, 0.4, 9, 11, { win: [3, 3], glow: 1 }); b.rod('glassDark', [2.6, 21, 0], [3, 21, 0], 4.5, 4.5, 10, { win: [3, 1], glow: 1 });
-      b.loft('lamp', [[[2.5, 4.6, -10], [2.5, 4.6, 10], [9, 4.6, 0]], [[2.5, 7.4, -10], [2.5, 7.4, 10], [9, 7.4, 0]]], { flat: true, cap0: true, lit: 1.2 });
-      b.box('red', 4.4, 7.4, 0, 1.2, 4.4, 27, { lit: 0.9 }); b.box('sfR3', 4.4, 34.4, 0, 1.4, 4.8, 0.8, { lit: 1 });
-      b.light([7, 6, 0], 'warm', 1.6); b.light([5.5, 30, 0], 'red', 1);
+      b.box('sfStucco', -19, -20, 0, 36, 24, 34);
+      b.frustum('dome', -19, 14, 0, 36, 24, 32, 9, 3.4);
+      b.box('sfStucco', -33, -20, 0, 9, 26, 40); b.box('dome', -33, 20, 0, 9.4, 26.4, 0.6);
+      const half = [[13, -20], [13, 20.6], [12, 21.4], [10.4, 21.4], [9, 21.9], [7, 23.1], [5, 24.4], [3.2, 25], [2.2, 26.9], [1, 27.9], [0, 28.3]];
+      const out = [...half, ...half.slice(0, -1).reverse().map(([z, y]) => [-z, y])];
+      b.loft('stone', [0, 2.4].map(x => out.map(([z, y]) => [x, y, z])), { flat: true, cap0: true });
+      for (const z of [-12, -6.4, 6.4, 12]) b.box('trim', 2.6, 0, z, 0.5, 1.6, Math.abs(z) > 10 ? 21.4 : 22.8);
+      for (const z of [-12.2, -7, 7, 12.2]) { const y = Math.abs(z) > 10 ? 21.4 : 23.1; b.lathe('stone', 1.2, z, [[0.8, y], [1, y + 0.9], [0.45, y + 1.9], [0, y + 2.6]], 6, { cap: false }); }
+      b.lathe('stone', 1.2, 0, [[1.3, 28], [1.5, 29.1], [0.6, 30.2], [0, 31.4]], 6, { cap: false });
+      panel(b, 'trim', archP(2.45, 0, 0, 1, 8.4, 17.4, 4.7), [1, 0, 0]);
+      panel(b, 'glassDark', archP(2.5, 0, 0, 1, 9, 17.4, 3.9), [1, 0, 0], { lit: 0.8 });
+      b.box('glassDark', 2.5, 0, 0, 0.3, 14, 4.4, { win: [5, 1], glow: 1.2 });
+      const V = y => [[2.5, y, -11], [2.5, y, 11], [10, y, 0]];
+      b.loft('lamp', [V(4.6), V(7.4)], { flat: true, cap0: true, lit: 1.2 });
+      b.loft('red', [V(7.4), V(8.1)].map(r => r.map(p => [p[0] + 0.2, p[1], p[2] * 1.03])), { flat: true, lit: 0.5 });
+      // the vertical sign: a cream blade edged in red, CASTRO in red stroke letters down both faces
+      b.box('red', 5.2, 8.4, 0, 5, 0.7, 26.2, { lit: 0.4 }); b.box('white', 5.2, 8.6, 0, 4.6, 0.9, 25.8);
+      const F = { C: [[2, 4, 0, 4], [0, 4, 0, 0], [0, 0, 2, 0]], A: [[0, 0, 1, 4], [1, 4, 2, 0], [0.5, 1.6, 1.5, 1.6]], S: [[2, 4, 0, 4], [0, 4, 0, 2], [0, 2, 2, 2], [2, 2, 2, 0], [2, 0, 0, 0]], T: [[0, 4, 2, 4], [1, 4, 1, 0]], R: [[0, 0, 0, 4], [0, 4, 2, 4], [2, 4, 2, 2], [2, 2, 0, 2], [0.7, 2, 2, 0]], O: [[0, 0, 0, 4], [0, 4, 2, 4], [2, 4, 2, 0], [2, 0, 0, 0]] };
+      for (const f of [-1, 1]) [...'CASTRO'].forEach((ch, i) => F[ch].forEach(([u0, v0, u1, v1]) => {
+        const P = (u, v) => [5.2 + f * (u - 1) * 1.2, 30.4 - i * 4.15 + v * 0.8, f * 0.47], p = P(u0, v0), q = P(u1, v1), L = Math.hypot(q[0] - p[0], q[1] - p[1]), d = [(q[0] - p[0]) / L * 0.3, (q[1] - p[1]) / L * 0.3], n = [-d[1], d[0]];
+        panel(b, 'red', [[p[0] - d[0] + n[0], p[1] - d[1] + n[1], p[2]], [p[0] - d[0] - n[0], p[1] - d[1] - n[1], p[2]], [q[0] + d[0] - n[0], q[1] + d[1] - n[1], p[2]], [q[0] + d[0] + n[0], q[1] + d[1] + n[1], p[2]]], [0, 0, f], { lit: 1.3 });
+      }));
+      b.lathe('sfR3', 5.2, 0, [[0.9, 34.4], [1.2, 35.2], [0, 36.4]], 6, { cap: false, lit: 0.8 });
+      b.light([7, 6, 0], 'warm', 1.6); b.light([6, 26, 0], 'red', 1.2);
     } });
 
   X.push({ id: 'rainbowflag', lon: -122.4352, lat: 37.7626, ex: 5.5, ry: 0, label: 'Rainbow flag, Harvey Milk Plaza', mats: mats('sfR1', 'sfR2', 'sfR3', 'sfR4', 'sfR5', 'sfR6'),
@@ -386,41 +451,58 @@
       b.light([0, 23, 0], 'white', 0.8);
     } });
 
-  X.push({ id: 'missiondolores', lon: -122.4270, lat: 37.7642, ex: 4.2, ry: 0, label: 'Mission Dolores',
-    // Mission Dolores: the whitewashed adobe mission of 1791 under its tile roof, with the 1918 basilica and its two ornate towers beside it to the north, both fronting Dolores Street
+  X.push({ id: 'missiondolores', lon: -122.4270, lat: 37.7642, ex: 4.2, ry: 0, label: 'Mission Dolores', mats: mats('sfGold', 'sfRose'),
+    // Mission Dolores: the small whitewashed adobe mission of 1791 (red tile roof, four thick columns, three bells in its gable) dwarfed by the 1918 basilica beside it to the north, its ornate cream front with rose window and two tall belfry towers under tiled domes; both face Dolores Street
     build(b) {
-      b.box('white', -14, -20, 12, 34, 9, 30);
-      gableX(b, 'dome', -31, 3, 10, 12, 5, 3.4);
-      b.box('white', 3.4, -20, 12, 1.8, 10.4, 33);
-      b.box('white', 3.4, 13, 12, 1.6, 5.4, 1.8);
-      for (let k = -1; k <= 1; k++) b.box('dark', 4.2, 9.6, 12 + k * 2.8, 0.3, 1.3, 1.8);
-      for (let k = 0; k < 4; k++) b.cyl('whiteShade', 4.8, -0.5, 8.4 + k * 2.4, 0.4, 0.4, 9.5, 5);
-      b.box('stone', -20, -20, -8, 40, 19, 40, { win: [8, 2], glow: 0.8 });
-      gableX(b, 'dome', -40, 0, 20, -8, 9.8, 5);
-      b.box('stone', 2, -20, -8, 4, 9, 46); b.frustum('stone', 2, 26, -8, 4, 8, 3, 3, 4);
+      const zm = 16; // the mission
+      b.box('white', -17, -20, zm, 34, 10, 27, { win: [6, 1], glow: 0.5 });
+      gableX(b, 'dome', -35, 0.4, 7, zm, 6.3, 3.6);
+      const mf = [[6, -20], [6, 7.6], [4.6, 8.6], [2.6, 11.2], [1.2, 12.6], [0, 13]], mo = [...mf, ...mf.slice(0, -1).reverse().map(([z, y]) => [-z, y])];
+      b.loft('white', [0, 1.4].map(x => mo.map(([z, y]) => [x, y, zm + z])), { flat: true, cap0: true });
+      for (const s of [-1, 1]) b.beam('dome', [0.7, 7.7, zm + s * 6.4], [0.7, 13.3, zm], 2, 0.7);
+      for (const dz of [-4.4, -1.5, 1.5, 4.4]) b.cyl('whiteShade', 2.1, 0, zm + dz, 0.7, 0.62, 7.6, 6);
+      b.box('white', 1.8, 7.4, zm, 2.6, 12.2, 0.9);
+      for (const dz of [-2.4, 0, 2.4]) panel(b, 'dark', archP(1.45, zm + dz, 0, 1, 8.8, 9.9, 0.7, 4), [1, 0, 0]);
+      panel(b, 'dark', archP(1.45, zm, 0, 1, 0, 3, 1.2, 4), [1, 0, 0], { lit: 0.5 });
+      const zb = -15; // the basilica
+      b.box('stone', -24, -20, zb, 46, 24, 37, { win: [8, 2], glow: 0.8 });
+      gableX(b, 'dome', -47, -1, 17, zb, 12.8, 6.5);
+      const bf = [[8.8, -20], [8.8, 21], [7, 22], [4.8, 24.6], [2.4, 25.4], [1.2, 27.6], [0, 28]], bo = [...bf, ...bf.slice(0, -1).reverse().map(([z, y]) => [-z, y])];
+      b.loft('stone', [-1, 1.4].map(x => bo.map(([z, y]) => [x, y, zb + z])), { flat: true });
+      for (const dz of [-6, 6]) b.box('trim', 1.6, 0, zb + dz, 0.5, 1.2, 22);
+      panel(b, 'trim', archP(1.45, zb, 0, 1, 0, 6.4, 3.4), [1, 0, 0]); panel(b, 'glassDark', archP(1.5, zb, 0, 1, 0, 6, 2.6), [1, 0, 0], { lit: 0.6 });
+      b.rod('sfRose', [1.3, 15.6, zb], [1.9, 15.6, zb], 2.8, 2.8, 10, { lit: 1 });
       for (const s of [-1, 1]) {
-        const z = -8 + s * 7.6;
-        b.box('stone', 2, -20, z, 6.4, 6.4, 48);
-        b.box('stoneShade', 2, 28, z, 5.4, 5.4, 5.2, { win: [2, 1], glow: 1 });
-        b.lathe('stone', 2, z, [[3.4, 33.2], [2.8, 35], [1, 37], [0, 38.4]], 8, { cap: false });
-        b.rod('metal', [2, 38.2, z], [2, 40.4, z], 0.15, 0.1, 4);
+        const z = zb + s * 12.4;
+        b.box('stone', 0.2, -20, z, 6.8, 6.8, 52, { win: [2, 4], glow: 0.6 });
+        b.box('trim', 0.2, 32, z, 7.8, 7.8, 1);
+        b.box('stoneShade', 0.2, 33, z, 6, 6, 6, { win: [2, 1], glow: 1.1 });
+        b.box('trim', 0.2, 39, z, 7.2, 7.2, 0.8);
+        for (const [dx, dz] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) b.cyl('stone', 0.2 + dx * 3.1, 39.8, z + dz * 3.1, 0.6, 0, 2.4, 4);
+        b.cyl('stone', 0.2, 39.8, z, 2.6, 2.6, 2.4, 8, { win: [8, 1], glow: 1 });
+        b.lathe('dome', 0.2, z, [[3.3, 42.2], [3.1, 43.8], [2.3, 45.4], [1.1, 46.5], [0, 46.9]], 8, { cap: false });
+        b.cyl('stone', 0.2, 46.7, z, 0.7, 0.7, 1.4, 6); b.lathe('dome', 0.2, z, [[0.9, 48.1], [0, 49]], 6, { cap: false });
+        b.box('sfGold', 0.2, 48.8, z, 0.35, 0.35, 3); b.box('sfGold', 0.2, 50.4, z, 0.35, 1.6, 0.35);
+        b.light([3, 36, z], 'warm', 0.8);
       }
-      b.light([5, 8, 12], 'warm', 0.9);
+      b.light([4, 8, zm], 'warm', 0.9);
     } });
 
   // ---------- Golden Gate Park: the Music Concourse ----------
   X.push({ id: 'deyoung', lon: -122.4686, lat: 37.7715, ex: 1.9, ry: 0, label: 'de Young Museum', mats: mats('sfCopper'),
-    // the de Young, tower 44 m: long low copper-clad galleries under one flat roof with deep overhangs, and the tower that twists as it rises to line up with the city grid
+    // the de Young, tower 44 m: a long, low perforated-copper body of three parallel gallery bars round planted courts, each under a flat roof with deep overhangs and a great canopy over the entrance, and the copper tower that twists (exaggerated here to 65 degrees) as it rises to its glass lookout
     build(b) {
-      b.box('sfCopper', -12, -20, -16, 104, 30, 34, { win: [16, 2], glow: 0.5 });
-      b.box('sfCopper', 6, -20, 18, 100, 30, 34, { win: [16, 2], glow: 0.5 });
-      b.box('glassDark', -2, -20, 2, 60, 10, 32, { win: [8, 1], glow: 0.9 });
-      b.box('sfCopper', -2, 14, 0, 132, 80, 1.6);
-      for (const [x, z] of [[-30, 2], [24, 2], [40, -20]]) b.box('glassRoof', x, 15.6, z, 12, 9, 0.3);
-      const twist = y => lerp(0, -32, Math.max(0, y) / 44);
-      b.loft('sfCopper', [-20, 0, 15, 30, 40].map(y => b.rect(48, y, -26, 30, 18, twist(y))), { flat: true, win: [6, 9], glow: 0.6 });
-      b.loft('glass', [b.rect(48, 40, -26, 30, 18, twist(40)), b.rect(48, 44, -26, 30, 18, twist(44))], { flat: true, win: [8, 1], glow: 1.2 });
-      b.box('sfCopper', 48, 44, -26, 31, 19, 0.8, { ry: twist(44) });
+      for (const [x, z, w, d] of [[-8, -33, 124, 17], [4, -3, 136, 19], [-6, 27, 118, 16]]) {
+        b.box('sfCopper', x, -20, z, w, d, 30, { win: [30, 2], glow: 0.5 });
+        b.box('sfCopper', x, 10, z, w + 6, d + 1.4, 1.3);
+      }
+      b.box('sfCopper', 78, 10, 8, 26, 44, 1.3);
+      for (const [z, d] of [[-18, 9], [12.25, 9.5]]) b.box('sfLawn', -4, -20, z, 112, d, 20.7);
+      for (const [x, z] of [[-40, -18], [-6, 12.25], [22, -18]]) tree(b, x, z, 3.6, 9, 0.7);
+      const twist = y => -72 * Math.max(0, y) / 54;
+      b.loft('sfCopper', [-20, 0, 9, 18, 27, 36, 45, 50].map(y => b.rect(46, y, -30, 30, 13, twist(y))), { flat: true, win: [6, 12], glow: 0.6 });
+      b.loft('glass', [50, 54].map(y => b.rect(46, y, -30, 30, 13, twist(y))), { flat: true, win: [8, 1], glow: 1.2 });
+      b.box('sfCopper', 46, 54, -30, 31.5, 14.5, 0.8, { ry: twist(54) });
     } });
 
   X.push({ id: 'calacademy', lon: -122.4661, lat: 37.7699, ex: 1.8, ry: 0, label: 'California Academy of Sciences', mats: mats('sfLawn'),
@@ -450,33 +532,51 @@
     } });
 
   X.push({ id: 'legion', lon: -122.5008, lat: 37.7845, ex: 2.9, ry: 0, label: 'Legion of Honor',
-    // the Legion of Honor: a white Beaux-Arts palace round the Court of Honor, the columned portico at its head, colonnades down both sides, the triumphal gateway on the east and the glass pyramid in the court
+    // the Legion of Honor: a white Beaux-Arts palace round the open Court of Honor, the six-column portico at its head, deep Ionic colonnades in shadow down both sides of the court, the triumphal-arch gateway with its attic and paired columns on the east, and the glass pyramid in the court
     build(b) {
-      b.box('white', -32, -20, 0, 24, 72, 40, { win: [10, 2], glow: 0.6 });
-      b.box('whiteShade', -32, 20, 0, 20, 64, 1.4);
-      for (let i = 0; i < 6; i++) b.cyl('white', -18.5, 1, -11 + i * 4.4, 1, 0.9, 15, 6);
-      b.box('white', -19, 16, 0, 4, 26, 2.4); b.loft('white', [[[-21, 18.4, -13], [-21, 18.4, 13], [-21, 23, 0]], [[-17, 18.4, -13], [-17, 18.4, 13], [-17, 23, 0]]], { flat: true, cap0: true });
+      b.box('white', -32, -20, 0, 24, 76, 40, { win: [10, 2], glow: 0.6 });
+      b.box('whiteShade', -32, 20, 0, 20, 66, 1.4); b.box('white', -33, 21.4, 0, 12, 24, 3.4);
+      b.box('stoneShade', -20.4, 1, 0, 0.6, 26, 15);
+      for (let i = 0; i < 6; i++) b.cyl('white', -17.8, 1, -11 + i * 4.4, 1.15, 1, 15, 6);
+      b.box('white', -18.6, 16, 0, 5, 27, 2.4); b.loft('white', [[[-21, 18.4, -13.5], [-21, 18.4, 13.5], [-21, 23.4, 0]], [[-16.2, 18.4, -13.5], [-16.2, 18.4, 13.5], [-16.2, 23.4, 0]]], { flat: true, cap0: true });
+      b.box('concreteLight', 8, -20, 0, 56, 50, 20.5);
       for (const s of [-1, 1]) {
-        b.box('white', 6, -20, s * 30, 52, 12, 34, { win: [8, 1], glow: 0.6 });
-        for (let i = 0; i < 9; i++) b.cyl('white', -16 + i * 5, 1, s * 22.6, 0.75, 0.7, 10, 5);
-        b.box('white', 6, 11, s * 23, 46, 3, 1.6);
+        b.box('white', 8, -20, s * 31, 54, 12, 32, { win: [8, 1], glow: 0.6 });
+        b.box('stoneShade', 8, 1, s * 24.7, 52, 0.4, 10);
+        for (let i = 0; i < 11; i++) b.cyl('white', -16 + i * 4.8, 1, s * 19.6, 1, 0.9, 10, 6);
+        b.box('white', 8, 11, s * 22, 54, 6.6, 1.8); b.box('whiteShade', 8, 12.8, s * 22.2, 54, 6, 0.5);
       }
-      for (const s of [-1, 1]) b.box('white', 34, -20, s * 10, 8, 10, 39);
-      b.box('white', 34, 11, 0, 8, 30, 8); b.box('whiteShade', 34, 19, 0, 8.6, 30.6, 1);
-      for (const s of [-1, 1]) b.box('white', 34, -20, s * 24, 6, 12, 30);
-      b.box('concreteLight', 6, -20, 0, 54, 34, 20.5);
-      b.frustum('glassRoof', 8, 0.5, 0, 9, 9, 0.4, 0.4, 5.5, { lit: 0.5 });
+      b.frustum('glassRoof', 6, 0.5, 0, 9, 9, 0.4, 0.4, 5.5, { lit: 0.5 });
+      // the gateway: two piers and the arch block under a cornice and attic, the arch open below its springing, paired columns on the east face
+      for (const s of [-1, 1]) b.box('white', 37, -20, s * 10.6, 10, 12.4, 44);
+      b.box('white', 37, 10, 0, 10, 8.8, 14);
+      for (const f of [-1, 1]) panel(b, 'dark', archP(37 + f * 5.03, 0, 0, 1, 10, 10, 4.4), [f, 0, 0]);
+      b.box('whiteShade', 37, 24, 0, 11, 34, 1.2); b.box('white', 37, 25.2, 0, 9, 24, 5.5);
+      for (const z of [-13.4, -7.8, 7.8, 13.4]) b.cyl('white', 42.8, 1, z, 1, 0.9, 23, 6);
+      b.light([32, 6, 0], 'warm', 1.2);
     } });
 
-  X.push({ id: 'fortpoint', lon: -122.4770, lat: 37.8106, ex: 4.2, ry: 0, label: 'Fort Point',
-    // Fort Point, 1861: a four-tier brick and granite fort under the south end of the Golden Gate Bridge, cut square on the landward side, its small iron lighthouse on the roof
+  X.push({ id: 'fortpoint', lon: -122.4770, lat: 37.81015, ex: 3.8, ry: 0, label: 'Fort Point', mats: mats('sfRock'),
+    // Fort Point, 1861: a hollow four-tier fort under the south end of the Golden Gate Bridge, granite below and brick above, cut square on the landward side, its open courtyard ringed by three tiers of arched casemates, a small lighthouse on the roof, standing on its granite seawall at the water (the block top is about 68 m above the water here)
     build(b) {
-      const ring = (y, g) => [[-37 - g, y, 24 + g], [37 + g, y, 24 + g], [37 + g, y, -8], [20, y, -24 - g], [-20, y, -24 - g], [-37 - g, y, -8]];
-      b.loft('rust', [ring(-20, 0), ring(14.5, 0)], { flat: true, win: [10, 3], glow: 0.35 });
-      b.loft('stoneShade', [ring(14.5, 0.3), ring(16.5, 0.3)], { flat: true });
-      b.box('concreteLight', 0, 15, 2, 44, 22, 1.7);
-      b.cyl('dark', 12, 16.5, -17, 1.3, 1.1, 7, 6); b.cyl('lamp', 12, 23.5, -17, 1.2, 1.2, 1.6, 6, { lit: 2 }); b.cyl('dark', 12, 25.1, -17, 1.6, 0, 1.4, 6);
-      b.light([12, 24.3, -17], 'beam', 2);
+      const O = [[-37, 24], [37, 24], [37, -8], [20, -24], [-20, -24], [-37, -8]], I = [[-27, 14], [27, 14], [27, -4], [15.5, -14], [-15.5, -14], [-27, -4]];
+      const at = (P, y) => P.map(([x, z]) => [x, y, z]), mix = (p, q, t) => [lerp(p[0], q[0], t), lerp(p[1], q[1], t)];
+      b.loft('sfRock', [-80, 0.4].map(y => at(O.map(([x, z]) => [x * 1.06, z * 1.08]), y)), { flat: true });
+      b.loft('concreteLight', [at(I, -20), at(I, 0.6)], { flat: true });
+      for (let i = 0; i < 6; i++) {
+        const j = (i + 1) % 6, q = [O[i], O[j], I[j], I[i]], r = [O[i], O[j], mix(O[j], I[j], 0.14), mix(O[i], I[i], 0.14)];
+        b.loft('stoneShade', [at(q, -20), at(q, 5)], { flat: true, win: [7, 1], glow: 0.4 });
+        b.loft('rust', [at(q, 5), at(q, 14.5)], { flat: true, win: [7, 2], glow: 0.4 });
+        b.loft('stoneShade', [at(r, 14.5), at(r, 16.4)], { flat: true });
+        // the casemates on the courtyard side: three tiers of dark arches
+        const A = I[i], B2 = I[j], L = Math.hypot(B2[0] - A[0], B2[1] - A[1]), t = [(B2[0] - A[0]) / L, (B2[1] - A[1]) / L], m = [(A[0] + B2[0]) / 2, (A[1] + B2[1]) / 2];
+        let n = [-t[1], t[0]]; if (n[0] * -m[0] + n[1] * -m[1] < 0) n = [-n[0], -n[1]];
+        const k = Math.max(3, Math.round(L / 5.2));
+        for (let tier = 0; tier < 3; tier++) for (let c = 0; c < k; c++) { const s = (c + 0.5) / k * L, y0 = 1 + tier * 4.5; panel(b, 'dark', archP(A[0] + t[0] * s + n[0] * 0.12, A[1] + t[1] * s + n[1] * 0.12, t[0], t[1], y0, y0 + 2.2, 1.45, 3), [n[0], 0, n[1]]); }
+      }
+      b.cyl('white', 12, 14.5, -19, 1.9, 1.5, 8.5, 6); b.cyl('dark', 12, 23, -19, 2.3, 2.3, 0.6, 6);
+      b.cyl('lamp', 12, 23.6, -19, 1.4, 1.4, 1.8, 6, { lit: 2 }); b.cyl('dark', 12, 25.4, -19, 1.9, 0, 1.7, 6);
+      b.light([12, 24.5, -19], 'beam', 2);
     } });
 
   // ---------- the hills, the outer neighbourhoods, the shipyard ----------
@@ -491,16 +591,39 @@
     } });
 
   X.push({ id: 'haightashbury', lon: -122.4469, lat: 37.7700, ex: 5.4, ry: 9, label: 'Haight & Ashbury', mats: mats('sfJade'),
-    // Haight and Ashbury: the corner with its green street-sign blades, and the Victorians on the corner, one with a round turret
+    // Haight and Ashbury: the crossing with its big green street-sign blades on one post (HAIGHT east-west, ASHBURY north-south), painted Victorians on the corners (Queen Annes with round corner turrets and front gables, Italianates with angled bay windows, white trim and false fronts), and the fishnet-stocking legs in red heels kicking out of an upper window (Piedmont Boutique)
     build(b) {
-      b.box('roadLight', 0, -1, 0, 60, 8, 1.4); b.box('roadLight', 0, -1, 0, 8, 60, 1.41);
-      b.box('p5', -12, -20, -12, 14, 14, 33, { win: [3, 3], glow: 0.8 }); gableZ(b, 'roof', -19, -5, 13, -12, 7.4, 5);
-      b.cyl('p5', -5, -20, -5, 2.8, 2.8, 37, 8, { win: [6, 3], glow: 0.8 }); b.lathe('roof', -5, -5, [[3.2, 17], [0, 23]], 8, { cap: false });
-      b.box('p1', -26, -20, -12, 13, 14, 31.5, { win: [3, 3], glow: 0.8 }); gableZ(b, 'roof', -19, -5, 11.5, -26, 7, 4.6);
-      b.box('p3', -12, -20, -26, 14, 13, 30.5, { win: [3, 3], glow: 0.8 }); gableX(b, 'roof', -19, -5, 10.5, -26, 7, 4.4);
-      b.rod('dark', [5, 0, 5], [5, 8.6, 5], 0.3, 0.25, 5);
-      b.box('sfJade', 5, 7.6, 5, 7, 0.25, 1); b.box('sfJade', 5, 6.4, 5, 0.25, 7, 1);
-      b.light([5, 9, 5], 'warm', 0.7);
+      b.box('roadLight', 0, -1, 0, 84, 9, 1.4); b.box('roadLight', 0, -1, 0, 9, 84, 1.41);
+      // a Victorian w wide, d deep, eaves at h, its front on z = zf facing s (1 south, -1 north), angled bays at bays[], a white cornice, a front gable or a flat false front
+      const vic = (x, zf, s, w, d, h, col, gable, bays) => {
+        b.box(col, x, -20, zf - s * d / 2, w, d, h + 20, { win: [3, 3], glow: 0.8 });
+        for (const bx of bays) {
+          const ring = (y, g) => [[bx - 2 - g, y, zf], [bx - 1.2 - g * 0.6, y, zf + s * (1.3 + g)], [bx + 1.2 + g * 0.6, y, zf + s * (1.3 + g)], [bx + 2 + g, y, zf]];
+          b.loft(col, [ring(1.2, 0), ring(h - 1.6, 0)], { flat: true, win: [3, 2], glow: 0.9 });
+          b.loft('trim', [ring(h - 1.6, 0.35), ring(h - 0.9, 0.35)], { flat: true });
+        }
+        b.box('trim', x, h - 0.3, zf + s * 0.4, w + 0.8, 1.2, 1.3);
+        if (gable) { gableZ(b, 'roof', zf - s * d, zf + s * 0.2, h + 1, x, w / 2 + 0.4, 5); panel(b, col, [[x - w / 2 + 0.4, h + 1, zf + s * 0.5], [x + w / 2 - 0.4, h + 1, zf + s * 0.5], [x, h + 5.4, zf + s * 0.5]], [0, 0, s]); }
+        else b.box('trim', x, h + 1, zf + s * 0.2, w + 0.4, 1, 1.5);
+      };
+      const turret = (x, z, r, h, col) => { b.cyl(col, x, -20, z, r, r, h + 20, 8, { win: [8, 4], glow: 0.9 }); b.cyl('trim', x, h, z, r + 0.4, r + 0.4, 0.8, 8); b.lathe('roof', x, z, [[r + 0.5, h + 0.8], [r * 0.45, h + 5.4], [0, h + 7.6]], 8, { cap: false }); };
+      vic(12, -5.5, 1, 12, 18, 12.5, 'p5', true, [14.6]); turret(6.9, -6.9, 2.9, 15.5, 'p5');
+      vic(21.5, -5.5, 1, 7, 18, 11.5, 'p1', false, [20.4]);
+      vic(28.5, -5.5, 1, 7, 18, 12, 'p2', false, [27]);
+      vic(35.5, -5.5, 1, 7, 18, 11, 'p6', true, [34]);
+      vic(-12, -5.5, 1, 12, 18, 12, 'p0', false, [-15, -9]);
+      vic(-12, 5.5, -1, 12, 18, 12.5, 'p3', true, [-14.6]); turret(-6.9, 6.9, 2.9, 15.5, 'p3');
+      // the legs: fishnet stockings and red heels kicking out of the upper window of the pink house
+      b.box('trim', 30.5, 6.8, -5.3, 2.8, 0.5, 2.8); panel(b, 'dark', vrect(30.5, 8.2, -5.0, 1, 0, 2.1, 2.2), [0, 0, 1]);
+      for (const [dx, k] of [[-0.55, -0.5], [0.6, 0.7]]) { const p = [30.5 + dx, 8, -4.9], q = [30.5 + dx * 1.6 + k, 3.4, -1.1]; b.rod('dark', p, q, 0.62, 0.4, 6); b.beam('red', [q[0], q[1] + 0.2, q[2] - 0.3], [q[0], q[1] - 0.4, q[2] + 1.7], 0.8, 0.65); b.beam('red', [q[0], q[1], q[2] - 0.4], [q[0], q[1] - 1.5, q[2] - 0.5], 0.2, 0.2); }
+      // the signs: one post at the south-east corner, two long green blades with white lettering on both faces
+      b.rod('dark', [5.4, 0, 5.4], [5.4, 14.2, 5.4], 0.42, 0.34, 6);
+      b.box('sfJade', 5.4, 11.6, 5.4, 12.4, 0.44, 2.4, { lit: 0.3 }); b.box('sfJade', 5.4, 8.8, 5.4, 0.44, 12.4, 2.4, { lit: 0.3 });
+      for (const f of [-1, 1]) {
+        [...'HAIGHT'].forEach((_, i) => { const t = (i - 2.5) * 1.75; panel(b, 'sfSign', vrect(5.4 + f * t, 12.8, 5.4 + f * 0.23, 1, 0, 1.15, 1.45), [0, 0, f], { lit: 1 }); });
+        [...'ASHBURY'].forEach((_, i) => { const t = (i - 3) * 1.6; panel(b, 'sfSign', vrect(5.4 + f * 0.23, 10, 5.4 - f * t, 0, 1, 1.05, 1.45), [f, 0, 0], { lit: 1 }); });
+      }
+      b.light([5.4, 14.6, 5.4], 'warm', 0.8); b.light([30.5, 6, -2], 'warm', 0.8);
     } });
 
   X.push({ id: 'bison', lon: -122.4998, lat: 37.7697, ex: 4, ry: 0, label: 'Bison paddock', mats: mats('sfLawn', 'sfTree'),

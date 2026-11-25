@@ -5209,7 +5209,7 @@ window.Lookback = (() => {
     panel.querySelectorAll('[data-theme-pick]').forEach(b => b.addEventListener('click', () => { state.theme = b.dataset.themePick; savePrefs(); applyTheme(); map.refreshPalette(); recolor(false); render(); }));
     panel.querySelector('#show-all').addEventListener('change', e => { state.showAll = e.target.checked; savePrefs(); map.invalidate(); });
     panel.querySelector('#map3d').addEventListener('change', e => { // the other map engine: kept with the prefs, and the page loads again with it (an engine named in the address is dropped, or it would win)
-      state.map3d = e.target.checked; savePrefs(); try { sessionStorage.removeItem('sbs-map3d-off'); } catch (err) {}
+      state.map3d = e.target.checked; savePrefs(); try { sessionStorage.removeItem('sbs-map3d-off'); sessionStorage.removeItem('sbs-map3d-q'); } catch (err) {}
       const u = new URL(location.href); u.searchParams.delete('map'); if (u.href === location.href) location.reload(); else location.replace(u.href);
     });
     panel.querySelector('#export').addEventListener('click', exportLog);

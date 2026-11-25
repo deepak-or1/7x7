@@ -90,7 +90,7 @@
     const STAR = HOODS.map(h => (SUBD[h.name] || []).some(s => s && s.star));
     const SIZE = HOODS.map((h, i) => Math.sqrt(Math.abs((PP[i] || []).reduce((s, poly) => s + poly.reduce((a, r, k) => a + (k ? -1 : 1) * Math.abs(Geom.area(r)), 0), 0)))); // the side of a square of the place's area
     const SIDE_X = HOODS.map((h, i) => { if (DETAIL[i] <= 1 || !PP[i]) return 0; const band = (BB[i][3] - BB[i][1]) * .2; let x = -Infinity; PP[i].flat().forEach(r => r.forEach(q => { if (Math.abs(q[1] - h.cy) <= band && q[0] > x) x = q[0]; })); return x > -Infinity ? x : BB[i][2]; }); // js/map.js: a detailed place is named beside it
-    const LM_ID = Object.fromEntries(LANDS.map((l, j) => [l.id, j]));
+    const LM_ID = Object.fromEntries(LANDS.map((l, j) => [l.id, j])), LM_STOP = new Set(['the', 'and', 'of', 'at', 'to', 'las', 'vegas', 'san', 'francisco', 'street', 'park']); // words a landmark's name may share with a place's and still be named (drawOverlay)
     const REGION_LBL = Object.keys(REGION_AT).filter(r => REGS[r] && G.regions[r]).map(r => ({ id: 'r:' + r, t: (r === 'sf' ? 'San Francisco' : REGS[r].label).toUpperCase(), p: proj(REGION_AT[r]) }));
 
     // ---- the page: two canvases after the flat map's (hidden), and the button that faces north again ----
@@ -104,7 +104,7 @@
     let area = AREAS[0];
     const cam = { x: 0, y: 0, w: Geom.NX };                               // what the app reads: the flat rectangle
     const cur = { cx: Geom.NX / 2, cz: Geom.NY / 2, w: Geom.NX, th: 0, off: 0 }, goal = Object.assign({}, cur); // the centre, the width there, the heading, the tilt added by hand
-    let mode = 'still', fly = null, vel = { x: 0, z: 0 }, raf = 0, lastT = 0, userMoved = false, needs = true, ready = false, moving = false;
+    let mode = 'still', fly = null, vel = { x: 0, z: 0 }, raf = 0, lastT = 0, govT = 0, userMoved = false, needs = true, ready = false, moving = false;
     let region = 'all', sel = -1, selSub = -1, hover = -1, hoverSub = -1, hoverSpot = null, quiz = false, press = -1;
     const colNow = HOODS.map(() => [200, 200, 200]), colTo = HOODS.map(() => [200, 200, 200]); let colAnim = false, paintAll = true;
     const alphaNow = new Float32Array(HOODS.length).fill(1), flagNow = new Uint8Array(HOODS.length), liftV = new Float32Array(HOODS.length), liftAnim = new Map();
@@ -114,7 +114,7 @@
     const stat = { t0: now(), firstFrame: 0, build: {}, blocks: '', frames: 0, lastMs: 0, amb: 0 };
     let ambUntil = 0, ambT = 0, ambLast = 0, ambTimer = 0, ambTick = false, olAnim = true, sunAt = 0, sunKey = '', fogLens = false; // ambient motion: until when it runs, its own seconds, the timer of its next frame
     const poke = () => { ambUntil = now() + AMB_MS; };                    // a touch (or a move the app asked for): the ambient motion runs on from here
-    const ambOn = () => AMBIENT && ready && !RM.matches && !document.hidden && now() < ambUntil;
+    const ambOn = () => AMBIENT && ready && Q.life && !RM.matches && !document.hidden && now() < ambUntil; // the governor's first step gives it up
     const insets = () => o.insets ? o.insets() : { top: 0, right: 0, bottom: 0, left: 0 };
     const kNow = () => W / cur.w;
     const hoodPx = i => (BB[i][2] - BB[i][0]) * kNow() * DETAIL[i];
@@ -216,8 +216,9 @@
       const I = insets(), vw = Math.max(80, W - I.left - I.right), vh = Math.max(80, H - I.top - I.bottom), mx = (x0 + x1) / 2, my = (y0 + y1) / 2, hx = (x1 - x0) / 2 * pad, hy = (y1 - y0) / 2 * pad;
       const ta = areaObj(mx, my), cut = ta !== area;
       let top = 0; for (let i = 0; i < HOODS.length; i++) { const b = BB[i]; if (b[2] >= x0 && b[0] <= x1 && b[3] >= y0 && b[1] <= y1) top = Math.max(top, HT[i] + (i === sel ? LIFT : 0)); }
-      const s = { cx: mx, cz: my, w: Math.max(hx * 2, 1), th: cut ? 0 : goal.th, off: cut ? 0 : Math.min(goal.off, PH_FIT - PH_NEAR) }; // another area is a cut, and a cut faces north; a fit comes back up from the lowest tilts
-      const ext = () => { const c = camOf(s), e = { x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity, bad: false };
+      const s = { cx: mx, cz: my, w: Math.max(hx * 2, 1), th: cut ? 0 : goal.th, off: cut ? 0 : goal.off }; // another area is a cut, and a cut faces north
+      const capOff = () => { if (!cut) s.off = Math.min(goal.off, PH_FIT - phAuto(dOf(s.w))); }; // a fit keeps the tilt by hand, and comes back up only where the angle at its own distance would pass PH_FIT
+      const ext = () => { capOff(); const c = camOf(s), e = { x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity, bad: false };
         for (const X of [mx - hx, mx + hx]) for (const Z of [my - hy, my + hy]) for (const Y of [0, top]) { const p = project(c, X, Y * c.vex, Z); if (p[2] <= 1e-6) e.bad = true; e.x0 = Math.min(e.x0, p[0]); e.x1 = Math.max(e.x1, p[0]); e.y0 = Math.min(e.y0, p[1]); e.y1 = Math.max(e.y1, p[1]); }
         return e; };
       const centre = () => { const e = ext(), a = groundAt(s, (e.x0 + e.x1) / 2, (e.y0 + e.y1) / 2), b = groundAt(s, I.left + vw / 2, I.top + vh / 2); s.cx += a[0] - b[0]; s.cz += a[1] - b[1]; };
@@ -227,7 +228,7 @@
       }
       limit(s, ta);
       for (let n = 0; n < 20 && s.w < maxW(ta); n++) { const e = ext(); if (!e.bad && e.x0 >= I.left - .5 && e.x1 <= I.left + vw + .5 && e.y0 >= I.top - .5 && e.y1 <= I.top + vh + .5) break; s.w *= 1.02; centre(); limit(s, ta); }
-      return viewOf(s);
+      capOff(); return viewOf(s);
     }
     const topIn = b => { let top = 0; for (let i = 0; i < HOODS.length; i++) { const q = BB[i]; if (q[2] >= b[0] && q[0] <= b[2] && q[3] >= b[1] && q[1] <= b[3]) top = Math.max(top, HT[i] + (i === sel ? LIFT : 0)); } return top; }; // fitView's height for a box
     function startFly(v, dur) {
@@ -372,10 +373,10 @@
             const sea = new THREE.Mesh(g, waterMat); sea.receiveShadow = true; scene.add(sea); } // the blocks, the bridges and the towers throw their shadows on it too, close in
           stat.build.land = now() - t0;
         },
-        () => { const t0 = now(); applyLook(); try { const q = +sessionStorage.getItem('sbs-map3d-q'); if (q > 0) setQuality(q); } catch (e) {} stat.build.look = now() - t0; ready = true; needs = true; poke(); kick(); }, // (the step the governor settled on earlier in this session: a slow device does not start from the top again)
+        () => { const t0 = now(); applyLook(); try { const q = Math.round(+sessionStorage.getItem('sbs-map3d-q')); if (q > 0) setQuality(q); } catch (e) {} stat.build.look = now() - t0; ready = true; needs = true; poke(); kick(); }, // (the step the governor settled on earlier in this session: a slow device does not start from the top again)
         () => { // after the first frame: the skylines and the Strip's resorts (by place, so each rises with its block), then the night's lights
           const t0 = now(), strip = {}; HOODS.forEach(h => { if (REGS[h.region] && REGS[h.region].away && SUBD[h.name]) strip[h.name] = SUBD[h.name]; });
-          const made = MD.city((x, z) => { const i = hoodAt(x, z); return i >= 0 ? HOODS[i].name : null; }, ground, strip); cityFoot = made.foot || []; cityStrip = made.strip || [];
+          const made = MD.city((x, z) => { const i = hoodAt(x, z); return i >= 0 ? HOODS[i].name : null; }, ground, strip, icons); cityFoot = made.foot || []; cityStrip = made.strip || [];
           cityParts = made.map(part => { part.mesh = addBuilt(part); part.hood = IDX[part.place] != null ? IDX[part.place] : -1; part.pts = dark ? pointsOf(part.lights, part.mesh) : null; return part; });
           paintBuilt(); if (dark) buildNight(); stat.build.city = now() - t0; shadowDirty = true; needs = true; kick();
         },
@@ -387,13 +388,13 @@
         extra('life', () => { buildLife(); paintBuilt(); applyAir(); }),
         () => { // the city fabric (js/map3d/fabric.js): only its plan; its chunks are made as the camera comes near
           const t0 = now(); try { if (FB && FB.gl) {
-            const avoid = []; for (const ic of icons) avoid.push([ic.x, ic.z, ic.r * 1.25 + 0.2]); for (const f of cityFoot) avoid.push(f); HOODS.forEach(h => avoid.push([h.cx, h.cy, 0.5]));
+            const avoid = []; for (const ic of icons) avoid.push([ic.x, ic.z, ic.r * 1.8 + 0.2]); for (const f of cityFoot) avoid.push(f); HOODS.forEach(h => avoid.push([h.cx, h.cy, 0.5])); // (landmarks are drawn up to about 1.8 times their size while the fabric shows)
             fab.gen = FB.make({ HOODS, BB, HT, INFO: window.INFO, SUBD, REGS, proj, inTop: (i, x, z) => Geom.inPolys(tiles[i].tops, x, z), avoid, strip: cityStrip }); fab.gl = FB.gl(THREE, fabU);
             // its four shaders are made now, one a frame, on a building and a tree nobody sees: not in the middle of the first flight in
             const d = fab.gl.mesh({ ix: 0, iz: 0, nb: 1, nt: 1, b: new Float32Array([cur.cx, 0, cur.cz, 0, 1, 1, 1, 0, 0, 0, 0]), t: new Float32Array([cur.cx, 0, cur.cz, 1, 0, 0, 0]) }, fab.slots.shift());
             for (const m of [d.b, d.t]) { m.frustumCulled = false; m.castShadow = false; }
-            const seq = [() => landG.add(d.b), () => landG.add(d.t), () => { d.b.castShadow = d.t.castShadow = true; shadowDirty = true; }, () => { for (const m of [d.b, d.t]) { landG.remove(m); m.geometry.dispose(); } }];
-            let q = 0; const go = () => { if (dead) return; const t1 = now(); seq[q++](); needs = true; if (raf) { cancelAnimationFrame(raf); raf = 0; } lastT = now(); frame(lastT); stat.build['warm' + q] = now() - t1; if (q < seq.length) setTimeout(go, 120); }; setTimeout(go, 120);
+            const seq = [() => landG.add(d.b), () => landG.add(d.t), () => { d.b.castShadow = d.t.castShadow = true; shadowDirty = true; }, () => { for (const m of [d.b, d.t]) { landG.remove(m); fabFree(m); } }];
+            let q = 0; const go = () => { if (dead) return; const t1 = now(); seq[q++](); needs = true; if (raf) { cancelAnimationFrame(raf); raf = 0; } lastT = now(); frame(lastT, true); stat.build['warm' + q] = now() - t1; if (q < seq.length) setTimeout(go, 120); }; setTimeout(go, 120);
           } } catch (e) { fab.gl = null; console.warn('3D map, the city fabric left out: ' + (e && e.stack || e)); }
           stat.build.fabric = now() - t0; needs = true; kick();
         },
@@ -467,9 +468,12 @@
 
     // ---- the city fabric: chunks of it made as the camera comes near, a few milliseconds at a time, kept while they are near ----
     const CS = FB ? FB.CS : 8, Q = { level: 0, life: true, fabShadow: true, shadows: true, fab: 1, cap: [2, 3] }; // Q: what the frame rate allows (the governor below)
+    // a chunk's geometry shares the unit building's and tree's position, normal and uv (js/map3d/fabric.js inst): detached first, so
+    // dispose frees only the chunk's own buffer, not the GL buffers the other chunks draw with
+    const fabFree = m => { const g = m.geometry; for (const k of ['position', 'normal', 'uv']) if (g.attributes[k]) g.deleteAttribute(k); if (g.index) g.setIndex(null); g.dispose(); };
     const fabDist = (ch, f) => Math.hypot((ch.ix + 0.5) * CS - f.x, (ch.iz + 0.5) * CS - f.y);
     function fabLand(ix, iz) { const k = ix * 65536 + iz; let v = fab.land.get(k); if (v === undefined) { const x0 = ix * CS, z0 = iz * CS; v = false; for (let i = 0; i < HOODS.length && !v; i++) { const b = BB[i]; v = b[2] > x0 && b[0] < x0 + CS && b[3] > z0 && b[1] < z0 + CS; } fab.land.set(k, v); } return v; }
-    function fabDrop(k, ch) { for (const m of [ch.b, ch.t]) if (m) { landG.remove(m); m.geometry.dispose(); } if (ch.slot != null) { placeData[(TW + ch.slot) * 4] = 0; fab.slots.push(ch.slot); fab.live--; fab.nb -= ch.nb; fab.nt -= ch.nt; } fab.chunks.delete(k); }
+    function fabDrop(k, ch) { for (const m of [ch.b, ch.t]) if (m) { landG.remove(m); fabFree(m); } if (ch.slot != null) { placeData[(TW + ch.slot) * 4] = 0; fab.slots.push(ch.slot); fab.live--; fab.nb -= ch.nb; fab.nt -= ch.nt; } fab.chunks.delete(k); }
     function fabPump() {
       fab.timer = 0; if (dead || !fab.gen) return; const t0 = now(), budget = moving ? 2.5 : 7, f = fabU.uFocus.value; let made = false;
       while (fab.queue.length && now() - t0 < budget) {
@@ -849,10 +853,14 @@
           placed.push(box); put('c' + i + ':' + j, { text: cell.name, x: (box[0] + box[2]) / 2 + sw / 2, y: p[1], size: ss, ls: 0, weight: wt, color: hot && !cell.star ? P.accent : P.label, a: hot ? 1 : smooth(subF[i], .2, .8), star: sw ? [box[0] + 2 + ss * .525, ss * 1.05] : null });
         }
       }
-      // the landmarks' own names, close in, under each model, only where no place or section name stands
-      const said = quiz || !ready ? null : new Set([...want.values()].map(r => String(r.text || '').toLowerCase())); // a landmark that a section is named after is named once
-      if (said) for (const ic of icons) {
-        if (!ic.label || !(ic.px >= 40) || !ic.mesh.visible || said.has(ic.label.toLowerCase())) continue; const a = at(ic.x, ic.z, ic.mesh.position.y); if (a[2] <= 0 || a[2] > c.d * 2.3) continue;
+      // the landmarks' own names, close in, under each model, only where no place or section name stands, and once: not when a name
+      // placed this frame is the same, or within ten map units (at least 160 px) shares a word of four letters or more with it ("Welcome Sign" and the Welcome
+      // to Fabulous Las Vegas sign). The names placed are read once a landmark is big enough to be named
+      let said = null; const near = Math.max(160, 10 * kNow()), words = t => (String(t || '').toLowerCase().match(/[a-z]{4,}/g) || []).filter(w => !LM_STOP.has(w));
+      if (!quiz && ready) for (const ic of icons) {
+        if (!ic.label || !(ic.px >= 40) || !ic.mesh.visible) continue; const a = at(ic.x, ic.z, ic.mesh.position.y); if (a[2] <= 0 || a[2] > c.d * 2.3) continue;
+        if (!said) said = [...want.values()].filter(r => r.text).map(r => ({ x: r.x, y: r.y, t: r.text.toLowerCase(), w: new Set(words(r.text)) }));
+        const lt = ic.label.toLowerCase(); if (said.some(r => r.t === lt) || words(ic.label).some(w => said.some(r => r.w.has(w) && Math.hypot(r.x - a[0], r.y - a[1]) <= near))) continue;
         const size = fsz - 0.5, tw = measure(ic.label, 500, size), bx = [a[0] - tw / 2 - 3, a[1] + 3, a[0] + tw / 2 + 3, a[1] + 4 + size * 1.25];
         if (bx[2] < 0 || bx[0] > W || bx[3] < 0 || bx[1] > H || !inView(bx) || clash(bx)) continue;
         placed.push(bx); put('L' + ic.id, { text: ic.label, x: a[0], y: (bx[1] + bx[3]) / 2, size, ls: 0, weight: 500, color: P.ink2 });
@@ -912,19 +920,22 @@
     // ---- the governor: when frames run long while the map moves, something is given up, in this order: what moves (1), the
     // fabric's shadows (2), every shadow (3), half the fabric (4), three quarters of it and a coarser picture (5), a coarser one
     // still (6); when they run well for a while, one step back, and not again to a step that failed twice ----
-    const gov = { ts: [], good: 0, at: 0, skip: 0, up: -1, fails: [], was: false };
+    const gov = { ts: [], good: 0, at: 0, skip: 0, fresh: false, fails: [], was: false, min: Infinity };
     function setQuality(n) {
       n = clamp(n, 0, 6); if (n === Q.level) return; Q.level = n; Q.life = n < 1; Q.fabShadow = n < 2; Q.shadows = n < 3; Q.fab = n < 4 ? 1 : n < 5 ? 0.5 : 0.25; Q.cap = n < 5 ? [2, 3] : n < 6 ? [1.5, 2] : [1, 1.5];
       key.castShadow = Q.shadows; setPR(Math.min(dpr, Q.cap[moving ? 0 : 1])); shadowDirty = true; needs = true; gov.ts.length = 0; gov.good = 0; gov.skip = 10; gov.at = now();
       try { sessionStorage.setItem('sbs-map3d-q', String(n)); } catch (e) {}
     }
-    // gap: the time since the frame before, when both were frames of a moving map; judged by the middle one of every 24
+    // gap: the time since the frame before (draw's own clock, not reset by input), when both were frames of a moving map; judged by
+    // the middle one of every 24, against the shortest gap seen: a screen held to 30 frames a second (Low Power Mode) is not a slow
+    // device. A step up stays fresh until its first judgement: a slow one counts it as failed
     function govern(gap, mv) {
-      const was = gov.was; gov.was = mv; if (!mv || !was) return; if (gov.skip > 0) { gov.skip--; return; }
-      gov.ts.push(gap); if (gov.ts.length === 8 && Math.min.apply(null, gov.ts) > 40) { gov.ts.length = 0; gov.last = 41; return setQuality(Q.level + 2); } // eight very long frames in a row: two steps at once
+      const was = gov.was; gov.was = mv; if (!mv || !was || gap > 100) return; if (gap > 4) gov.min = Math.min(gov.min, gap); if (gov.skip > 0) { gov.skip--; return; } // over 100 ms: a finger at rest, not a frame
+      const ref = Math.min(gov.min, 34) * 1.3, fail = () => { if (gov.fresh) gov.fails[Q.level] = (gov.fails[Q.level] || 0) + 1; gov.fresh = false; }; // (no screen runs slower than 30 a second: frames longer than that are slow)
+      gov.ts.push(gap); if (gov.ts.length === 8 && Math.min.apply(null, gov.ts) > Math.max(40, ref)) { gov.ts.length = 0; gov.last = 41; fail(); return setQuality(Q.level + 2); } // eight very long frames in a row: two steps at once
       if (gov.ts.length < 24) return; const m = gov.ts.slice().sort((a, b) => a - b)[12]; gov.ts.length = 0; gov.last = +m.toFixed(1);
-      if (m > 21) { if (now() - gov.at < 5000 && gov.up === Q.level) gov.fails[Q.level] = (gov.fails[Q.level] || 0) + 1; setQuality(Q.level + 1); }
-      else if (m < 18 && Q.level > 0) { gov.good += 24; if (gov.good >= 240 && now() - gov.at > 8000 && (gov.fails[Q.level - 1] || 0) < 2) { gov.up = Q.level - 1; setQuality(Q.level - 1); } }
+      if (m > 21 && m > ref) { fail(); setQuality(Q.level + 1); }
+      else if (m < Math.max(18, ref * 0.85) && Q.level > 0) { gov.fresh = false; gov.good += 24; if (gov.good >= 240 && now() - gov.at > 8000 && (gov.fails[Q.level - 1] || 0) < 2) { setQuality(Q.level - 1); gov.fresh = true; } }
       else gov.good = 0;
     }
 
@@ -935,9 +946,9 @@
     function kick() { if (!raf) { lastT = now(); raf = requestAnimationFrame(frame); } }
     function setPR(p) { if (p === pr) return; pr = p; renderer.setPixelRatio(pr); renderer.setSize(W, H, false); lbl.width = Math.round(W * pr); lbl.height = Math.round(H * pr); needs = true; }
     // until a frame has drawn, an error in one is a 3D map that cannot run here: the flat map instead (giveUp); after that, as any error
-    function frame(t) { if (dead) { raf = 0; return; } if (stat.firstFrame) return draw(t); try { draw(t); } catch (e) { giveUp(e); } }
-    function draw(t) {
-      raf = 0; const gap = t - lastT, dt = Math.min(50, gap || 16); lastT = t; let busy = false;
+    function frame(t, direct) { if (dead) { raf = 0; return; } if (stat.firstFrame) return draw(t, direct); try { draw(t, direct); } catch (e) { giveUp(e); } } // direct: drawn in this task (resize, warm-up), not at a screen refresh
+    function draw(t, direct) {
+      raf = 0; const gap = t - lastT, dt = Math.min(50, gap || 16), fgap = direct ? Infinity : t - govT; lastT = t; if (!direct) govT = t; let busy = false; // fgap: the time between two screen refreshes that drew, for the governor (kick resets lastT on every touch)
       if (g2 && g2.dirty && ptrs.size >= 2) twoFingers();
       if (mode === 'fly' && fly) { stepFly(t); busy = true; }
       else if (mode === 'smooth') { const a = 1 - Math.exp(-dt / 90); let d = 0; for (const p of ['cx', 'cz']) { const dd = goal[p] - cur[p]; d += Math.abs(dd) / cur.w; cur[p] += dd * a; } for (const p of ['th', 'off']) { const dd = goal[p] - cur[p]; d += Math.abs(dd); cur[p] += dd * a; } const lw = Math.log(goal.w / cur.w); d += Math.abs(lw); cur.w *= Math.exp(lw * a); if (d < 0.0005) { Object.assign(cur, goal); mode = 'still'; } else busy = true; }
@@ -949,9 +960,9 @@
       const t0 = now(); C = camOf(cur); const vx = C.vex; C.vex = vex; // names and hits use the stretch the scene was last drawn with
       // ambient motion has its own seconds, which stand still when it stops; the light theme's sun is looked up again every few minutes
       const amb = ambOn(), tick = ambTick; ambTick = false; if (amb) { if (ambLast) ambT += Math.min(0.1, (t - ambLast) / 1000); ambLast = t; } else ambLast = 0;
-      if (!dark && t - sunAt > 240000) { sunAt = t; const k0 = sunKey; refreshPalette(); if (sunKey !== k0) applyLook(); }
+      if (!dark && !busy && !ptrs.size && t - sunAt > 240000) { sunAt = t; const k0 = sunKey; refreshPalette(); if (sunKey !== k0) applyLook(); }
       let anim = prepare(dt), why = (busy ? 1 : 0) | (anim ? 2 : 0) | (needs ? 4 : 0); if (stepLifts(t)) { anim = true; needs = true; why |= 8; }
-      const mv = busy || ptrs.size > 0; govern(gap, mv); if (mv !== moving) { moving = mv; setPR(Math.min(dpr, Q.cap[moving ? 0 : 1])); } // a lighter frame while the map moves, the full one when it rests
+      const mv = busy || ptrs.size > 0; govern(fgap, mv); if (mv !== moving) { moving = mv; setPR(Math.min(dpr, Q.cap[moving ? 0 : 1])); } // a lighter frame while the map moves, the full one when it rests
       const only = tick && amb && !needs && !busy && !anim && !olAnim;      // a frame of ambient motion alone: the scene is drawn, the names stand as they are
       if (needs || (tick && amb)) { needs = false; if (updateScene(t, vx, dt)) { anim = true; needs = true; why |= 16; } renderer.render(scene, camera); stat.frames++; stat.drawn = now(); if (only) stat.amb++; if (!stat.firstFrame) stat.firstFrame = now(); }
       if (!only) { olAnim = drawOverlay(t, dt); anim = olAnim || anim; } stat.lastMs = now() - t0; stat.why = why | (olAnim ? 32 : 0) | (me ? 64 : 0) | (tick ? 128 : 0);
@@ -966,8 +977,8 @@
       if (touch) { let best = null, bd = 20; for (let q = spots.length - 1; q >= 0; q--) { const sp = spots[q]; if (!sp._s || sp.status === 'pending') continue; const d = Math.hypot(sp._s[0] - sx, sp._s[1] - sy); if (d < bd) { best = sp; bd = d; } } if (best) return { type: 'spot', id: best.id, hood: best.hood }; }
       else for (let q = spots.length - 1; q >= 0; q--) { const sp = spots[q]; if (sp._s && Math.hypot(sp._s[0] - sx, sp._s[1] - sy) < 11 && sp.status !== 'pending') return { type: 'spot', id: sp.id, hood: sp.hood }; }
       for (let j = LANDS.length - 1; j >= 0; j--) { const b = lmBox[j]; if (b && sx >= b[0] - 3 && sx <= b[2] + 3 && sy >= b[1] - 3 && sy <= b[3] + 3) return { type: 'landmark', landmark: LANDS[j], hood: LANDS[j].hood }; }
-      const p = pick(camNow(), sx, sy);
-      if (p.i >= 0) { const px = hoodPx(p.i), sub = (px > 300 || p.i === sel) ? base.subIndexAt(p.i, p.x, p.y) : -1; return { type: 'hood', i: p.i, hood: HOODS[p.i].name, sub, x: p.x, y: p.y }; }
+      const c = camNow(), p = pick(c, sx, sy), fogFar = c.d * lerp(LK.fog[1], 3.4, smooth(c.ph, 1.05, 1.45)); // as updateScene sets the haze
+      if (p.i >= 0 && Math.hypot(p.x - c.px, p.y - c.pz) <= fogFar) { const px = hoodPx(p.i), sub = (px > 300 || p.i === sel) ? base.subIndexAt(p.i, p.x, p.y) : -1; return { type: 'hood', i: p.i, hood: HOODS[p.i].name, sub, x: p.x, y: p.y }; }
       return { type: 'water', x: p.x, y: p.y };
     }
 
@@ -1069,7 +1080,7 @@
       sync(); needs = true;
       // the new size has just cleared both canvases: draw them again in this task, not at the next animation frame, so a resize never
       // shows a black stage (before the scene is ready: its water)
-      if (ready) { if (raf) { cancelAnimationFrame(raf); raf = 0; } lastT = now(); frame(lastT); } else { renderer.clear(); kick(); }
+      if (ready) { if (raf) { cancelAnimationFrame(raf); raf = 0; } lastT = now(); frame(lastT, true); } else { renderer.clear(); kick(); }
     }
     (ro = new ResizeObserver(resize)).observe(stage);
     (function watchDpr() { try { const mq = matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`); mq.addEventListener('change', () => { resize(); watchDpr(); }, { once: true, signal: sig }); } catch (e) {} })();

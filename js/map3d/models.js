@@ -445,11 +445,15 @@
       if (R() < 0.6) b.box('roofTop', x, g + h, z, w * 0.5, dp * 0.42, 0.05, { ry });
     }
   }
-  // placeAt(x, z): the name of the place there, or null; vegas: the Strip's sections by place (data/subareas.js), or null.
-  // Returns one mesh per place that carries anything ({ place, geometry, ... }), so each can rise with its block.
-  function city(placeAt, ground, vegas) {
+  // placeAt(x, z): the name of the place there, or null; vegas: the Strip's sections by place (data/subareas.js), or null; lms: the
+  // landmarks as icons() made them, or none. Returns one mesh per place that carries anything ({ place, geometry, ... }), so each
+  // can rise with its block.
+  function city(placeAt, ground, vegas, lms) {
     adopt();
     const parts = {}, of = place => parts[place] || (parts[place] = new Builder()), placed = PLACED.map(p => proj([p[1], p[2]])), K25 = 2.5 * K, foot = []; // foot: [x, z, radius] of everything stood here, for the city fabric to keep clear of
+    // a filler (a circle of radius r at x, z) stands clear of what each landmark has built: its plan box, at its own size, grown by 1.3
+    const built = (lms || []).map(l => { const b = l.geometry.boundingBox; return [l.x + b.min.x * 1.3, l.z + b.min.z * 1.3, l.x + b.max.x * 1.3, l.z + b.max.z * 1.3]; });
+    const onLm = (x, z, r) => built.some(b => Math.hypot(x - Math.min(b[2], Math.max(b[0], x)), z - Math.min(b[3], Math.max(b[1], z))) < r);
     const clusters = [
       { c: [-122.3990, 37.7918], r: 6.4, n: 40, hi: 205, lo: 42, ok: ['Financial District', 'South of Market', 'Downtown/Civic Center', 'Chinatown'], seed: 7, grid: 9, soma: 45 },
       { c: [-122.2712, 37.8050], r: 4.4, n: 10, hi: 95, lo: 32, ok: ['Oakland'], seed: 11, grid: 26 },
@@ -463,7 +467,7 @@
         const t = placeAt(x, z); if (!t || !cl.ok.includes(t)) continue;
         const fall = 1 - d / cl.r, h = (cl.lo + (cl.hi - cl.lo) * Math.pow(fall, 0.95) * (0.45 + 0.55 * R())) * K25;
         const w = (19 + R() * 11 + Math.min(8, h * 2.5)) * K25, dp = w * (0.75 + R() * 0.35), r = Math.max(w, dp) * 0.62;
-        if (got.some(g => Math.hypot(g[0] - x, g[1] - z) < g[2] + r + 0.06) || placed.some(g => Math.hypot(g[0] - x, g[1] - z) < 1.25 + r)) continue;
+        if (got.some(g => Math.hypot(g[0] - x, g[1] - z) < g[2] + r + 0.06) || placed.some(g => Math.hypot(g[0] - x, g[1] - z) < 1.25 + r) || onLm(x, z, r)) continue;
         if ([[0.45, 0], [-0.45, 0], [0, 0.45], [0, -0.45]].some(([dx, dz]) => placeAt(x + dx, z + dz) !== t)) continue; // clear of the block's edge
         got.push([x, z, r]); foot.push([x, z, r + 0.12]);
         const ry = (cl.soma && t === 'South of Market' ? cl.soma : cl.grid), kind = h > 2.2 && R() < 0.4 ? 'stepped' : h > 1.4 && R() < 0.35 ? 'podium' : 'prism';
@@ -475,9 +479,10 @@
     if (vegas) {
       const skip = ['The STRAT', 'Luxor', 'Sphere', 'Paris', 'The LINQ', 'LINQ'];
       Object.keys(vegas).forEach(place => vegas[place].forEach(s => {
-        const p = proj([s.lon, s.lat]); if (skip.some(k => s.name.indexOf(k) >= 0) || placed.some(g => Math.hypot(g[0] - p[0], g[1] - p[1]) < 1.5)) return;
+        const p = proj([s.lon, s.lat]), R = rng(hash(s.name)), w = 0.95 + R() * 0.6; // the podium is w * 1.1 by w * 0.8: a circle of 0.68 w round it
+        if (skip.some(k => s.name.indexOf(k) >= 0) || placed.some(g => Math.hypot(g[0] - p[0], g[1] - p[1]) < 1.5) || onLm(p[0], p[1], w * 0.68)) return;
         foot.push([p[0], p[1], 1.25]);
-        const b = of(place), R = rng(hash(s.name)), g = ground(p[0], p[1]), w = 0.95 + R() * 0.6, dp = 0.26 + R() * 0.08, h = 1.3 + R() * 1.7, ry = [0, 90, 28, -28, 60][Math.floor(R() * 5)], m = 'resort' + Math.floor(R() * 5);
+        const b = of(place), g = ground(p[0], p[1]), dp = 0.26 + R() * 0.08, h = 1.3 + R() * 1.7, ry = [0, 90, 28, -28, 60][Math.floor(R() * 5)], m = 'resort' + Math.floor(R() * 5);
         b.box('podium', p[0], g - 0.6, p[1], w * 1.1, w * 0.8, 0.6 + 0.16, { ry, ao: [0.7, 1] });
         const cs = Math.cos(ry * Math.PI / 180), sn = Math.sin(ry * Math.PI / 180), rows = k => Math.round(k / 0.1), win = (ww, hh) => [Math.round(ww / 0.12), rows(hh)];
         if (R() < 0.45) { for (const k of [-1, 1]) { const hh = h * (k > 0 ? 1 : 0.86); b.box(m, p[0] + cs * 0.22 * k, g + 0.16, p[1] - sn * 0.22 * k, w * 0.62, dp, hh, { ry: ry + k * 22, win: win(w * 0.62, hh), ao: [0.85, 1] }); b.box('roofTop', p[0] + cs * 0.22 * k, g + 0.16 + hh, p[1] - sn * 0.22 * k, w * 0.5, dp * 0.6, 0.05, { ry: ry + k * 22 }); } }

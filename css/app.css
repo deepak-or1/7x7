@@ -531,6 +531,43 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
 .quiz .score { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 13px; font-weight: 500; }
 .quiz .verdict { font-weight: 600; min-height: 24px; margin: 8px 0; } .quiz .verdict.good { color: var(--good); } .quiz .verdict.bad { color: var(--bad); }
 .quiz .bar { margin: 10px 0 14px; }
+/* the quiz's answer colours: a green and a red that are neither the brand orange nor each other's lightness twin; -ink is the deep
+   shade for outlines, the map's name pills (white text, 5:1 or better) and the dots. Hex only: map.js parses them */
+:root { --qz-ok: #63b783; --qz-no: #e3687a; --qz-ok-ink: #17703d; --qz-no-ink: #b01f3c; --qz-ok-text: #17703d; --qz-no-text: #b01f3c; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --qz-ok: #3f9a64; --qz-no: #c24a5e; --qz-ok-ink: #1f7d48; --qz-no-ink: #b3263f; --qz-ok-text: #6fd197; --qz-no-text: #ff8a9b; } }
+:root[data-theme="dark"] { --qz-ok: #3f9a64; --qz-no: #c24a5e; --qz-ok-ink: #1f7d48; --qz-no-ink: #b3263f; --qz-ok-text: #6fd197; --qz-no-text: #ff8a9b; }
+/* the prompt on the map: under the map chip, left of the control capsule (phone); centred over the map below the search row (desktop).
+   Below the chip's menu and the phone's control capsule with its layers menu, which open over it */
+.qz { position: absolute; z-index: 2; left: max(var(--m), env(safe-area-inset-left, 0px)); right: calc(max(var(--m), env(safe-area-inset-right, 0px)) + 54px); top: calc(max(var(--m), env(safe-area-inset-top, 0px)) + 52px); pointer-events: none; }
+.qz-card { pointer-events: auto; background: var(--glass-strong); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); border-radius: 18px; box-shadow: var(--glass-ring); padding: 11px 15px 11px; }
+.qz-card.is-ok { box-shadow: inset 0 0 0 2px var(--qz-ok-ink), var(--glass-shadow); }
+.qz-card.is-no { box-shadow: inset 0 0 0 2px var(--qz-no-ink), var(--glass-shadow); animation: qz-shake .36s ease-out; }
+.qz-q { margin: 0; font-family: var(--display); font-weight: 700; font-size: 25px; line-height: 1.12; letter-spacing: -.02em; font-variation-settings: "opsz" 96; color: var(--ink); text-wrap: balance; overflow-wrap: anywhere; }
+.qz-find { font-family: var(--sans); font-size: 15px; font-weight: 600; letter-spacing: .02em; color: var(--muted); vertical-align: 3px; margin-right: 2px; }
+.qz-miss { font-size: 19px; line-height: 1.2; }
+.qz-q b.no { color: var(--qz-no-text); } .qz-q b.ok { color: var(--qz-ok-text); }
+.qz-ico { display: inline-grid; place-items: center; width: 1.05em; height: 1.05em; border-radius: 50%; margin-right: 7px; vertical-align: -.14em; color: #fff; }
+.qz-ico svg { width: 66%; height: 66%; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.qz-ico.ok { background: var(--qz-ok-ink); } .qz-ico.no { background: var(--qz-no-ink); }
+.qz-sub { display: flex; align-items: center; gap: 10px; margin-top: 7px; color: var(--muted); font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.qz-dots { display: flex; gap: 4px; }
+.qz-dots i { width: 8px; height: 8px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--line-2); }
+.qz-dots i.now { box-shadow: inset 0 0 0 2px var(--ink); } .qz-dots i.ok { background: var(--qz-ok-ink); box-shadow: none; } .qz-dots i.no { background: var(--qz-no-ink); box-shadow: none; }
+.qz-next { display: flex; width: 100%; height: 46px; margin-top: 10px; font-size: 16px; border-radius: 12px; }
+.qz-next.btn.primary:hover { background: var(--primary, var(--ink)); border-color: var(--primary, var(--ink)); color: var(--primary-ink, var(--paper)); } /* no hover orange: a touch leaves :hover on it, and orange beside the red and green reads as a third answer */
+@keyframes qz-shake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-7px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(2px); } }
+.head .qz-hint { display: block; font-family: var(--sans); font-weight: 500; font-size: 15px; line-height: 1.35; letter-spacing: 0; color: var(--ink-2); }
+.head .tools button[data-tool="qz-quit"] { width: auto; height: 34px; padding: 0 14px; border-radius: 999px; background: var(--paper-2); color: var(--ink); font: 600 14px/1 var(--sans); }
+.quiz .qz-mh { margin: 18px 0 6px; font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.qz-missed { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.qz-missed button { display: flex; align-items: center; width: 100%; text-align: left; border: 1px solid var(--line); background: var(--paper); color: var(--ink); border-radius: var(--r-sm); padding: 9px 12px; font: 600 15px/1.2 var(--sans); }
+.qz-missed button:hover, .qz-missed button[aria-pressed="true"] { border-color: var(--qz-no-ink); }
+.qz-missed button b { flex: 1; min-width: 0; font-weight: 600; } .qz-missed small { color: var(--muted); font-size: 12.5px; font-weight: 500; }
+@media (min-width: 881px) {
+  .qz { left: calc((100% - var(--side) - 2 * var(--m)) / 2); right: auto; width: min(520px, calc(100% - var(--side) - 180px)); transform: translateX(-50%); top: calc(max(var(--m), env(safe-area-inset-top, 0px)) + 54px); }
+  .qz-card { padding: 13px 18px; text-align: center; } .qz-sub { justify-content: center; } .qz-q { font-size: 28px; } .qz-miss { font-size: 21px; }
+  .qz-next { width: auto; min-width: 180px; margin: 12px auto 0; }
+}
 
 /* ---------- desktop: the phone's warm paper glass, at desktop scale ---------- */
 @media not all and (max-width: 880px) {

@@ -30,6 +30,8 @@ The repo ships a GitHub Pages workflow (`.github/workflows/pages.yml`). Once, in
 | `js/geom.js` | projection, point-in-polygon, the Voronoi cut that sections a place |
 | `js/glyph.js` | renderer for the 2.5D landmark glyphs |
 | `js/places.js` | place search (Photon, OpenStreetMap data) |
+| `js/link.js` | a pasted Apple or Google Maps link in search: read for its place, a short link through the link helper |
+| `helper/` | the link helper (`link-helper.js`, a Cloudflare Worker) that reads the full link behind a short Maps link; see `helper/README.md` |
 | `js/sync.js`, `js/sync-config.js` | the shared logbook on the hosted site |
 | `js/photos.js` | photos on spots, sections and places (hosted site): downscale, capture date from EXIF, cache, the photo hero at the top of a panel (a section or place also shows the photos of what is inside it) and the lightbox (swipe, pinch and double-tap zoom, swipe down to close, a thumbnail strip to reorder, delete, crop and rotate); stored beside the log at `logs/<key>-ph` (full photos), `logs/<key>-pt` (480 px thumbs) and `logs/<key>-po` (the chosen order, first is the cover), with a copy in IndexedDB |
 | `js/streetmap.js` | the street map in a spot or section panel (hosted site): OpenFreeMap vector tiles in the app's palette, one shared map, its library loaded once the first place, section or spot has opened, Google's embed as the fallback |

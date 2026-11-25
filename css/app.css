@@ -209,14 +209,17 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .eyebrow .ktag { display: inline-flex; align-items: center; gap: 6px; flex: none; } .eyebrow .ktag .sep { margin: 0 -1px 0 0; }
 .panel .lead .kbody, .panel .lead.kbody { color: var(--ink); font-weight: 600; } /* a spot's kind, when it does not fit on the path line */
 .kbody i { display: inline-block; width: 8px; height: 8px; margin: 0 6px 1px 0; border-radius: 2px; background: var(--c); vertical-align: middle; }
-/* the first screen: the most recent spots, one tap each, scrolling sideways */
-.recent { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; margin: 0 0 14px; }
-.recent::-webkit-scrollbar { display: none; }
-.recent > span { flex: none; display: flex; }
-.recent button { display: inline-flex; align-items: center; gap: 7px; height: 36px; padding: 0 13px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--sheet-bg, var(--paper)); font: 600 14px/1 var(--sans); color: var(--ink); white-space: nowrap; }
-.recent button:hover { border-color: var(--ink); }
-.recent i { width: 9px; height: 9px; border-radius: 50%; background: var(--c); flex: none; } .recent i.want { background: transparent; box-shadow: 0 0 0 2px var(--c) inset; }
-.recent .all { color: var(--ink-2); font-weight: 500; }
+/* the first screen: one row, the title and three counts (a number over a small label). The counts never wrap or shrink; the title
+   gives way first, then ends in an ellipsis */
+.head.first { align-items: center; }
+.head.first .ttl { padding-top: 0; display: flex; align-items: center; gap: 8px; }
+.newsb { flex: none; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--accent-deep, var(--accent)); color: var(--accent-ink); font: 700 11.5px/20px var(--sans); text-align: center; font-variant-numeric: tabular-nums; } /* news by others: how many, beside the title */
+.head.first h2 { flex: 0 1 auto; min-width: 0; margin: 0; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-wrap: nowrap; } /* line-height: room for the tails of y, g and p under overflow: hidden */
+.head.first .tools:empty { display: none; }
+.tally { flex: none; display: flex; gap: 15px; }
+.tally > span { display: flex; flex-direction: column; align-items: center; }
+.tally b { font: 700 19px/1 var(--display); letter-spacing: -.02em; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tally small { font: 600 9.5px/1 var(--sans); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin-top: 5px; white-space: nowrap; }
 .facts .vibe { display: inline-flex; align-items: center; gap: 6px; } .facts .vibe i { width: 8px; height: 8px; border-radius: 2px; background: var(--c); }
 dialog.who .err { margin: -2px 0 10px; color: var(--bad); font-size: 13.5px; font-weight: 500; }
 .panel { flex: 1; min-height: 0; overflow: auto; padding: 14px 18px 24px; scrollbar-width: thin; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
@@ -656,8 +659,10 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
   .sheet.scrolled .head { border-bottom-color: var(--line); }
   .head h2 { grid-area: 2/1/3/3; margin-top: 2px; font-size: 26px; line-height: 1.05; }
   .head.compact { min-height: 0; padding-bottom: 6px; } .head.compact .tools { grid-row: 1; }
-  .head .recent { grid-column: 1 / -1; grid-row: 3; margin: 12px -8px 2px calc(-1 * max(16px, env(safe-area-inset-left, 0px))); padding: 0 max(16px, env(safe-area-inset-left, 0px)); touch-action: pan-x; } /* full bleed; sideways drags scroll it (js/sheet.js leaves them alone) */
-  .recent button { height: 40px; padding: 0 14px; font-size: 15px; } .recent > span { position: relative; } .recent button::after { content: ""; position: absolute; inset: -2px 0; } /* a 44pt target */
+  .head.first { display: flex; gap: 10px; min-height: 0; padding: 4px max(20px, env(safe-area-inset-right, 0px)) 20px max(20px, env(safe-area-inset-left, 0px)); }
+  .head.first .up { margin: -10px -6px -10px -14px; }
+  .head.first h2 { font-size: clamp(18px, 5.9vw, 23px); }
+  .tally { margin-left: auto; gap: clamp(10px, 3.85vw, 15px); }
   .panel { padding: 6px max(16px, env(safe-area-inset-left, 0px)) calc(32px + var(--kb, 0px) + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
   .sheet:not(.full) .panel { overflow: hidden; }
   .toast { top: auto; bottom: calc(var(--sheet-vis) + 16px); transform: translateX(-50%) translateY(8px); transition: opacity .25s, transform .25s var(--ease), bottom .42s var(--ease); border-radius: 20px; padding: 10px 16px; background: var(--toast-bg, var(--ink)); color: var(--toast-ink, var(--paper)); box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow); width: max-content; max-width: calc(100% - 2 * max(var(--m), env(safe-area-inset-right, 0px)) - 16px); white-space: normal; text-align: center; text-overflow: clip; } /* just above the sheet; a long message wraps */
@@ -687,7 +692,7 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
   .sheet:not(.full) .row .nm small { -webkit-line-clamp: 1; }
   .sheet:not(.full) .panel h3 { margin-top: 14px; } .sheet:not(.full) .panel .lead { margin-bottom: 10px; }
   .sheet:not(.full) .marks + .savestate:empty + .facts, .sheet:not(.full) .marks + .facts { margin-top: 10px; }
-  .row:active, .mark:not([disabled]):active, .textlinks button:active, .head .up:active, .head .tools button:active, .recent button:active, .suggest button:active { background: var(--paper-2); }
+  .row:active, .mark:not([disabled]):active, .textlinks button:active, .head .up:active, .head .tools button:active, .suggest button:active { background: var(--paper-2); }
   .savestate:empty { display: none; } .marks + .savestate:empty + .facts, .marks + .facts { margin-top: 14px; }
 }
 /* surfaces, phone and desktop (outside the phone block, in its cascade position): the logbook's controls sit on its paper; in dark the

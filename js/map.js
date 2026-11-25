@@ -502,7 +502,7 @@
         const tw = measure(h.name, 700, fs), iw = fs * .95, bw = tw + iw + 30, bh = fs + 16;
         const [bx0, by0] = toScreen(BB[m.i][0], BB[m.i][1]), [bx1, by1] = toScreen(BB[m.i][2], BB[m.i][3]);
         if (by1 - by0 < bh * 2.2 || bx1 - bx0 < bw * .9) sy = by1 + bh / 2 + 6 + bh / 2 <= bot ? by1 + bh / 2 + 6 : by0 - bh / 2 - 6; // a thin or small place keeps its colour in sight: the pill sits just below it (above, near the bottom)
-        sx = clamp(sx, bw / 2 + 6, W - bw / 2 - 6); sy = clamp(sy, top + bh / 2, Math.max(top + bh / 2, bot - bh / 2));
+        sx = clamp(sx, I.left + bw / 2 + 6, W - I.right - bw / 2 - 6); sy = clamp(sy, top + bh / 2, Math.max(top + bh / 2, bot - bh / 2)); // the insets: clear of the desktop side panel and the control capsule
         let b = [sx - bw / 2, sy - bh / 2, sx + bw / 2, sy + bh / 2];
         for (const dy of [0, bh + 8, -(bh + 8), 2 * (bh + 8), -2 * (bh + 8)]) { const c = [b[0], b[1] + dy, b[2], b[3] + dy]; if (c[1] >= top - 2 && c[3] <= bot + 2 && !boxes.some(q => c[0] < q[2] && c[2] > q[0] && c[1] < q[3] && c[3] > q[1])) { b = c; break; } }
         boxes.push(b);
@@ -534,12 +534,12 @@
     }
 
     // ---- gestures ----
-    const ptrs = new Map(); let drag = null, pinch = null, lastTap = null, hoverHit = null;
+    const ptrs = new Map(); let drag = null, pinch = null, lastTap = null, hoverHit = null, downAt = 0; // downAt: the last pointerdown's time (onTap's fourth argument)
     stage.addEventListener('pointerdown', e => {
       if (e.target !== canvas && e.target !== stage) return;
       if (e.pointerType === 'mouse' && e.button !== 0) return;
       try { stage.setPointerCapture(e.pointerId); } catch (err) {}
-      ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); downAt = now();
       fly = null; if (mode === 'fly' || mode === 'smooth') Object.assign(goal, cam); mode = 'drag'; vel = { x: 0, y: 0 };
       if (ptrs.size === 1) drag = { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, t: now(), moved: 0, pinched: false };
       else if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 }; if (drag) drag.pinched = true; }
@@ -576,7 +576,7 @@
           const sx = e.clientX - r.left, sy = e.clientY - r.top, t = now();
           mode = 'still'; // before the callbacks: a tap may start a fly or a zoom
           if (lastTap && !quiz && t - lastTap.t < 320 && Math.hypot(lastTap.x - sx, lastTap.y - sy) < 28) { lastTap = null; zoomAt(sx, sy, 1 / 1.9); }
-          else { lastTap = { t, x: sx, y: sy }; if (o.onTap) o.onTap(hitTest(sx, sy, e.pointerType === 'touch' && !quiz), sx, sy); } // quiz: a tap answers with the place under the finger, not a nearby dot's
+          else { lastTap = { t, x: sx, y: sy }; const h = hitTest(sx, sy, e.pointerType === 'touch' && !quiz); if (o.onTap && !(quiz && e.pointerType === 'touch' && (h.type === 'hood' ? h.i : -1) !== press)) o.onTap(h, sx, sy, downAt); } // quiz: a tap answers with the place under the finger, not a nearby dot's; a finger answers only with the place it lit on touch-down (a release across a border answers nothing)
         } else if (drag && drag.moved > 5) {
           const speed = Math.hypot(vel.x, vel.y); if (speed > 0.08 && now() - drag.t < 80) { mode = 'inertia'; kick(); } else mode = 'still';
         } else mode = 'still';

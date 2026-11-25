@@ -110,7 +110,7 @@
   // canDismiss: something is open that a swipe down may close (never the log form, a pin drop, the name or join dialog, search or the quiz)
   const dialogOpen = () => !!document.querySelector('dialog[open]');
   const canDismiss = () => isPhone() && !state.quiz && !state.query && !state.placing && state.view !== 'log' && !dialogOpen() && (!!state.view || level(state.loc) > 0);
-  const sheet = window.Sheet(sheetEl, { grip: $('grip'), head, panel, canDismiss, onDismiss: () => dismiss(), onChange(detent, vis, o) { if (o && (o.resize || o.quiet)) return; if (isPhone() && detent !== 'full' && document.documentElement.classList.contains('searching')) { q.blur(); endSearch(); } if (isPhone() && detent !== 'full' && !map.userMoved) flyToLoc(); } }); // dragging the sheet down leaves search mode so the controls come back
+  const sheet = window.Sheet(sheetEl, { grip: $('grip'), head, panel, canDismiss, onDismiss: () => dismiss(), onChange(detent, vis, o) { if (o && (o.resize || o.quiet)) return; if (isPhone() && detent !== 'full' && document.documentElement.classList.contains('searching')) { q.blur(); endSearch(); } if (isPhone() && detent !== 'full' && !map.userMoved && !state.quiz) flyToLoc(); } }); // dragging the sheet down leaves search mode so the controls come back
 
   // ---------- navigation ----------
   const hoodOfSpot = id => state.spots[id] ? state.spots[id].hood : null;
@@ -218,10 +218,10 @@
     if (i == null || state.loc.hood === sp.hood) return hit;
     return { type: 'hood', i, hood: sp.hood, sub: map.hoodPx(i) > 300 ? subIndex(sp.hood, sp.sub) : -1 }; // a section as the place's own hit gives one (map.js hitTest)
   }
-  function onTap(hit, sx, sy) {
+  function onTap(hit, sx, sy, downAt) {
     closeLenses();
     if (state.placing) { if (hit.type === 'water' || hit.type === 'hood' || hit.type === 'landmark' || hit.type === 'spot') placePending(hit.x != null ? [hit.x, hit.y] : map.toMap(sx, sy)); return; }
-    if (state.quiz) { if (hit.type === 'hood' || (hit.type === 'spot' && IDX[hit.hood] != null)) answer(hit.hood); return; } // a spot's hood is the log's word for it: only a name the map knows is an answer
+    if (state.quiz) { if (hit.type === 'hood' && !(downAt < state.quiz.askedAt)) answer(hit.hood); return; } // a tap that went down before this question was shown is not an answer to it
     const l = state.loc; hit = dotHit(hit);
     if (hit.type === 'spot') { go({ spot: hit.id }, { fromMap: true }); return; }
     if (hit.type === 'landmark') { toast(hit.landmark.name + ' · ' + hit.landmark.hood, 2600); if (l.hood !== hit.hood) go({ hood: hit.hood }, { fromMap: true, fly: false }); return; }
@@ -1161,16 +1161,21 @@
     if (!seen) { quizFit(u, 1.3, U * 0.05); state.quiz.moved = true; }
   }
   // the prompt on the map: the question, then the answer; a row of ten dots (green, red, empty) and "3 of 10 · 2 right"
-  function quizPrompt() {
+  // answered: right after an answer (the Next button takes the focus, and a miss shakes the card: its class changes only then).
+  // The status line is made once and only its content changes, so a screen reader announces each answer
+  function quizPrompt(answered) {
     const qz = state.quiz;
     if (!qz || qz.round >= qz.rounds) { if (qzEl) qzEl.hidden = true; return; }
-    if (!qzEl) { qzEl = document.createElement('div'); qzEl.className = 'qz'; qzEl.id = 'qz'; $('app').appendChild(qzEl); }
+    if (!qzEl) { qzEl = document.createElement('div'); qzEl.className = 'qz'; qzEl.id = 'qz'; qzEl.innerHTML = '<div class="qz-card"><p class="qz-q" role="status" aria-live="polite"></p></div>'; $('app').appendChild(qzEl); }
     const t = qz.order[qz.round], done = qz.round + (qz.locked ? 1 : 0);
     const q = !qz.locked ? `<span class="qz-find">Find</span> <b>${esc(t)}</b>` : !qz.miss ? `<span class="qz-ico ok">${QZ_OK}</span>Yes, <b>${esc(t)}</b>` : `<span class="qz-ico no">${QZ_NO}</span><span class="qz-miss">That was <b class="no">${esc(qz.picked)}</b>. <b class="ok">${esc(t)}</b> is in green.</span>`;
     const dots = qz.order.map((n, r) => `<i class="${r < done ? (qz.results[r] ? 'ok' : 'no') : r === qz.round ? 'now' : ''}"></i>`).join('');
     qzEl.hidden = false;
-    qzEl.innerHTML = `<div class="qz-card ${!qz.locked ? '' : qz.miss ? 'is-no' : 'is-ok'}"><p class="qz-q" role="status" aria-live="polite">${q}</p><div class="qz-sub"><span class="qz-dots" aria-hidden="true">${dots}</span><span>${qz.round + 1} of ${qz.rounds} · ${qz.score} right</span></div>${qz.miss ? '<button type="button" class="btn primary qz-next" id="next">Next</button>' : ''}</div>`;
-    const nx = qzEl.querySelector('#next'); if (nx) { nx.addEventListener('click', nextClick); if (!isPhone()) nx.focus({ preventScroll: true }); }
+    const card = qzEl.firstChild, st = card.firstChild, rest = `<div class="qz-sub"><span class="qz-dots" aria-hidden="true">${dots}</span><span>${qz.round + 1} of ${qz.rounds} · ${qz.score} right</span></div>${qz.miss ? '<button type="button" class="btn primary qz-next" id="next">Next</button>' : ''}`;
+    card.className = `qz-card ${!qz.locked ? '' : qz.miss ? 'is-no' : 'is-ok'}`;
+    if (st._q !== q) { st._q = q; st.innerHTML = q; }
+    if (card._rest !== rest) { card._rest = rest; while (st.nextSibling) st.nextSibling.remove(); st.insertAdjacentHTML('afterend', rest); const nx = qzEl.querySelector('#next'); if (nx) nx.addEventListener('click', nextClick); } // unchanged (a sync's re-render): left alone, focus and all
+    const nx = qzEl.querySelector('#next'); if (nx && answered && !isPhone()) nx.focus({ preventScroll: true });
   }
   // Next as a button: not in the first 450 ms after a miss, when the click a phone sends after a tap can land on the Next that just
   // appeared under the finger (a tap near the prompt) and skip the answer before it is seen
@@ -1179,14 +1184,14 @@
     const pool = NAMES.filter(n => inPlay(IDX[n])), rounds = Math.min(10, pool.length);
     const order = pool.slice(); for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
     if (state.quiz) clearTimeout(state.quiz.timer);
-    state.quiz = { order: order.slice(0, rounds), rounds, round: 0, score: 0, locked: false, miss: false, picked: null, results: [], marks: [], timer: 0, moved: false, region: state.loc.region };
+    state.quiz = { order: order.slice(0, rounds), rounds, round: 0, score: 0, locked: false, miss: false, picked: null, results: [], marks: [], timer: 0, moved: false, region: state.loc.region, askedAt: performance.now() };
     map.setState({ quiz: quizMap, sel: -1, selSub: -1 }); recolor(true); go({ region: state.loc.region }, { keepQuiz: true, replace: true, sheet: isPhone() ? 'peek' : undefined });
     quizFit(map.regionBBox(state.quiz.region));
   }
-  function endQuiz(silent) { if (state.quiz) clearTimeout(state.quiz.timer); state.quiz = null; quizPrompt(); map.setState({ quiz: false }); map.setHover(-1, -1, null); recolor(true); if (!silent) go({ region: state.loc.region }, { replace: true }); }
-  function renderQuiz() {
+  function endQuiz(silent) { if (state.quiz) clearTimeout(state.quiz.timer); if (window.Confetti) Confetti.stop(); state.quiz = null; quizPrompt(); map.setState({ quiz: false }); map.setHover(-1, -1, null); recolor(true); if (!silent) go({ region: state.loc.region }, { replace: true }); }
+  function renderQuiz(answered) {
     const qz = state.quiz; if (!qz) return;
-    quizPrompt();
+    quizPrompt(answered); if (state.query) return; // search open: the card keeps up, the panel and header stay the search's (render() rebuilds them when it closes)
     if (qz.round >= qz.rounds) {
       const s = qz.score, away = AWAY.includes(qz.region), rank = s >= 10 ? (away ? 'Pit boss' : 'Muni operator') : s >= 8 ? 'Certified local' : s >= 5 ? 'Transplant, two years in' : s >= 2 ? 'Tourist with a good map' : away ? 'Just landed at Harry Reid' : 'Just landed at SFO';
       const missed = qz.order.filter((n, r) => !qz.results[r]);
@@ -1194,7 +1199,7 @@
       panel.innerHTML = `<div class="quiz"><p class="verdict good">${rank}</p><p class="lead">${s === qz.rounds ? (away ? 'Perfect. You could find the exit from any casino floor.' : 'Perfect. You could give the fog directions.') : 'Play again to meet the ones you missed.'}</p>${missed.length ? `<p class="qz-mh">Missed (red on the map)</p><ul class="qz-missed">${missed.map(n => `<li><button type="button" data-qz-miss="${esc(n)}"><span class="qz-ico no">${QZ_NO}</span><b>${esc(n)}</b><small>Show it</small></button></li>`).join('')}</ul>` : ''}<div class="actions"><button type="button" class="btn primary" id="again">Play again</button><button type="button" class="btn" id="done">Back to the map</button></div></div>`;
       panel.querySelector('#again').addEventListener('click', startQuiz); panel.querySelector('#done').addEventListener('click', () => endQuiz());
       panel.querySelectorAll('[data-qz-miss]').forEach(b => b.addEventListener('click', () => { // its name on the map, and the map on it
-        const i = IDX[b.dataset.qzMiss]; qz.marks = qz.marks.filter(m => m.dot && m.i !== i).concat({ i, ok: false, name: true, t0: performance.now() }); map.redraw();
+        const i = IDX[b.dataset.qzMiss]; qz.marks = qz.order.map((n, r) => IDX[n] === i ? { i, ok: false, name: true, t0: performance.now() } : { i: IDX[n], ok: !!qz.results[r], dot: true }); map.redraw(); // the whole round again: only the place shown carries its name
         panel.querySelectorAll('[data-qz-miss]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
         const bb = map.hoodBBox(i); quizFit(bb, isPhone() ? 2.2 : 2.6, U * 0.06);
       }));
@@ -1214,23 +1219,24 @@
     qz.locked = true; qz.miss = !ok; qz.missAt = ok ? 0 : t0; qz.picked = name; qz.results[qz.round] = ok; if (ok) qz.score++;
     qz.marks = ok ? [{ i: IDX[target], ok: true, name: true, t0 }] : [{ i: IDX[name], ok: false, name: true, t0 }, { i: IDX[target], ok: true, name: true, t0 }];
     recolor(false); map.setHover(-1, -1, null); stage.classList.remove('pointing');
-    renderQuiz();
+    renderQuiz(true);
     if (ok) { if (window.Confetti) Confetti.burst({ count: 60, duration: 1.4 }); const r = qz.round; qz.timer = setTimeout(() => { if (state.quiz === qz && qz.round === r) nextRound(); }, QZ_NEXT_MS); }
     else quizShow([name, target]);
   }
   function nextRound() {
     const qz = state.quiz; if (!qz || !qz.locked) return; clearTimeout(qz.timer);
-    qz.round++; qz.locked = false; qz.miss = false; qz.picked = null;
+    qz.round++; qz.locked = false; qz.miss = false; qz.picked = null; qz.askedAt = performance.now();
     const end = qz.round >= qz.rounds;
     qz.marks = end ? qz.order.map((n, r) => ({ i: IDX[n], ok: !!qz.results[r], dot: true })) : [];
     recolor(false); map.setHover(-1, -1, null); renderQuiz();
     if (end) { if (isPhone()) sheet.set('half', { quiet: true }); quizFit(map.regionBBox(qz.region)); }
     else if (qz.moved) { qz.moved = false; quizFit(map.regionBBox(qz.region)); } // a miss flew to show both places: back to the whole region for the next one
   }
-  // keys while the quiz is on: Escape quits (before the global handler, which would also step up a level), Enter or Space is Next after a miss
+  // keys while the quiz is on: Escape quits (before the global handler, which would also step up a level), or first closes the map
+  // chip's menu (the focus back on the chip); Enter or Space is Next after a miss
   window.addEventListener('keydown', e => {
     const el = e.target instanceof Element ? e.target : document.body; if (!state.quiz || dialogOpen() || el.matches('input, textarea, select')) return;
-    if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); endQuiz(); }
+    if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); if (areasOpen()) openAreas(false, true); else endQuiz(); }
     else if ((e.key === 'Enter' || e.key === ' ') && state.quiz.miss && !el.closest('button, a')) { e.preventDefault(); nextRound(); }
   }, true);
 
@@ -1254,7 +1260,7 @@
   }
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { syncThemeColor(); map.refreshPalette(); recolor(false); if (window.StreetMap) StreetMap.restyle(); });
   let wasPhone = isPhone();
-  window.addEventListener('resize', () => { map.resize(); map.redraw(); if (isPhone() !== wasPhone) { wasPhone = isPhone(); if (state.quiz || state.placing) fitHead(); else render(); } else fitHead(); }); // across the breakpoint the recent spots move between the header and the panel (not mid-quiz, where a render drops an answer's verdict and Next, nor mid pin-drop, whose header it replaces) // resize() also catches a devicePixelRatio change (browser zoom)
+  window.addEventListener('resize', () => { map.resize(); map.redraw(); if (isPhone() !== wasPhone) { wasPhone = isPhone(); if (state.quiz) renderQuiz(); else if (state.placing) fitHead(); else render(); } else fitHead(); }); // across the breakpoint the recent spots move between the header and the panel, and the quiz's header and card change layout (not mid pin-drop, whose header a render replaces) // resize() also catches a devicePixelRatio change (browser zoom)
   if (window.Lookback) Lookback.init({ state, panel, go, render, persist, beforeWrite, toast, setHead, esc, attr, KINDS, IDX, BY_SLUG, ownerKey, cleanName, niceDate, isPhone, look: vibeLook, VERDICT });
   window.__sbs = { map, state, go, sheet, maps: { spotQuery, areaQuery, mapsLink, appleLink, spotApple, areaApple }, photos: window.Photos ? Object.assign(Object.create(window.Photos), { ownerKey }) : null, get photoOpts() { return photoOpts; }, feed: { read: readFeed, get news() { return state.news; } } }; // for tests and the console
   window.claude?.hot?.snapshot?.(() => ({ loc: state.loc }));

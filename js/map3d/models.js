@@ -411,7 +411,12 @@
     ['strat', ...at('strat', -115.1556, 36.1475), 2.6, 0, 'The STRAT'],
     ['luxor', ...at('luxor', -115.1761, 36.0955), 3.0, 0, 'Luxor'],
   ];
+  // more landmarks, from the files loaded after this one (js/map3d/icons-*.js): each pushes { id, lon, lat, ex, ry, label, build(b),
+  // mats: { name: [paper colour, night colour] } } onto window.M3D.extra; taken up once, before the icons or the skylines are made
+  let adopted = false;
+  function adopt() { if (adopted) return; adopted = true; (window.M3D.extra || []).forEach(e => { if (!e || ICONS[e.id] || typeof e.build !== 'function') return; ICONS[e.id] = e.build; PLACED.push([e.id, e.lon, e.lat, e.ex, e.ry || 0, e.label]); }); }
   function icons(ground) {
+    adopt();
     return PLACED.map(([id, lon, lat, ex, ry, label]) => {
       const b = new Builder(), p = proj([lon, lat]);
       b.place(0, 0, 0, ry, ex * K, () => ICONS[id](b));
@@ -443,6 +448,7 @@
   // placeAt(x, z): the name of the place there, or null; vegas: the Strip's sections by place (data/subareas.js), or null.
   // Returns one mesh per place that carries anything ({ place, geometry, ... }), so each can rise with its block.
   function city(placeAt, ground, vegas) {
+    adopt();
     const parts = {}, of = place => parts[place] || (parts[place] = new Builder()), placed = PLACED.map(p => proj([p[1], p[2]])), K25 = 2.5 * K;
     const clusters = [
       { c: [-122.3990, 37.7918], r: 6.4, n: 40, hi: 205, lo: 42, ok: ['Financial District', 'South of Market', 'Downtown/Civic Center', 'Chinatown'], seed: 7, grid: 9, soma: 45 },

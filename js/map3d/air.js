@@ -41,13 +41,14 @@
   // set(c, W, H): the camera's axes (js/map3d.js camOf). Colours: horizon (the haze the far land fades into), zenith, and a warm
   // glow low on the sun's side.
   function sky(THREE) {
-    const U = { uF: { value: new THREE.Vector3() }, uR: { value: new THREE.Vector3() }, uU: { value: new THREE.Vector3() }, uHorizon: { value: new THREE.Color() }, uZenith: { value: new THREE.Color() }, uGlow: { value: new THREE.Color() }, uSun: { value: new THREE.Vector3(0, 1, 0) } };
+    const U = { uFlat: { value: 0 }, uF: { value: new THREE.Vector3() }, uR: { value: new THREE.Vector3() }, uU: { value: new THREE.Vector3() }, uHorizon: { value: new THREE.Color() }, uZenith: { value: new THREE.Color() }, uGlow: { value: new THREE.Color() }, uSun: { value: new THREE.Vector3(0, 1, 0) } };
     const mat = new THREE.ShaderMaterial({ uniforms: U, depthTest: false, depthWrite: false, fog: false,
       vertexShader: 'uniform vec3 uF; uniform vec3 uR; uniform vec3 uU; varying vec3 vDir;\nvoid main(){ vDir = uF + uR * position.x + uU * position.y; gl_Position = vec4(position.xy, 1.0, 1.0); }',
-      fragmentShader: `uniform vec3 uHorizon; uniform vec3 uZenith; uniform vec3 uGlow; uniform vec3 uSun; varying vec3 vDir;
+      fragmentShader: `uniform vec3 uHorizon; uniform vec3 uZenith; uniform vec3 uGlow; uniform vec3 uSun; uniform float uFlat; varying vec3 vDir;
 void main(){ vec3 d = normalize(vDir); float e = max(d.y, 0.0);
   vec3 c = mix(uHorizon, uZenith, smoothstep(0.0, 0.2, e) * 0.9 + smoothstep(0.0, 0.04, e) * 0.1);
-  float s = max(dot(normalize(d.xz + 1e-5), normalize(uSun.xz + 1e-5)), 0.0); c += uGlow * pow(s, 4.0) * e * 20.0 * exp(1.0 - e * 20.0);   // nothing at the horizon itself (the far ground has no glow), most a few degrees up
+  float s = max(dot(normalize(d.xz + 1e-5), normalize(uSun.xz + 1e-5)), 0.0); // by day a warm glow on the sun's side: nothing at the horizon itself (the far ground has none), most a few degrees up; by night (uFlat) the glow of the towns, all round, brightest at the horizon
+  c += uGlow * mix(pow(s, 4.0) * e * 20.0 * exp(1.0 - e * 20.0), (0.6 + 0.4 * s) * exp(-e * 9.0), uFlat);
   gl_FragColor = vec4(c, 1.0);
   #include <colorspace_fragment>
 }` });
@@ -71,7 +72,7 @@ vec2 m3dRipple(vec2 p, float s) { p = vec2(p.x * 0.8 + p.y * 0.6, (p.y * 0.8 - p
 { float ls = log2(max(uD, 1.0)), fl = floor(ls); vec2 rp = mix(m3dRipple(vWp.xz, exp2(fl) * 0.085), m3dRipple(vWp.xz, exp2(fl + 1.0) * 0.085), ls - fl);
   vec3 wn = normalize(vec3(rp.x * uWave, 1.0, rp.y * uWave)); normal = normalize((viewMatrix * vec4(wn, 0.0)).xyz);
   vec3 gn = normalize(vec3(rp.x * 0.14, 1.0, rp.y * 0.14)), wv = normalize(cameraPosition - vWp); float gl = max(dot(reflect(-wv, gn), uSun), 0.0);
-  totalEmissiveRadiance += uSunC * (pow(gl, 220.0) * 0.3 + pow(gl, 28.0) * 0.1) * uGlint; }`);
+  totalEmissiveRadiance += uSunC * (pow(gl, 220.0) * 0.16 + pow(gl, 28.0) * 0.1) * uGlint; }`);
     };
     return U;
   }
@@ -109,13 +110,13 @@ void main(){ float a = vE.x, line = 0.8 + 0.07 * sin(uT * 0.8 + vE.y * 1.7) + 0.
   // each cut into wisps by the drifting noise: from above they add up to a soft bank, from the side to layers the hilltops and
   // the bridge's towers stand out of. box: [x0, z0, x1, z1], the ground the mask covers. U.uT; uK: how thick (0 none); uCol.
   function fog(THREE, mask, box, noise, heightAt, offsets) {
-    const cell = 5, nx = Math.ceil((box[2] - box[0]) / cell), nz = Math.ceil((box[3] - box[1]) / cell), cv = mask.image, px = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data, n1 = nx + 1;
+    const cell = 2.5, nx = Math.ceil((box[2] - box[0]) / cell), nz = Math.ceil((box[3] - box[1]) / cell), cv = mask.image, px = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data, n1 = nx + 1;
     const M = new Uint8Array(n1 * (nz + 1)); let Hh = new Float32Array(n1 * (nz + 1));
     for (let j = 0; j <= nz; j++) for (let i = 0; i <= nx; i++) M[j * n1 + i] = px[(clamp(Math.round(j * cell / (box[3] - box[1]) * cv.height), 0, cv.height - 1) * cv.width + clamp(Math.round(i * cell / (box[2] - box[0]) * cv.width), 0, cv.width - 1)) * 4];
     const near = (i, j) => { for (let b = Math.max(0, j - 2); b <= Math.min(nz, j + 2); b++) for (let a = Math.max(0, i - 2); a <= Math.min(nx, i + 2); a++) if (M[b * n1 + a] > 3) return true; return false; };
     for (let j = 0; j <= nz; j++) for (let i = 0; i <= nx; i++) if (near(i, j)) Hh[j * n1 + i] = heightAt(box[0] + i * cell, box[1] + j * cell);
-    { const O = new Float32Array(Hh.length); for (let j = 0; j <= nz; j++) for (let i = 0; i <= nx; i++) { let m = 0; for (let b = Math.max(0, j - 2); b <= Math.min(nz, j + 2); b++) for (let a = Math.max(0, i - 2); a <= Math.min(nx, i + 2); a++) m = Math.max(m, Hh[b * n1 + a]); O[j * n1 + i] = m; } Hh = O; } // the highest ground near by: a sheet never cuts into a wall at a shore
-    for (let pass = 0; pass < 2; pass++) { const O = new Float32Array(Hh.length); for (let j = 0; j <= nz; j++) for (let i = 0; i <= nx; i++) { let s = 0, c = 0; for (let b = Math.max(0, j - 1); b <= Math.min(nz, j + 1); b++) for (let a = Math.max(0, i - 1); a <= Math.min(nx, i + 1); a++) { s += Hh[b * n1 + a]; c++; } O[j * n1 + i] = s / c; } Hh = O; }
+    { const O = new Float32Array(Hh.length); for (let j = 0; j <= nz; j++) for (let i = 0; i <= nx; i++) { let m = 0; for (let b = Math.max(0, j - 1); b <= Math.min(nz, j + 1); b++) for (let a = Math.max(0, i - 1); a <= Math.min(nx, i + 1); a++) m = Math.max(m, Hh[b * n1 + a]); O[j * n1 + i] = m; } Hh = O; } // the highest ground near by: a sheet does not cut into a wall at a shore, it spills over it
+    for (let pass = 0; pass < 1; pass++) { const O = new Float32Array(Hh.length); for (let j = 0; j <= nz; j++) for (let i = 0; i <= nx; i++) { let s = 0, c = 0; for (let b = Math.max(0, j - 1); b <= Math.min(nz, j + 1); b++) for (let a = Math.max(0, i - 1); a <= Math.min(nx, i + 1); a++) { s += Hh[b * n1 + a]; c++; } O[j * n1 + i] = s / c; } Hh = O; }
     const P = new Float32Array(n1 * (nz + 1) * 3), I = [];
     for (let j = 0; j <= nz; j++) for (let i = 0; i <= nx; i++) { const k = j * n1 + i; P[k * 3] = box[0] + i * cell; P[k * 3 + 1] = Hh[k]; P[k * 3 + 2] = box[1] + j * cell; }
     for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) { const a = j * n1 + i, b = a + 1, c = a + n1, d = c + 1; if (M[a] > 3 || M[b] > 3 || M[c] > 3 || M[d] > 3) I.push(a, c, b, b, c, d); }
@@ -127,8 +128,8 @@ void main(){ float a = vE.x, line = 0.8 + 0.07 * sin(uT * 0.8 + vE.y * 1.7) + 0.
         vertexShader: 'varying vec3 vWp;\nvoid main(){ vec4 w = modelMatrix * vec4(position, 1.0); vWp = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }',
         fragmentShader: `uniform float uT; uniform float uK; uniform float uA; uniform vec3 uCol; uniform sampler2D uMask; uniform sampler2D uNoise; uniform vec2 uOff; uniform vec2 uHaze; uniform vec4 uBox; varying vec3 vWp;
 void main(){ vec2 p = vWp.xz; float m = texture2D(uMask, (p - uBox.xy) * uBox.zw).r; if (m < 0.01) discard;
-  float n = texture2D(uNoise, p * 0.0125 + uOff + uT * vec2(0.0042, 0.0013)).b * 0.62 + texture2D(uNoise, p * 0.034 + uOff.yx - uT * vec2(0.0021, -0.0034)).a * 0.38;
-  float a = smoothstep(0.5, 0.96, m * (0.14 + n * 1.36)) * uK * uA * (1.0 - smoothstep(uHaze.x, uHaze.y, distance(cameraPosition, vWp)));
+  float n = texture2D(uNoise, p * 0.0125 + uOff - uT * vec2(0.0105, 0.003)).b * 0.62 + texture2D(uNoise, p * 0.034 + uOff.yx - uT * vec2(0.021, 0.011)).a * 0.38;   // in off the ocean, eastwards: under a map unit a second
+  float a = smoothstep(0.46, 0.92, m * (0.14 + n * 1.36)) * uK * uA * (1.0 - smoothstep(uHaze.x, uHaze.y, distance(cameraPosition, vWp)));
   gl_FragColor = vec4(uCol, a);
   #include <colorspace_fragment>
 }` });
@@ -144,7 +145,7 @@ void main(){ vec2 p = vWp.xz; float m = texture2D(uMask, (p - uBox.xy) * uBox.zw
     for (const p of places) { fill(p.polys, -7, p.k * 0.45); fill(p.polys, 0, p.k); }   // the fog comes in off the ocean: a paler copy to the west
     for (const [x, z, rx, rz, k] of spots) { g.globalAlpha = k; g.beginPath(); g.ellipse(x, z, rx, rz, 0, 0, Math.PI * 2); g.fill(); }
     // soft: drawn smaller still and stretched back, twice
-    const out = document.createElement('canvas'); out.width = w; out.height = h; const o = out.getContext('2d'), t = document.createElement('canvas'); t.width = Math.max(2, Math.round(w / 9)); t.height = Math.max(2, Math.round(h / 9)); const tg = t.getContext('2d');
+    const out = document.createElement('canvas'); out.width = w; out.height = h; const o = out.getContext('2d'), t = document.createElement('canvas'); t.width = Math.max(2, Math.round(w / 4)); t.height = Math.max(2, Math.round(h / 4)); const tg = t.getContext('2d');
     tg.imageSmoothingQuality = o.imageSmoothingQuality = 'high'; tg.drawImage(small, 0, 0, t.width, t.height); o.drawImage(t, 0, 0, w, h);
     const tex = new THREE.CanvasTexture(out); tex.flipY = false; tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping; tex.minFilter = THREE.LinearFilter; tex.generateMipmaps = false; return tex;
   }

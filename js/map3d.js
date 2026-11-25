@@ -12,6 +12,13 @@
 // Drawn with WebGL on a canvas of its own, under one 2D canvas for names, spots and the quiz's pills (both inside #stage; the flat
 // map's canvas stays in the page, hidden). Colours come from setColors and the CSS tokens the flat map reads; the light theme is the
 // paper look, the dark theme the night look. Frames are drawn on demand, never in a loop, except while something animates.
+//
+// On top of the blocks, when their files are loaded too (js/map3d/fabric.js, js/map3d/air.js; without them the map is the plain
+// blocks): a city fabric that rises from the block tops as the map comes close, tinted from each block's own colour; a sky and a
+// haze behind the lower tilts; water that ripples, with a wash where it meets the land; the light theme's light following the
+// hour; a fog bank over the foggy places; ferries, and at night the traffic on the bridges. What moves by itself runs for 20 s
+// after the last touch, at 30 frames a second at most, never out of sight and never under reduced motion (AMBIENT below). When
+// frames run long the engine gives effects up one at a time, and takes them back when they run well again (the governor).
 (function () {
   'use strict';
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v)), lerp = (a, b, t) => a + (b - a) * t;
@@ -39,10 +46,10 @@
   const LOOKS = {
     paper: { bg: '#e9e5da', fog: [1.7, 8], shore: 1, lift: '#fdfbf6', liftK: 0.05, side: '#6a4529', sideK: 0.14, bevelK: 0.2, key: { c: '#fff2df', i: 2.15, az: 302, el: 44 }, hemi: { sky: '#f5f6f6', ground: '#dccdb2', i: 1.85 }, shadowR: 2.5,
       tileRough: 0.94, builtRough: 0.82, pane: 0.1, waterRough: 0.78, waterMetal: 0, glow: 0, amb: 0, lights: false, castA: 0.2,
-      zenith: '#a9c6de', skyGlow: '#ffd9a6', glowK: 0.1, wave: 0.035, glint: 0.42, wash: '#fbfdfd', washK: 0.85, sand: '#eadcbc', pale: '#fffdf8', roofK: 0.4, wallK: 0.24, tree: '#5f8a4d', treeK: 0.62, win: '#000000', fogC: '#fdfdfc', fogK: 0.2 },
+      zenith: '#a9c6de', skyGlow: '#ffd9a6', glowK: 0.1, wave: 0.06, glint: 0.42, wash: '#fbfdfd', washK: 0.85, sand: '#eadcbc', pale: '#fffdf8', roofK: 0.4, wallK: 0.24, tree: '#5f8a4d', treeK: 0.62, win: '#000000', fogC: '#fdfdfc', fogK: 0.22 },
     night: { bg: '#0b1118', fog: [1.6, 7.5], shore: 1.25, lift: '#c9d6e6', liftK: 0.04, side: '#05080c', sideK: 0.32, bevelK: 0.14, key: { c: '#b4c8ff', i: 1.05, az: 300, el: 48 }, hemi: { sky: '#9fb2d4', ground: '#2c2a33', i: 1.75 }, shadowR: 2.5,
       tileRough: 0.9, builtRough: 0.75, pane: 0.3, waterRough: 0.6, waterMetal: 0.1, glow: 0.95, amb: 0.22, lights: true, castA: 0.2,
-      zenith: '#05080d', skyGlow: '#6a5a78', glowK: 0.35, wave: 0.03, glint: 0.3, wash: '#8fb4cc', washK: 0.4, sand: '#5d5a52', pale: '#aebcd0', roofK: 0.2, wallK: 0.3, tree: '#35584a', treeK: 0.42, win: '#ffc680', fogC: '#6f819b', fogK: 0.11 },
+      zenith: '#05080d', skyGlow: '#4b4a66', glowK: 0.3, wave: 0.05, glint: 0.3, wash: '#8fb4cc', washK: 0.4, sand: '#5d5a52', pale: '#aebcd0', roofK: 0.2, wallK: 0.3, tree: '#35584a', treeK: 0.42, win: '#ffc680', fogC: '#7f91ab', fogK: 0.15 },
   };
   const BUILT = { // colours of everything built, by material name (the Golden Gate, the steel, the flag and the bookmark take the app's tokens instead)
     paper: { whiteCable: '#eef0ee', white: '#f8f4ec', whiteShade: '#e4ddcf', stone: '#ebe4d5', stoneShade: '#cdc4b0', metal: '#dcdcd8', glass: '#b4c5ce', glassTop: '#d6e0e5', glassDark: '#74858f', roof: '#98a2a8', glassRoof: '#c4d3d8', red: '#d4563a', concrete: '#d2cbbb', concreteLight: '#e6e0d2', road: '#6c7075', roadLight: '#b3b0a8', dark: '#3c4a57', rust: '#b3765a', ochre: '#dcae80', ochreShade: '#b98a5e', dome: '#cc7a50', lagoon: '#a9c9d2', lamp: '#fff3c4', clock: '#fdf9ee', p0: '#9db8cc', p1: '#e6c97a', p2: '#dd9c90', p3: '#a8c096', p4: '#f1e5ca', p5: '#b8a3c5', p6: '#8cb6b1', trim: '#fdfaf2', sphere: '#394655', bronze: '#8e6d51', bronzeShade: '#70553f', wheel: '#f4f1ea', wheelShade: '#c6c2b8', cabin: '#dfe7ec', luxor: '#3a434e', sand: '#d9bc8e', bldg0: '#f4f0e7', bldg1: '#ece6da', bldg2: '#e2dccf', bldg3: '#d6dee1', resort0: '#f3eee4', resort1: '#dcc48e', resort2: '#e8decb', resort3: '#cfd8dc', resort4: '#c4a575', podium: '#e4ddcd', boulevard: '#fdfbf6', pole: '#4f4a41', poleBase: '#3c4a57', roofTop: '#d6cfbf' },
@@ -365,7 +372,7 @@
             const sea = new THREE.Mesh(g, waterMat); sea.receiveShadow = true; scene.add(sea); } // the blocks, the bridges and the towers throw their shadows on it too, close in
           stat.build.land = now() - t0;
         },
-        () => { const t0 = now(); applyLook(); stat.build.look = now() - t0; ready = true; needs = true; poke(); kick(); },
+        () => { const t0 = now(); applyLook(); try { const q = +sessionStorage.getItem('sbs-map3d-q'); if (q > 0) setQuality(q); } catch (e) {} stat.build.look = now() - t0; ready = true; needs = true; poke(); kick(); }, // (the step the governor settled on earlier in this session: a slow device does not start from the top again)
         () => { // after the first frame: the skylines and the Strip's resorts (by place, so each rises with its block), then the night's lights
           const t0 = now(), strip = {}; HOODS.forEach(h => { if (REGS[h.region] && REGS[h.region].away && SUBD[h.name]) strip[h.name] = SUBD[h.name]; });
           const made = MD.city((x, z) => { const i = hoodAt(x, z); return i >= 0 ? HOODS[i].name : null; }, ground, strip); cityFoot = made.foot || []; cityStrip = made.strip || [];
@@ -434,7 +441,7 @@
       HOODS.forEach((h, i) => { const f = (INFO[h.name] || {}).fog; if (!(f >= 4) || !PP[i] || areaObj(h.cx, h.cy) !== AREAS[0]) return; places.push({ polys: PP[i], k: f >= 5 ? 1 : 0.6 }); const b = BB[i]; box[0] = Math.min(box[0], b[0]); box[1] = Math.min(box[1], b[1]); box[2] = Math.max(box[2], b[2]); box[3] = Math.max(box[3], b[3]); });
       if (!places.length) return; const gg = bridges.frames.gg, mid = gg.P(gg.L / 2, 0, 0);
       box[0] -= 16; box[1] -= 12; box[2] += 12; box[3] += 12;
-      fogBank = AIR.fog(THREE, AIR.fogMask(THREE, box, places, [[mid[0], mid[2], 9, 6, 0.95], [mid[0] - 10, mid[2] + 1, 12, 8, 0.7]]), box, noise, ground, [0.45, 0.9, 1.4]); landG.add(fogBank.group);
+      fogBank = AIR.fog(THREE, AIR.fogMask(THREE, box, places, [[mid[0], mid[2], 13, 8, 1], [mid[0] - 14, mid[2] + 1, 18, 12, 0.9]]), box, noise, ground, [0.45, 0.9, 1.4]); landG.add(fogBank.group);
     }
     // what moves: three ferries out of the Ferry Building, and at night the traffic on the three great bridges
     const FERRIES = [[[-122.3915, 37.7985], [-122.3990, 37.8125], [-122.4300, 37.8160], [-122.4560, 37.8350], [-122.4745, 37.8545]],
@@ -483,7 +490,7 @@
       const k = kNow(), tgt = quiz ? 0 : smooth(k, FK0, FK1) * (Q.fab > 0 ? 1 : 0), U = fabU; let anim = false;
       if (tgt !== U.uGrow.value) { U.uGrow.value = tgt; shadowDirty = true; }
       const R1 = clamp(c.d * (2 + 2.4 * smooth(c.ph, 0.9, 1.4)), 26, 84), fx = cur.cx, fz = cur.cz;
-      U.uFocus.value.set(fx, fz, R1 * 0.86, R1); lineUp.value = 0.34 * tgt;
+      U.uFocus.value.set(fx, fz, R1 * 0.86, R1); lineUp.value = tgt * Math.min(1, 0.2 / Math.max(0.05, Math.sin(c.ph) * Math.cos(c.ph))); // a line shows over a house that stands 0.2 or more in front of it (the fabric keeps that street clear), and no further through a wall
       if (k > FK0 * 0.75 && !quiz && Q.fab > 0) {
         const i0 = Math.floor((fx - R1) / CS), i1 = Math.floor((fx + R1) / CS), j0 = Math.floor((fz - R1) / CS), j1 = Math.floor((fz + R1) / CS), key = [i0, i1, j0, j1].join(',');
         if (key !== fab.key) { fab.key = key; const q = []; for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) { const d = Math.hypot((i + 0.5) * CS - fx, (j + 0.5) * CS - fz), kk = i * 65536 + j; if (d > R1 + CS * 0.7 || fab.chunks.has(kk) || !fabLand(i, j)) continue; q.push({ k: kk, ix: i, iz: j, d }); } q.sort((a, b) => a.d - b.d); fab.queue = q; }
@@ -557,7 +564,7 @@
     let waterKey = '';
     function applyLook() {
       const L = LK; renderer.setClearColor(L.haze, 1); scene.fog.color.set(L.haze); paintAll = true;
-      if (sky) { sky.U.uHorizon.value.set(L.haze); sky.U.uZenith.value.set(L.zenith); sky.U.uGlow.value.set(L.skyGlow).multiplyScalar(L.glowK); }
+      if (sky) { sky.U.uHorizon.value.set(L.haze); sky.U.uZenith.value.set(L.zenith); sky.U.uGlow.value.set(L.skyGlow).multiplyScalar(L.glowK); sky.U.uFlat.value = L.lights ? 1 : 0; }
       if (waterU) { waterU.uSunC.value.set(L.key.c); waterU.uGlint.value = L.glint; }
       fabU.uPale.value.set(L.pale); fabU.uRoofK.value = L.roofK; fabU.uWallK.value = L.wallK; fabU.uTree.value.set(L.tree); fabU.uTreeK.value = L.treeK; fabU.uWin.value.set(L.win);
       applyAir();
@@ -636,7 +643,7 @@
       for (let i = 0; i < HOODS.length; i++) {
         if (!(subF[i] > 0.01)) continue;
         let m = secMeshes.get(i);
-        if (!m || m.dirty) { if (m) { drop(m.lines); if (m.gold) drop(m.gold); } const s = sectionLines(i); m = { lines: new THREE.Mesh(ribbon(s.segs, HT[i] + 0.012, 1.1), lineMat(P.subLine, 1)), gold: s.gold.length ? new THREE.Mesh(ribbon(s.gold, HT[i] + 0.014, 2.4), lineMat(P.star, 1)) : null }; m.lines.renderOrder = 2; secG.add(m.lines); if (m.gold) { m.gold.renderOrder = 3; secG.add(m.gold); } secMeshes.set(i, m); }
+        if (!m || m.dirty) { if (m) { drop(m.lines); if (m.gold) drop(m.gold); } const s = sectionLines(i); m = { lines: new THREE.Mesh(ribbon(s.segs, HT[i] + 0.012, 1.4), lineMat(P.subLine, 1)), gold: s.gold.length ? new THREE.Mesh(ribbon(s.gold, HT[i] + 0.014, 2.4), lineMat(P.star, 1)) : null }; m.lines.renderOrder = 2; secG.add(m.lines); if (m.gold) { m.gold.renderOrder = 3; secG.add(m.gold); } secMeshes.set(i, m); }
         m.lines.visible = true; m.lines.material.opacity = subF[i] * (dark ? .8 : .9); m.lines.position.y = liftV[i];
         if (m.gold) { m.gold.visible = true; m.gold.material.opacity = subF[i]; m.gold.position.y = liftV[i]; }
       }
@@ -677,7 +684,7 @@
       { const low = smooth(c.ph, 1.05, 1.45); scene.fog.near = c.d * lerp(L.fog[0], 0.75, low); scene.fog.far = c.d * lerp(L.fog[1], 3.4, low); } // a low view looks a long way: the haze comes nearer, and the far land fades into it
       // the air: the sky behind a tilted view, the water's ripples (gentler from far off), the wash, the fog, what moves
       if (sky) sky.set(c, W, H);
-      if (waterU) { waterU.uT.value = ambT; waterU.uD.value = c.d; waterU.uWave.value = L.wave * lerp(1, 0.5, smooth(Math.log(c.d), Math.log(300), Math.log(1500))); }
+      if (waterU) { waterU.uT.value = ambT; waterU.uD.value = c.d; waterU.uWave.value = L.wave * lerp(1, 0.4, smooth(Math.log(c.d), Math.log(150), Math.log(900))); }
       if (wash) { wash.U.uT.value = ambT; wash.U.uK.value = L.washK * smooth(kNow(), 1.2, 5); wash.mesh.visible = wash.U.uK.value > 0.01; }
       if (fogBank) { const U = fogBank.U; U.uT.value = ambT; U.uK.value = quiz ? 0 : L.fogK * (fogLens ? 1.7 : 1) * lerp(0.5, 1, smooth(kNow(), 0.8, 3.5)); U.uHaze.value.set(c.d * 2.4, c.d * 7); fogBank.group.visible = U.uK.value > 0; }
       if (Math.abs(vx - vex) > 0.003) { vex = vx; landG.scale.y = vex; shadowDirty = true; }
@@ -843,8 +850,9 @@
         }
       }
       // the landmarks' own names, close in, under each model, only where no place or section name stands
-      if (!quiz && ready) for (const ic of icons) {
-        if (!ic.label || !(ic.px >= 40) || !ic.mesh.visible) continue; const a = at(ic.x, ic.z, ic.mesh.position.y); if (a[2] <= 0 || a[2] > c.d * 2.3) continue;
+      const said = quiz || !ready ? null : new Set([...want.values()].map(r => String(r.text || '').toLowerCase())); // a landmark that a section is named after is named once
+      if (said) for (const ic of icons) {
+        if (!ic.label || !(ic.px >= 40) || !ic.mesh.visible || said.has(ic.label.toLowerCase())) continue; const a = at(ic.x, ic.z, ic.mesh.position.y); if (a[2] <= 0 || a[2] > c.d * 2.3) continue;
         const size = fsz - 0.5, tw = measure(ic.label, 500, size), bx = [a[0] - tw / 2 - 3, a[1] + 3, a[0] + tw / 2 + 3, a[1] + 4 + size * 1.25];
         if (bx[2] < 0 || bx[0] > W || bx[3] < 0 || bx[1] > H || !inView(bx) || clash(bx)) continue;
         placed.push(bx); put('L' + ic.id, { text: ic.label, x: a[0], y: (bx[1] + bx[3]) / 2, size, ls: 0, weight: 500, color: P.ink2 });
@@ -907,12 +915,14 @@
     const gov = { ts: [], good: 0, at: 0, skip: 0, up: -1, fails: [], was: false };
     function setQuality(n) {
       n = clamp(n, 0, 6); if (n === Q.level) return; Q.level = n; Q.life = n < 1; Q.fabShadow = n < 2; Q.shadows = n < 3; Q.fab = n < 4 ? 1 : n < 5 ? 0.5 : 0.25; Q.cap = n < 5 ? [2, 3] : n < 6 ? [1.5, 2] : [1, 1.5];
-      key.castShadow = Q.shadows; setPR(Math.min(dpr, Q.cap[moving ? 0 : 1])); shadowDirty = true; needs = true; gov.ts.length = 0; gov.good = 0; gov.skip = 20; gov.at = now();
+      key.castShadow = Q.shadows; setPR(Math.min(dpr, Q.cap[moving ? 0 : 1])); shadowDirty = true; needs = true; gov.ts.length = 0; gov.good = 0; gov.skip = 10; gov.at = now();
+      try { sessionStorage.setItem('sbs-map3d-q', String(n)); } catch (e) {}
     }
     // gap: the time since the frame before, when both were frames of a moving map; judged by the middle one of every 24
     function govern(gap, mv) {
       const was = gov.was; gov.was = mv; if (!mv || !was) return; if (gov.skip > 0) { gov.skip--; return; }
-      gov.ts.push(gap); if (gov.ts.length < 24) return; const m = gov.ts.slice().sort((a, b) => a - b)[12]; gov.ts.length = 0;
+      gov.ts.push(gap); if (gov.ts.length === 8 && Math.min.apply(null, gov.ts) > 40) { gov.ts.length = 0; gov.last = 41; return setQuality(Q.level + 2); } // eight very long frames in a row: two steps at once
+      if (gov.ts.length < 24) return; const m = gov.ts.slice().sort((a, b) => a - b)[12]; gov.ts.length = 0; gov.last = +m.toFixed(1);
       if (m > 21) { if (now() - gov.at < 5000 && gov.up === Q.level) gov.fails[Q.level] = (gov.fails[Q.level] || 0) + 1; setQuality(Q.level + 1); }
       else if (m < 18 && Q.level > 0) { gov.good += 24; if (gov.good >= 240 && now() - gov.at > 8000 && (gov.fails[Q.level - 1] || 0) < 2) { gov.up = Q.level - 1; setQuality(Q.level - 1); } }
       else gov.good = 0;
@@ -1090,7 +1100,7 @@
       hoodPx,
       // for tests and the console: what was built and how long it took, what a frame draws, and the cost of frames along a flight
       stats() { const info = renderer.info; let tris = 0; const seen = q => { for (let p = q; p; p = p.parent) if (!p.visible) return false; return true; }; scene.traverse(q => { if ((q.isMesh || q.isPoints) && seen(q) && q.geometry) { const g = q.geometry, n = q.isPoints ? 0 : (g.index ? g.index.count : g.attributes.position.count) / 3; tris += n * (q.isInstancedMesh ? q.count : g.isInstancedBufferGeometry ? g.instanceCount : 1); } });
-        return { ready, blocks: stat.blocks, build: stat.build, firstFrame: stat.firstFrame ? Math.round(stat.firstFrame - stat.t0) : 0, sinceNav: stat.firstFrame ? Math.round(stat.firstFrame) : 0, frames: stat.frames, lastMs: +stat.lastMs.toFixed(2), sceneTriangles: Math.round(tris), calls: info.render.calls, triangles: info.render.triangles, pr, size: [W, H], dark, area: area.id, quality: Q.level, fabric: { chunks: fab.live, buildings: fab.nb, trees: fab.nt, grow: +fabU.uGrow.value.toFixed(2), queue: fab.queue.length }, why: stat.why, ambient: { on: ambOn(), t: +ambT.toFixed(2), frames: stat.amb, left: Math.max(0, Math.round(ambUntil - now())), ferry: ferries[0] ? [+ferries[0].mesh.position.x.toFixed(3), +ferries[0].mesh.position.z.toFixed(3)] : null }, view: Object.assign({ ph: +phOf(cur.w, cur.off).toFixed(3) }, cur) }; },
+        return { ready, blocks: stat.blocks, build: stat.build, firstFrame: stat.firstFrame ? Math.round(stat.firstFrame - stat.t0) : 0, sinceNav: stat.firstFrame ? Math.round(stat.firstFrame) : 0, frames: stat.frames, lastMs: +stat.lastMs.toFixed(2), sceneTriangles: Math.round(tris), calls: info.render.calls, triangles: info.render.triangles, pr, size: [W, H], dark, area: area.id, quality: Q.level, gov: { last: gov.last || 0, good: gov.good, fails: gov.fails.slice() }, fog: fogBank ? +fogBank.U.uK.value.toFixed(3) : 0, fabric: { chunks: fab.live, buildings: fab.nb, trees: fab.nt, grow: +fabU.uGrow.value.toFixed(2), queue: fab.queue.length }, why: stat.why, ambient: { on: ambOn(), t: +ambT.toFixed(2), frames: stat.amb, left: Math.max(0, Math.round(ambUntil - now())), ferry: ferries[0] ? [+ferries[0].mesh.position.x.toFixed(3), +ferries[0].mesh.position.z.toFixed(3)] : null }, view: Object.assign({ ph: +phOf(cur.w, cur.off).toFixed(3) }, cur) }; },
       bench(n = 60) { // n frames spread along the flight in progress or, at rest, a small orbit; each forced to finish on the GPU
         const gl = renderer.getContext(), px = new Uint8Array(4), keep = Object.assign({}, cur), times = [];
         for (let i = 0; i < n; i++) { cur.th = keep.th + Math.sin(i / n * Math.PI * 2) * 0.12; cur.w = keep.w * (1 + 0.25 * Math.sin(i / n * Math.PI)); cur.cx = keep.cx + Math.sin(i * 0.2) * keep.w * 0.05; const t0 = now(); C = camOf(cur); const vx = C.vex; C.vex = vex; prepare(16); updateScene(t0, vx, 16); renderer.render(scene, camera); drawOverlay(t0, 16); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); times.push(now() - t0); }

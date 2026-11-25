@@ -12,6 +12,7 @@
 (function () {
   'use strict';
   const CS = 12;                                  // the side of a chunk, in map units
+  const CLEAR = 0.2;                              // the least room between a building and the edge of its block's top or a line between sections
   const NB = 11, NT = 7;                          // numbers per building [x, y, z, turn, w, h, d, roof, place, tint, slot]; per tree [x, y, z, r, place, tint, slot]
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v)), lerp = (a, b, t) => a + (b - a) * t;
   const hash = str => { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
@@ -67,6 +68,8 @@
       if (R() < 0.5 && TURN[h.name] == null) { const t = P.bw; P.bw = P.bh; P.bh = t; P.flip = true; }   // some grids run the other way
       // the parks inside it: the sections named after one
       for (const s of SUBD[h.name] || []) { const r = sf ? POCKET[s.name] : POCKET_RE.test(s.name) ? 2.4 : 0; if (r) { const p = proj([s.lon, s.lat]); P.parks.push([p[0], p[1], r]); } }
+      // its sections' seeds: the lines between sections (drawn on the block's top) run along a street kept clear of buildings
+      P.seeds = (SUBD[h.name] || []).map(s => proj([s.lon, s.lat])); if (P.seeds.length < 2) P.seeds = null;
       return plans[i] = P;
     }
 
@@ -102,7 +105,10 @@
             const lu = rows ? b : a, lv = rows ? a : b, x = P.ox + (uc + lu) * c + (vc + lv) * s, z = P.oz - (uc + lu) * s + (vc + lv) * c;
             const sx = rows ? w : dp, sz = rows ? dp : w, hx = sx / 2, hz = sz / 2;   // sx along the grid's u, sz along its v
             if (inPark(x, z) || blocked(x, z, Math.max(hx, hz)) || !env.inTop(P.i, x, z)) return;
-            for (const [p, q] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) if (!env.inTop(P.i, x + (p * hx * c + q * hz * s) * 1.12, z + (-p * hx * s + q * hz * c) * 1.12)) return;
+            // clear of the block's edge by a narrow street (CLEAR), and of the lines between the place's sections: the two nearest seeds, the distance to their bisector
+            for (const [p, q] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) if (!env.inTop(P.i, x + (p * (hx + CLEAR) * c + q * (hz + CLEAR) * s), z + (-p * (hx + CLEAR) * s + q * (hz + CLEAR) * c))) return;
+            if (P.seeds) { let a = -1, b = -1, da = Infinity, db = Infinity; for (let k = 0; k < P.seeds.length; k++) { const d = (x - P.seeds[k][0]) ** 2 + (z - P.seeds[k][1]) ** 2; if (d < da) { b = a; db = da; a = k; da = d; } else if (d < db) { b = k; db = d; } }
+              if ((db - da) / (2 * Math.hypot(P.seeds[a][0] - P.seeds[b][0], P.seeds[a][1] - P.seeds[b][1]) || 1) < CLEAR + Math.min(hx, hz)) return; }
             // the ridge of a pitched roof runs along the row: the box's long side is turned to lie along local x
             if (sx >= sz) B.push(x, P.y, z, P.a, sx, hh, sz, roof, P.i, R(), 0); else B.push(x, P.y, z, P.a + Math.PI / 2, sz, hh, sx, roof, P.i, R(), 0);
           };

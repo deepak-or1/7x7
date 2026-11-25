@@ -316,8 +316,9 @@
   q.addEventListener('blur', () => { if (isPhone() && !q.value) endSearch('peek'); });
 
   // ---------- head + panel ----------
-  // o: { eyebrow (text) or path: { crumbs, tag } (the tappable path, fitted by fitHead), title, tools, back, onBack, extra (phone root:
-  // the recent spots row), compact (the title is for assistive tech only) }
+  // o: { eyebrow (text) or path: { crumbs, tag } (the tappable path, fitted by fitHead), title, tools, back, onBack, badge (news by others: a count beside the title, the only sign of it at the phone's peek), tally (the first
+  // screen: [[n, label, spoken]] shown as three counts on the title's row, with no small line above it), compact (the title is for
+  // assistive tech only) }
   // Every screen below the first screen of the map in play ends its tools with the X, which goes straight back to that first screen
   // (the Bay Area's; an away map's own). Never on the log form, a pin drop, search or the quiz: they keep their own way out
   const homeOf = l => { if (AWAY.includes(l.region)) return l.region; const sp = !l.hood && l.spot && state.spots[l.spot], b = sp && boxAt(sp.lon, sp.lat); return b ? areaRegion(b.area) : 'all'; }; // a spot in no place: the map its point is on
@@ -326,11 +327,12 @@
   function setHead(o) {
     head._path = o.path || null;
     o = Object.assign({}, o, { tools: (o.tools || []).concat(showX() ? [{ id: 'home', label: 'Back to the map', icon: ICON.x, run: toFirst }] : []) });
-    head.innerHTML = `<button type="button" class="up" aria-label="Back" ${o.back === false ? 'hidden' : ''}>${ICON.back}</button><div class="ttl"><p class="eyebrow">${o.path ? '' : (o.dot ? `<i style="--c:${o.dot}"></i>` : '') + (o.eyebrow || '')}</p><h2${o.compact ? ' class="sr"' : ''}>${o.title}</h2></div><div class="tools">${o.tools.map(t => `<button type="button" data-tool="${t.id}" title="${esc(t.label)}" aria-label="${esc(t.label)}">${t.icon}</button>`).join('')}</div>${o.extra || ''}`;
-    head.classList.toggle('compact', !!o.compact);
+    // the counts are plain text, heard as one labelled group ("7 places walked, 3 want to go, 10 spots"), not three loose numbers
+    const tally = o.tally ? `<div class="tally"><span class="sr">${esc(o.tally.map(t => t[2]).join(', '))}</span>${o.tally.map(t => `<span aria-hidden="true"><b>${t[0].toLocaleString('en-US')}</b><small>${t[1]}</small></span>`).join('')}</div>` : '';
+    head.innerHTML = `<button type="button" class="up" aria-label="Back" ${o.back === false ? 'hidden' : ''}>${ICON.back}</button><div class="ttl">${o.tally ? '' : `<p class="eyebrow">${o.path ? '' : (o.dot ? `<i style="--c:${o.dot}"></i>` : '') + (o.eyebrow || '')}</p>`}<h2${o.compact ? ' class="sr"' : ''}>${o.title}</h2>${o.badge ? `<span class="newsb"><span aria-hidden="true">${esc(o.badge)}</span><span class="sr">${esc(o.badge)} new</span></span>` : ''}</div>${tally}<div class="tools">${o.tools.map(t => `<button type="button" data-tool="${t.id}" title="${esc(t.label)}" aria-label="${esc(t.label)}">${t.icon}</button>`).join('')}</div>`;
+    head.classList.toggle('compact', !!o.compact); head.classList.toggle('first', !!o.tally);
     head.querySelector('.up').addEventListener('click', o.onBack || up);
     o.tools.forEach(t => head.querySelector(`[data-tool="${t.id}"]`).addEventListener('click', t.run));
-    if (o.extra) wire(head);
   }
   let headH = 0;
   // the map chip on the map: the area you are on. A tap opens a menu of every area (the Bay Area, then each away region) with how
@@ -369,7 +371,7 @@
       if (!v && level(l) >= 2) streetSoon();
     }
     fitHead();
-    // the peek is the header's height: when that changes (the recent spots row comes or goes) the peek follows
+    // the peek is the header's height: when that changes (the first screen's one-row header, a two-line title) the peek follows
     const hh = head.offsetHeight; if (hh !== headH) { headH = hh; if (isPhone() && sheet.detent === 'peek') sheet.set('peek', { quiet: true }); }
   }
   function wire(root) {
@@ -446,14 +448,17 @@
   function stampState() { const vibe = {}; for (const k in VIBES) vibe[k] = HOODS.every((h, i) => AWAY.includes(h.region) || INFO[h.name].vibe !== k || isDone(i)); return { n: doneCount('all'), sf: doneCount('sf'), marin: doneCount('marin'), east: doneCount('east'), penin: doneCount('penin'), south: doneCount('south'), north: doneCount('north'), vegas: doneCount('vegas'), ft: climbedFt('all'), vibe }; } // the six character stamps are the Bay Area's: an away region does not move them
   function renderHome() {
     const r = state.loc.region, n = doneCount(), total = REGION_N[r], s = stampState(), earned = STAMPS.filter(st => st.test(s)), next = STAMPS.find(st => !st.test(s));
-    const news = r === 'all' ? state.news.length : 0; // the only sign of news, in the sheet's own eyebrow: it shows at the peek too
+    const news = r === 'all' ? state.news.length : 0;
     const recent = Object.keys(state.spots).filter(id => IDX[state.spots[id].hood] != null && inRegion(IDX[state.spots[id].hood])).sort((a, b) => (state.spots[a].at < state.spots[b].at ? 1 : -1));
-    // the first screen: the wordmark is the title, and the most recent spots are one tap away (in the phone's header, so the peek shows them)
-    const chips = r === 'all' && recent.length ? `<div class="recent" role="list" aria-label="Recent spots">${recent.slice(0, 5).map(id => { const sp = state.spots[id], k = KINDS[sp.kind] || KINDS.other; return `<span role="listitem"><button type="button" data-go='${attr({ spot: id })}'><i class="${sp.status === 'want' ? 'want' : ''}" style="--c:${k.c}"></i>${esc(sp.name)}</button></span>`; }).join('')}${recent.length > 5 ? `<span role="listitem"><button type="button" class="all" data-view="spots">All ${recent.length} ›</button></span>` : ''}</div>` : '';
-    if (r === 'all') setHead({ back: false, eyebrow: 'Logbook · ' + (news ? `${news} new` : `${n} of ${total} walked`), title: 'Seven by Seven<em>.</em>', extra: isPhone() ? chips : '' });
-    else setHead({ path: { crumbs: crumbsOf(state.loc) }, title: REGIONS[r].label });
     const entries = NAMES.filter(x => inRegion(IDX[x]) && state.done[slug(x)]).sort((a, b) => String(state.done[slug(b)].at ?? '').localeCompare(String(state.done[slug(a)].at ?? '')) || a.localeCompare(b));
     const wantList = NAMES.filter(x => inRegion(IDX[x]) && state.want[slug(x)] && !state.done[slug(x)]);
+    // the first screen of the map in play (the Bay Area's, an away map's own): the title and, on its row, the panel's own three counts:
+    // places walked (the progress below), want to go (the Want to go places below plus the spots saved as want to go) and spots (the
+    // Spots list below)
+    if (r === 'all' || AWAY.includes(r)) {
+      const w = wantList.length + recent.filter(id => state.spots[id].status === 'want').length, sp = recent.length;
+      setHead({ back: r !== 'all', title: r === 'all' ? 'Seven by Seven<em>.</em>' : esc(REGIONS[r].label), badge: news ? String(news) : '', tally: [[n, 'Walked', `${n} ${n === 1 ? 'place' : 'places'} walked`], [w, 'Want', `${w} want to go`], [sp, 'Spots', `${sp} ${sp === 1 ? 'spot' : 'spots'}`]] });
+    } else setHead({ path: { crumbs: crumbsOf(state.loc) }, title: REGIONS[r].label });
     const active = state.filters.size > 0, hits = active ? NAMES.filter(x => matches(IDX[x])) : [];
     const places = r === 'all'
       ? Object.keys(REGIONS).filter(k => k !== 'all').map(k => `<li><button type="button" class="row" data-go='${attr({ region: k })}'><span class="ic ${doneCount(k) === REGION_N[k] ? 'flag' : doneCount(k) ? 'sq' : 'none'}" style="--c:var(--accent)"></span><span class="nm">${REGIONS[k].label}</span><span class="rt">${doneCount(k)} of ${REGION_N[k]}<span class="chev"></span></span></button></li>`).join('')
@@ -465,7 +470,7 @@
       <div id="moods" ${active ? '' : 'hidden'}><h3>Mood</h3><div class="textlinks">${MOODS.map(t => `<button type="button" data-mood="${t}" aria-pressed="${state.filters.has(t)}">${t}</button>`).join('')}</div>
         ${active ? `<h3>${hits.length ? hits.length + ' match' + (hits.length === 1 ? '' : 'es') : 'No matches'}</h3><div class="textlinks">${hits.map(a => `<button type="button" class="${isDone(IDX[a]) ? 'done' : isWant(IDX[a]) ? 'want' : ''}" data-go='${attr({ hood: a })}'>${esc(a)}</button>`).join('')}</div>` : ''}</div>`;
     const list = `<h3>${r === 'all' ? 'Regions' : 'Places'} <span class="n">${r === 'all' ? '' : total}</span></h3><ul class="rows ${r === 'all' || REGIONS[r].ordered ? '' : 'cols2'}">${places}</ul>`; // an ordered region (the Strip, north to south) reads down one column
-    panel.innerHTML = (news ? newsBlock() : '') + (r === 'all' && window.Lookback ? Lookback.card() : '') + progress + (isPhone() ? list + lead + links : chips + lead + links + list) + `
+    panel.innerHTML = (news ? newsBlock() : '') + (r === 'all' && window.Lookback ? Lookback.card() : '') + progress + (isPhone() ? list + lead + links : lead + links + list) + `
       ${entries.length ? `<h3>Been <span class="n">${entries.length}</span></h3><ul class="rows">${entries.map(x => `<li><button type="button" class="row" data-go='${attr({ hood: x })}'><span class="ic flag"></span><span class="nm">${esc(x)}${state.done[slug(x)].note ? `<small>${esc(state.done[slug(x)].note)}</small>` : ''}</span><span class="rt">${niceDate(state.done[slug(x)].at)}</span></button></li>`).join('')}</ul>` : ''}
       ${wantList.length ? `<h3>Want to go <span class="n">${wantList.length}</span></h3><div class="textlinks">${wantList.map(a => `<button type="button" class="want" data-go='${attr({ hood: a })}'>${esc(a)}</button>`).join('')}</div>` : ''}
       <h3>Spots <span class="n">${recent.length || ''}</span>${recent.length > 6 ? `<button type="button" class="act" data-view="spots">All ${recent.length}</button>` : ''}</h3>
@@ -1177,7 +1182,7 @@
   }
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { syncThemeColor(); map.refreshPalette(); recolor(false); if (window.StreetMap) StreetMap.restyle(); });
   let wasPhone = isPhone();
-  window.addEventListener('resize', () => { map.resize(); map.redraw(); if (isPhone() !== wasPhone) { wasPhone = isPhone(); if (state.quiz || state.placing) fitHead(); else render(); } else fitHead(); }); // across the breakpoint the recent spots move between the header and the panel (not mid-quiz, where a render drops an answer's verdict and Next, nor mid pin-drop, whose header it replaces) // resize() also catches a devicePixelRatio change (browser zoom)
+  window.addEventListener('resize', () => { map.resize(); map.redraw(); if (isPhone() !== wasPhone) { wasPhone = isPhone(); if (state.quiz || state.placing) fitHead(); else render(); } else fitHead(); }); // across the breakpoint the first screen reorders its panel (not mid-quiz, where a render drops an answer's verdict and Next, nor mid pin-drop, whose header it replaces) // resize() also catches a devicePixelRatio change (browser zoom)
   if (window.Lookback) Lookback.init({ state, panel, go, render, persist, beforeWrite, toast, setHead, esc, attr, KINDS, IDX, BY_SLUG, ownerKey, cleanName, niceDate, isPhone, look: vibeLook, VERDICT });
   window.__sbs = { map, state, go, sheet, maps: { spotQuery, areaQuery, mapsLink, appleLink, spotApple, areaApple }, photos: window.Photos ? Object.assign(Object.create(window.Photos), { ownerKey }) : null, get photoOpts() { return photoOpts; }, feed: { read: readFeed, get news() { return state.news; } } }; // for tests and the console
   window.claude?.hot?.snapshot?.(() => ({ loc: state.loc }));

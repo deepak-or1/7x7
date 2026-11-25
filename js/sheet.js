@@ -55,14 +55,13 @@
       }
       settle(vis, v);
     }
-    // a drag that starts on a control in the header (a path crumb, whose target is taller than its line; the root's row of recent
-    // spots, which scrolls sideways with touch-action: pan-x) moves the sheet only once it is clearly vertical, and takes no pointer
+    // a drag that starts on a control in the header (a path crumb, whose target is taller than its line) moves the sheet only once it is clearly vertical, and takes no pointer
     // capture until then, so a tap still lands on the control
     let side = null;
     for (const h of [grip, head]) {
       h.addEventListener('pointerdown', e => {
         if (!isPhone()) return;
-        if (e.target.closest('button, a, input, .recent')) { side = { id: e.pointerId, x: e.clientX, y: e.clientY }; return; }
+        if (e.target.closest('button, a, input')) { side = { id: e.pointerId, x: e.clientX, y: e.clientY }; return; }
         try { h.setPointerCapture(e.pointerId); } catch (err) {} startDrag(e.clientY);
       });
       h.addEventListener('pointermove', e => {

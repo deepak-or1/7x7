@@ -12,6 +12,7 @@
   const smooth = (v, a, b) => { const t = clamp((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
   const easeOut = t => 1 - Math.pow(1 - t, 4);
   const lerp = (a, b, t) => a + (b - a) * t;
+  const RM = matchMedia('(prefers-reduced-motion: reduce)');
 
   // ---- geometry in map units ----
   const PP = [], PATH = [], BB = [];
@@ -123,7 +124,7 @@
     const supportsLS = 'letterSpacing' in ctx;
 
     // state from the app
-    let region = 'all', sel = -1, selSub = -1, hover = -1, hoverSub = -1, hoverSpot = null, quiz = false;
+    let region = 'all', sel = -1, selSub = -1, hover = -1, hoverSub = -1, hoverSpot = null, quiz = false, press = -1; // quiz: false, or the app's { pick(i), marks(), top() } (see quizBadges); press: the place a finger is held on
     const colNow = HOODS.map(() => [200, 200, 200]), colTo = HOODS.map(() => [200, 200, 200]); let colAnim = false;
     const lblA = HOODS.map(() => 0), subA = {}, lmA = LANDS.map(() => 0), bridgeLblA = [0], waterLblA = [0], roadLblA = [0], sfA = [0], starA = {};
     const farA = [1]; // how strongly places outside the selected region fade: 1 while the camera is where the app put it, 0 once the user moves it by hand (else the map is grey exactly where they look)
@@ -284,6 +285,15 @@
       // live strokes: hover and selection
       ctx.setTransform(k * dpr, 0, 0, k * dpr, -cam.x * k * dpr + tx, -cam.y * k * dpr + ty); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
       if (hover >= 0 && hover !== sel && !quiz) { ctx.strokeStyle = P.ink; ctx.lineWidth = 1.4 / k; ctx.stroke(PATH[hover]); }
+      if (quiz) { // the place about to be picked (under the pointer, or under a held finger): tinted and outlined. An answer's places: outlined in their colour, the right one pulses
+        const qc = quizColors(), pk = press >= 0 ? press : hover;
+        if (pk >= 0 && quiz.pick(pk)) { ctx.globalAlpha = .2; ctx.fillStyle = P.ink; ctx.fill(PATH[pk]); ctx.globalAlpha = 1; ctx.strokeStyle = P.ink; ctx.lineWidth = 2.6 / k; ctx.stroke(PATH[pk]); }
+        for (const m of quiz.marks()) {
+          if (m.dot && !m.name) continue; ctx.strokeStyle = m.ok ? qc.okInk : qc.noInk; ctx.lineWidth = 2.6 / k; ctx.stroke(PATH[m.i]);
+          const p = m.ok && m.t0 && !RM.matches ? (now() - m.t0) / 1300 : 1;
+          if (p < 1) { const ph = (p * 2) % 1; ctx.globalAlpha = .65 * (1 - ph); ctx.lineWidth = (3 + 18 * ph) / k; ctx.stroke(PATH[m.i]); ctx.globalAlpha = 1; anim = true; }
+        }
+      }
       if (sel >= 0) {
         const cells = subsOf(sel), sp = selSub >= 0 && cells ? cells[selSub] : null, ph = isPhone();
         clipTo(ctx, sel, () => { if (sp && ph && !sp.star) { ctx.globalAlpha = .16; ctx.fillStyle = P.accent; ctx.fill(sp.path); ctx.globalAlpha = 1; } }); // phone: the selected section is tinted and outlined harder than its place (a starred one keeps its gold band instead)
@@ -315,7 +325,7 @@
       const clash = (b, self) => placed.some(q => (q.own == null || q.own !== self) && b[0] < q[2] && b[2] > q[0] && b[1] < q[3] && b[3] > q[1]);
       if (o.occluders) for (const b of o.occluders()) placed.push(b); // floating chrome over the canvas (phone)
       for (const b of waterBoxes) placed.push(b);
-      const marks = o.marks ? o.marks() : [];
+      const marks = o.marks && !quiz ? o.marks() : []; // the quiz hides flags and want marks: they are hints
       // landmark glyphs cannot move, so their footprints are reserved first (they are drawn later, above the fills)
       const lmK = k * (area.detail > 1 ? 2 : 1), lmF = quiz ? 0 : smooth(lmK, 7, 10.5), lmH = clamp(lmK * 1.7, 16, 44); // a detailed area shows its landmarks from half the scale
       LANDS.forEach((l, j) => {
@@ -387,7 +397,7 @@
       if (supportsLS) ctx.letterSpacing = '0px';
       ctx.globalAlpha = 1; tick('hoodlbl');
       // spots are fixed like flags: their dots (tagged, so spot names keep their old test) and the open spot's name are reserved before section labels, which move or hide around them
-      const spots = drawnSpots = o.spots ? o.spots() : [], pinScale = clamp(k / 12, .75, 1.15), pinSize = isPhone() ? 10.5 : 11.5, openSpot = o.selectedSpot?.(), spotBoxes = [];
+      const spots = drawnSpots = o.spots && !quiz ? o.spots() : [], pinScale = clamp(k / 12, .75, 1.15), pinSize = isPhone() ? 10.5 : 11.5, openSpot = o.selectedSpot?.(), spotBoxes = [];
       for (const sp of spots) {
         const [sx, sy] = toScreen(sp.x, sp.y); if (sx < -20 || sx > W + 20 || sy < -20 || sy > H + 20) { sp._s = null; continue; }
         sp._s = [sx, sy];
@@ -467,8 +477,43 @@
         if (k > 16 && sp.name && !quiz) { const ps = pinSize, tw = measure(sp.name, 500, ps), box = [sx + r + 3, sy - 7, sx + r + 3 + tw + 4, sy + 7]; if (!clash(box, 'dot') || hot) { placed.push(box); ctx.textAlign = 'left'; ctx.font = pinFont; haloText(sp.name, sx + r + 5, sy, ps, P.label); } }
       }
       tick('spots');
+      if (quiz) anim = quizBadges() || anim;
       // me
       if (me) { const [sx, sy] = toScreen(me[0], me[1]); const p = ((t - meT0) % 1800) / 1800; ctx.globalAlpha = .4 * (1 - p); ctx.fillStyle = P.want; ctx.beginPath(); ctx.arc(sx, sy, 6 + 12 * p, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; ctx.beginPath(); ctx.arc(sx, sy, 5, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = P.paper; ctx.lineWidth = 2; ctx.stroke(); }
+      return anim;
+    }
+
+    // ---- the quiz's answer badges ----
+    // quiz.marks(): [{ i, ok, name, dot, t0 }]. A named mark is a pill on its place (just below a place too thin or small to hold it):
+    // the check or the cross, then the name, white on the deep green or red, kept on screen and below the prompt (quiz.top()); the
+    // right place's pill first, a wrong one that would meet it moves up or down. A dot without a name (the end of a round) is a small
+    // round check or cross. t0: the pill pops in
+    let qcKey = '', qcVal = null;
+    function quizColors() { if (!qcVal || qcKey !== P.paper) { qcKey = P.paper; qcVal = { okInk: cssColor('var(--qz-ok-ink)') || '#1b7340', noInk: cssColor('var(--qz-no-ink)') || '#b3203a' }; } return qcVal; }
+    function quizIcon(ok, x, y, r) { ctx.beginPath(); if (ok) { ctx.moveTo(x - r * .9, y + r * .05); ctx.lineTo(x - r * .25, y + r * .7); ctx.lineTo(x + r, y - r * .65); } else { ctx.moveTo(x - r * .7, y - r * .7); ctx.lineTo(x + r * .7, y + r * .7); ctx.moveTo(x + r * .7, y - r * .7); ctx.lineTo(x - r * .7, y + r * .7); } ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(2, r * .42); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke(); }
+    function pill(x, y, w, h) { const r = h / 2; ctx.beginPath(); ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.arc(x + w - r, y + r, r, -Math.PI / 2, Math.PI / 2); ctx.lineTo(x + r, y + h); ctx.arc(x + r, y + r, r, Math.PI / 2, Math.PI * 1.5); ctx.closePath(); }
+    function quizBadges() {
+      const qc = quizColors(), I = insets(), top = Math.max(I.top, quiz.top ? quiz.top() : 0) + 6, bot = H - I.bottom - 4, fs = isPhone() ? 15 : 15.5, t = now(), boxes = []; let anim = false;
+      const ms = quiz.marks().slice().sort((a, b) => (b.ok ? 1 : 0) - (a.ok ? 1 : 0));
+      ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+      for (const m of ms) {
+        const h = HOODS[m.i], col = m.ok ? qc.okInk : qc.noInk; let [sx, sy] = toScreen(h.cx, h.cy);
+        if (m.dot && !m.name) { if (sx < -10 || sx > W + 10 || sy < -10 || sy > H + 10) continue; ctx.beginPath(); ctx.arc(sx, sy, 10, 0, Math.PI * 2); ctx.fillStyle = col; ctx.fill(); ctx.strokeStyle = P.labelHalo; ctx.lineWidth = 2; ctx.stroke(); quizIcon(m.ok, sx, sy, 4.6); continue; }
+        const tw = measure(h.name, 700, fs), iw = fs * .95, bw = tw + iw + 30, bh = fs + 16;
+        const [bx0, by0] = toScreen(BB[m.i][0], BB[m.i][1]), [bx1, by1] = toScreen(BB[m.i][2], BB[m.i][3]);
+        if (by1 - by0 < bh * 2.2 || bx1 - bx0 < bw * .9) sy = by1 + bh / 2 + 6 + bh / 2 <= bot ? by1 + bh / 2 + 6 : by0 - bh / 2 - 6; // a thin or small place keeps its colour in sight: the pill sits just below it (above, near the bottom)
+        sx = clamp(sx, bw / 2 + 6, W - bw / 2 - 6); sy = clamp(sy, top + bh / 2, Math.max(top + bh / 2, bot - bh / 2));
+        let b = [sx - bw / 2, sy - bh / 2, sx + bw / 2, sy + bh / 2];
+        for (const dy of [0, bh + 8, -(bh + 8), 2 * (bh + 8), -2 * (bh + 8)]) { const c = [b[0], b[1] + dy, b[2], b[3] + dy]; if (c[1] >= top - 2 && c[3] <= bot + 2 && !boxes.some(q => c[0] < q[2] && c[2] > q[0] && c[1] < q[3] && c[3] > q[1])) { b = c; break; } }
+        boxes.push(b);
+        const p = m.t0 && !RM.matches ? clamp((t - m.t0) / 260, 0, 1) : 1, sc = .55 + .45 * easeOut(p); if (p < 1) anim = true;
+        ctx.save(); ctx.translate((b[0] + b[2]) / 2, (b[1] + b[3]) / 2); ctx.scale(sc, sc);
+        pill(-bw / 2, -bh / 2, bw, bh); ctx.shadowColor = 'rgba(0,0,0,.28)'; ctx.shadowBlur = 8; ctx.shadowOffsetY = 2; ctx.fillStyle = col; ctx.fill(); ctx.shadowColor = 'transparent';
+        ctx.strokeStyle = P.labelHalo; ctx.lineWidth = 2; ctx.stroke();
+        quizIcon(m.ok, -bw / 2 + 12 + iw / 2, 0, fs * .36);
+        ctx.font = `700 ${fs}px Figtree, system-ui, sans-serif`; ctx.fillStyle = '#fff'; ctx.fillText(h.name, -bw / 2 + 18 + iw, 1);
+        ctx.restore();
+      }
       return anim;
     }
 
@@ -498,6 +543,7 @@
       fly = null; if (mode === 'fly' || mode === 'smooth') Object.assign(goal, cam); mode = 'drag'; vel = { x: 0, y: 0 };
       if (ptrs.size === 1) drag = { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, t: now(), moved: 0, pinched: false };
       else if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 }; if (drag) drag.pinched = true; }
+      if (quiz) { const r = stage.getBoundingClientRect(), h = ptrs.size === 1 && e.pointerType === 'touch' ? hitTest(e.clientX - r.left, e.clientY - r.top, false) : null; press = h && h.type === 'hood' && quiz.pick(h.i) ? h.i : -1; kick(); } // quiz: a finger down shows the place it would pick; the answer is taken on release
       o.onGestureStart && o.onGestureStart();
     });
     stage.addEventListener('pointermove', e => {
@@ -505,13 +551,14 @@
         ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
         const r = stage.getBoundingClientRect();
         if (ptrs.size >= 2 && pinch) {
+          press = -1;
           const [a, b] = [...ptrs.values()], d = Math.hypot(a.x - b.x, a.y - b.y), mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
           if (d > 0 && pinch.d > 0) zoomAt(mx - r.left, my - r.top, pinch.d / d, true);
           panBy(mx - pinch.mx, my - pinch.my); pinch = { d, mx, my }; mode = 'drag'; kick();
         } else if (drag && ptrs.size === 1) {
           const dx = e.clientX - drag.x, dy = e.clientY - drag.y, t = now(), dt = Math.max(1, t - drag.t);
           drag.moved += Math.abs(dx) + Math.abs(dy);
-          if (drag.moved > 5) { stage.classList.add('dragging'); panBy(dx, dy); const a = .35; vel.x = vel.x * (1 - a) + (dx / dt) * a; vel.y = vel.y * (1 - a) + (dy / dt) * a; if (o.onHover) o.onHover(null); kick(); }
+          if (drag.moved > 5) { press = -1; stage.classList.add('dragging'); panBy(dx, dy); const a = .35; vel.x = vel.x * (1 - a) + (dx / dt) * a; vel.y = vel.y * (1 - a) + (dy / dt) * a; if (o.onHover) o.onHover(null); kick(); }
           drag.x = e.clientX; drag.y = e.clientY; drag.t = t;
         }
         return;
@@ -528,12 +575,12 @@
         if (drag && drag.moved <= 5 && !drag.pinched && e.type === 'pointerup') {
           const sx = e.clientX - r.left, sy = e.clientY - r.top, t = now();
           mode = 'still'; // before the callbacks: a tap may start a fly or a zoom
-          if (lastTap && t - lastTap.t < 320 && Math.hypot(lastTap.x - sx, lastTap.y - sy) < 28) { lastTap = null; zoomAt(sx, sy, 1 / 1.9); }
+          if (lastTap && !quiz && t - lastTap.t < 320 && Math.hypot(lastTap.x - sx, lastTap.y - sy) < 28) { lastTap = null; zoomAt(sx, sy, 1 / 1.9); }
           else { lastTap = { t, x: sx, y: sy }; if (o.onTap) o.onTap(hitTest(sx, sy, e.pointerType === 'touch' && !quiz), sx, sy); } // quiz: a tap answers with the place under the finger, not a nearby dot's
         } else if (drag && drag.moved > 5) {
           const speed = Math.hypot(vel.x, vel.y); if (speed > 0.08 && now() - drag.t < 80) { mode = 'inertia'; kick(); } else mode = 'still';
         } else mode = 'still';
-        drag = null;
+        drag = null; if (press >= 0) { press = -1; kick(); }
         o.onGestureEnd && o.onGestureEnd();
       }
     };
@@ -575,7 +622,7 @@
       get area() { return area.id; }, areaAt: (x, y) => areaAt(x, y).id, areas: AREAS,
       zoom(f) { zoomAt(W / 2, H / 2, f); },
       setColors(colors, animate) { colors.forEach((c, i) => { const rgb = hex2rgb(cssColor(c)); colTo[i] = rgb; if (!animate) colNow[i] = rgb.slice(); }); colAnim = !!animate; dirty = true; kick(); },
-      setState(s) { if (s.region !== undefined) region = s.region; if (s.sel !== undefined) sel = s.sel; if (s.selSub !== undefined) selSub = s.selSub; if (s.quiz !== undefined) quiz = s.quiz; dirty = true; kick(); },
+      setState(s) { if (s.region !== undefined) region = s.region; if (s.sel !== undefined) sel = s.sel; if (s.selSub !== undefined) selSub = s.selSub; if (s.quiz !== undefined) { quiz = s.quiz; press = -1; } dirty = true; kick(); },
       setHover(i, sub, spot) { if (i === hover && sub === hoverSub && spot === hoverSpot) return; hover = i; hoverSub = sub; hoverSpot = spot; kick(); },
       pop(i) { markAnim[i] = now(); kick(); },
       setMe(xy) { me = xy; meT0 = now(); kick(); },

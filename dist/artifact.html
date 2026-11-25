@@ -558,6 +558,43 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
 .quiz .score { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 13px; font-weight: 500; }
 .quiz .verdict { font-weight: 600; min-height: 24px; margin: 8px 0; } .quiz .verdict.good { color: var(--good); } .quiz .verdict.bad { color: var(--bad); }
 .quiz .bar { margin: 10px 0 14px; }
+/* the quiz's answer colours: a green and a red that are neither the brand orange nor each other's lightness twin; -ink is the deep
+   shade for outlines, the map's name pills (white text, 5:1 or better) and the dots. Hex only: map.js parses them */
+:root { --qz-ok: #63b783; --qz-no: #e3687a; --qz-ok-ink: #17703d; --qz-no-ink: #b01f3c; --qz-ok-text: #17703d; --qz-no-text: #b01f3c; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --qz-ok: #3f9a64; --qz-no: #c24a5e; --qz-ok-ink: #1f7d48; --qz-no-ink: #b3263f; --qz-ok-text: #6fd197; --qz-no-text: #ff8a9b; } }
+:root[data-theme="dark"] { --qz-ok: #3f9a64; --qz-no: #c24a5e; --qz-ok-ink: #1f7d48; --qz-no-ink: #b3263f; --qz-ok-text: #6fd197; --qz-no-text: #ff8a9b; }
+/* the prompt on the map: under the map chip, left of the control capsule (phone); centred over the map below the search row (desktop).
+   Below the chip's menu and the phone's control capsule with its layers menu, which open over it */
+.qz { position: absolute; z-index: 2; left: max(var(--m), env(safe-area-inset-left, 0px)); right: calc(max(var(--m), env(safe-area-inset-right, 0px)) + 54px); top: calc(max(var(--m), env(safe-area-inset-top, 0px)) + 52px); pointer-events: none; }
+.qz-card { pointer-events: auto; background: var(--glass-strong); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); border-radius: 18px; box-shadow: var(--glass-ring); padding: 11px 15px 11px; }
+.qz-card.is-ok { box-shadow: inset 0 0 0 2px var(--qz-ok-ink), var(--glass-shadow); }
+.qz-card.is-no { box-shadow: inset 0 0 0 2px var(--qz-no-ink), var(--glass-shadow); animation: qz-shake .36s ease-out; }
+.qz-q { margin: 0; font-family: var(--display); font-weight: 700; font-size: 25px; line-height: 1.12; letter-spacing: -.02em; font-variation-settings: "opsz" 96; color: var(--ink); text-wrap: balance; overflow-wrap: anywhere; }
+.qz-find { font-family: var(--sans); font-size: 15px; font-weight: 600; letter-spacing: .02em; color: var(--muted); vertical-align: 3px; margin-right: 2px; }
+.qz-miss { font-size: 19px; line-height: 1.2; }
+.qz-q b.no { color: var(--qz-no-text); } .qz-q b.ok { color: var(--qz-ok-text); }
+.qz-ico { display: inline-grid; place-items: center; width: 1.05em; height: 1.05em; border-radius: 50%; margin-right: 7px; vertical-align: -.14em; color: #fff; }
+.qz-ico svg { width: 66%; height: 66%; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.qz-ico.ok { background: var(--qz-ok-ink); } .qz-ico.no { background: var(--qz-no-ink); }
+.qz-sub { display: flex; align-items: center; gap: 10px; margin-top: 7px; color: var(--muted); font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.qz-dots { display: flex; gap: 4px; }
+.qz-dots i { width: 8px; height: 8px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--line-2); }
+.qz-dots i.now { box-shadow: inset 0 0 0 2px var(--ink); } .qz-dots i.ok { background: var(--qz-ok-ink); box-shadow: none; } .qz-dots i.no { background: var(--qz-no-ink); box-shadow: none; }
+.qz-next { display: flex; width: 100%; height: 46px; margin-top: 10px; font-size: 16px; border-radius: 12px; }
+.qz-next.btn.primary:hover { background: var(--primary, var(--ink)); border-color: var(--primary, var(--ink)); color: var(--primary-ink, var(--paper)); } /* no hover orange: a touch leaves :hover on it, and orange beside the red and green reads as a third answer */
+@keyframes qz-shake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-7px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(2px); } }
+.head .qz-hint { display: block; font-family: var(--sans); font-weight: 500; font-size: 15px; line-height: 1.35; letter-spacing: 0; color: var(--ink-2); }
+.head .tools button[data-tool="qz-quit"] { width: auto; height: 34px; padding: 0 14px; border-radius: 999px; background: var(--paper-2); color: var(--ink); font: 600 14px/1 var(--sans); }
+.quiz .qz-mh { margin: 18px 0 6px; font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.qz-missed { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.qz-missed button { display: flex; align-items: center; width: 100%; text-align: left; border: 1px solid var(--line); background: var(--paper); color: var(--ink); border-radius: var(--r-sm); padding: 9px 12px; font: 600 15px/1.2 var(--sans); }
+.qz-missed button:hover, .qz-missed button[aria-pressed="true"] { border-color: var(--qz-no-ink); }
+.qz-missed button b { flex: 1; min-width: 0; font-weight: 600; } .qz-missed small { color: var(--muted); font-size: 12.5px; font-weight: 500; }
+@media (min-width: 881px) {
+  .qz { left: calc((100% - var(--side) - 2 * var(--m)) / 2); right: auto; width: min(520px, calc(100% - var(--side) - 180px)); transform: translateX(-50%); top: calc(max(var(--m), env(safe-area-inset-top, 0px)) + 54px); }
+  .qz-card { padding: 13px 18px; text-align: center; } .qz-sub { justify-content: center; } .qz-q { font-size: 28px; } .qz-miss { font-size: 21px; }
+  .qz-next { width: auto; min-width: 180px; margin: 12px auto 0; }
+}
 
 /* ---------- desktop: the phone's warm paper glass, at desktop scale ---------- */
 @media not all and (max-width: 880px) {
@@ -2020,6 +2057,7 @@ window.LANDMARKS = [
   const smooth = (v, a, b) => { const t = clamp((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
   const easeOut = t => 1 - Math.pow(1 - t, 4);
   const lerp = (a, b, t) => a + (b - a) * t;
+  const RM = matchMedia('(prefers-reduced-motion: reduce)');
 
   // ---- geometry in map units ----
   const PP = [], PATH = [], BB = [];
@@ -2131,7 +2169,7 @@ window.LANDMARKS = [
     const supportsLS = 'letterSpacing' in ctx;
 
     // state from the app
-    let region = 'all', sel = -1, selSub = -1, hover = -1, hoverSub = -1, hoverSpot = null, quiz = false;
+    let region = 'all', sel = -1, selSub = -1, hover = -1, hoverSub = -1, hoverSpot = null, quiz = false, press = -1; // quiz: false, or the app's { pick(i), marks(), top() } (see quizBadges); press: the place a finger is held on
     const colNow = HOODS.map(() => [200, 200, 200]), colTo = HOODS.map(() => [200, 200, 200]); let colAnim = false;
     const lblA = HOODS.map(() => 0), subA = {}, lmA = LANDS.map(() => 0), bridgeLblA = [0], waterLblA = [0], roadLblA = [0], sfA = [0], starA = {};
     const farA = [1]; // how strongly places outside the selected region fade: 1 while the camera is where the app put it, 0 once the user moves it by hand (else the map is grey exactly where they look)
@@ -2292,6 +2330,15 @@ window.LANDMARKS = [
       // live strokes: hover and selection
       ctx.setTransform(k * dpr, 0, 0, k * dpr, -cam.x * k * dpr + tx, -cam.y * k * dpr + ty); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
       if (hover >= 0 && hover !== sel && !quiz) { ctx.strokeStyle = P.ink; ctx.lineWidth = 1.4 / k; ctx.stroke(PATH[hover]); }
+      if (quiz) { // the place about to be picked (under the pointer, or under a held finger): tinted and outlined. An answer's places: outlined in their colour, the right one pulses
+        const qc = quizColors(), pk = press >= 0 ? press : hover;
+        if (pk >= 0 && quiz.pick(pk)) { ctx.globalAlpha = .2; ctx.fillStyle = P.ink; ctx.fill(PATH[pk]); ctx.globalAlpha = 1; ctx.strokeStyle = P.ink; ctx.lineWidth = 2.6 / k; ctx.stroke(PATH[pk]); }
+        for (const m of quiz.marks()) {
+          if (m.dot && !m.name) continue; ctx.strokeStyle = m.ok ? qc.okInk : qc.noInk; ctx.lineWidth = 2.6 / k; ctx.stroke(PATH[m.i]);
+          const p = m.ok && m.t0 && !RM.matches ? (now() - m.t0) / 1300 : 1;
+          if (p < 1) { const ph = (p * 2) % 1; ctx.globalAlpha = .65 * (1 - ph); ctx.lineWidth = (3 + 18 * ph) / k; ctx.stroke(PATH[m.i]); ctx.globalAlpha = 1; anim = true; }
+        }
+      }
       if (sel >= 0) {
         const cells = subsOf(sel), sp = selSub >= 0 && cells ? cells[selSub] : null, ph = isPhone();
         clipTo(ctx, sel, () => { if (sp && ph && !sp.star) { ctx.globalAlpha = .16; ctx.fillStyle = P.accent; ctx.fill(sp.path); ctx.globalAlpha = 1; } }); // phone: the selected section is tinted and outlined harder than its place (a starred one keeps its gold band instead)
@@ -2323,7 +2370,7 @@ window.LANDMARKS = [
       const clash = (b, self) => placed.some(q => (q.own == null || q.own !== self) && b[0] < q[2] && b[2] > q[0] && b[1] < q[3] && b[3] > q[1]);
       if (o.occluders) for (const b of o.occluders()) placed.push(b); // floating chrome over the canvas (phone)
       for (const b of waterBoxes) placed.push(b);
-      const marks = o.marks ? o.marks() : [];
+      const marks = o.marks && !quiz ? o.marks() : []; // the quiz hides flags and want marks: they are hints
       // landmark glyphs cannot move, so their footprints are reserved first (they are drawn later, above the fills)
       const lmK = k * (area.detail > 1 ? 2 : 1), lmF = quiz ? 0 : smooth(lmK, 7, 10.5), lmH = clamp(lmK * 1.7, 16, 44); // a detailed area shows its landmarks from half the scale
       LANDS.forEach((l, j) => {
@@ -2395,7 +2442,7 @@ window.LANDMARKS = [
       if (supportsLS) ctx.letterSpacing = '0px';
       ctx.globalAlpha = 1; tick('hoodlbl');
       // spots are fixed like flags: their dots (tagged, so spot names keep their old test) and the open spot's name are reserved before section labels, which move or hide around them
-      const spots = drawnSpots = o.spots ? o.spots() : [], pinScale = clamp(k / 12, .75, 1.15), pinSize = isPhone() ? 10.5 : 11.5, openSpot = o.selectedSpot?.(), spotBoxes = [];
+      const spots = drawnSpots = o.spots && !quiz ? o.spots() : [], pinScale = clamp(k / 12, .75, 1.15), pinSize = isPhone() ? 10.5 : 11.5, openSpot = o.selectedSpot?.(), spotBoxes = [];
       for (const sp of spots) {
         const [sx, sy] = toScreen(sp.x, sp.y); if (sx < -20 || sx > W + 20 || sy < -20 || sy > H + 20) { sp._s = null; continue; }
         sp._s = [sx, sy];
@@ -2475,8 +2522,43 @@ window.LANDMARKS = [
         if (k > 16 && sp.name && !quiz) { const ps = pinSize, tw = measure(sp.name, 500, ps), box = [sx + r + 3, sy - 7, sx + r + 3 + tw + 4, sy + 7]; if (!clash(box, 'dot') || hot) { placed.push(box); ctx.textAlign = 'left'; ctx.font = pinFont; haloText(sp.name, sx + r + 5, sy, ps, P.label); } }
       }
       tick('spots');
+      if (quiz) anim = quizBadges() || anim;
       // me
       if (me) { const [sx, sy] = toScreen(me[0], me[1]); const p = ((t - meT0) % 1800) / 1800; ctx.globalAlpha = .4 * (1 - p); ctx.fillStyle = P.want; ctx.beginPath(); ctx.arc(sx, sy, 6 + 12 * p, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; ctx.beginPath(); ctx.arc(sx, sy, 5, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = P.paper; ctx.lineWidth = 2; ctx.stroke(); }
+      return anim;
+    }
+
+    // ---- the quiz's answer badges ----
+    // quiz.marks(): [{ i, ok, name, dot, t0 }]. A named mark is a pill on its place (just below a place too thin or small to hold it):
+    // the check or the cross, then the name, white on the deep green or red, kept on screen and below the prompt (quiz.top()); the
+    // right place's pill first, a wrong one that would meet it moves up or down. A dot without a name (the end of a round) is a small
+    // round check or cross. t0: the pill pops in
+    let qcKey = '', qcVal = null;
+    function quizColors() { if (!qcVal || qcKey !== P.paper) { qcKey = P.paper; qcVal = { okInk: cssColor('var(--qz-ok-ink)') || '#1b7340', noInk: cssColor('var(--qz-no-ink)') || '#b3203a' }; } return qcVal; }
+    function quizIcon(ok, x, y, r) { ctx.beginPath(); if (ok) { ctx.moveTo(x - r * .9, y + r * .05); ctx.lineTo(x - r * .25, y + r * .7); ctx.lineTo(x + r, y - r * .65); } else { ctx.moveTo(x - r * .7, y - r * .7); ctx.lineTo(x + r * .7, y + r * .7); ctx.moveTo(x + r * .7, y - r * .7); ctx.lineTo(x - r * .7, y + r * .7); } ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(2, r * .42); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke(); }
+    function pill(x, y, w, h) { const r = h / 2; ctx.beginPath(); ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.arc(x + w - r, y + r, r, -Math.PI / 2, Math.PI / 2); ctx.lineTo(x + r, y + h); ctx.arc(x + r, y + r, r, Math.PI / 2, Math.PI * 1.5); ctx.closePath(); }
+    function quizBadges() {
+      const qc = quizColors(), I = insets(), top = Math.max(I.top, quiz.top ? quiz.top() : 0) + 6, bot = H - I.bottom - 4, fs = isPhone() ? 15 : 15.5, t = now(), boxes = []; let anim = false;
+      const ms = quiz.marks().slice().sort((a, b) => (b.ok ? 1 : 0) - (a.ok ? 1 : 0));
+      ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+      for (const m of ms) {
+        const h = HOODS[m.i], col = m.ok ? qc.okInk : qc.noInk; let [sx, sy] = toScreen(h.cx, h.cy);
+        if (m.dot && !m.name) { if (sx < -10 || sx > W + 10 || sy < -10 || sy > H + 10) continue; ctx.beginPath(); ctx.arc(sx, sy, 10, 0, Math.PI * 2); ctx.fillStyle = col; ctx.fill(); ctx.strokeStyle = P.labelHalo; ctx.lineWidth = 2; ctx.stroke(); quizIcon(m.ok, sx, sy, 4.6); continue; }
+        const tw = measure(h.name, 700, fs), iw = fs * .95, bw = tw + iw + 30, bh = fs + 16;
+        const [bx0, by0] = toScreen(BB[m.i][0], BB[m.i][1]), [bx1, by1] = toScreen(BB[m.i][2], BB[m.i][3]);
+        if (by1 - by0 < bh * 2.2 || bx1 - bx0 < bw * .9) sy = by1 + bh / 2 + 6 + bh / 2 <= bot ? by1 + bh / 2 + 6 : by0 - bh / 2 - 6; // a thin or small place keeps its colour in sight: the pill sits just below it (above, near the bottom)
+        sx = clamp(sx, I.left + bw / 2 + 6, W - I.right - bw / 2 - 6); sy = clamp(sy, top + bh / 2, Math.max(top + bh / 2, bot - bh / 2)); // the insets: clear of the desktop side panel and the control capsule
+        let b = [sx - bw / 2, sy - bh / 2, sx + bw / 2, sy + bh / 2];
+        for (const dy of [0, bh + 8, -(bh + 8), 2 * (bh + 8), -2 * (bh + 8)]) { const c = [b[0], b[1] + dy, b[2], b[3] + dy]; if (c[1] >= top - 2 && c[3] <= bot + 2 && !boxes.some(q => c[0] < q[2] && c[2] > q[0] && c[1] < q[3] && c[3] > q[1])) { b = c; break; } }
+        boxes.push(b);
+        const p = m.t0 && !RM.matches ? clamp((t - m.t0) / 260, 0, 1) : 1, sc = .55 + .45 * easeOut(p); if (p < 1) anim = true;
+        ctx.save(); ctx.translate((b[0] + b[2]) / 2, (b[1] + b[3]) / 2); ctx.scale(sc, sc);
+        pill(-bw / 2, -bh / 2, bw, bh); ctx.shadowColor = 'rgba(0,0,0,.28)'; ctx.shadowBlur = 8; ctx.shadowOffsetY = 2; ctx.fillStyle = col; ctx.fill(); ctx.shadowColor = 'transparent';
+        ctx.strokeStyle = P.labelHalo; ctx.lineWidth = 2; ctx.stroke();
+        quizIcon(m.ok, -bw / 2 + 12 + iw / 2, 0, fs * .36);
+        ctx.font = `700 ${fs}px Figtree, system-ui, sans-serif`; ctx.fillStyle = '#fff'; ctx.fillText(h.name, -bw / 2 + 18 + iw, 1);
+        ctx.restore();
+      }
       return anim;
     }
 
@@ -2497,15 +2579,16 @@ window.LANDMARKS = [
     }
 
     // ---- gestures ----
-    const ptrs = new Map(); let drag = null, pinch = null, lastTap = null, hoverHit = null;
+    const ptrs = new Map(); let drag = null, pinch = null, lastTap = null, hoverHit = null, downAt = 0; // downAt: the last pointerdown's time (onTap's fourth argument)
     stage.addEventListener('pointerdown', e => {
       if (e.target !== canvas && e.target !== stage) return;
       if (e.pointerType === 'mouse' && e.button !== 0) return;
       try { stage.setPointerCapture(e.pointerId); } catch (err) {}
-      ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); downAt = now();
       fly = null; if (mode === 'fly' || mode === 'smooth') Object.assign(goal, cam); mode = 'drag'; vel = { x: 0, y: 0 };
       if (ptrs.size === 1) drag = { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, t: now(), moved: 0, pinched: false };
       else if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 }; if (drag) drag.pinched = true; }
+      if (quiz) { const r = stage.getBoundingClientRect(), h = ptrs.size === 1 && e.pointerType === 'touch' ? hitTest(e.clientX - r.left, e.clientY - r.top, false) : null; press = h && h.type === 'hood' && quiz.pick(h.i) ? h.i : -1; kick(); } // quiz: a finger down shows the place it would pick; the answer is taken on release
       o.onGestureStart && o.onGestureStart();
     });
     stage.addEventListener('pointermove', e => {
@@ -2513,13 +2596,14 @@ window.LANDMARKS = [
         ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
         const r = stage.getBoundingClientRect();
         if (ptrs.size >= 2 && pinch) {
+          press = -1;
           const [a, b] = [...ptrs.values()], d = Math.hypot(a.x - b.x, a.y - b.y), mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
           if (d > 0 && pinch.d > 0) zoomAt(mx - r.left, my - r.top, pinch.d / d, true);
           panBy(mx - pinch.mx, my - pinch.my); pinch = { d, mx, my }; mode = 'drag'; kick();
         } else if (drag && ptrs.size === 1) {
           const dx = e.clientX - drag.x, dy = e.clientY - drag.y, t = now(), dt = Math.max(1, t - drag.t);
           drag.moved += Math.abs(dx) + Math.abs(dy);
-          if (drag.moved > 5) { stage.classList.add('dragging'); panBy(dx, dy); const a = .35; vel.x = vel.x * (1 - a) + (dx / dt) * a; vel.y = vel.y * (1 - a) + (dy / dt) * a; if (o.onHover) o.onHover(null); kick(); }
+          if (drag.moved > 5) { press = -1; stage.classList.add('dragging'); panBy(dx, dy); const a = .35; vel.x = vel.x * (1 - a) + (dx / dt) * a; vel.y = vel.y * (1 - a) + (dy / dt) * a; if (o.onHover) o.onHover(null); kick(); }
           drag.x = e.clientX; drag.y = e.clientY; drag.t = t;
         }
         return;
@@ -2536,12 +2620,12 @@ window.LANDMARKS = [
         if (drag && drag.moved <= 5 && !drag.pinched && e.type === 'pointerup') {
           const sx = e.clientX - r.left, sy = e.clientY - r.top, t = now();
           mode = 'still'; // before the callbacks: a tap may start a fly or a zoom
-          if (lastTap && t - lastTap.t < 320 && Math.hypot(lastTap.x - sx, lastTap.y - sy) < 28) { lastTap = null; zoomAt(sx, sy, 1 / 1.9); }
-          else { lastTap = { t, x: sx, y: sy }; if (o.onTap) o.onTap(hitTest(sx, sy, e.pointerType === 'touch' && !quiz), sx, sy); } // quiz: a tap answers with the place under the finger, not a nearby dot's
+          if (lastTap && !quiz && t - lastTap.t < 320 && Math.hypot(lastTap.x - sx, lastTap.y - sy) < 28) { lastTap = null; zoomAt(sx, sy, 1 / 1.9); }
+          else { lastTap = { t, x: sx, y: sy }; const h = hitTest(sx, sy, e.pointerType === 'touch' && !quiz); if (o.onTap && !(quiz && e.pointerType === 'touch' && (h.type === 'hood' ? h.i : -1) !== press)) o.onTap(h, sx, sy, downAt); } // quiz: a tap answers with the place under the finger, not a nearby dot's; a finger answers only with the place it lit on touch-down (a release across a border answers nothing)
         } else if (drag && drag.moved > 5) {
           const speed = Math.hypot(vel.x, vel.y); if (speed > 0.08 && now() - drag.t < 80) { mode = 'inertia'; kick(); } else mode = 'still';
         } else mode = 'still';
-        drag = null;
+        drag = null; if (press >= 0) { press = -1; kick(); }
         o.onGestureEnd && o.onGestureEnd();
       }
     };
@@ -2583,7 +2667,7 @@ window.LANDMARKS = [
       get area() { return area.id; }, areaAt: (x, y) => areaAt(x, y).id, areas: AREAS,
       zoom(f) { zoomAt(W / 2, H / 2, f); },
       setColors(colors, animate) { colors.forEach((c, i) => { const rgb = hex2rgb(cssColor(c)); colTo[i] = rgb; if (!animate) colNow[i] = rgb.slice(); }); colAnim = !!animate; dirty = true; kick(); },
-      setState(s) { if (s.region !== undefined) region = s.region; if (s.sel !== undefined) sel = s.sel; if (s.selSub !== undefined) selSub = s.selSub; if (s.quiz !== undefined) quiz = s.quiz; dirty = true; kick(); },
+      setState(s) { if (s.region !== undefined) region = s.region; if (s.sel !== undefined) sel = s.sel; if (s.selSub !== undefined) selSub = s.selSub; if (s.quiz !== undefined) { quiz = s.quiz; press = -1; } dirty = true; kick(); },
       setHover(i, sub, spot) { if (i === hover && sub === hoverSub && spot === hoverSpot) return; hover = i; hoverSub = sub; hoverSpot = spot; kick(); },
       pop(i) { markAnim[i] = now(); kick(); },
       setMe(xy) { me = xy; meT0 = now(); kick(); },
@@ -4716,7 +4800,7 @@ window.Lookback = (() => {
   const toneOf = name => INFO[name].tone || VIBES[INFO[name].vibe].cls;
   function colorFor(i) {
     const h = HOODS[i], info = INFO[h.name];
-    if (state.quiz) return h.name === state.quiz.lit ? 'var(--accent)' : 'var(--grey-fill)';
+    if (state.quiz) return quizFill(h.name);
     if (state.lens === 'vibe') return `var(--${toneOf(h.name)})`;
     if (state.lens === 'fog') return `var(--fog${info.fog})`;
     if (state.lens === 'elev') { const low = REGIONS[h.region].low ? REGIONS[h.region].low.m : 0; return `var(--hill${1 + Math.min(4, Math.floor(Math.sqrt(Math.max(0, h.max - low) / (AREA_MAX[areaKey(h.region)] - low)) * 5))})`; } // from the area's floor (sea level, or an away region's own) to its highest point
@@ -4728,7 +4812,7 @@ window.Lookback = (() => {
   // canDismiss: something is open that a swipe down may close (never the log form, a pin drop, the name or join dialog, search or the quiz)
   const dialogOpen = () => !!document.querySelector('dialog[open]');
   const canDismiss = () => isPhone() && !state.quiz && !state.query && !state.placing && state.view !== 'log' && !dialogOpen() && (!!state.view || level(state.loc) > 0);
-  const sheet = window.Sheet(sheetEl, { grip: $('grip'), head, panel, canDismiss, onDismiss: () => dismiss(), onChange(detent, vis, o) { if (o && (o.resize || o.quiet)) return; if (isPhone() && detent !== 'full' && document.documentElement.classList.contains('searching')) { q.blur(); endSearch(); } if (isPhone() && detent !== 'full' && !map.userMoved) flyToLoc(); } }); // dragging the sheet down leaves search mode so the controls come back
+  const sheet = window.Sheet(sheetEl, { grip: $('grip'), head, panel, canDismiss, onDismiss: () => dismiss(), onChange(detent, vis, o) { if (o && (o.resize || o.quiet)) return; if (isPhone() && detent !== 'full' && document.documentElement.classList.contains('searching')) { q.blur(); endSearch(); } if (isPhone() && detent !== 'full' && !map.userMoved && !state.quiz) flyToLoc(); } }); // dragging the sheet down leaves search mode so the controls come back
 
   // ---------- navigation ----------
   const hoodOfSpot = id => state.spots[id] ? state.spots[id].hood : null;
@@ -4836,10 +4920,10 @@ window.Lookback = (() => {
     if (i == null || state.loc.hood === sp.hood) return hit;
     return { type: 'hood', i, hood: sp.hood, sub: map.hoodPx(i) > 300 ? subIndex(sp.hood, sp.sub) : -1 }; // a section as the place's own hit gives one (map.js hitTest)
   }
-  function onTap(hit, sx, sy) {
+  function onTap(hit, sx, sy, downAt) {
     closeLenses();
     if (state.placing) { if (hit.type === 'water' || hit.type === 'hood' || hit.type === 'landmark' || hit.type === 'spot') placePending(hit.x != null ? [hit.x, hit.y] : map.toMap(sx, sy)); return; }
-    if (state.quiz) { if (hit.type === 'hood' || (hit.type === 'spot' && IDX[hit.hood] != null)) answer(hit.hood); return; } // a spot's hood is the log's word for it: only a name the map knows is an answer
+    if (state.quiz) { if (hit.type === 'hood' && !(downAt < state.quiz.askedAt)) answer(hit.hood); return; } // a tap that went down before this question was shown is not an answer to it
     const l = state.loc; hit = dotHit(hit);
     if (hit.type === 'spot') { go({ spot: hit.id }, { fromMap: true }); return; }
     if (hit.type === 'landmark') { toast(hit.landmark.name + ' · ' + hit.landmark.hood, 2600); if (l.hood !== hit.hood) go({ hood: hit.hood }, { fromMap: true, fly: false }); return; }
@@ -4860,7 +4944,7 @@ window.Lookback = (() => {
     if (hit.type === 'hood') {
       const i = hit.i, name = hit.hood, s = hit.sub >= 0 ? subs(name)[hit.sub] : null;
       map.setHover(i, hit.sub, null); stage.classList.add('pointing');
-      if (state.quiz) { tip.classList.remove('on'); return; }
+      if (state.quiz) { tip.classList.remove('on'); if (!quizMap.pick(i)) { map.setHover(-1, -1, null); stage.classList.remove('pointing'); } return; } // locked on an answer: nothing to point at (but the green place, which is Next after a miss)
       if (s && (l.hood === name || map.hoodPx(i) > 420)) showTip(sx, sy, s.name, name);
       else showTip(sx, sy, name, isDone(i) ? 'Been ✓' : isWant(i) ? 'Want to go' : INFO[name].line);
       return;
@@ -5748,32 +5832,115 @@ window.Lookback = (() => {
     pool = pool.filter(i => HOODS[i].name !== state.loc.hood); if (!pool.length) return;
     go({ hood: HOODS[pool[Math.floor(Math.random() * pool.length)]].name });
   }
+  // The quiz: ten places of the region in play, one at a time. The question is pinned on the map (#qz: under the map chip, beside
+  // the controls); on the phone the sheet drops to its peek and carries only the hint and Quit. The place about to be picked is
+  // tinted (map.js: under the pointer, or under a finger held down; the answer is taken on release). An answer shows at once on the
+  // map: the right place green with its name and a check, and after a miss the tapped place red with its own name and a cross, with
+  // both brought into view. A right answer moves on by itself; a miss waits for Next (Enter or Space, or a tap on the green place)
+  const QZ_NEXT_MS = 1200, QZ_OK = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3 3 7-7"/></svg>', QZ_NO = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>';
+  let qzEl = null;
+  const quizMap = { // what map.js asks while state.quiz is set
+    pick(i) { const q = state.quiz; return !!q && q.round < q.rounds && (!q.locked || (q.miss && HOODS[i].name === q.order[q.round])); },
+    marks() { return state.quiz ? state.quiz.marks : []; },
+    top() { return qzEl && !qzEl.hidden ? qzEl.getBoundingClientRect().bottom : 0; },
+  };
+  function quizFill(name) {
+    const q = state.quiz;
+    if (q.round >= q.rounds) { const r = q.order.indexOf(name); return r < 0 ? 'var(--grey-fill)' : q.results[r] ? 'var(--qz-ok)' : 'var(--qz-no)'; } // the end: the round, found and missed
+    return !q.locked ? 'var(--grey-fill)' : name === q.order[q.round] ? 'var(--qz-ok)' : name === q.picked ? 'var(--qz-no)' : 'var(--grey-fill)';
+  }
+  // fly to bb with its top clear of the prompt (fit, then fit again with the shortfall added above, in map units)
+  function quizFit(bb, pad = 1.08, minW = 0, dur) {
+    const b = bb.slice(), need = quizMap.top() + 10; let v;
+    for (let n = 0; n < 3; n++) { v = map.fitView(b[0], b[1], b[2], b[3], pad, minW); const k = map.W / v.w, sy = (bb[1] - v.y) * k; if (sy >= need - 1) break; b[1] -= (need - sy) / k; }
+    map.flyToView(v, dur);
+  }
+  // after a miss: both places on screen, clear of the prompt, the sheet and the edges, and the right one big enough to see; else fly to them
+  function quizShow(names) {
+    const k = map.k, c = map.cam, top = quizMap.top() + 6, bottom = map.H - (isPhone() ? sheet.visible : 0) - 8, right = isPhone() ? map.W - 4 : sheetEl.getBoundingClientRect().left - 8;
+    const bbs = names.map(n => map.hoodBBox(IDX[n])), u = [Math.min(...bbs.map(b => b[0])), Math.min(...bbs.map(b => b[1])), Math.max(...bbs.map(b => b[2])), Math.max(...bbs.map(b => b[3]))];
+    const seen = bbs.every((b, j) => { const x0 = (b[0] - c.x) * k, y0 = (b[1] - c.y) * k, x1 = (b[2] - c.x) * k, y1 = (b[3] - c.y) * k; return x0 >= 4 && x1 <= right && y0 >= top && y1 <= bottom && (j === 0 || Math.max(x1 - x0, y1 - y0) >= 24); });
+    if (!seen) { quizFit(u, 1.3, U * 0.05); state.quiz.moved = true; }
+  }
+  // the prompt on the map: the question, then the answer; a row of ten dots (green, red, empty) and "3 of 10 · 2 right"
+  // answered: right after an answer (the Next button takes the focus, and a miss shakes the card: its class changes only then).
+  // The status line is made once and only its content changes, so a screen reader announces each answer
+  function quizPrompt(answered) {
+    const qz = state.quiz;
+    if (!qz || qz.round >= qz.rounds) { if (qzEl) qzEl.hidden = true; return; }
+    if (!qzEl) { qzEl = document.createElement('div'); qzEl.className = 'qz'; qzEl.id = 'qz'; qzEl.innerHTML = '<div class="qz-card"><p class="qz-q" role="status" aria-live="polite"></p></div>'; $('app').appendChild(qzEl); }
+    const t = qz.order[qz.round], done = qz.round + (qz.locked ? 1 : 0);
+    const q = !qz.locked ? `<span class="qz-find">Find</span> <b>${esc(t)}</b>` : !qz.miss ? `<span class="qz-ico ok">${QZ_OK}</span>Yes, <b>${esc(t)}</b>` : `<span class="qz-ico no">${QZ_NO}</span><span class="qz-miss">That was <b class="no">${esc(qz.picked)}</b>. <b class="ok">${esc(t)}</b> is in green.</span>`;
+    const dots = qz.order.map((n, r) => `<i class="${r < done ? (qz.results[r] ? 'ok' : 'no') : r === qz.round ? 'now' : ''}"></i>`).join('');
+    qzEl.hidden = false;
+    const card = qzEl.firstChild, st = card.firstChild, rest = `<div class="qz-sub"><span class="qz-dots" aria-hidden="true">${dots}</span><span>${qz.round + 1} of ${qz.rounds} · ${qz.score} right</span></div>${qz.miss ? '<button type="button" class="btn primary qz-next" id="next">Next</button>' : ''}`;
+    card.className = `qz-card ${!qz.locked ? '' : qz.miss ? 'is-no' : 'is-ok'}`;
+    if (st._q !== q) { st._q = q; st.innerHTML = q; }
+    if (card._rest !== rest) { card._rest = rest; while (st.nextSibling) st.nextSibling.remove(); st.insertAdjacentHTML('afterend', rest); const nx = qzEl.querySelector('#next'); if (nx) nx.addEventListener('click', nextClick); } // unchanged (a sync's re-render): left alone, focus and all
+    const nx = qzEl.querySelector('#next'); if (nx && answered && !isPhone()) nx.focus({ preventScroll: true });
+  }
+  // Next as a button: not in the first 450 ms after a miss, when the click a phone sends after a tap can land on the Next that just
+  // appeared under the finger (a tap near the prompt) and skip the answer before it is seen
+  const nextClick = () => { const q = state.quiz; if (q && q.missAt && performance.now() - q.missAt < 450) return; nextRound(); };
   function startQuiz() {
     const pool = NAMES.filter(n => inPlay(IDX[n])), rounds = Math.min(10, pool.length);
     const order = pool.slice(); for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
-    state.quiz = { order: order.slice(0, rounds), rounds, round: 0, score: 0, locked: false, lit: null, region: state.loc.region };
-    map.setState({ quiz: true, sel: -1, selSub: -1 }); recolor(true); go({ region: state.loc.region }, { keepQuiz: true, replace: true, sheet: isPhone() ? 'half' : undefined });
+    if (state.quiz) clearTimeout(state.quiz.timer);
+    state.quiz = { order: order.slice(0, rounds), rounds, round: 0, score: 0, locked: false, miss: false, picked: null, results: [], marks: [], timer: 0, moved: false, region: state.loc.region, askedAt: performance.now() };
+    map.setState({ quiz: quizMap, sel: -1, selSub: -1 }); recolor(true); go({ region: state.loc.region }, { keepQuiz: true, replace: true, sheet: isPhone() ? 'peek' : undefined });
+    quizFit(map.regionBBox(state.quiz.region));
   }
-  function endQuiz(silent) { state.quiz = null; map.setState({ quiz: false }); recolor(true); if (!silent) go({ region: state.loc.region }, { replace: true }); }
-  function renderQuiz(verdict) {
+  function endQuiz(silent) { if (state.quiz) clearTimeout(state.quiz.timer); if (window.Confetti) Confetti.stop(); state.quiz = null; quizPrompt(); map.setState({ quiz: false }); map.setHover(-1, -1, null); recolor(true); if (!silent) go({ region: state.loc.region }, { replace: true }); }
+  function renderQuiz(answered) {
     const qz = state.quiz; if (!qz) return;
+    quizPrompt(answered); if (state.query) return; // search open: the card keeps up, the panel and header stay the search's (render() rebuilds them when it closes)
     if (qz.round >= qz.rounds) {
       const s = qz.score, away = AWAY.includes(qz.region), rank = s >= 10 ? (away ? 'Pit boss' : 'Muni operator') : s >= 8 ? 'Certified local' : s >= 5 ? 'Transplant, two years in' : s >= 2 ? 'Tourist with a good map' : away ? 'Just landed at Harry Reid' : 'Just landed at SFO';
+      const missed = qz.order.filter((n, r) => !qz.results[r]);
       setHead({ eyebrow: 'Where is it?', title: `${s} out of ${qz.rounds}`, onBack: () => endQuiz(), tools: [] });
-      panel.innerHTML = `<div class="quiz"><p class="verdict good">${rank}</p><p class="lead">${s === qz.rounds ? (away ? 'Perfect. You could find the exit from any casino floor.' : 'Perfect. You could give the fog directions.') : 'Play again to meet the ones you missed.'}</p><div class="actions"><button type="button" class="btn primary" id="again">Play again</button><button type="button" class="btn" id="done">Back to the map</button></div></div>`;
-      panel.querySelector('#again').addEventListener('click', startQuiz); panel.querySelector('#done').addEventListener('click', () => endQuiz()); return;
+      panel.innerHTML = `<div class="quiz"><p class="verdict good">${rank}</p><p class="lead">${s === qz.rounds ? (away ? 'Perfect. You could find the exit from any casino floor.' : 'Perfect. You could give the fog directions.') : 'Play again to meet the ones you missed.'}</p>${missed.length ? `<p class="qz-mh">Missed (red on the map)</p><ul class="qz-missed">${missed.map(n => `<li><button type="button" data-qz-miss="${esc(n)}"><span class="qz-ico no">${QZ_NO}</span><b>${esc(n)}</b><small>Show it</small></button></li>`).join('')}</ul>` : ''}<div class="actions"><button type="button" class="btn primary" id="again">Play again</button><button type="button" class="btn" id="done">Back to the map</button></div></div>`;
+      panel.querySelector('#again').addEventListener('click', startQuiz); panel.querySelector('#done').addEventListener('click', () => endQuiz());
+      panel.querySelectorAll('[data-qz-miss]').forEach(b => b.addEventListener('click', () => { // its name on the map, and the map on it
+        const i = IDX[b.dataset.qzMiss]; qz.marks = qz.order.map((n, r) => IDX[n] === i ? { i, ok: false, name: true, t0: performance.now() } : { i: IDX[n], ok: !!qz.results[r], dot: true }); map.redraw(); // the whole round again: only the place shown carries its name
+        panel.querySelectorAll('[data-qz-miss]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+        const bb = map.hoodBBox(i); quizFit(bb, isPhone() ? 2.2 : 2.6, U * 0.06);
+      }));
+      return;
     }
-    const target = qz.order[qz.round];
-    setHead({ eyebrow: `Where is it? · ${qz.round + 1} of ${qz.rounds}`, title: esc(target), onBack: () => endQuiz(), tools: [] });
-    panel.innerHTML = `<div class="quiz"><div class="score">Score ${qz.score}</div><div class="bar"><i style="width:${(qz.round / qz.rounds) * 100}%"></i></div><p class="verdict ${verdict ? verdict.cls : ''}">${verdict ? verdict.text : 'Tap it on the map.'}</p><p style="color:var(--muted);margin:0">Hint: ${esc(INFO[target].line)}</p><div class="actions" style="margin-top:14px">${verdict ? '<button type="button" class="btn primary" id="next">Next</button>' : ''}<button type="button" class="btn quiet" id="quit">Quit</button></div></div>`;
-    const nx = panel.querySelector('#next'); if (nx) nx.addEventListener('click', nextRound); panel.querySelector('#quit').addEventListener('click', () => endQuiz());
+    const target = qz.order[qz.round], hint = esc(INFO[target].line), verdict = !qz.locked ? 'Tap it on the map.' : qz.miss ? `No, that was ${esc(qz.picked)}. ${esc(target)} is in green.` : `Yes, that is ${esc(target)}.`;
+    if (isPhone()) setHead({ eyebrow: 'Hint', title: `<span class="qz-hint">${hint}</span>`, onBack: () => endQuiz(), tools: [{ id: 'qz-quit', label: 'Quit the quiz', icon: 'Quit', run: () => endQuiz() }] });
+    else setHead({ eyebrow: `Where is it? · ${qz.round + 1} of ${qz.rounds}`, title: esc(target), onBack: () => endQuiz(), tools: [] });
+    panel.innerHTML = `<div class="quiz"><div class="score">Score ${qz.score}</div><div class="bar"><i style="width:${((qz.round + (qz.locked ? 1 : 0)) / qz.rounds) * 100}%"></i></div><p class="verdict ${!qz.locked ? '' : qz.miss ? 'bad' : 'good'}">${verdict}</p><p style="color:var(--muted);margin:0">Hint: ${hint}</p><div class="actions" style="margin-top:14px">${qz.miss ? '<button type="button" class="btn primary" id="qz-next2">Next</button>' : ''}<button type="button" class="btn quiet" id="quit">Quit</button></div></div>`;
+    const nx = panel.querySelector('#qz-next2'); if (nx) nx.addEventListener('click', nextClick); panel.querySelector('#quit').addEventListener('click', () => endQuiz());
+    if (isPhone() && sheet.detent === 'peek') sheet.set('peek', { quiet: true }); // the peek is the header's height, and the hint changes it
   }
   function answer(name) {
-    const qz = state.quiz; if (!qz || qz.locked) return; const target = qz.order[qz.round]; qz.locked = true; qz.lit = target; recolor(true); map.setState({ sel: IDX[target] });
-    if (name === target) { qz.score++; renderQuiz({ cls: 'good', text: 'Yes. That is ' + esc(target) + '.' }); } else renderQuiz({ cls: 'bad', text: `No, that is ${esc(name)}. ${esc(target)} is lit up now.` });
-    if (isPhone() && sheet.detent === 'peek') sheet.set('half');
+    const qz = state.quiz; if (!qz || qz.round >= qz.rounds) return; const target = qz.order[qz.round];
+    if (qz.locked) { if (qz.miss && name === target) nextRound(); return; } // after a miss the green place is Next too; any other tap waits
+    const ok = name === target, t0 = performance.now();
+    qz.locked = true; qz.miss = !ok; qz.missAt = ok ? 0 : t0; qz.picked = name; qz.results[qz.round] = ok; if (ok) qz.score++;
+    qz.marks = ok ? [{ i: IDX[target], ok: true, name: true, t0 }] : [{ i: IDX[name], ok: false, name: true, t0 }, { i: IDX[target], ok: true, name: true, t0 }];
+    recolor(false); map.setHover(-1, -1, null); stage.classList.remove('pointing');
+    renderQuiz(true);
+    if (ok) { if (window.Confetti) Confetti.burst({ count: 60, duration: 1.4 }); const r = qz.round; qz.timer = setTimeout(() => { if (state.quiz === qz && qz.round === r) nextRound(); }, QZ_NEXT_MS); }
+    else quizShow([name, target]);
   }
-  function nextRound() { const qz = state.quiz; qz.round++; qz.locked = false; qz.lit = null; recolor(true); map.setState({ sel: -1 }); renderQuiz(); }
+  function nextRound() {
+    const qz = state.quiz; if (!qz || !qz.locked) return; clearTimeout(qz.timer);
+    qz.round++; qz.locked = false; qz.miss = false; qz.picked = null; qz.askedAt = performance.now();
+    const end = qz.round >= qz.rounds;
+    qz.marks = end ? qz.order.map((n, r) => ({ i: IDX[n], ok: !!qz.results[r], dot: true })) : [];
+    recolor(false); map.setHover(-1, -1, null); renderQuiz();
+    if (end) { if (isPhone()) sheet.set('half', { quiet: true }); quizFit(map.regionBBox(qz.region)); }
+    else if (qz.moved) { qz.moved = false; quizFit(map.regionBBox(qz.region)); } // a miss flew to show both places: back to the whole region for the next one
+  }
+  // keys while the quiz is on: Escape quits (before the global handler, which would also step up a level), or first closes the map
+  // chip's menu (the focus back on the chip); Enter or Space is Next after a miss
+  window.addEventListener('keydown', e => {
+    const el = e.target instanceof Element ? e.target : document.body; if (!state.quiz || dialogOpen() || el.matches('input, textarea, select')) return;
+    if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); if (areasOpen()) openAreas(false, true); else endQuiz(); }
+    else if ((e.key === 'Enter' || e.key === ' ') && state.quiz.miss && !el.closest('button, a')) { e.preventDefault(); nextRound(); }
+  }, true);
 
   // ---------- boot ----------
   window.HPP = []; window.HP.forEach(h => { window.HPP[IDX[h.name]] = h.polys.map(poly => poly.map(ring => ring.map(Geom.proj))); });
@@ -5795,7 +5962,7 @@ window.Lookback = (() => {
   }
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { syncThemeColor(); map.refreshPalette(); recolor(false); if (window.StreetMap) StreetMap.restyle(); });
   let wasPhone = isPhone();
-  window.addEventListener('resize', () => { map.resize(); map.redraw(); if (isPhone() !== wasPhone) { wasPhone = isPhone(); if (state.quiz || state.placing) fitHead(); else render(); } else fitHead(); }); // across the breakpoint the recent spots move between the header and the panel (not mid-quiz, where a render drops an answer's verdict and Next, nor mid pin-drop, whose header it replaces) // resize() also catches a devicePixelRatio change (browser zoom)
+  window.addEventListener('resize', () => { map.resize(); map.redraw(); if (isPhone() !== wasPhone) { wasPhone = isPhone(); if (state.quiz) renderQuiz(); else if (state.placing) fitHead(); else render(); } else fitHead(); }); // across the breakpoint the recent spots move between the header and the panel, and the quiz's header and card change layout (not mid pin-drop, whose header a render replaces) // resize() also catches a devicePixelRatio change (browser zoom)
   if (window.Lookback) Lookback.init({ state, panel, go, render, persist, beforeWrite, toast, setHead, esc, attr, KINDS, IDX, BY_SLUG, ownerKey, cleanName, niceDate, isPhone, look: vibeLook, VERDICT });
   window.__sbs = { map, state, go, sheet, maps: { spotQuery, areaQuery, mapsLink, appleLink, spotApple, areaApple }, photos: window.Photos ? Object.assign(Object.create(window.Photos), { ownerKey }) : null, get photoOpts() { return photoOpts; }, feed: { read: readFeed, get news() { return state.news; } } }; // for tests and the console
   window.claude?.hot?.snapshot?.(() => ({ loc: state.loc }));

@@ -54,6 +54,11 @@
     o = o || {};
     const glc = document.createElement('canvas'), lbl = document.createElement('canvas');
     let renderer; try { renderer = new THREE.WebGLRenderer({ canvas: glc, antialias: true, alpha: false, powerPreference: 'high-performance' }); } catch (e) { return null; } // no WebGL here: the flat map
+    // the canvas is opaque: until the scene is ready it shows the theme's water, never black
+    try { renderer.setClearColor(getComputedStyle(document.documentElement).getPropertyValue('--water').trim() || '#888888', 1); renderer.clear(); } catch (e) {}
+    // From here a throw undoes what was done (the catch at the end) and the app makes the flat map; dead stops what was already started
+    const ac = new AbortController(), sig = ac.signal; let dead = false, ro = null;
+    try {
     const G = window.GEO, Geom = window.Geom, HOODS = G.hoods, proj = Geom.proj, REGS = window.REGIONS || {}, SHORT = window.SHORT || {}, SUBD = window.SUBAREAS || {};
     const stage = canvas.parentElement, ctx = lbl.getContext('2d'), supportsLS = 'letterSpacing' in ctx, isPhone = () => window.innerWidth <= 880;
 
@@ -195,6 +200,7 @@
       for (let n = 0; n < 20 && s.w < maxW(ta); n++) { const e = ext(); if (!e.bad && e.x0 >= I.left - .5 && e.x1 <= I.left + vw + .5 && e.y0 >= I.top - .5 && e.y1 <= I.top + vh + .5) break; s.w *= 1.02; centre(); limit(s, ta); }
       return viewOf(s);
     }
+    const topIn = b => { let top = 0; for (let i = 0; i < HOODS.length; i++) { const q = BB[i]; if (q[2] >= b[0] && q[0] <= b[2] && q[3] >= b[1] && q[1] <= b[3]) top = Math.max(top, HT[i] + (i === sel ? LIFT : 0)); } return top; }; // fitView's height for a box
     function startFly(v, dur) {
       const to = stateOf(v), ta = areaObj(to.cx, to.cz);
       if (ta !== area) { // another area: cut to a view a little wider than the target, same centre, facing north, and settle in from there
@@ -335,11 +341,19 @@
       ];
       let k = 0;
       const next = () => {
-        try { steps[k++](); } catch (e) { // the 3D map cannot be made here: say so once in the console, and come back as the flat map
-          console.error('3D map: ' + (e && e.stack || e)); try { sessionStorage.setItem('sbs-map3d-off', '1'); location.reload(); } catch (err) {} return; }
+        if (dead) return;
+        try { steps[k++](); } catch (e) { giveUp(e); return; }
         if (k < steps.length) setTimeout(next, k === steps.length - 1 ? 60 : 0);
       };
       setTimeout(next, 0);
+    }
+    // the 3D map cannot be made (or its first frame drawn) here: say so once in the console, and come back as the flat map, once:
+    // a reload with the session's mark, or where site storage is blocked the same address with ?map=2d (index.html: it refuses the
+    // 3D map, so this cannot come round again)
+    function giveUp(e) {
+      if (dead) return; dead = true; console.error('3D map: ' + (e && e.stack || e));
+      try { sessionStorage.setItem('sbs-map3d-off', '1'); } catch (err) { try { const u = new URL(location.href); if (u.searchParams.get('map') !== '2d') { u.searchParams.set('map', '2d'); location.replace(u.href); } } catch (er) {} return; }
+      try { location.reload(); } catch (err) {}
     }
     function buildNight() {
       if (nightBuilt || !ready) return; nightBuilt = true;
@@ -736,7 +750,9 @@
     // ---- the frame loop: drawn on demand ----
     function kick() { if (!raf) { lastT = now(); raf = requestAnimationFrame(frame); } }
     function setPR(p) { if (p === pr) return; pr = p; renderer.setPixelRatio(pr); renderer.setSize(W, H, false); lbl.width = Math.round(W * pr); lbl.height = Math.round(H * pr); needs = true; }
-    function frame(t) {
+    // until a frame has drawn, an error in one is a 3D map that cannot run here: the flat map instead (giveUp); after that, as any error
+    function frame(t) { if (dead) { raf = 0; return; } if (stat.firstFrame) return draw(t); try { draw(t); } catch (e) { giveUp(e); } }
+    function draw(t) {
       raf = 0; const dt = Math.min(50, t - lastT || 16); lastT = t; let busy = false;
       if (g2 && g2.dirty && ptrs.size >= 2) twoFingers();
       if (mode === 'fly' && fly) { stepFly(t); busy = true; }
@@ -795,7 +811,7 @@
       else if (ptrs.size === 2) { g2 = Object.assign({ mode: null, turn: false }, two()); g2.s0 = g2.s; g2.a0 = g2.a; g2.cx0 = g2.cx; g2.cy0 = g2.cy; if (drag) drag.pinched = true; }
       if (quiz) { const h = ptrs.size === 1 && e.pointerType === 'touch' ? hitTest(e.clientX - r.left, e.clientY - r.top, false) : null; press = h && h.type === 'hood' && quiz.pick(h.i) ? h.i : -1; } // quiz: a finger down shows the place it would pick; the answer is taken on release
       kick(); o.onGestureStart && o.onGestureStart();
-    });
+    }, { signal: sig });
     stage.addEventListener('pointermove', e => {
       const r = stage.getBoundingClientRect();
       if (ptrs.has(e.pointerId)) {
@@ -817,7 +833,7 @@
         return;
       }
       if (e.pointerType !== 'touch' && o.onHover) { const h = hitTest(e.clientX - r.left, e.clientY - r.top); o.onHover(h, e.clientX - r.left, e.clientY - r.top); }
-    });
+    }, { signal: sig });
     const release = e => {
       if (!ptrs.has(e.pointerId)) return;
       ptrs.delete(e.pointerId);
@@ -837,14 +853,14 @@
         o.onGestureEnd && o.onGestureEnd();
       }
     };
-    stage.addEventListener('pointerup', release); stage.addEventListener('pointercancel', release);
-    stage.addEventListener('pointerleave', () => { if (!ptrs.size && o.onHover) o.onHover(null); });
-    stage.addEventListener('contextmenu', e => e.preventDefault());
+    stage.addEventListener('pointerup', release, { signal: sig }); stage.addEventListener('pointercancel', release, { signal: sig });
+    stage.addEventListener('pointerleave', () => { if (!ptrs.size && o.onHover) o.onHover(null); }, { signal: sig });
+    stage.addEventListener('contextmenu', e => e.preventDefault(), { signal: sig });
     stage.addEventListener('wheel', e => {
       e.preventDefault(); const r = stage.getBoundingClientRect();
       let d = e.deltaY; if (e.deltaMode === 1) d *= 16; else if (e.deltaMode === 2) d *= 120; d = clamp(d, -160, 160);
       zoomAt(e.clientX - r.left, e.clientY - r.top, Math.exp(d * (e.ctrlKey ? 0.01 : 0.0028)));
-    }, { passive: false });
+    }, { passive: false, signal: sig });
     north.addEventListener('click', () => { const to = Object.assign({}, goal, { th: 0, off: 0 }); let th = cur.th % (Math.PI * 2); if (th > Math.PI) th -= Math.PI * 2; if (th < -Math.PI) th += Math.PI * 2; cur.th = th; startFly(viewOf(to), 600); });
     glc.addEventListener('webglcontextlost', e => e.preventDefault());
     glc.addEventListener('webglcontextrestored', () => { shadowDirty = true; needs = true; kick(); });
@@ -858,10 +874,13 @@
       // the tilt is nearly straight down from the distance of the first screen (the bay core, as the flat map lands on it)
       const all = base.regionBBox('all'); dFar = Math.max(400, dOf(Math.max(all[2] - all[0], (all[3] - all[1]) * W / H) * 1.06));
       if (!first) { const refit = s => { s.w = s.w * W / W0; return limit(s); }; refit(cur); refit(goal); if (fly) { refit(fly.from); refit(fly.to); } } // keep scale and centre through the new box
-      sync(); needs = true; kick();
+      sync(); needs = true;
+      // the new size has just cleared both canvases: draw them again in this task, not at the next animation frame, so a resize never
+      // shows a black stage (before the scene is ready: its water)
+      if (ready) { if (raf) { cancelAnimationFrame(raf); raf = 0; } lastT = now(); frame(lastT); } else { renderer.clear(); kick(); }
     }
-    new ResizeObserver(resize).observe(stage);
-    (function watchDpr() { try { const mq = matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`); mq.addEventListener('change', () => { resize(); watchDpr(); }, { once: true }); } catch (e) {} })();
+    (ro = new ResizeObserver(resize)).observe(stage);
+    (function watchDpr() { try { const mq = matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`); mq.addEventListener('change', () => { resize(); watchDpr(); }, { once: true, signal: sig }); } catch (e) {} })();
     refreshPalette(); resize(); build();
 
     return {
@@ -872,7 +891,8 @@
       refreshPalette: () => { refreshPalette(); if (ready) applyLook(); needs = true; kick(); },
       fitView, hitTest, hoodBBox: i => BB[i], regionBBox: r => base.regionBBox(r), subs: subsOf, subIndexAt: base.subIndexAt, landmarks: LANDS, bbox: BB,
       // a map point on screen, at the height of what stands there; the map point under a screen point. v: a view from fitView (default: the view on screen)
-      toScreen(x, y, v) { const c = camFor(v), p = project(c, x, surfaceAt(x, y, .15) * c.vex, y); return [p[0], p[1]]; },
+      // box: at the top of the tallest block in that box instead (as fitView frames it), for the top edge of a place as drawn
+      toScreen(x, y, v, box) { const c = camFor(v), p = project(c, x, (box ? topIn(box) : surfaceAt(x, y, .15)) * c.vex, y); return [p[0], p[1]]; },
       toMap(sx, sy, v) { const p = pick(camFor(v), sx, sy); return [p.x, p.y]; },
       flyTo(bb, pad, minWv, dur) { const v = fitView(bb[0], bb[1], bb[2], bb[3], pad, minWv); userMoved = false; startFly(v, dur); },
       flyToView(v, dur) { userMoved = false; startFly(v, dur); },
@@ -895,5 +915,10 @@
         Object.assign(cur, keep); needs = true; kick(); times.sort((a, b) => a - b);
         return { n, avg: +(times.reduce((s, x) => s + x, 0) / n).toFixed(2), p50: +times[n >> 1].toFixed(2), p95: +times[Math.floor(n * .95)].toFixed(2), max: +times[n - 1].toFixed(2) }; },
     };
+    } catch (e) { // the 3D map cannot be made here: the flat canvas back, the 3D canvases, the north button, listeners and renderer gone
+      console.error('3D map: ' + (e && e.stack || e)); dead = true; ac.abort(); if (ro) ro.disconnect();
+      canvas.hidden = false; const nb = lbl.nextElementSibling; if (nb && nb.classList.contains('m3d-north')) nb.remove(); glc.remove(); lbl.remove();
+      try { renderer.dispose(); } catch (err) {} return null;
+    }
   };
 })();

@@ -449,7 +449,7 @@
   // Returns one mesh per place that carries anything ({ place, geometry, ... }), so each can rise with its block.
   function city(placeAt, ground, vegas) {
     adopt();
-    const parts = {}, of = place => parts[place] || (parts[place] = new Builder()), placed = PLACED.map(p => proj([p[1], p[2]])), K25 = 2.5 * K;
+    const parts = {}, of = place => parts[place] || (parts[place] = new Builder()), placed = PLACED.map(p => proj([p[1], p[2]])), K25 = 2.5 * K, foot = []; // foot: [x, z, radius] of everything stood here, for the city fabric to keep clear of
     const clusters = [
       { c: [-122.3990, 37.7918], r: 6.4, n: 40, hi: 205, lo: 42, ok: ['Financial District', 'South of Market', 'Downtown/Civic Center', 'Chinatown'], seed: 7, grid: 9, soma: 45 },
       { c: [-122.2712, 37.8050], r: 4.4, n: 10, hi: 95, lo: 32, ok: ['Oakland'], seed: 11, grid: 26 },
@@ -465,7 +465,7 @@
         const w = (19 + R() * 11 + Math.min(8, h * 2.5)) * K25, dp = w * (0.75 + R() * 0.35), r = Math.max(w, dp) * 0.62;
         if (got.some(g => Math.hypot(g[0] - x, g[1] - z) < g[2] + r + 0.06) || placed.some(g => Math.hypot(g[0] - x, g[1] - z) < 1.25 + r)) continue;
         if ([[0.45, 0], [-0.45, 0], [0, 0.45], [0, -0.45]].some(([dx, dz]) => placeAt(x + dx, z + dz) !== t)) continue; // clear of the block's edge
-        got.push([x, z, r]);
+        got.push([x, z, r]); foot.push([x, z, r + 0.12]);
         const ry = (cl.soma && t === 'South of Market' ? cl.soma : cl.grid), kind = h > 2.2 && R() < 0.4 ? 'stepped' : h > 1.4 && R() < 0.35 ? 'podium' : 'prism';
         tower(of(t), mats[Math.floor(R() * mats.length)], x, ground(x, z), z, w, dp, h, ry, R, kind);
       }
@@ -476,6 +476,7 @@
       const skip = ['The STRAT', 'Luxor', 'Sphere', 'Paris', 'The LINQ', 'LINQ'];
       Object.keys(vegas).forEach(place => vegas[place].forEach(s => {
         const p = proj([s.lon, s.lat]); if (skip.some(k => s.name.indexOf(k) >= 0) || placed.some(g => Math.hypot(g[0] - p[0], g[1] - p[1]) < 1.5)) return;
+        foot.push([p[0], p[1], 1.25]);
         const b = of(place), R = rng(hash(s.name)), g = ground(p[0], p[1]), w = 0.95 + R() * 0.6, dp = 0.26 + R() * 0.08, h = 1.3 + R() * 1.7, ry = [0, 90, 28, -28, 60][Math.floor(R() * 5)], m = 'resort' + Math.floor(R() * 5);
         b.box('podium', p[0], g - 0.6, p[1], w * 1.1, w * 0.8, 0.6 + 0.16, { ry, ao: [0.7, 1] });
         const cs = Math.cos(ry * Math.PI / 180), sn = Math.sin(ry * Math.PI / 180), rows = k => Math.round(k / 0.1), win = (ww, hh) => [Math.round(ww / 0.12), rows(hh)];
@@ -489,7 +490,8 @@
     const on = blvd.map(p => placeAt(p[0], p[1]) || ''); let i0 = 0;
     for (let i = 1; i <= blvd.length; i++) if (i === blvd.length || on[i] !== on[i0]) { const run = strip.slice(i0, Math.min(blvd.length, i + 1)); if (run.length > 1) of(on[i0]).loft('boulevard', run, { flat: true, cap0: true }); i0 = i; }
     blvd.forEach((p, i) => of(on[i]).light([p[0], ground(p[0], p[1]) + 0.12, p[1]], 'gold', 1.1));
-    return Object.keys(parts).map(place => Object.assign(parts[place].finish(), { place }));
+    blvd.forEach((p, i) => { if (i) for (let t = 0; t < 1; t += 0.2) foot.push([blvd[i - 1][0] + (p[0] - blvd[i - 1][0]) * t, blvd[i - 1][1] + (p[1] - blvd[i - 1][1]) * t, 0.3]); });
+    const out = Object.keys(parts).map(place => Object.assign(parts[place].finish(), { place })); out.foot = foot; out.strip = blvd; return out;
   }
 
   // ---------- the flag and the bookmark (unit size: about one unit tall; scaled on the map to hold their size on screen) ----------

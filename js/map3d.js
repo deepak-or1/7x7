@@ -21,7 +21,10 @@
   const RM = matchMedia('(prefers-reduced-motion: reduce)');
   const U = 400;                                  // as js/map.js: zoom limits are tuned in map units of the first canvas
   const FOV = 30, F = 1 / Math.tan(FOV * Math.PI / 360);
-  const D_MIN = 12, D_NEAR = 110, PH_MIN = 0.03, PH_MAX = 1.27, PH_NEAR = 1.0, PH_FAR = 0.16, PH_ADD = 0.45; // the camera's distance and tilt (radians from straight down)
+  const D_MIN = 12, D_NEAR = 110, PH_MIN = 0.03, PH_MAX = 1.45, PH_FIT = 1.27, PH_NEAR = 1.0, PH_FAR = 0.16, PH_ADD = 0.45, CAM_CLEAR = 3.55; // the camera's distance and tilt (radians from straight down): by hand it leans as far as PH_MAX (the sky shows over the skyline), never so low that it would stand inside a hill (CAM_CLEAR above the ground it looks at); a fit leans no further than PH_FIT, so the box it frames stays under the horizon
+  const AMBIENT = true, AMB_MS = 20000, AMB_GAP = 1000 / 30; // what moves by itself (water, fog, ferries, traffic): while the map is in sight, for 20 s after the last touch, 30 frames a second at most; never under reduced motion
+  const FOG_ON = true;                            // the fog bank over the foggy places: false takes it out
+  const FK0 = 5.5, FK1 = 10, FAB_MAX = 420;       // the city fabric rises between these scales (pixels to a map unit at the middle of the view); the most chunks of it kept
   const MARK_MAX = 16;                            // a flag or a bookmark holds its size on screen until it would stand this tall on the map
   const FOCUS_Y = 0.5, VEX_FAR = 1.55, LIFT = 0.85; // the height the camera looks at; how far heights stretch at the far zoom; how far the selected place rises
   const hex2rgb = h => { h = h.replace('#', ''); if (h.length === 3) h = h.split('').map(c => c + c).join(''); const n = parseInt(h, 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; };
@@ -35,9 +38,11 @@
   // ---- the two looks: what no CSS token says (light, air, the tone of a block's sides, the colours of the models) ----
   const LOOKS = {
     paper: { bg: '#e9e5da', fog: [1.7, 8], shore: 1, lift: '#fdfbf6', liftK: 0.05, side: '#6a4529', sideK: 0.14, bevelK: 0.2, key: { c: '#fff2df', i: 2.15, az: 302, el: 44 }, hemi: { sky: '#f5f6f6', ground: '#dccdb2', i: 1.85 }, shadowR: 2.5,
-      tileRough: 0.94, builtRough: 0.82, pane: 0.1, waterRough: 0.78, waterMetal: 0, glow: 0, amb: 0, lights: false, castA: 0.2 },
+      tileRough: 0.94, builtRough: 0.82, pane: 0.1, waterRough: 0.78, waterMetal: 0, glow: 0, amb: 0, lights: false, castA: 0.2,
+      zenith: '#a9c6de', skyGlow: '#ffd9a6', glowK: 0.1, wave: 0.035, glint: 0.42, wash: '#fbfdfd', washK: 0.85, sand: '#eadcbc', pale: '#fffdf8', roofK: 0.4, wallK: 0.24, tree: '#5f8a4d', treeK: 0.62, win: '#000000', fogC: '#fdfdfc', fogK: 0.2 },
     night: { bg: '#0b1118', fog: [1.6, 7.5], shore: 1.25, lift: '#c9d6e6', liftK: 0.04, side: '#05080c', sideK: 0.32, bevelK: 0.14, key: { c: '#b4c8ff', i: 1.05, az: 300, el: 48 }, hemi: { sky: '#9fb2d4', ground: '#2c2a33', i: 1.75 }, shadowR: 2.5,
-      tileRough: 0.9, builtRough: 0.75, pane: 0.3, waterRough: 0.6, waterMetal: 0.1, glow: 0.95, amb: 0.22, lights: true, castA: 0.2 },
+      tileRough: 0.9, builtRough: 0.75, pane: 0.3, waterRough: 0.6, waterMetal: 0.1, glow: 0.95, amb: 0.22, lights: true, castA: 0.2,
+      zenith: '#05080d', skyGlow: '#6a5a78', glowK: 0.35, wave: 0.03, glint: 0.3, wash: '#8fb4cc', washK: 0.4, sand: '#5d5a52', pale: '#aebcd0', roofK: 0.2, wallK: 0.3, tree: '#35584a', treeK: 0.42, win: '#ffc680', fogC: '#6f819b', fogK: 0.11 },
   };
   const BUILT = { // colours of everything built, by material name (the Golden Gate, the steel, the flag and the bookmark take the app's tokens instead)
     paper: { whiteCable: '#eef0ee', white: '#f8f4ec', whiteShade: '#e4ddcf', stone: '#ebe4d5', stoneShade: '#cdc4b0', metal: '#dcdcd8', glass: '#b4c5ce', glassTop: '#d6e0e5', glassDark: '#74858f', roof: '#98a2a8', glassRoof: '#c4d3d8', red: '#d4563a', concrete: '#d2cbbb', concreteLight: '#e6e0d2', road: '#6c7075', roadLight: '#b3b0a8', dark: '#3c4a57', rust: '#b3765a', ochre: '#dcae80', ochreShade: '#b98a5e', dome: '#cc7a50', lagoon: '#a9c9d2', lamp: '#fff3c4', clock: '#fdf9ee', p0: '#9db8cc', p1: '#e6c97a', p2: '#dd9c90', p3: '#a8c096', p4: '#f1e5ca', p5: '#b8a3c5', p6: '#8cb6b1', trim: '#fdfaf2', sphere: '#394655', bronze: '#8e6d51', bronzeShade: '#70553f', wheel: '#f4f1ea', wheelShade: '#c6c2b8', cabin: '#dfe7ec', luxor: '#3a434e', sand: '#d9bc8e', bldg0: '#f4f0e7', bldg1: '#ece6da', bldg2: '#e2dccf', bldg3: '#d6dee1', resort0: '#f3eee4', resort1: '#dcc48e', resort2: '#e8decb', resort3: '#cfd8dc', resort4: '#c4a575', podium: '#e4ddcd', boulevard: '#fdfbf6', pole: '#4f4a41', poleBase: '#3c4a57', roofTop: '#d6cfbf' },
@@ -51,7 +56,7 @@
   const REGION_AT = { sf: [-122.445, 37.757], north: [-122.47, 38.2], east: [-122.06, 37.86], south: [-121.99, 37.265], penin: [-122.3, 37.49], marin: [-122.63, 37.99] }; // where a region's name sits over the whole bay
 
   window.MapView3D = function (canvas, o) {
-    const THREE = window.THREE, M3D = window.M3D || {}, land = M3D.land, MD = M3D.models;
+    const THREE = window.THREE, M3D = window.M3D || {}, land = M3D.land, MD = M3D.models, FB = M3D.fabric, AIR = M3D.air; // the fabric and the air are extras: without their files the map is the plain blocks
     if (!THREE || !land || !MD || !window.MapView) return null;          // three.js or the 3D files did not load: the flat map
     o = o || {};
     const glc = document.createElement('canvas'), lbl = document.createElement('canvas');
@@ -99,7 +104,10 @@
     const farA = [1], markAnim = {}; let me = null, meT0 = 0, drawnSpots = [], lmBox = [], farNames = false;
     const lblA = new Map(), lblLast = new Map(), lmA = LANDS.map(() => 0), measureCache = new Map(), hoodCache = new Map();
     const P = {}; let LK = null, dark = false;                             // the tokens, and the look made from them
-    const stat = { t0: now(), firstFrame: 0, build: {}, blocks: '', frames: 0, lastMs: 0 };
+    const stat = { t0: now(), firstFrame: 0, build: {}, blocks: '', frames: 0, lastMs: 0, amb: 0 };
+    let ambUntil = 0, ambT = 0, ambLast = 0, ambTimer = 0, ambTick = false, olAnim = true, sunAt = 0, sunKey = '', fogLens = false; // ambient motion: until when it runs, its own seconds, the timer of its next frame
+    const poke = () => { ambUntil = now() + AMB_MS; };                    // a touch (or a move the app asked for): the ambient motion runs on from here
+    const ambOn = () => AMBIENT && ready && !RM.matches && !document.hidden && now() < ambUntil;
     const insets = () => o.insets ? o.insets() : { top: 0, right: 0, bottom: 0, left: 0 };
     const kNow = () => W / cur.w;
     const hoodPx = i => (BB[i][2] - BB[i][0]) * kNow() * DETAIL[i];
@@ -115,13 +123,24 @@
       // lifted in the dark so it reads against the water under this light
       LK = Object.assign({}, L, { pal, water: P.water, deep: dark ? mixHex(P.water, '#000000', .38) : mixHex(P.water, P.coast, .43), shallow: dark ? mixHex(P.water, P.coast, .25) : mixHex(P.water, '#ffffff', .31), rim: dark ? P.coast : null,
         landHex: mixHex(P.landOther, P.land, dark ? 1.7 : .25), land: null, liftC: lin(L.lift), sideC: lin(L.side), accent: lin(P.accent), ink: lin(P.ink), okInk: lin(P.okInk), noInk: lin(P.noInk) });
-      LK.land = lin(LK.landHex);
+      LK.land = lin(LK.landHex); LK.haze = L.bg;
+      // the light theme follows the day, gently (js/map3d/air.js sun): the light swings from the east to the west, low and warm at
+      // both ends; the hemisphere fills in what a low sun takes from the tops, so the places' colours read the same all day
+      if (!dark && AIR) {
+        const d = new Date(), m = /[?&]m3d-hour=([\d.]+)/.exec(location.search), s = AIR.sun(m ? +m[1] : d.getHours() + d.getMinutes() / 60, Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 864e5));
+        const ki = L.key.i * (1 + 0.25 * s.low), top0 = L.key.i * Math.sin(L.key.el * Math.PI / 180);
+        LK.key = { c: mixHex(L.key.c, '#ffc98a', s.warm * 0.8), i: ki, az: s.az, el: s.el };
+        LK.hemi = { sky: mixHex(L.hemi.sky, '#f7ead6', s.warm * 0.7), ground: L.hemi.ground, i: L.hemi.i + 0.9 * Math.max(0, top0 - ki * Math.sin(s.el * Math.PI / 180)) };
+        LK.haze = mixHex(L.bg, '#f3dcc0', s.warm * 0.55); LK.zenith = mixHex(L.zenith, '#b9bfd2', s.warm * 0.6); LK.glowK = L.glowK + s.warm * 0.5;
+        sunKey = Math.round(s.az / 3) + '|' + Math.round(s.el / 2) + '|' + Math.round(s.warm * 20);
+      }
     }
 
     // ---- the camera ----
     const dOf = w => w * F * H / (2 * W);                                 // how far the camera stands for a ground width w at the centre
     const phAuto = d => lerp(PH_NEAR, PH_FAR, smooth(Math.log(d), Math.log(D_NEAR), Math.log(dFar)));
-    const phOf = (w, off) => { const a = phAuto(dOf(w)); return clamp(a + off, PH_MIN, Math.min(PH_MAX, a + PH_ADD)); };
+    const phTop = (d, a) => Math.min(PH_MAX, a + PH_ADD, Math.acos(Math.min(1, CAM_CLEAR / d)));
+    const phOf = (w, off) => { const d = dOf(w), a = phAuto(d); return clamp(a + off, PH_MIN, phTop(d, a)); };
     const vexOf = d => 1 + (VEX_FAR - 1) * smooth(Math.log(d), Math.log(240), Math.log(1700)); // heights stretch as the map zooms out, so the hills still stand up when they are a few pixels wide
     // position and axes for a state { cx, cz, w, th, off }
     function camOf(s) {
@@ -190,7 +209,7 @@
       const I = insets(), vw = Math.max(80, W - I.left - I.right), vh = Math.max(80, H - I.top - I.bottom), mx = (x0 + x1) / 2, my = (y0 + y1) / 2, hx = (x1 - x0) / 2 * pad, hy = (y1 - y0) / 2 * pad;
       const ta = areaObj(mx, my), cut = ta !== area;
       let top = 0; for (let i = 0; i < HOODS.length; i++) { const b = BB[i]; if (b[2] >= x0 && b[0] <= x1 && b[3] >= y0 && b[1] <= y1) top = Math.max(top, HT[i] + (i === sel ? LIFT : 0)); }
-      const s = { cx: mx, cz: my, w: Math.max(hx * 2, 1), th: cut ? 0 : goal.th, off: cut ? 0 : goal.off }; // another area is a cut, and a cut faces north
+      const s = { cx: mx, cz: my, w: Math.max(hx * 2, 1), th: cut ? 0 : goal.th, off: cut ? 0 : Math.min(goal.off, PH_FIT - PH_NEAR) }; // another area is a cut, and a cut faces north; a fit comes back up from the lowest tilts
       const ext = () => { const c = camOf(s), e = { x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity, bad: false };
         for (const X of [mx - hx, mx + hx]) for (const Z of [my - hy, my + hy]) for (const Y of [0, top]) { const p = project(c, X, Y * c.vex, Z); if (p[2] <= 1e-6) e.bad = true; e.x0 = Math.min(e.x0, p[0]); e.x1 = Math.max(e.x1, p[0]); e.y0 = Math.min(e.y0, p[1]); e.y1 = Math.max(e.y1, p[1]); }
         return e; };
@@ -226,14 +245,16 @@
     }
     // what is under a screen point for a state (the top of a block, or the water) and its height, and the move of the centre that
     // brings it back under that point after the state changed: pans, zooms and pinches hold on to the map itself, not to a flat plane under it
-    function grabAt(s, sx, sy) { const p = pick(camOf(s), sx, sy); return { x: p.x, z: p.y, h: p.i >= 0 ? topAt(p.i) : 0 }; }
-    function hold(s, g, sx, sy) { const c = camOf(s), p = planeAt(c, sx, sy, g.h * c.vex); s.cx += g.x - p[0]; s.cz += g.z - p[1]; }
+    // (a finger in the sky holds the ground just under the horizon)
+    const underSky = (c, sy) => Math.max(sy, H / 2 - c.g / Math.tan(c.ph) + H * 0.05);
+    function grabAt(s, sx, sy) { const c = camOf(s), p = pick(c, sx, underSky(c, sy)); return { x: p.x, z: p.y, h: p.i >= 0 ? topAt(p.i) : 0 }; }
+    function hold(s, g, sx, sy) { const c = camOf(s), p = planeAt(c, sx, underSky(c, sy), g.h * c.vex); s.cx += g.x - p[0]; s.cz += g.z - p[1]; }
     function zoomAt(sx, sy, factor, instant) { // keep what is under (sx, sy) where it is
       const b = instant ? cur : goal, a = grabAt(b, sx, sy); b.w = clamp(b.w * factor, minW(), maxW()); hold(b, a, sx, sy); limit(b);
       if (instant) { Object.assign(goal, cur); mode = 'drag'; } else if (mode !== 'smooth') { fly = null; mode = 'smooth'; }
       userMoved = true; kick();
     }
-    function setTilt(s, d) { const a = phAuto(dOf(s.w)); s.off = clamp(phOf(s.w, s.off) + d, PH_MIN, Math.min(PH_MAX, a + PH_ADD)) - a; }
+    function setTilt(s, d) { const dd = dOf(s.w), a = phAuto(dd); s.off = clamp(phOf(s.w, s.off) + d, PH_MIN, phTop(dd, a)) - a; }
 
     // ---- the scene ----
     renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap; renderer.shadowMap.autoUpdate = false;
@@ -247,11 +268,20 @@
     const secG = new THREE.Group(); landG.add(secG);
     const C3 = new THREE.Color(), col = hex => { C3.set(hex); return [C3.r, C3.g, C3.b]; };
     let tiles = null, tileMesh = null, tilePos = null, tileCol = null, baseY = null, tileS = null, landMesh = null, landS = null, bridges = null, icons = [], cityParts = [];
+    let blockRings = null, cityFoot = [], cityStrip = [];
     let rim = null, rimPos = null, flags = null, books = null, waterTex = null, wcv = null, wbox = null, wsc = 1, beam = null, nightBuilt = false, scatter = null, shadowDirty = true, vex = 1, lmScale = 1, sh = {}, lightBasis = null;
     const tileMat = new THREE.MeshStandardMaterial({ vertexColors: true, metalness: 0 }), landMat = new THREE.MeshStandardMaterial({ vertexColors: true, metalness: 0, roughness: 0.95 });
     const farMat = new THREE.MeshStandardMaterial({ metalness: 0, roughness: 0.95 }), waterMat = new THREE.MeshStandardMaterial({});
     const inlandMat = new THREE.MeshStandardMaterial({ metalness: 0, roughness: 0.5, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
     const markMat = new THREE.MeshStandardMaterial({ vertexColors: true, metalness: 0, roughness: 0.6 });
+    // One small texture the fabric's shaders read: row 0, a texel per place, its top's colour as painted (paintTile) and how far it
+    // is lifted (setLift); row 1, a texel per chunk of fabric, how far it has grown
+    let TW = 512; while (TW < HOODS.length) TW *= 2;
+    const placeData = new Float32Array(TW * 2 * 4), placeTex = new THREE.DataTexture(placeData, TW, 2, THREE.RGBAFormat, THREE.FloatType); placeTex.magFilter = placeTex.minFilter = THREE.NearestFilter; placeTex.needsUpdate = true;
+    const fabU = { uPlace: { value: placeTex }, uTexW: { value: TW }, uGrow: { value: 0 }, uFocus: { value: new THREE.Vector4(0, 0, 1, 2) }, uPale: { value: new THREE.Color() }, uRoofK: { value: 0.5 }, uWallK: { value: 0.3 }, uTree: { value: new THREE.Color() }, uTreeK: { value: 0.5 }, uWin: { value: new THREE.Color(0, 0, 0) } };
+    const fab = { gen: null, gl: null, chunks: new Map(), queue: [], slots: Array.from({ length: TW }, (_, i) => TW - 1 - i), timer: 0, live: 0, land: new Map(), key: '', nb: 0, nt: 0 };
+    const sky = AIR ? AIR.sky(THREE) : null; if (sky) scene.add(sky.mesh);
+    const waterU = AIR ? AIR.water(THREE, waterMat) : null; let noise = null, wash = null, fogBank = null, ferries = [], traffic = null;
     function meshOf(S, mat) {
       const g = new THREE.BufferGeometry();
       g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(S.pos), 3)); g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(S.nor), 3));
@@ -298,7 +328,7 @@
     function build() {
       const steps = [
         () => { // the blocks
-          const t0 = now(), ol = land.blocks(), tb = land.buildTiles(ol); stat.blocks = ol.from; tiles = tb.tiles; tileS = tb.mesh;
+          const t0 = now(), ol = land.blocks(), tb = land.buildTiles(ol); stat.blocks = ol.from; tiles = tb.tiles; tileS = tb.mesh; blockRings = ol.blocks;
           tileMesh = meshOf(tileS, tileMat); tileMesh.castShadow = tileMesh.receiveShadow = true; landG.add(tileMesh);
           tilePos = tileMesh.geometry.attributes.position; tileCol = tileMesh.geometry.attributes.color; baseY = new Float32Array(tileS.n); for (let i = 0; i < tileS.n; i++) baseY[i] = tileS.pos[i * 3 + 1];
           tileMesh.geometry.boundingBox.max.y += LIFT; tileMesh.geometry.boundingSphere.radius += LIFT;
@@ -332,21 +362,41 @@
           { const S = 16000, cx = 500, cz = 750, g = new THREE.BufferGeometry(), Pp = [cx - S, 0, cz - S, cx - S, 0, cz + S, cx + S, 0, cz + S, cx + S, 0, cz - S], uv = [];
             for (let i = 0; i < 4; i++) uv.push((Pp[i * 3] - wbox[0]) / (wbox[2] - wbox[0]), 1 - (Pp[i * 3 + 2] - wbox[1]) / (wbox[3] - wbox[1]));
             g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(Pp), 3)); g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array([0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0]), 3)); g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(uv), 2)); g.setIndex([0, 1, 2, 0, 2, 3]);
-            scene.add(new THREE.Mesh(g, waterMat)); }
+            const sea = new THREE.Mesh(g, waterMat); sea.receiveShadow = true; scene.add(sea); } // the blocks, the bridges and the towers throw their shadows on it too, close in
           stat.build.land = now() - t0;
         },
-        () => { const t0 = now(); applyLook(); stat.build.look = now() - t0; ready = true; needs = true; kick(); },
+        () => { const t0 = now(); applyLook(); stat.build.look = now() - t0; ready = true; needs = true; poke(); kick(); },
         () => { // after the first frame: the skylines and the Strip's resorts (by place, so each rises with its block), then the night's lights
           const t0 = now(), strip = {}; HOODS.forEach(h => { if (REGS[h.region] && REGS[h.region].away && SUBD[h.name]) strip[h.name] = SUBD[h.name]; });
-          cityParts = MD.city((x, z) => { const i = hoodAt(x, z); return i >= 0 ? HOODS[i].name : null; }, ground, strip).map(part => { part.mesh = addBuilt(part); part.hood = IDX[part.place] != null ? IDX[part.place] : -1; part.pts = dark ? pointsOf(part.lights, part.mesh) : null; return part; });
+          const made = MD.city((x, z) => { const i = hoodAt(x, z); return i >= 0 ? HOODS[i].name : null; }, ground, strip); cityFoot = made.foot || []; cityStrip = made.strip || [];
+          cityParts = made.map(part => { part.mesh = addBuilt(part); part.hood = IDX[part.place] != null ? IDX[part.place] : -1; part.pts = dark ? pointsOf(part.lights, part.mesh) : null; return part; });
           paintBuilt(); if (dark) buildNight(); stat.build.city = now() - t0; shadowDirty = true; needs = true; kick();
+        },
+        // From here on, extras: a step of them that fails says so in the console and is left out; the map stays (extra, below)
+        extra('air', () => { // the air (js/map3d/air.js): the water's ripples, the wash round the blocks
+          noise = AIR.noiseTex(THREE); waterU.uNoise.value = noise; const rings = []; (blockRings || []).forEach(pieces => pieces.forEach(rs => rs.forEach(r => rings.push(r)))); wash = AIR.wash(THREE, rings); scene.add(wash.mesh); applyAir();
+        }),
+        extra('fog', () => { buildFog(); applyAir(); }),
+        extra('life', () => { buildLife(); paintBuilt(); applyAir(); }),
+        () => { // the city fabric (js/map3d/fabric.js): only its plan; its chunks are made as the camera comes near
+          const t0 = now(); try { if (FB && FB.gl) {
+            const avoid = []; for (const ic of icons) avoid.push([ic.x, ic.z, ic.r * 1.25 + 0.2]); for (const f of cityFoot) avoid.push(f); HOODS.forEach(h => avoid.push([h.cx, h.cy, 0.5]));
+            fab.gen = FB.make({ HOODS, BB, HT, INFO: window.INFO, SUBD, REGS, proj, inTop: (i, x, z) => Geom.inPolys(tiles[i].tops, x, z), avoid, strip: cityStrip }); fab.gl = FB.gl(THREE, fabU);
+            // its four shaders are made now, one a frame, on a building and a tree nobody sees: not in the middle of the first flight in
+            const d = fab.gl.mesh({ ix: 0, iz: 0, nb: 1, nt: 1, b: new Float32Array([cur.cx, 0, cur.cz, 0, 1, 1, 1, 0, 0, 0, 0]), t: new Float32Array([cur.cx, 0, cur.cz, 1, 0, 0, 0]) }, fab.slots.shift());
+            for (const m of [d.b, d.t]) { m.frustumCulled = false; m.castShadow = false; }
+            const seq = [() => landG.add(d.b), () => landG.add(d.t), () => { d.b.castShadow = d.t.castShadow = true; shadowDirty = true; }, () => { for (const m of [d.b, d.t]) { landG.remove(m); m.geometry.dispose(); } }];
+            let q = 0; const go = () => { if (dead) return; const t1 = now(); seq[q++](); needs = true; if (raf) { cancelAnimationFrame(raf); raf = 0; } lastT = now(); frame(lastT); stat.build['warm' + q] = now() - t1; if (q < seq.length) setTimeout(go, 120); }; setTimeout(go, 120);
+          } } catch (e) { fab.gl = null; console.warn('3D map, the city fabric left out: ' + (e && e.stack || e)); }
+          stat.build.fabric = now() - t0; needs = true; kick();
         },
       ];
       let k = 0;
+      function extra(name, fn) { return () => { const t0 = now(); if (AIR) try { fn(); } catch (e) { console.warn('3D map, ' + name + ' left out: ' + (e && e.stack || e)); } stat.build[name] = now() - t0; needs = true; kick(); }; }
       const next = () => {
         if (dead) return;
         try { steps[k++](); } catch (e) { giveUp(e); return; }
-        if (k < steps.length) setTimeout(next, k === steps.length - 1 ? 60 : 0);
+        if (k < steps.length) setTimeout(next, k === 4 ? 60 : k > 4 ? 30 : 0); // after the first frame: a breath between the steps
       };
       setTimeout(next, 0);
     }
@@ -360,7 +410,7 @@
     }
     function buildNight() {
       if (nightBuilt || !ready) return; nightBuilt = true;
-      pointsOf(bridges.lights); icons.forEach(ic => pointsOf(ic.lights, ic.mesh)); cityParts.forEach(p => { if (!p.pts) p.pts = pointsOf(p.lights, p.mesh); });
+      pointsOf(bridges.lights); icons.forEach(ic => pointsOf(ic.lights, ic.mesh)); cityParts.forEach(p => { if (!p.pts) p.pts = pointsOf(p.lights, p.mesh); }); lifeNight();
       // a scatter of small warm lights over every place, denser where it is busy: on a loose street grid, most crossings dark, so
       // it reads as blocks of lit streets, not as stars
       const R = (() => { let s = 4242; return () => (s = (s * 48271) % 2147483647) / 2147483647; })(), dens = { buzz: 1, sun: 0.55, fog: 0.5, hills: 0.4, water: 0.42, green: 0.07 }, list = [], INFO = window.INFO || {};
@@ -378,6 +428,78 @@
       const lux = icons.find(i => i.id === 'luxor'); // the Luxor's sky beam
       if (lux) { const g = new THREE.CylinderGeometry(0.28, 0.05, 30, 10, 1, true); g.translate(0, lux.h + 15, 0); beam = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0xbcd0ff, transparent: true, opacity: 0.09, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false })); lux.mesh.add(beam); }
     }
+    // the fog bank: over the places the app calls foggy (data/info.js fog 4 and 5) and the Golden Gate, draped over their tops
+    function buildFog() {
+      if (!FOG_ON || !noise) return; const INFO = window.INFO || {}, places = [], box = [Infinity, Infinity, -Infinity, -Infinity];
+      HOODS.forEach((h, i) => { const f = (INFO[h.name] || {}).fog; if (!(f >= 4) || !PP[i] || areaObj(h.cx, h.cy) !== AREAS[0]) return; places.push({ polys: PP[i], k: f >= 5 ? 1 : 0.6 }); const b = BB[i]; box[0] = Math.min(box[0], b[0]); box[1] = Math.min(box[1], b[1]); box[2] = Math.max(box[2], b[2]); box[3] = Math.max(box[3], b[3]); });
+      if (!places.length) return; const gg = bridges.frames.gg, mid = gg.P(gg.L / 2, 0, 0);
+      box[0] -= 16; box[1] -= 12; box[2] += 12; box[3] += 12;
+      fogBank = AIR.fog(THREE, AIR.fogMask(THREE, box, places, [[mid[0], mid[2], 9, 6, 0.95], [mid[0] - 10, mid[2] + 1, 12, 8, 0.7]]), box, noise, ground, [0.45, 0.9, 1.4]); landG.add(fogBank.group);
+    }
+    // what moves: three ferries out of the Ferry Building, and at night the traffic on the three great bridges
+    const FERRIES = [[[-122.3915, 37.7985], [-122.3990, 37.8125], [-122.4300, 37.8160], [-122.4560, 37.8350], [-122.4745, 37.8545]],
+      [[-122.3895, 37.7965], [-122.3790, 37.7895], [-122.3570, 37.7900], [-122.3410, 37.7955]],
+      [[-122.3900, 37.7995], [-122.3930, 37.8300], [-122.4060, 37.8720], [-122.4380, 37.9050], [-122.4580, 37.9260]]];
+    function buildLife() {
+      const wg = AIR.wake(THREE), wm = AIR.wakeMat(THREE);
+      FERRIES.forEach((r, k) => { const b = new MD.Builder(); AIR.ferryModel(b); const model = b.finish(), mesh = addBuilt(model, false, scene), wk = new THREE.Mesh(wg, wm); wk.position.y = 0.012; wk.renderOrder = 2; mesh.add(wk);
+        ferries.push({ mesh, wake: wk, lights: model.lights, pts: null, path: AIR.ferryPath(r.map(proj)), off: 9 + k * 23, speed: 0.2 + k * 0.03 }); });
+      const R = (() => { let s = 99; return () => (s = (s * 16807) % 2147483647) / 2147483647; })(), cars = [], list = [];
+      for (const [f, hw] of [[bridges.frames.gg, 6.5], [bridges.frames.bayWest, 4.8], [bridges.frames.bayEast, 17]]) for (const dir of [-1, 1]) { const n = Math.max(3, Math.round(f.L / 260)); for (let i = 0; i < n; i++) { cars.push({ f, lat: dir * hw, dir, x0: (i + R() * 0.7) / n * f.L, v: 30 + R() * 8 }); list.push({ x: 0, y: 0, z: 0, kind: dir > 0 ? '#fff0d0' : '#ff5846', size: 0.5 }); } }
+      traffic = { cars, pts: pointsOf(list) }; if (traffic.pts) traffic.pts.frustumCulled = false;
+      if (nightBuilt) lifeNight(); stepLife();
+    }
+    function lifeNight() { for (const f of ferries) if (!f.pts) f.pts = pointsOf(f.lights, f.mesh); }
+    function stepLife() {
+      const show = Q.life && !quiz && area === AREAS[0], s = clamp(lmScale * 1.9, 1.9, 4.5);
+      for (const f of ferries) { const p = f.path.at(f.off + ambT * f.speed); f.mesh.visible = show; f.mesh.position.set(p[0], 0.004, p[1]); f.mesh.rotation.y = p[2]; f.mesh.scale.setScalar(s); }
+      if (traffic && traffic.pts) { traffic.pts.visible = show && !!LK.lights; if (traffic.pts.visible) { const a = traffic.pts.geometry.attributes.position; traffic.cars.forEach((c, i) => { const x = (((c.x0 + c.dir * ambT * c.v) % c.f.L) + c.f.L) % c.f.L, q = c.f.D(x, c.lat, 2.2); a.array[i * 3] = q[0]; a.array[i * 3 + 1] = q[1]; a.array[i * 3 + 2] = q[2]; }); a.needsUpdate = true; } }
+    }
+    // the look of the air's own pieces (made after the first look was applied)
+    function applyAir() { const L = LK; if (wash) wash.U.uCol.value.set(L.wash); if (fogBank) fogBank.U.uCol.value.set(L.fogC); for (const f of ferries) f.wake.material.uniforms.uCol.value.set(L.wash); }
+
+    // ---- the city fabric: chunks of it made as the camera comes near, a few milliseconds at a time, kept while they are near ----
+    const CS = FB ? FB.CS : 8, Q = { level: 0, life: true, fabShadow: true, shadows: true, fab: 1, cap: [2, 3] }; // Q: what the frame rate allows (the governor below)
+    const fabDist = (ch, f) => Math.hypot((ch.ix + 0.5) * CS - f.x, (ch.iz + 0.5) * CS - f.y);
+    function fabLand(ix, iz) { const k = ix * 65536 + iz; let v = fab.land.get(k); if (v === undefined) { const x0 = ix * CS, z0 = iz * CS; v = false; for (let i = 0; i < HOODS.length && !v; i++) { const b = BB[i]; v = b[2] > x0 && b[0] < x0 + CS && b[3] > z0 && b[1] < z0 + CS; } fab.land.set(k, v); } return v; }
+    function fabDrop(k, ch) { for (const m of [ch.b, ch.t]) if (m) { landG.remove(m); m.geometry.dispose(); } if (ch.slot != null) { placeData[(TW + ch.slot) * 4] = 0; fab.slots.push(ch.slot); fab.live--; fab.nb -= ch.nb; fab.nt -= ch.nt; } fab.chunks.delete(k); }
+    function fabPump() {
+      fab.timer = 0; if (dead || !fab.gen) return; const t0 = now(), budget = moving ? 2.5 : 7, f = fabU.uFocus.value; let made = false;
+      while (fab.queue.length && now() - t0 < budget) {
+        const q = fab.queue.shift(); if (fab.chunks.has(q.k) || fabDist(q, f) > f.w + CS * 2) continue;     // made already, or the view has moved on
+        const c = fab.gen.chunk(q.ix, q.iz); if (!c.nb && !c.nt) { fab.chunks.set(q.k, { ix: q.ix, iz: q.iz }); continue; }
+        if (!fab.slots.length) { fab.queue.length = 0; break; }
+        const slot = fab.slots.pop(), m = fab.gl.mesh(c, slot); placeData[(TW + slot) * 4] = 0; for (const mm of [m.b, m.t]) if (mm) landG.add(mm);
+        fab.chunks.set(q.k, { ix: q.ix, iz: q.iz, slot, b: m.b, t: m.t, g: 0, nb: c.nb, nt: c.nt }); fab.live++; fab.nb += c.nb; fab.nt += c.nt; made = true;
+      }
+      if (made) { needs = true; kick(); }
+      if (fab.live > FAB_MAX) { const far = [...fab.chunks].filter(e => e[1].slot != null).map(e => [fabDist(e[1], f), e]).sort((a, b) => b[0] - a[0]); for (let i = 0; i < far.length && fab.live > FAB_MAX * 0.8; i++) fabDrop(far[i][1][0], far[i][1][1]); }
+      if (fab.queue.length) fab.timer = setTimeout(fabPump, 0);
+    }
+    // each frame: how far the fabric stands for the zoom, the circle of ground it stands in (a little ahead of the middle of a
+    // tilted view), which chunks that asks for, and each chunk's own rise when it is new
+    function fabStep(dt, c) {
+      if (!fab.gl) return false;
+      const k = kNow(), tgt = quiz ? 0 : smooth(k, FK0, FK1) * (Q.fab > 0 ? 1 : 0), U = fabU; let anim = false;
+      if (tgt !== U.uGrow.value) { U.uGrow.value = tgt; shadowDirty = true; }
+      const R1 = clamp(c.d * (2 + 2.4 * smooth(c.ph, 0.9, 1.4)), 26, 84), fx = cur.cx, fz = cur.cz;
+      U.uFocus.value.set(fx, fz, R1 * 0.86, R1); lineUp.value = 0.34 * tgt;
+      if (k > FK0 * 0.75 && !quiz && Q.fab > 0) {
+        const i0 = Math.floor((fx - R1) / CS), i1 = Math.floor((fx + R1) / CS), j0 = Math.floor((fz - R1) / CS), j1 = Math.floor((fz + R1) / CS), key = [i0, i1, j0, j1].join(',');
+        if (key !== fab.key) { fab.key = key; const q = []; for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) { const d = Math.hypot((i + 0.5) * CS - fx, (j + 0.5) * CS - fz), kk = i * 65536 + j; if (d > R1 + CS * 0.7 || fab.chunks.has(kk) || !fabLand(i, j)) continue; q.push({ k: kk, ix: i, iz: j, d }); } q.sort((a, b) => a.d - b.d); fab.queue = q; }
+        if (fab.queue.length && !fab.timer) fab.timer = setTimeout(fabPump, 0);
+      }
+      const f = U.uFocus.value;
+      for (const ch of fab.chunks.values()) {
+        if (ch.slot == null) continue;
+        if (ch.g < 1 && tgt > 0) { ch.g = RM.matches ? 1 : Math.min(1, ch.g + dt / 450); placeData[(TW + ch.slot) * 4] = 1 - Math.pow(1 - ch.g, 3); placeTex.needsUpdate = true; anim = true; shadowDirty = true; }
+        const vis = tgt > 0 && fabDist(ch, f) < R1 + CS;
+        if (ch.b) { ch.b.visible = vis; ch.b.geometry.instanceCount = Math.ceil(ch.nb * Q.fab); ch.b.castShadow = Q.fabShadow; }
+        if (ch.t) { ch.t.visible = vis; ch.t.geometry.instanceCount = Math.ceil(ch.nt * Q.fab); ch.t.castShadow = Q.fabShadow; }
+      }
+      return anim;
+    }
+
     // The sea's texture: the open ocean deep, lightening towards every shore, the shallows along it, and soft shadows painted on the
     // water (a contact shade on the side away from the light, each bridge deck's shadow moved by its height). The wide soft glow is
     // drawn small and stretched, which blurs it the same in every browser (canvas filters are not in all of them).
@@ -392,6 +514,11 @@
       c.setTransform(wsc, 0, 0, wsc, -bx0 * wsc, -bz0 * wsc); c.lineJoin = c.lineCap = 'round'; c.strokeStyle = L.shallow;
       for (const [w, a] of [[44, .05], [30, .07], [19, .1], [11, .14], [6, .2], [2.6, .3]]) { c.globalAlpha = Math.min(1, a * L.shore); c.lineWidth = w; c.stroke(path); }
       if (L.rim) { c.globalAlpha = 0.55; c.strokeStyle = L.rim; c.lineWidth = 1.1; c.stroke(path); }
+      // sand along the open ocean: the shore west of a line drawn just inland of the Pacific coast, from Bodega Bay to Pescadero
+      { if (!wcv.sand) { const line = [[38.5, -123.02], [38.0, -122.8], [37.9, -122.62], [37.835, -122.5], [37.78, -122.503], [37.7, -122.495], [37.6, -122.488], [37.5, -122.455], [37.2, -122.375]].map(q => { const p = proj([q[1], q[0]]); return [p[1], p[0]]; });
+          const west = (x, y) => { for (let i = 1; i < line.length; i++) if (y >= line[i - 1][0] && y <= line[i][0]) return x < lerp(line[i - 1][1], line[i][1], (y - line[i - 1][0]) / (line[i][0] - line[i - 1][0])); return false; };
+          wcv.sand = new Path2D(); for (const l of wcv.shore) { let on = false; for (const p of l) { if (west(p[0], p[1])) { if (on) wcv.sand.lineTo(p[0], p[1]); else wcv.sand.moveTo(p[0], p[1]); on = true; } else on = false; } } }
+        c.strokeStyle = L.sand; c.globalAlpha = 0.5; c.lineWidth = 3.4; c.stroke(wcv.sand); c.globalAlpha = 0.9; c.lineWidth = 1.9; c.stroke(wcv.sand); }
       { const az = L.key.az * Math.PI / 180, el = L.key.el * Math.PI / 180, ox = -Math.sin(az) / Math.tan(el), oz = Math.cos(az) / Math.tan(el), soft = 'filter' in c;
         c.save(); if (soft) c.filter = 'blur(1.4px)'; c.strokeStyle = '#1a2430'; c.globalAlpha = L.castA; c.lineWidth = 1.4;
         c.translate(ox * 0.6, oz * 0.6); c.stroke(path); c.translate(-ox * 0.6, -oz * 0.6);
@@ -416,6 +543,7 @@
       else if (f & 24) { bev = f & 8 ? L.okInk : L.noInk; wall = mix3(bev, L.sideC, 0.2); }
       else if (f & 4) { top = mix3(top, L.ink, 0.2); bev = mix3(L.ink, top, 0.1); }
       else if (f & 2) { top = mix3(top, L.liftC, 0.1); bev = mix3(L.ink, top, 0.3); }
+      placeData[i * 4] = top[0]; placeData[i * 4 + 1] = top[1]; placeData[i * 4 + 2] = top[2]; placeTex.needsUpdate = true;
       const K = tileS.kind, S = tileS.shade, A = tileCol.array;
       for (let v = t.v0; v < t.v1; v++) { const k = K[v], c = k === 0 ? top : k === 1 ? bev : wall, s = S[v]; A[v * 3] = c[0] * s; A[v * 3 + 1] = c[1] * s; A[v * 3 + 2] = c[2] * s; }
     }
@@ -428,10 +556,14 @@
     }
     let waterKey = '';
     function applyLook() {
-      const L = LK; renderer.setClearColor(L.bg, 1); scene.fog.color.set(L.bg); paintAll = true;
+      const L = LK; renderer.setClearColor(L.haze, 1); scene.fog.color.set(L.haze); paintAll = true;
+      if (sky) { sky.U.uHorizon.value.set(L.haze); sky.U.uZenith.value.set(L.zenith); sky.U.uGlow.value.set(L.skyGlow).multiplyScalar(L.glowK); }
+      if (waterU) { waterU.uSunC.value.set(L.key.c); waterU.uGlint.value = L.glint; }
+      fabU.uPale.value.set(L.pale); fabU.uRoofK.value = L.roofK; fabU.uWallK.value = L.wallK; fabU.uTree.value.set(L.tree); fabU.uTreeK.value = L.treeK; fabU.uWin.value.set(L.win);
+      applyAir();
       { const a = landMesh.geometry.attributes.color, c = L.land; for (let v = 0; v < landS.n; v++) { a.array[v * 3] = c[0] * landS.shade[v]; a.array[v * 3 + 1] = c[1] * landS.shade[v]; a.array[v * 3 + 2] = c[2] * landS.shade[v]; } a.needsUpdate = true; }
       farMat.color.set(L.landHex); inlandMat.color.set(L.water); rim.material.color.set(P.paper);
-      const wk = [L.water, L.deep, L.shallow, L.rim, L.shore].join('|'); if (wk !== waterKey) { waterKey = wk; paintWater(); }
+      const wk = [L.water, L.deep, L.shallow, L.rim, L.shore, L.sand, Math.round(L.key.az / 6), Math.round(L.key.el / 5)].join('|'); if (wk !== waterKey) { waterKey = wk; paintWater(); }
       tileMat.roughness = L.tileRough; builtMat.roughness = L.builtRough; waterMat.roughness = L.waterRough; waterMat.metalness = L.waterMetal; builtMat.emissiveIntensity = L.glow; paneU.uPaneK.value = L.pane; paneU.uAmb.value = L.amb;
       hemi.color.set(L.hemi.sky); hemi.groundColor.set(L.hemi.ground); hemi.intensity = L.hemi.i; key.color.set(L.key.c); key.intensity = L.key.i; key.shadow.radius = L.shadowR;
       paintBuilt(); for (const m of secMeshes.values()) m.dirty = true; selKey = ''; for (const [i, e] of edgeMeshes) { drop(e.mesh); edgeMeshes.delete(i); }
@@ -443,12 +575,12 @@
     const rimY = (t, h) => { const a = rimPos.array; for (let k = t.r0 * 3 + 1; k < t.r1 * 3; k += 3) a[k] = t.H + 0.006 + h; rimPos.needsUpdate = true; }; // 4 vertices to a segment of 4 numbers: the same count
     function liftLights(i) { const t = tiles[i]; if (!scatter || t.l0 == null) return; const a = scatter.geometry.attributes.position; for (let k = t.l0; k < t.l1; k++) a.array[k * 3 + 1] = HT[i] + 0.06 + liftV[i]; a.needsUpdate = true; }
     function setLift(i, h) {
-      liftV[i] = h; const t = tiles[i], K = tileS.kind, A = tilePos.array;
+      liftV[i] = h; placeData[i * 4 + 3] = h; placeTex.needsUpdate = true; const t = tiles[i], K = tileS.kind, A = tilePos.array;
       for (let v = t.v0; v < t.v1; v++) if (K[v] !== 3 && K[v] !== 4) A[v * 3 + 1] = baseY[v] + h;
       tilePos.needsUpdate = true; rimY(t, h); liftLights(i); shadowDirty = true;
     }
     function stepLifts(t) { // the selected place rises with a small overshoot; the one it replaces settles back
-      for (let i = 0; i < HOODS.length; i++) { const to = i === sel ? LIFT : 0, a = liftAnim.get(i); if ((a ? a.to : liftV[i]) !== to) liftAnim.set(i, { from: liftV[i], to, t0: t }); }
+      for (let i = 0; i < HOODS.length; i++) { const to = i === sel ? LIFT : 0, a = liftAnim.get(i); if (Math.abs((a ? a.to : liftV[i]) - to) > 1e-4) liftAnim.set(i, { from: liftV[i], to, t0: t }); } // (liftV keeps single floats: LIFT comes back from it a hair off)
       let anim = false;
       for (const [i, a] of liftAnim) { const p = RM.matches ? 1 : clamp((t - a.t0) / (a.to ? 520 : 260), 0, 1); if (p >= 1) { setLift(i, a.to); liftAnim.delete(i); } else { setLift(i, a.to ? a.from + (a.to - a.from) * backOut(p) : a.from * Math.pow(1 - p, 3)); anim = true; } }
       return anim;
@@ -457,10 +589,11 @@
     // ---- sections: lines on the flat top of a place, the selected one outlined ----
     // A line is a ribbon lying on the top, as wide on screen as a stroke: each vertex is moved sideways in the shader by a width in
     // pixels times the ground a pixel covers at the centre.
-    const lineW = { value: 1 }, secMeshes = new Map(), edgeMeshes = new Map(); let selKey = '', selMeshes = [];
+    const lineW = { value: 1 }, lineUp = { value: 0 }, secMeshes = new Map(), edgeMeshes = new Map(); let selKey = '', selMeshes = [];
     function lineMat(hex, opacity) {
       const m = new THREE.MeshBasicMaterial({ color: hex, transparent: true, opacity, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, side: THREE.DoubleSide });
-      m.onBeforeCompile = s => { s.uniforms.uW = lineW; s.vertexShader = s.vertexShader.replace('#include <common>', '#include <common>\nattribute vec3 aOff;\nuniform float uW;').replace('#include <begin_vertex>', '#include <begin_vertex>\ntransformed += aOff * uW;'); };
+      m.onBeforeCompile = s => { s.uniforms.uW = lineW; s.uniforms.uUp = lineUp; s.vertexShader = s.vertexShader.replace('#include <common>', '#include <common>\nattribute vec3 aOff;\nuniform float uW;\nuniform float uUp;').replace('#include <begin_vertex>', '#include <begin_vertex>\ntransformed += aOff * uW;')
+        .replace('#include <project_vertex>', '#include <project_vertex>\n{ vec4 up = projectionMatrix * modelViewMatrix * vec4(transformed + vec3(0.0, uUp, 0.0), 1.0); gl_Position.z = up.z / up.w * gl_Position.w; }'); }; // drawn where it lies, but as deep as a point uUp above it: the low houses do not cut a line, a tower does
       return m;
     }
     function ribbon(segs, y, px) { // segs: [ax, ay, bx, by, ...] in map units; px: the stroke's width
@@ -537,17 +670,25 @@
     // ---- one frame of the scene ----
     const lightDir = new THREE.Vector3(), lightCam = new THREE.OrthographicCamera(), m4 = new THREE.Matrix4(), qt = new THREE.Quaternion(), sc = new THREE.Vector3(), ps = new THREE.Vector3(), v3 = new THREE.Vector3(), yAxis = new THREE.Vector3(0, 1, 0), xAxis = new THREE.Vector3(1, 0, 0), q2 = new THREE.Quaternion();
     let C = null, viewBB = [0, 0, 0, 0], subF = [];
-    function updateScene(t, vx) {
+    function updateScene(t, vx, dt) {
       const c = C, L = LK;
       camera.position.set(c.px, c.py, c.pz); camera.up.set(0, 1, 0); camera.lookAt(cur.cx, FOCUS_Y, cur.cz);
       camera.near = Math.max(0.5, c.d * 0.05); camera.far = c.d * 14 + 600; camera.aspect = W / H; camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
-      scene.fog.near = c.d * L.fog[0]; scene.fog.far = c.d * L.fog[1];
+      { const low = smooth(c.ph, 1.05, 1.45); scene.fog.near = c.d * lerp(L.fog[0], 0.75, low); scene.fog.far = c.d * lerp(L.fog[1], 3.4, low); } // a low view looks a long way: the haze comes nearer, and the far land fades into it
+      // the air: the sky behind a tilted view, the water's ripples (gentler from far off), the wash, the fog, what moves
+      if (sky) sky.set(c, W, H);
+      if (waterU) { waterU.uT.value = ambT; waterU.uD.value = c.d; waterU.uWave.value = L.wave * lerp(1, 0.5, smooth(Math.log(c.d), Math.log(300), Math.log(1500))); }
+      if (wash) { wash.U.uT.value = ambT; wash.U.uK.value = L.washK * smooth(kNow(), 1.2, 5); wash.mesh.visible = wash.U.uK.value > 0.01; }
+      if (fogBank) { const U = fogBank.U; U.uT.value = ambT; U.uK.value = quiz ? 0 : L.fogK * (fogLens ? 1.7 : 1) * lerp(0.5, 1, smooth(kNow(), 0.8, 3.5)); U.uHaze.value.set(c.d * 2.4, c.d * 7); fogBank.group.visible = U.uK.value > 0; }
       if (Math.abs(vx - vex) > 0.003) { vex = vx; landG.scale.y = vex; shadowDirty = true; }
       c.vex = vex;
       // the landmarks grow a little as the map zooms out, so the skyline reads from across the bay; each stands on its block
       const k = clamp(Math.pow(c.d / 150, 0.7), 1, 2.6); if (Math.abs(k - lmScale) > 0.004) { lmScale = k; shadowDirty = true; }
       const show = !quiz; // the quiz hides the landmarks and the skylines, as the flat map hides its glyphs: they are hints
-      for (const ic of icons) { if (ic.mesh.visible !== show) { ic.mesh.visible = show; shadowDirty = true; } ic.mesh.scale.set(lmScale, lmScale / vex, lmScale); ic.mesh.position.y = ic.hood >= 0 ? topAt(ic.hood) : ic.y; }
+      for (const ic of icons) { // a model a few pixels tall is not drawn at all (nor its shadow): with some seventy of them that is most of them, most of the time
+        const y = ic.hood >= 0 ? topAt(ic.hood) : ic.y, zc = (ic.x - c.px) * c.fx + (y * vex - c.py) * c.fy + (ic.z - c.pz) * c.fz; ic.px = zc > 0 ? ic.h * lmScale * c.g / zc : 0;
+        const vis = show && ic.px >= (ic.mesh.visible ? 4 : 5.5); if (ic.mesh.visible !== vis) { ic.mesh.visible = vis; shadowDirty = true; }
+        ic.mesh.scale.set(lmScale, lmScale / vex, lmScale); ic.mesh.position.y = y; }
       for (const p of cityParts) { p.mesh.visible = show; const sy = (1 + (lmScale - 1) * 0.6) / vex; p.mesh.scale.y = sy; p.mesh.position.y = p.hood >= 0 ? HT[p.hood] * (1 - sy) + liftV[p.hood] : 0; } // stretched from the top of its block, not from the water
       // flags and bookmarks hold their size on screen, within limits, and face the reader; seen from above (the far zoom) they lean
       // back, so a pole is never seen end on
@@ -562,11 +703,13 @@
       flags.count = nf; books.count = nb; flags.instanceMatrix.needsUpdate = books.instanceMatrix.needsUpdate = true;
       // sections
       lineW.value = 1 / kNow(); updateSections(subF); rim.material.opacity = (dark ? .5 : .55) * smooth(kNow(), 1.5, 6); rim.visible = rim.material.opacity > .01;
+      if (ferries.length) stepLife();
+      const fabAnim = fabStep(dt || 16, c);
       // the key light's shadow box is fitted to what the camera sees (the ground under the screen, out to a few view distances, and
       // the height of the tallest things), in the light's own fixed frame; its size moves in steps and its edges snap to whole shadow
       // texels, so a pan moves the shadows by whole texels (nothing crawls) and a zoom changes them only at a step
       { const az = L.key.az * Math.PI / 180, el = L.key.el * Math.PI / 180, A = area.r;
-        lightDir.set(Math.sin(az) * Math.cos(el), Math.sin(el), -Math.cos(az) * Math.cos(el));
+        lightDir.set(Math.sin(az) * Math.cos(el), Math.sin(el), -Math.cos(az) * Math.cos(el)); if (waterU) waterU.uSun.value.copy(lightDir); if (sky) sky.U.uSun.value.copy(lightDir);
         if (!lightBasis || lightBasis.az !== az || lightBasis.el !== el || lightBasis.A !== A) {
           const ax = (A[0] + A[2]) / 2, az2 = (A[1] + A[3]) / 2;
           key.target.position.set(ax, 0, az2); key.position.set(ax + lightDir.x * 4000, lightDir.y * 4000, az2 + lightDir.z * 4000); key.target.updateMatrixWorld(); key.updateMatrixWorld();
@@ -588,7 +731,7 @@
         }
       }
       lightMat.uniforms.uScale.value = H * pr / (2 * Math.tan(FOV * Math.PI / 360)); lightMat.uniforms.uMin.value = 1.4 * pr;
-      return pop;
+      return pop || fabAnim;
     }
     // which places are in sight (their boxes against the ground the screen covers), how strongly their sections show, and what has
     // to be painted again: a place whose opacity, state or colour changed
@@ -663,6 +806,7 @@
         let didRegions = false;
         for (const i of order) {
           const h = HOODS[i], hot = i === sel || i === hover; if (!hot && !didRegions) { regions(); didRegions = true; }
+          if (!hot && anchor[i][2] > c.d * 3.2) continue;                       // far off in a low view: in the haze, unnamed
           if (farOn && region !== 'all' && h.region !== region && !hot) continue;
           const side = DETAIL[i] > 1; if (!side && subF[i] > .6) continue;       // its sections are named instead
           const name = SHORT[h.name] || h.name, text = farNames ? name.toUpperCase() : name, size = hot ? lsz * 1.1 : lsz, st = STAR[i] ? size * 1.15 : 0;
@@ -691,12 +835,19 @@
         for (let i = 0; i < HOODS.length; i++) if (subF[i] > 0.2 || (i === sel && subF[i] > 0.01)) { const cells = subsOf(i); if (cells) cells.forEach((cell, j) => (i === sel && j === selSub ? hotL : cell.star ? secs : plain).push([i, j, cell])); }
         for (const [i, j, cell] of hotL.concat(secs, plain)) {
           const hot = i === sel && j === selSub, big = hot && phone, ss = big ? fsz * 1.25 : fsz, sw = cell.star ? ss * 1.05 + 3 : 0, wt = big ? 600 : 500;
-          const tw = measure(cell.name, wt, ss) + sw, th = ss * 1.2, p = at(cell.c[0], cell.c[1], topAt(i)); if (p[2] <= 0 || p[0] < -40 || p[0] > W + 40 || p[1] < -20 || p[1] > H + 20) continue;
+          const tw = measure(cell.name, wt, ss) + sw, th = ss * 1.2, p = at(cell.c[0], cell.c[1], topAt(i)); if (p[2] <= 0 || (!hot && p[2] > c.d * 1.9) || p[0] < -40 || p[0] > W + 40 || p[1] < -20 || p[1] > H + 20) continue;
           const kl = c.g / p[2], box = [p[0] - tw / 2 - 2, p[1] - th / 2, p[0] + tw / 2 + 2, p[1] + th / 2];
           const fits = (cell.bbox[2] - cell.bbox[0]) * kl >= tw * .8 && (cell.bbox[3] - cell.bbox[1]) * kl * cosT >= th * 1.1;
           if (!(cell.star || fits || hot) || clash(box) || !(hot || inView(box))) continue;
           placed.push(box); put('c' + i + ':' + j, { text: cell.name, x: (box[0] + box[2]) / 2 + sw / 2, y: p[1], size: ss, ls: 0, weight: wt, color: hot && !cell.star ? P.accent : P.label, a: hot ? 1 : smooth(subF[i], .2, .8), star: sw ? [box[0] + 2 + ss * .525, ss * 1.05] : null });
         }
+      }
+      // the landmarks' own names, close in, under each model, only where no place or section name stands
+      if (!quiz && ready) for (const ic of icons) {
+        if (!ic.label || !(ic.px >= 40) || !ic.mesh.visible) continue; const a = at(ic.x, ic.z, ic.mesh.position.y); if (a[2] <= 0 || a[2] > c.d * 2.3) continue;
+        const size = fsz - 0.5, tw = measure(ic.label, 500, size), bx = [a[0] - tw / 2 - 3, a[1] + 3, a[0] + tw / 2 + 3, a[1] + 4 + size * 1.25];
+        if (bx[2] < 0 || bx[0] > W || bx[3] < 0 || bx[1] > H || !inView(bx) || clash(bx)) continue;
+        placed.push(bx); put('L' + ic.id, { text: ic.label, x: a[0], y: (bx[1] + bx[3]) / 2, size, ls: 0, weight: 500, color: P.ink2 });
       }
       // fade names in and out, then draw: the ones leaving first
       for (const [id, rec] of want) { const a = lblA.get(id) || 0, n = RM.matches ? 1 : Math.min(1, a + dt / 160); lblA.set(id, n); rec.al = n * (rec.a != null ? rec.a : 1); if (n < 1) anim = true; }
@@ -750,13 +901,33 @@
       return anim;
     }
 
+    // ---- the governor: when frames run long while the map moves, something is given up, in this order: what moves (1), the
+    // fabric's shadows (2), every shadow (3), half the fabric (4), three quarters of it and a coarser picture (5), a coarser one
+    // still (6); when they run well for a while, one step back, and not again to a step that failed twice ----
+    const gov = { ts: [], good: 0, at: 0, skip: 0, up: -1, fails: [], was: false };
+    function setQuality(n) {
+      n = clamp(n, 0, 6); if (n === Q.level) return; Q.level = n; Q.life = n < 1; Q.fabShadow = n < 2; Q.shadows = n < 3; Q.fab = n < 4 ? 1 : n < 5 ? 0.5 : 0.25; Q.cap = n < 5 ? [2, 3] : n < 6 ? [1.5, 2] : [1, 1.5];
+      key.castShadow = Q.shadows; setPR(Math.min(dpr, Q.cap[moving ? 0 : 1])); shadowDirty = true; needs = true; gov.ts.length = 0; gov.good = 0; gov.skip = 20; gov.at = now();
+    }
+    // gap: the time since the frame before, when both were frames of a moving map; judged by the middle one of every 24
+    function govern(gap, mv) {
+      const was = gov.was; gov.was = mv; if (!mv || !was) return; if (gov.skip > 0) { gov.skip--; return; }
+      gov.ts.push(gap); if (gov.ts.length < 24) return; const m = gov.ts.slice().sort((a, b) => a - b)[12]; gov.ts.length = 0;
+      if (m > 21) { if (now() - gov.at < 5000 && gov.up === Q.level) gov.fails[Q.level] = (gov.fails[Q.level] || 0) + 1; setQuality(Q.level + 1); }
+      else if (m < 18 && Q.level > 0) { gov.good += 24; if (gov.good >= 240 && now() - gov.at > 8000 && (gov.fails[Q.level - 1] || 0) < 2) { gov.up = Q.level - 1; setQuality(Q.level - 1); } }
+      else gov.good = 0;
+    }
+
+    // the next frame of ambient motion: a thirtieth of a second after the last frame drawn, whatever drew it
+    function ambArm(ms) { ambTimer = setTimeout(() => { ambTimer = 0; if (!ambOn() || dead) return; const left = AMB_GAP - 5 - (now() - (stat.drawn || 0)); if (left > 3) return ambArm(left); ambTick = true; kick(); }, Math.max(0, ms)); }
+
     // ---- the frame loop: drawn on demand ----
     function kick() { if (!raf) { lastT = now(); raf = requestAnimationFrame(frame); } }
     function setPR(p) { if (p === pr) return; pr = p; renderer.setPixelRatio(pr); renderer.setSize(W, H, false); lbl.width = Math.round(W * pr); lbl.height = Math.round(H * pr); needs = true; }
     // until a frame has drawn, an error in one is a 3D map that cannot run here: the flat map instead (giveUp); after that, as any error
     function frame(t) { if (dead) { raf = 0; return; } if (stat.firstFrame) return draw(t); try { draw(t); } catch (e) { giveUp(e); } }
     function draw(t) {
-      raf = 0; const dt = Math.min(50, t - lastT || 16); lastT = t; let busy = false;
+      raf = 0; const gap = t - lastT, dt = Math.min(50, gap || 16); lastT = t; let busy = false;
       if (g2 && g2.dirty && ptrs.size >= 2) twoFingers();
       if (mode === 'fly' && fly) { stepFly(t); busy = true; }
       else if (mode === 'smooth') { const a = 1 - Math.exp(-dt / 90); let d = 0; for (const p of ['cx', 'cz']) { const dd = goal[p] - cur[p]; d += Math.abs(dd) / cur.w; cur[p] += dd * a; } for (const p of ['th', 'off']) { const dd = goal[p] - cur[p]; d += Math.abs(dd); cur[p] += dd * a; } const lw = Math.log(goal.w / cur.w); d += Math.abs(lw); cur.w *= Math.exp(lw * a); if (d < 0.0005) { Object.assign(cur, goal); mode = 'still'; } else busy = true; }
@@ -766,11 +937,16 @@
       const turned = Math.abs(cur.th) > 0.02 || Math.abs(cur.off) > 0.02; if (north.hidden === turned) { north.hidden = !turned; } if (turned) north.firstChild.style.transform = `rotate(${-cur.th * 180 / Math.PI}deg)`;
       if (!ready) { if (busy) raf = requestAnimationFrame(frame); if (busy && o.onMove) o.onMove(); return; }
       const t0 = now(); C = camOf(cur); const vx = C.vex; C.vex = vex; // names and hits use the stretch the scene was last drawn with
-      let anim = prepare(dt); if (stepLifts(t)) { anim = true; needs = true; }
-      const mv = busy || ptrs.size > 0; if (mv !== moving) { moving = mv; setPR(moving ? Math.min(dpr, 2) : dpr); } // a lighter frame while the map moves, the full one when it rests
-      if (needs) { needs = false; if (updateScene(t, vx)) { anim = true; needs = true; } renderer.render(scene, camera); stat.frames++; if (!stat.firstFrame) stat.firstFrame = now(); }
-      anim = drawOverlay(t, dt) || anim; stat.lastMs = now() - t0;
+      // ambient motion has its own seconds, which stand still when it stops; the light theme's sun is looked up again every few minutes
+      const amb = ambOn(), tick = ambTick; ambTick = false; if (amb) { if (ambLast) ambT += Math.min(0.1, (t - ambLast) / 1000); ambLast = t; } else ambLast = 0;
+      if (!dark && t - sunAt > 240000) { sunAt = t; const k0 = sunKey; refreshPalette(); if (sunKey !== k0) applyLook(); }
+      let anim = prepare(dt), why = (busy ? 1 : 0) | (anim ? 2 : 0) | (needs ? 4 : 0); if (stepLifts(t)) { anim = true; needs = true; why |= 8; }
+      const mv = busy || ptrs.size > 0; govern(gap, mv); if (mv !== moving) { moving = mv; setPR(Math.min(dpr, Q.cap[moving ? 0 : 1])); } // a lighter frame while the map moves, the full one when it rests
+      const only = tick && amb && !needs && !busy && !anim && !olAnim;      // a frame of ambient motion alone: the scene is drawn, the names stand as they are
+      if (needs || (tick && amb)) { needs = false; if (updateScene(t, vx, dt)) { anim = true; needs = true; why |= 16; } renderer.render(scene, camera); stat.frames++; stat.drawn = now(); if (only) stat.amb++; if (!stat.firstFrame) stat.firstFrame = now(); }
+      if (!only) { olAnim = drawOverlay(t, dt); anim = olAnim || anim; } stat.lastMs = now() - t0; stat.why = why | (olAnim ? 32 : 0) | (me ? 64 : 0) | (tick ? 128 : 0);
       if (busy || anim || me || needs) raf = requestAnimationFrame(frame);
+      else if (amb && !ambTimer) ambArm(AMB_GAP - 5);
       if (busy && o.onMove) o.onMove();
     }
 
@@ -813,12 +989,12 @@
       if (ptrs.size === 1) drag = { x: e.clientX, y: e.clientY, t: now(), moved: orbit ? 99 : 0, pinched: false, orbit, grab: orbit ? null : grabAt(cur, e.clientX - r.left, e.clientY - r.top) };
       else if (ptrs.size === 2) { g2 = Object.assign({ mode: null, turn: false }, two()); g2.s0 = g2.s; g2.a0 = g2.a; g2.cx0 = g2.cx; g2.cy0 = g2.cy; if (drag) drag.pinched = true; }
       if (quiz) { const h = ptrs.size === 1 && e.pointerType === 'touch' ? hitTest(e.clientX - r.left, e.clientY - r.top, false) : null; press = h && h.type === 'hood' && quiz.pick(h.i) ? h.i : -1; } // quiz: a finger down shows the place it would pick; the answer is taken on release
-      kick(); o.onGestureStart && o.onGestureStart();
+      poke(); kick(); o.onGestureStart && o.onGestureStart();
     }, { signal: sig });
     stage.addEventListener('pointermove', e => {
       const r = stage.getBoundingClientRect();
       if (ptrs.has(e.pointerId)) {
-        const p = ptrs.get(e.pointerId), px = p.x, py = p.y; p.x = e.clientX; p.y = e.clientY;
+        const p = ptrs.get(e.pointerId), px = p.x, py = p.y; p.x = e.clientX; p.y = e.clientY; poke();
         if (ptrs.size >= 2 && g2) { press = -1; g2.dirty = true; kick(); // read once per frame (twoFingers), when both fingers have reported
         } else if (drag && ptrs.size === 1) {
           const dx = e.clientX - drag.x, dy = e.clientY - drag.y, t = now(), dt = Math.max(1, t - drag.t);
@@ -835,11 +1011,12 @@
         }
         return;
       }
+      if (e.pointerType !== 'touch') poke();
       if (e.pointerType !== 'touch' && o.onHover) { const h = hitTest(e.clientX - r.left, e.clientY - r.top); o.onHover(h, e.clientX - r.left, e.clientY - r.top); }
     }, { signal: sig });
     const release = e => {
       if (!ptrs.has(e.pointerId)) return;
-      ptrs.delete(e.pointerId);
+      ptrs.delete(e.pointerId); poke();
       const r = stage.getBoundingClientRect();
       if (ptrs.size === 1 && g2) { g2 = null; const [p] = [...ptrs.values()]; drag = { x: p.x, y: p.y, t: now(), moved: 99, pinched: true, orbit: false, grab: null }; mode = 'still'; kick(); return; }
       if (ptrs.size === 0) {
@@ -860,11 +1037,13 @@
     stage.addEventListener('pointerleave', () => { if (!ptrs.size && o.onHover) o.onHover(null); }, { signal: sig });
     stage.addEventListener('contextmenu', e => e.preventDefault(), { signal: sig });
     stage.addEventListener('wheel', e => {
-      e.preventDefault(); const r = stage.getBoundingClientRect();
+      e.preventDefault(); poke(); const r = stage.getBoundingClientRect();
       let d = e.deltaY; if (e.deltaMode === 1) d *= 16; else if (e.deltaMode === 2) d *= 120; d = clamp(d, -160, 160);
       zoomAt(e.clientX - r.left, e.clientY - r.top, Math.exp(d * (e.ctrlKey ? 0.01 : 0.0028)));
     }, { passive: false, signal: sig });
-    north.addEventListener('click', () => { const to = Object.assign({}, goal, { th: 0, off: 0 }); let th = cur.th % (Math.PI * 2); if (th > Math.PI) th -= Math.PI * 2; if (th < -Math.PI) th += Math.PI * 2; cur.th = th; startFly(viewOf(to), 600); });
+    north.addEventListener('click', () => { poke(); const to = Object.assign({}, goal, { th: 0, off: 0 }); let th = cur.th % (Math.PI * 2); if (th > Math.PI) th -= Math.PI * 2; if (th < -Math.PI) th += Math.PI * 2; cur.th = th; startFly(viewOf(to), 600); });
+    // out of sight: the ambient motion stops at once; back in sight within its time, it picks up where it stood
+    document.addEventListener('visibilitychange', () => { if (document.hidden) { clearTimeout(ambTimer); ambTimer = 0; } else if (ambOn()) { ambTick = true; kick(); } }, { signal: sig });
     glc.addEventListener('webglcontextlost', e => e.preventDefault());
     glc.addEventListener('webglcontextrestored', () => { shadowDirty = true; needs = true; kick(); });
 
@@ -872,7 +1051,7 @@
     function resize() {
       const r = stage.getBoundingClientRect(), w = Math.max(1, Math.round(r.width)), h = Math.max(1, Math.round(r.height)), d = Math.min(window.devicePixelRatio || 1, 3);
       if (w === W && h === H && d === dpr) return;
-      const first = W <= 1, W0 = W, H0 = H; W = w; H = h; dpr = d; pr = moving ? Math.min(dpr, 2) : dpr; camV++;
+      const first = W <= 1, W0 = W, H0 = H; W = w; H = h; dpr = d; pr = Math.min(dpr, Q.cap[moving ? 0 : 1]); camV++;
       renderer.setPixelRatio(pr); renderer.setSize(W, H, false); lbl.width = Math.round(W * pr); lbl.height = Math.round(H * pr);
       // the tilt is nearly straight down from the distance of the first screen (the bay core, as the flat map lands on it)
       const all = base.regionBBox('all'); dFar = Math.max(400, dOf(Math.max(all[2] - all[0], (all[3] - all[1]) * W / H) * 1.06));
@@ -897,12 +1076,12 @@
       // box: at the top of the tallest block in that box instead (as fitView frames it), for the top edge of a place as drawn
       toScreen(x, y, v, box) { const c = camFor(v), p = project(c, x, (box ? topIn(box) : surfaceAt(x, y, .15)) * c.vex, y); return [p[0], p[1]]; },
       toMap(sx, sy, v) { const p = pick(camFor(v), sx, sy); return [p.x, p.y]; },
-      flyTo(bb, pad, minWv, dur) { const v = fitView(bb[0], bb[1], bb[2], bb[3], pad, minWv); userMoved = false; startFly(v, dur); },
-      flyToView(v, dur) { userMoved = false; startFly(v, dur); },
-      jumpTo(v) { const s = stateOf(v), a = areaObj(s.cx, s.cz); if (a !== area) { s.th = 0; s.off = 0; } area = a; Object.assign(cur, limit(s)); Object.assign(goal, cur); fly = null; mode = 'still'; sync(); shadowDirty = true; needs = true; kick(); },
+      flyTo(bb, pad, minWv, dur) { const v = fitView(bb[0], bb[1], bb[2], bb[3], pad, minWv); userMoved = false; poke(); startFly(v, dur); },
+      flyToView(v, dur) { userMoved = false; poke(); startFly(v, dur); },
+      jumpTo(v) { poke(); const s = stateOf(v), a = areaObj(s.cx, s.cz); if (a !== area) { s.th = 0; s.off = 0; } area = a; Object.assign(cur, limit(s)); Object.assign(goal, cur); fly = null; mode = 'still'; sync(); shadowDirty = true; needs = true; kick(); },
       get area() { return area.id; }, areaAt: base.areaAt, areas: AREAS,
-      zoom(f) { zoomAt(W / 2, H / 2, f); },
-      setColors(colors, animate) { colors.forEach((c, i) => { const rgb = hex2rgb(cssColor(c)); colTo[i] = rgb; if (!animate) colNow[i] = rgb.slice(); }); colAnim = !!animate; paintAll = true; needs = true; kick(); },
+      zoom(f) { poke(); zoomAt(W / 2, H / 2, f); },
+      setColors(colors, animate) { fogLens = colors.some(c => /--fog\d/.test(String(c))); colors.forEach((c, i) => { const rgb = hex2rgb(cssColor(c)); colTo[i] = rgb; if (!animate) colNow[i] = rgb.slice(); }); colAnim = !!animate; paintAll = true; needs = true; kick(); },
       setState(s) { if (s.region !== undefined) region = s.region; if (s.sel !== undefined) sel = s.sel; if (s.selSub !== undefined) selSub = s.selSub; if (s.quiz !== undefined) { quiz = s.quiz; press = -1; } needs = true; kick(); },
       setHover(i, sub, spot) { if (i === hover && sub === hoverSub && spot === hoverSpot) return; hover = i; hoverSub = sub; hoverSpot = spot; needs = true; kick(); },
       pop(i) { markAnim[i] = now(); needs = true; kick(); },
@@ -910,11 +1089,11 @@
       subsShowing(i) { return subsOf(i) && (hoodPx(i) > 560 || i === sel); },
       hoodPx,
       // for tests and the console: what was built and how long it took, what a frame draws, and the cost of frames along a flight
-      stats() { const info = renderer.info; let tris = 0; scene.traverse(q => { if ((q.isMesh || q.isPoints) && q.visible && q.geometry) { const g = q.geometry, n = q.isPoints ? 0 : (g.index ? g.index.count : g.attributes.position.count) / 3; tris += n * (q.isInstancedMesh ? q.count : 1); } });
-        return { ready, blocks: stat.blocks, build: stat.build, firstFrame: stat.firstFrame ? Math.round(stat.firstFrame - stat.t0) : 0, sinceNav: stat.firstFrame ? Math.round(stat.firstFrame) : 0, frames: stat.frames, lastMs: +stat.lastMs.toFixed(2), sceneTriangles: Math.round(tris), calls: info.render.calls, triangles: info.render.triangles, pr, size: [W, H], dark, area: area.id, view: Object.assign({ ph: +phOf(cur.w, cur.off).toFixed(3) }, cur) }; },
+      stats() { const info = renderer.info; let tris = 0; const seen = q => { for (let p = q; p; p = p.parent) if (!p.visible) return false; return true; }; scene.traverse(q => { if ((q.isMesh || q.isPoints) && seen(q) && q.geometry) { const g = q.geometry, n = q.isPoints ? 0 : (g.index ? g.index.count : g.attributes.position.count) / 3; tris += n * (q.isInstancedMesh ? q.count : g.isInstancedBufferGeometry ? g.instanceCount : 1); } });
+        return { ready, blocks: stat.blocks, build: stat.build, firstFrame: stat.firstFrame ? Math.round(stat.firstFrame - stat.t0) : 0, sinceNav: stat.firstFrame ? Math.round(stat.firstFrame) : 0, frames: stat.frames, lastMs: +stat.lastMs.toFixed(2), sceneTriangles: Math.round(tris), calls: info.render.calls, triangles: info.render.triangles, pr, size: [W, H], dark, area: area.id, quality: Q.level, fabric: { chunks: fab.live, buildings: fab.nb, trees: fab.nt, grow: +fabU.uGrow.value.toFixed(2), queue: fab.queue.length }, why: stat.why, ambient: { on: ambOn(), t: +ambT.toFixed(2), frames: stat.amb, left: Math.max(0, Math.round(ambUntil - now())), ferry: ferries[0] ? [+ferries[0].mesh.position.x.toFixed(3), +ferries[0].mesh.position.z.toFixed(3)] : null }, view: Object.assign({ ph: +phOf(cur.w, cur.off).toFixed(3) }, cur) }; },
       bench(n = 60) { // n frames spread along the flight in progress or, at rest, a small orbit; each forced to finish on the GPU
         const gl = renderer.getContext(), px = new Uint8Array(4), keep = Object.assign({}, cur), times = [];
-        for (let i = 0; i < n; i++) { cur.th = keep.th + Math.sin(i / n * Math.PI * 2) * 0.12; cur.w = keep.w * (1 + 0.25 * Math.sin(i / n * Math.PI)); cur.cx = keep.cx + Math.sin(i * 0.2) * keep.w * 0.05; const t0 = now(); C = camOf(cur); const vx = C.vex; C.vex = vex; prepare(16); updateScene(t0, vx); renderer.render(scene, camera); drawOverlay(t0, 16); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); times.push(now() - t0); }
+        for (let i = 0; i < n; i++) { cur.th = keep.th + Math.sin(i / n * Math.PI * 2) * 0.12; cur.w = keep.w * (1 + 0.25 * Math.sin(i / n * Math.PI)); cur.cx = keep.cx + Math.sin(i * 0.2) * keep.w * 0.05; const t0 = now(); C = camOf(cur); const vx = C.vex; C.vex = vex; prepare(16); updateScene(t0, vx, 16); renderer.render(scene, camera); drawOverlay(t0, 16); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); times.push(now() - t0); }
         Object.assign(cur, keep); needs = true; kick(); times.sort((a, b) => a - b);
         return { n, avg: +(times.reduce((s, x) => s + x, 0) / n).toFixed(2), p50: +times[n >> 1].toFixed(2), p95: +times[Math.floor(n * .95)].toFixed(2), max: +times[n - 1].toFixed(2) }; },
     };

@@ -233,14 +233,17 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .eyebrow .ktag { display: inline-flex; align-items: center; gap: 6px; flex: none; } .eyebrow .ktag .sep { margin: 0 -1px 0 0; }
 .panel .lead .kbody, .panel .lead.kbody { color: var(--ink); font-weight: 600; } /* a spot's kind, when it does not fit on the path line */
 .kbody i { display: inline-block; width: 8px; height: 8px; margin: 0 6px 1px 0; border-radius: 2px; background: var(--c); vertical-align: middle; }
-/* the first screen: the most recent spots, one tap each, scrolling sideways */
-.recent { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; margin: 0 0 14px; }
-.recent::-webkit-scrollbar { display: none; }
-.recent > span { flex: none; display: flex; }
-.recent button { display: inline-flex; align-items: center; gap: 7px; height: 36px; padding: 0 13px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--sheet-bg, var(--paper)); font: 600 14px/1 var(--sans); color: var(--ink); white-space: nowrap; }
-.recent button:hover { border-color: var(--ink); }
-.recent i { width: 9px; height: 9px; border-radius: 50%; background: var(--c); flex: none; } .recent i.want { background: transparent; box-shadow: 0 0 0 2px var(--c) inset; }
-.recent .all { color: var(--ink-2); font-weight: 500; }
+/* the first screen: one row, the title and three counts (a number over a small label). The counts never wrap or shrink; the title
+   gives way first, then ends in an ellipsis */
+.head.first { align-items: center; }
+.head.first .ttl { padding-top: 0; display: flex; align-items: center; gap: 8px; }
+.newsb { flex: none; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--accent-deep, var(--accent)); color: var(--accent-ink); font: 700 11.5px/20px var(--sans); text-align: center; font-variant-numeric: tabular-nums; } /* news by others: how many, beside the title */
+.head.first h2 { flex: 0 1 auto; min-width: 0; margin: 0; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-wrap: nowrap; } /* line-height: room for the tails of y, g and p under overflow: hidden */
+.head.first .tools:empty { display: none; }
+.tally { flex: none; display: flex; gap: 15px; }
+.tally > span { display: flex; flex-direction: column; align-items: center; }
+.tally b { font: 700 19px/1 var(--display); letter-spacing: -.02em; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tally small { font: 600 9.5px/1 var(--sans); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin-top: 5px; white-space: nowrap; }
 .facts .vibe { display: inline-flex; align-items: center; gap: 6px; } .facts .vibe i { width: 8px; height: 8px; border-radius: 2px; background: var(--c); }
 dialog.who .err { margin: -2px 0 10px; color: var(--bad); font-size: 13.5px; font-weight: 500; }
 .panel { flex: 1; min-height: 0; overflow: auto; padding: 14px 18px 24px; scrollbar-width: thin; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
@@ -679,8 +682,10 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
   .sheet.scrolled .head { border-bottom-color: var(--line); }
   .head h2 { grid-area: 2/1/3/3; margin-top: 2px; font-size: 26px; line-height: 1.05; }
   .head.compact { min-height: 0; padding-bottom: 6px; } .head.compact .tools { grid-row: 1; }
-  .head .recent { grid-column: 1 / -1; grid-row: 3; margin: 12px -8px 2px calc(-1 * max(16px, env(safe-area-inset-left, 0px))); padding: 0 max(16px, env(safe-area-inset-left, 0px)); touch-action: pan-x; } /* full bleed; sideways drags scroll it (js/sheet.js leaves them alone) */
-  .recent button { height: 40px; padding: 0 14px; font-size: 15px; } .recent > span { position: relative; } .recent button::after { content: ""; position: absolute; inset: -2px 0; } /* a 44pt target */
+  .head.first { display: flex; gap: 10px; min-height: 0; padding: 4px max(20px, env(safe-area-inset-right, 0px)) 20px max(20px, env(safe-area-inset-left, 0px)); }
+  .head.first .up { margin: -10px -6px -10px -14px; }
+  .head.first h2 { font-size: clamp(18px, 5.9vw, 23px); }
+  .tally { margin-left: auto; gap: clamp(10px, 3.85vw, 15px); }
   .panel { padding: 6px max(16px, env(safe-area-inset-left, 0px)) calc(32px + var(--kb, 0px) + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
   .sheet:not(.full) .panel { overflow: hidden; }
   .toast { top: auto; bottom: calc(var(--sheet-vis) + 16px); transform: translateX(-50%) translateY(8px); transition: opacity .25s, transform .25s var(--ease), bottom .42s var(--ease); border-radius: 20px; padding: 10px 16px; background: var(--toast-bg, var(--ink)); color: var(--toast-ink, var(--paper)); box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow); width: max-content; max-width: calc(100% - 2 * max(var(--m), env(safe-area-inset-right, 0px)) - 16px); white-space: normal; text-align: center; text-overflow: clip; } /* just above the sheet; a long message wraps */
@@ -710,7 +715,7 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
   .sheet:not(.full) .row .nm small { -webkit-line-clamp: 1; }
   .sheet:not(.full) .panel h3 { margin-top: 14px; } .sheet:not(.full) .panel .lead { margin-bottom: 10px; }
   .sheet:not(.full) .marks + .savestate:empty + .facts, .sheet:not(.full) .marks + .facts { margin-top: 10px; }
-  .row:active, .mark:not([disabled]):active, .textlinks button:active, .head .up:active, .head .tools button:active, .recent button:active, .suggest button:active { background: var(--paper-2); }
+  .row:active, .mark:not([disabled]):active, .textlinks button:active, .head .up:active, .head .tools button:active, .suggest button:active { background: var(--paper-2); }
   .savestate:empty { display: none; } .marks + .savestate:empty + .facts, .marks + .facts { margin-top: 14px; }
 }
 /* surfaces, phone and desktop (outside the phone block, in its cascade position): the logbook's controls sit on its paper; in dark the
@@ -2736,14 +2741,13 @@ window.LANDMARKS = [
       }
       settle(vis, v);
     }
-    // a drag that starts on a control in the header (a path crumb, whose target is taller than its line; the root's row of recent
-    // spots, which scrolls sideways with touch-action: pan-x) moves the sheet only once it is clearly vertical, and takes no pointer
+    // a drag that starts on a control in the header (a path crumb, whose target is taller than its line) moves the sheet only once it is clearly vertical, and takes no pointer
     // capture until then, so a tap still lands on the control
     let side = null;
     for (const h of [grip, head]) {
       h.addEventListener('pointerdown', e => {
         if (!isPhone()) return;
-        if (e.target.closest('button, a, input, .recent')) { side = { id: e.pointerId, x: e.clientX, y: e.clientY }; return; }
+        if (e.target.closest('button, a, input')) { side = { id: e.pointerId, x: e.clientX, y: e.clientY }; return; }
         try { h.setPointerCapture(e.pointerId); } catch (err) {} startDrag(e.clientY);
       });
       h.addEventListener('pointermove', e => {
@@ -5018,8 +5022,9 @@ window.Lookback = (() => {
   q.addEventListener('blur', () => { if (isPhone() && !q.value) endSearch('peek'); });
 
   // ---------- head + panel ----------
-  // o: { eyebrow (text) or path: { crumbs, tag } (the tappable path, fitted by fitHead), title, tools, back, onBack, extra (phone root:
-  // the recent spots row), compact (the title is for assistive tech only) }
+  // o: { eyebrow (text) or path: { crumbs, tag } (the tappable path, fitted by fitHead), title, tools, back, onBack, badge (news by others: a count beside the title, the only sign of it at the phone's peek), tally (the first
+  // screen: [[n, label, spoken]] shown as three counts on the title's row, with no small line above it), compact (the title is for
+  // assistive tech only) }
   // Every screen below the first screen of the map in play ends its tools with the X, which goes straight back to that first screen
   // (the Bay Area's; an away map's own). Never on the log form, a pin drop, search or the quiz: they keep their own way out
   const homeOf = l => { if (AWAY.includes(l.region)) return l.region; const sp = !l.hood && l.spot && state.spots[l.spot], b = sp && boxAt(sp.lon, sp.lat); return b ? areaRegion(b.area) : 'all'; }; // a spot in no place: the map its point is on
@@ -5028,11 +5033,12 @@ window.Lookback = (() => {
   function setHead(o) {
     head._path = o.path || null;
     o = Object.assign({}, o, { tools: (o.tools || []).concat(showX() ? [{ id: 'home', label: 'Back to the map', icon: ICON.x, run: toFirst }] : []) });
-    head.innerHTML = `<button type="button" class="up" aria-label="Back" ${o.back === false ? 'hidden' : ''}>${ICON.back}</button><div class="ttl"><p class="eyebrow">${o.path ? '' : (o.dot ? `<i style="--c:${o.dot}"></i>` : '') + (o.eyebrow || '')}</p><h2${o.compact ? ' class="sr"' : ''}>${o.title}</h2></div><div class="tools">${o.tools.map(t => `<button type="button" data-tool="${t.id}" title="${esc(t.label)}" aria-label="${esc(t.label)}">${t.icon}</button>`).join('')}</div>${o.extra || ''}`;
-    head.classList.toggle('compact', !!o.compact);
+    // the counts are plain text, heard as one labelled group ("7 places walked, 3 want to go, 10 spots"), not three loose numbers
+    const tally = o.tally ? `<div class="tally"><span class="sr">${esc(o.tally.map(t => t[2]).join(', '))}</span>${o.tally.map(t => `<span aria-hidden="true"><b>${t[0].toLocaleString('en-US')}</b><small>${t[1]}</small></span>`).join('')}</div>` : '';
+    head.innerHTML = `<button type="button" class="up" aria-label="Back" ${o.back === false ? 'hidden' : ''}>${ICON.back}</button><div class="ttl">${o.tally ? '' : `<p class="eyebrow">${o.path ? '' : (o.dot ? `<i style="--c:${o.dot}"></i>` : '') + (o.eyebrow || '')}</p>`}<h2${o.compact ? ' class="sr"' : ''}>${o.title}</h2>${o.badge ? `<span class="newsb"><span aria-hidden="true">${esc(o.badge)}</span><span class="sr">${esc(o.badge)} new</span></span>` : ''}</div>${tally}<div class="tools">${o.tools.map(t => `<button type="button" data-tool="${t.id}" title="${esc(t.label)}" aria-label="${esc(t.label)}">${t.icon}</button>`).join('')}</div>`;
+    head.classList.toggle('compact', !!o.compact); head.classList.toggle('first', !!o.tally);
     head.querySelector('.up').addEventListener('click', o.onBack || up);
     o.tools.forEach(t => head.querySelector(`[data-tool="${t.id}"]`).addEventListener('click', t.run));
-    if (o.extra) wire(head);
   }
   let headH = 0;
   // the map chip on the map: the area you are on. A tap opens a menu of every area (the Bay Area, then each away region) with how
@@ -5071,7 +5077,7 @@ window.Lookback = (() => {
       if (!v && level(l) >= 2) streetSoon();
     }
     fitHead();
-    // the peek is the header's height: when that changes (the recent spots row comes or goes) the peek follows
+    // the peek is the header's height: when that changes (the first screen's one-row header, a two-line title) the peek follows
     const hh = head.offsetHeight; if (hh !== headH) { headH = hh; if (isPhone() && sheet.detent === 'peek') sheet.set('peek', { quiet: true }); }
   }
   function wire(root) {
@@ -5148,14 +5154,17 @@ window.Lookback = (() => {
   function stampState() { const vibe = {}; for (const k in VIBES) vibe[k] = HOODS.every((h, i) => AWAY.includes(h.region) || INFO[h.name].vibe !== k || isDone(i)); return { n: doneCount('all'), sf: doneCount('sf'), marin: doneCount('marin'), east: doneCount('east'), penin: doneCount('penin'), south: doneCount('south'), north: doneCount('north'), vegas: doneCount('vegas'), ft: climbedFt('all'), vibe }; } // the six character stamps are the Bay Area's: an away region does not move them
   function renderHome() {
     const r = state.loc.region, n = doneCount(), total = REGION_N[r], s = stampState(), earned = STAMPS.filter(st => st.test(s)), next = STAMPS.find(st => !st.test(s));
-    const news = r === 'all' ? state.news.length : 0; // the only sign of news, in the sheet's own eyebrow: it shows at the peek too
+    const news = r === 'all' ? state.news.length : 0;
     const recent = Object.keys(state.spots).filter(id => IDX[state.spots[id].hood] != null && inRegion(IDX[state.spots[id].hood])).sort((a, b) => (state.spots[a].at < state.spots[b].at ? 1 : -1));
-    // the first screen: the wordmark is the title, and the most recent spots are one tap away (in the phone's header, so the peek shows them)
-    const chips = r === 'all' && recent.length ? `<div class="recent" role="list" aria-label="Recent spots">${recent.slice(0, 5).map(id => { const sp = state.spots[id], k = KINDS[sp.kind] || KINDS.other; return `<span role="listitem"><button type="button" data-go='${attr({ spot: id })}'><i class="${sp.status === 'want' ? 'want' : ''}" style="--c:${k.c}"></i>${esc(sp.name)}</button></span>`; }).join('')}${recent.length > 5 ? `<span role="listitem"><button type="button" class="all" data-view="spots">All ${recent.length} ›</button></span>` : ''}</div>` : '';
-    if (r === 'all') setHead({ back: false, eyebrow: 'Logbook · ' + (news ? `${news} new` : `${n} of ${total} walked`), title: 'Seven by Seven<em>.</em>', extra: isPhone() ? chips : '' });
-    else setHead({ path: { crumbs: crumbsOf(state.loc) }, title: REGIONS[r].label });
     const entries = NAMES.filter(x => inRegion(IDX[x]) && state.done[slug(x)]).sort((a, b) => String(state.done[slug(b)].at ?? '').localeCompare(String(state.done[slug(a)].at ?? '')) || a.localeCompare(b));
     const wantList = NAMES.filter(x => inRegion(IDX[x]) && state.want[slug(x)] && !state.done[slug(x)]);
+    // the first screen of the map in play (the Bay Area's, an away map's own): the title and, on its row, the panel's own three counts:
+    // places walked (the progress below), want to go (the Want to go places below plus the spots saved as want to go) and spots (the
+    // Spots list below)
+    if (r === 'all' || AWAY.includes(r)) {
+      const w = wantList.length + recent.filter(id => state.spots[id].status === 'want').length, sp = recent.length;
+      setHead({ back: r !== 'all', title: r === 'all' ? 'Seven by Seven<em>.</em>' : esc(REGIONS[r].label), badge: news ? String(news) : '', tally: [[n, 'Walked', `${n} ${n === 1 ? 'place' : 'places'} walked`], [w, 'Want', `${w} want to go`], [sp, 'Spots', `${sp} ${sp === 1 ? 'spot' : 'spots'}`]] });
+    } else setHead({ path: { crumbs: crumbsOf(state.loc) }, title: REGIONS[r].label });
     const active = state.filters.size > 0, hits = active ? NAMES.filter(x => matches(IDX[x])) : [];
     const places = r === 'all'
       ? Object.keys(REGIONS).filter(k => k !== 'all').map(k => `<li><button type="button" class="row" data-go='${attr({ region: k })}'><span class="ic ${doneCount(k) === REGION_N[k] ? 'flag' : doneCount(k) ? 'sq' : 'none'}" style="--c:var(--accent)"></span><span class="nm">${REGIONS[k].label}</span><span class="rt">${doneCount(k)} of ${REGION_N[k]}<span class="chev"></span></span></button></li>`).join('')
@@ -5167,7 +5176,7 @@ window.Lookback = (() => {
       <div id="moods" ${active ? '' : 'hidden'}><h3>Mood</h3><div class="textlinks">${MOODS.map(t => `<button type="button" data-mood="${t}" aria-pressed="${state.filters.has(t)}">${t}</button>`).join('')}</div>
         ${active ? `<h3>${hits.length ? hits.length + ' match' + (hits.length === 1 ? '' : 'es') : 'No matches'}</h3><div class="textlinks">${hits.map(a => `<button type="button" class="${isDone(IDX[a]) ? 'done' : isWant(IDX[a]) ? 'want' : ''}" data-go='${attr({ hood: a })}'>${esc(a)}</button>`).join('')}</div>` : ''}</div>`;
     const list = `<h3>${r === 'all' ? 'Regions' : 'Places'} <span class="n">${r === 'all' ? '' : total}</span></h3><ul class="rows ${r === 'all' || REGIONS[r].ordered ? '' : 'cols2'}">${places}</ul>`; // an ordered region (the Strip, north to south) reads down one column
-    panel.innerHTML = (news ? newsBlock() : '') + (r === 'all' && window.Lookback ? Lookback.card() : '') + progress + (isPhone() ? list + lead + links : chips + lead + links + list) + `
+    panel.innerHTML = (news ? newsBlock() : '') + (r === 'all' && window.Lookback ? Lookback.card() : '') + progress + (isPhone() ? list + lead + links : lead + links + list) + `
       ${entries.length ? `<h3>Been <span class="n">${entries.length}</span></h3><ul class="rows">${entries.map(x => `<li><button type="button" class="row" data-go='${attr({ hood: x })}'><span class="ic flag"></span><span class="nm">${esc(x)}${state.done[slug(x)].note ? `<small>${esc(state.done[slug(x)].note)}</small>` : ''}</span><span class="rt">${niceDate(state.done[slug(x)].at)}</span></button></li>`).join('')}</ul>` : ''}
       ${wantList.length ? `<h3>Want to go <span class="n">${wantList.length}</span></h3><div class="textlinks">${wantList.map(a => `<button type="button" class="want" data-go='${attr({ hood: a })}'>${esc(a)}</button>`).join('')}</div>` : ''}
       <h3>Spots <span class="n">${recent.length || ''}</span>${recent.length > 6 ? `<button type="button" class="act" data-view="spots">All ${recent.length}</button>` : ''}</h3>
@@ -5962,7 +5971,7 @@ window.Lookback = (() => {
   }
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { syncThemeColor(); map.refreshPalette(); recolor(false); if (window.StreetMap) StreetMap.restyle(); });
   let wasPhone = isPhone();
-  window.addEventListener('resize', () => { map.resize(); map.redraw(); if (isPhone() !== wasPhone) { wasPhone = isPhone(); if (state.quiz) renderQuiz(); else if (state.placing) fitHead(); else render(); } else fitHead(); }); // across the breakpoint the recent spots move between the header and the panel, and the quiz's header and card change layout (not mid pin-drop, whose header a render replaces) // resize() also catches a devicePixelRatio change (browser zoom)
+  window.addEventListener('resize', () => { map.resize(); map.redraw(); if (isPhone() !== wasPhone) { wasPhone = isPhone(); if (state.quiz) renderQuiz(); else if (state.placing) fitHead(); else render(); } else fitHead(); }); // across the breakpoint the first screen reorders its panel, and the quiz's header and card change layout (not mid pin-drop, whose header a render replaces) // resize() also catches a devicePixelRatio change (browser zoom)
   if (window.Lookback) Lookback.init({ state, panel, go, render, persist, beforeWrite, toast, setHead, esc, attr, KINDS, IDX, BY_SLUG, ownerKey, cleanName, niceDate, isPhone, look: vibeLook, VERDICT });
   window.__sbs = { map, state, go, sheet, maps: { spotQuery, areaQuery, mapsLink, appleLink, spotApple, areaApple }, photos: window.Photos ? Object.assign(Object.create(window.Photos), { ownerKey }) : null, get photoOpts() { return photoOpts; }, feed: { read: readFeed, get news() { return state.news; } } }; // for tests and the console
   window.claude?.hot?.snapshot?.(() => ({ loc: state.loc }));

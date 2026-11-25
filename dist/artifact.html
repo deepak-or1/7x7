@@ -157,17 +157,26 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .search input::placeholder { color: var(--muted); }
 
 /* ---------- the control capsule: top right of the map (search on the phone), locate, layers (the menu holds the legend), zoom ---------- */
-/* the area switch: Bay Area | Las Vegas. A pill beside the search field (it steps aside while the field is in use); on the phone, top left of the map */
-.areas { position: absolute; z-index: 4; left: calc(max(var(--m), env(safe-area-inset-left, 0px)) + 232px); top: max(var(--m), env(safe-area-inset-top, 0px)); display: flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: var(--glass-ring); transition: opacity .2s; }
+/* the map chip: the area you are on, and a down arrow. A pill beside the search field (it steps aside while the field is in use); on
+   the phone, top left of the map. A tap opens its menu right under it: one row per area, how much of it is walked, a tick on this one */
+.areas { position: absolute; z-index: 4; left: calc(max(var(--m), env(safe-area-inset-left, 0px)) + 232px); top: max(var(--m), env(safe-area-inset-top, 0px)); display: flex; padding: 3px; border-radius: 999px; background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: var(--glass-ring); transition: opacity .2s; }
 .areas:empty { display: none; }
-.areas button { height: 34px; padding: 0 14px; border: 0; border-radius: 999px; background: transparent; font: 600 13.5px/1 var(--sans); color: var(--ink-2, var(--muted)); white-space: nowrap; }
-.areas button:hover { color: var(--ink); }
-.areas button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.areas button { display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 11px 0 13px; border: 0; border-radius: 999px; background: transparent; font: 600 13.5px/1 var(--sans); color: var(--ink); white-space: nowrap; }
+.areas button:hover { background: var(--glass-hover); }
+.areas button svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: transform .2s var(--ease); }
+.areas button[aria-expanded="true"] svg { transform: rotate(180deg); }
+.amenu { position: absolute; z-index: 4; left: calc(max(var(--m), env(safe-area-inset-left, 0px)) + 232px); top: calc(max(var(--m), env(safe-area-inset-top, 0px)) + 48px); width: 264px; padding: 4px 16px; border-radius: 20px; background: var(--glass-strong); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: var(--glass-ring); color: var(--ink); }
+.amenu[hidden], .top:focus-within ~ .amenu { display: none; }
+.amenu .row { padding: 12px 0; }
+.amenu .row .nm small { color: var(--glass-muted); }
+.amenu .row .rt svg { width: 14px; height: 14px; fill: none; stroke: var(--accent-deep, var(--accent)); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vertical-align: middle; }
 .top:focus-within ~ .areas { opacity: 0; pointer-events: none; }
 @media (max-width: 880px) {
   .areas { left: max(var(--m), env(safe-area-inset-left, 0px)); box-shadow: inset 0 0 0 1px var(--glass-edge), inset 0 1px 0 var(--glass-hi), var(--glass-shadow); }
-  .areas button { height: 38px; padding: 0 15px; font-size: 14.5px; }
+  .areas button { height: 38px; padding: 0 14px 0 16px; font-size: 14.5px; }
+  .amenu { left: max(var(--m), env(safe-area-inset-left, 0px)); top: calc(max(var(--m), env(safe-area-inset-top, 0px)) + 52px); width: min(264px, calc(100vw - 2 * var(--m) - 52px)); } /* never over the control capsule */
   .sheet-full .areas, .searching .areas { opacity: 0; pointer-events: none; }
+  .sheet-full .amenu, .searching .amenu { display: none; }
 }
 .ctl { position: absolute; right: calc(var(--side) + 16px + max(16px, env(safe-area-inset-right, 0px))); top: max(16px, env(safe-area-inset-top, 0px)); display: flex; flex-direction: column; z-index: 4; overflow: visible; }
 .ctl .stack { display: flex; flex-direction: column; overflow: hidden; border-radius: var(--r-sm); }
@@ -319,6 +328,10 @@ a.btn { text-decoration: none; }
 .row .nm { font-weight: 500; font-size: 14.5px; line-height: 1.25; min-width: 0; }
 .row .nm small { display: block; color: var(--muted); font-size: 12px; font-weight: 400; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .row .rt { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.row .rt .add { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; box-shadow: inset 0 0 0 1px var(--line-2); color: var(--ink); } /* search's "More places": log it */
+.row .rt .add svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.row:hover .rt .add { box-shadow: inset 0 0 0 1px var(--ink); }
+.missbtns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; } /* search found nothing: look it up in Maps, or drop a pin */
 .row .rt .chev { display: inline-block; width: 7px; height: 7px; border-right: 1.5px solid var(--line-2); border-bottom: 1.5px solid var(--line-2); transform: rotate(-45deg); margin-left: 8px; vertical-align: 1px; }
 .cols2 { columns: 2; column-gap: 18px; } .cols2 li { break-inside: avoid; }
 
@@ -786,8 +799,10 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
     <div class="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg><input type="search" id="q" placeholder="Find a place" autocomplete="off" aria-label="Find a place" enterkeyhint="search"></div>
   </div>
 
-  <!-- the area switch (Bay Area | Las Vegas), filled by js/app.js: beside the search field; top left of the map on the phone -->
-  <div class="areas" id="areas" role="group" aria-label="Map area"></div>
+  <!-- the map chip (the area you are on), filled by js/app.js: beside the search field; top left of the map on the phone. Its menu
+       of areas is a sibling, so #areas stays the chip's own footprint (the map's insets and label occluders measure it) -->
+  <div class="areas" id="areas"></div>
+  <div class="amenu" id="areas-menu" role="group" aria-label="Maps" hidden></div>
 
   <!-- one capsule of map controls: top right of the map (desktop: left of the logbook). On the phone its first slot is where the search
        field above sits (laid over it by z-index), so search, locate and layers read as one capsule; the search field is a real input there
@@ -1540,8 +1555,9 @@ window.REGIONS = { all:{label:'Bay Area', the:'the whole map', roof:'the roof of
   // a map link ends in (its places are stretches of the Strip, not towns); low: where its Hills ramp starts (the Bay's: sea level);
   // ordered: its places are listed in map order (north to south), not by name; detail: its places count as this many times
   // their size on screen, so its sections (single resorts) and landmarks show from the region view. A place there may carry
-  // tone: the colour it is drawn in under the Character lens, so the five stretches read apart (all five are 'buzz')
-  vegas:{label:'Las Vegas', the:'the whole Strip', roof:'the Strip’s high point', away:true, ordered:true, detail:5, st:'NV', city:'Las Vegas', low:{m:635, label:'2,080 ft'}} };
+  // tone: the colour it is drawn in under the Character lens, so the five stretches read apart (all five are 'buzz'). tag: a
+  // short name for what the map covers, shown before its count in the map chip's menu
+  vegas:{label:'Las Vegas', the:'the whole Strip', roof:'the Strip’s high point', away:true, ordered:true, detail:5, st:'NV', city:'Las Vegas', low:{m:635, label:'2,080 ft'}, tag:'The Strip'} };
 
 </script>
 <script>
@@ -2747,6 +2763,115 @@ window.LANDMARKS = [
     }).filter(Boolean);
   }
   window.Places = { search };
+})();
+
+</script>
+<script>
+// A pasted Maps link, read: the search field takes an Apple or Google Maps link (or a phone's share text, a name and then the link)
+// and the app offers that place, ready to save. parse(text) is pure and never throws; read(short link) asks the link helper for the
+// full link a short one hides. Only Apple and Google Maps links count: any other text is { t: 'other' } and search treats it as typed.
+window.Link = (() => {
+  // the link helper (helper/link-helper.js, the Cloudflare Worker `sbs-link`): GET HELPER?u=<short link> answers 200 { url, lat?, lon? }
+  // with the full link a short one leads to, or 4xx { error }. It only answers the live site and localhost / 127.0.0.1 previews
+  const HELPER = 'https://sbs-link.deepak-d-or1.workers.dev/';
+  const NAME = 80, WHERE = 120, TEXT = 8192, WAIT = 8000;
+  const cut = (s, n) => Array.from(String(s).slice(0, n * 2)).slice(0, n).join('');
+  const clean = (s, n = NAME) => typeof s === 'string' ? cut(s.slice(0, n * 4).replace(/[\x00-\x1f\x7f]/g, ' ').replace(/\s+/g, ' ').trim(), n).trim() : '';
+  const okLL = (lat, lon) => typeof lat === 'number' && typeof lon === 'number' && isFinite(lat) && isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180 && !(lat === 0 && lon === 0);
+
+  // ---------- text in, { t: 'place' | 'name' | 'short' | 'hidden' | 'other', name, lat, lon, where, url } out ----------
+  // place: a position (and a name when the link has one); name: a name and no position; short: a link the helper must read; hidden:
+  // a Maps link with neither a position nor a name; other: not an Apple or Google Maps link
+  const other = () => ({ t: 'other' }), hidden = () => ({ t: 'hidden', name: '' }); // a fresh object each time: a name written on one never shows up in the next
+  const dec = s => String(s).replace(/\+/g, ' ').replace(/(%[0-9A-Fa-f]{2})+/g, m => { try { return decodeURIComponent(m); } catch (e) { return m; } }); // a stray % stays as it is
+  const NUM = '(-?\\d{1,3}(?:\\.\\d+)?)';
+  const PAIR = new RegExp(`^\\(?\\s*${NUM}\\s*(?:,|;|\\s)\\s*${NUM}\\s*\\)?$`);
+  // '37.76, -122.41', 'loc:37.76,-122.41', '37.76,-122.41 (Label)', DMS ('37°45'42.6"N 122°24'42.1"W'), hemispheres ('37.76° N, 122.41° W')
+  function coords(s) {
+    s = clean(dec(s), 200).replace(/^loc:\s*/i, ''); let label = '';
+    const lm = /^(.*?)\s*\(([^()]*)\)$/.exec(s); if (lm && lm[1]) { s = lm[1]; label = clean(lm[2]); }
+    let m = PAIR.exec(s), lat, lon;
+    if (m) { lat = +m[1]; lon = +m[2]; if (Math.abs(lat) > 90 && Math.abs(lon) <= 90) [lat, lon] = [lon, lat]; }
+    else if ((m = /^(\d{1,2})°\s*(\d{1,2})['′]\s*(\d{1,2}(?:\.\d+)?)(?:["″]|'')?\s*([NS])[\s,]+(\d{1,3})°\s*(\d{1,2})['′]\s*(\d{1,2}(?:\.\d+)?)(?:["″]|'')?\s*([EW])$/i.exec(s))) {
+      lat = (+m[1] + m[2] / 60 + m[3] / 3600) * (/s/i.test(m[4]) ? -1 : 1); lon = (+m[5] + m[6] / 60 + m[7] / 3600) * (/w/i.test(m[8]) ? -1 : 1);
+    } else if ((m = /^(\d{1,2}(?:\.\d+)?)°?\s*([NS])[\s,]+(\d{1,3}(?:\.\d+)?)°?\s*([EW])$/i.exec(s))) { lat = m[1] * (/s/i.test(m[2]) ? -1 : 1); lon = m[3] * (/w/i.test(m[4]) ? -1 : 1); }
+    else return null;
+    return okLL(lat, lon) ? { lat, lon, label } : null;
+  }
+  const place = (ll, name, from, where) => ({ t: 'place', name: clean(name || ll.label || ''), lat: ll.lat, lon: ll.lon, where: clean(where || '', WHERE), from });
+  const named = (name, from) => { const n = clean(name); return n && !PAIR.test(n) ? { t: 'name', name: n, from } : null; }; // '0,0' or '200,300' is no name
+  // Apple's address ('3663 S Las Vegas Blvd, Unit 183, Las Vegas, NV 89109, United States'): street · city, as the place search writes it
+  function addrWhere(a) {
+    const p = clean(a, 300).split(',').map(s => s.trim()).filter(Boolean); if (p.length < 2) return clean(a, WHERE);
+    if (/^(united states( of america)?|usa|us)$/i.test(p[p.length - 1])) p.pop();
+    const st = p.findIndex(s => /^[A-Z]{2}(\s+\d{5}(-\d{4})?)?$/.test(s)), city = st > 1 ? p[st - 1] : p.length > 1 ? p[p.length - 1] : '';
+    return clean(city && city !== p[0] ? p[0] + ' · ' + city : p[0], WHERE);
+  }
+  function parse(input) { try { return parse1(input); } catch (e) { return other(); } }
+  function parse1(input) {
+    if (typeof input !== 'string') return other();
+    const text = input.slice(0, TEXT).replace(/\r\n?/g, '\n').trim(); if (!text) return other();
+    const m = /https?:\/\/[^\s<>"]+/i.exec(text); if (!m) return other(); // plain text, coordinates, geo: are typed text, not a link
+    const r = fromUrl(m[0]); if (r.t === 'other') return r;
+    // share text: the name before the link (on its line, or the first line without a link; a single-line field joins the lines)
+    const before = clean(text.slice(0, m.index).split('\n').filter(l => clean(l)).shift() || '').replace(/[\s:–—-]+$/, '').trim();
+    const first = before && !coords(before) && !/https?:\/\//i.test(before) ? clean(before) : '';
+    if (r.t === 'hidden') return first ? { t: 'name', name: first, from: 'text' } : r;
+    if (first && !r.name && r.t !== 'name') r.name = first;
+    return r;
+  }
+  function fromUrl(raw) {
+    raw = String(raw).replace(/[.,;!?'")\]]+$/, '');
+    let u; try { u = new URL(raw); } catch (e) { return other(); }
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return other();
+    const host = u.hostname.toLowerCase().replace(/^www\./, ''), p = u.pathname;
+    if (host === 'maps.app.goo.gl' || (host === 'goo.gl' && /^\/maps/i.test(p)) || (host === 'maps.apple' && /^\/p\//i.test(p))) return { t: 'short', url: 'https://' + u.hostname + u.pathname + u.search, name: '' };
+    if (/^(maps\.)?google\.[a-z]{2,3}(\.[a-z]{2})?$/.test(host) && (host.startsWith('maps.') || /^\/maps(\/|$)/.test(p))) return google(u);
+    if (host === 'maps.apple.com' || host === 'maps.apple') return apple(u);
+    return other();
+  }
+  const qp = (u, ...ks) => { for (const k of ks) { const v = u.searchParams.get(k); if (v) return v.slice(0, 2000); } return ''; };
+  function google(u) {
+    const p = u.pathname, segs = p.split('/').map(s => s.slice(0, 1000)), href = u.href;
+    const d = /!3d(-?\d{1,3}(?:\.\d+)?)!4d(-?\d{1,3}(?:\.\d+)?)/.exec(href), at = /\/@(-?\d{1,3}(?:\.\d+)?),(-?\d{1,3}(?:\.\d+)?)(?:,|\/|$)/.exec(p);
+    const seg = k => { const i = segs.indexOf(k), s = i >= 0 ? segs[i + 1] : ''; return s && !/^(@|data=)/.test(s) ? dec(s) : ''; };
+    const pl = seg('place'), se = seg('search'), q0 = qp(u, 'q', 'query', 'daddr', 'destination'), pid = /^place_id:/i.test(q0), q = pid ? '' : q0, llp = qp(u, 'll'); // q=place_id:… is an id, not a name
+    const di = segs.indexOf('dir'), dd = di >= 0 ? dec(segs.slice(di + 1).filter(s => s && !/^(@|data=)/.test(s)).pop() || '') : ''; // /maps/dir/<from>/<destination>
+    const dn = dd && !coords(dd) ? dd.split(',') : null, dirName = dn ? clean(dn[0]) : ''; // 'Tartine, 595 Alabama St, San Francisco': the name, then its address
+    const pick = [d && { lat: +d[1], lon: +d[2] }, coords(pl), coords(se), coords(q), coords(dd), llp && coords(llp), (pl || (!se && di < 0)) && at && { lat: +at[1], lon: +at[2] }].find(x => x && okLL(x.lat, x.lon)); // the place itself (!3d!4d) before the map's centre (@)
+    const name = [pl, se, q].find(s => s && !coords(s)) || dirName || (pick && pick.label) || '', where = dirName && name === dirName ? clean(dn.slice(1).join(','), WHERE) : '';
+    if (pick) return place(pick, name, 'google', where);
+    const n = named(name, 'google'); if (n) { if (where) n.where = where; return n; }
+    return hidden(); // a cid, ftid or place_id, or the bare map: a Maps link, but nothing in it says where
+  }
+  function apple(u) {
+    const pin = s => /^\s*(dropped pin|marked location)\s*$/i.test(s) ? '' : s; // Apple's words for a spot without a name
+    const name = pin(qp(u, 'name', 'q', 'query')), dest = pin(qp(u, 'daddr', 'destination')), addr = qp(u, 'address');
+    const pick = [coords(qp(u, 'coordinate')), coords(qp(u, 'll')), coords(name), coords(dest)].find(Boolean); // sll and center are where a search looked, not a place
+    const nm = [name, dest].find(s => s && !coords(s)) || '';
+    if (pick) return place(pick, nm, 'apple', addr ? addrWhere(addr) : '');
+    return named(nm, 'apple') || hidden();
+  }
+
+  // ---------- a short link, read by the helper: a place or a name (as parse gives them), or null when it could not be read ----------
+  // one request; it ends after WAIT ms, or when `signal` aborts (the field changed). The answer is at most 4 KB and its link must
+  // itself be a full Apple or Google Maps link; it is only read, never opened
+  async function read(short, signal) {
+    const c = new AbortController(), t = setTimeout(() => c.abort(), WAIT), stop = () => c.abort();
+    if (signal) { if (signal.aborted) return null; signal.addEventListener('abort', stop); }
+    try {
+      const res = await fetch(HELPER + '?u=' + encodeURIComponent(short), { signal: c.signal, credentials: 'omit', referrerPolicy: 'no-referrer', cache: 'no-store' });
+      if (!res.ok || +res.headers.get('content-length') > 4096) return null;
+      const s = await res.text(); if (s.length > 4096) return null;
+      const body = JSON.parse(s), long = body && typeof body.url === 'string' && body.url.length < TEXT ? body.url : '';
+      const r = /^https:\/\//i.test(long) ? fromUrl(long) : other(), lat = body && +body.lat, lon = body && +body.lon;
+      if (r.t === 'place') return r;
+      if ((r.t === 'name' || r.t === 'hidden') && body.lat != null && body.lon != null && okLL(lat, lon)) return place({ lat, lon }, r.name, r.from || 'link', r.where);
+      return r.t === 'name' ? r : null; // another short link, a non-Maps address, a link with nothing in it: not read
+    } catch (e) { return null; } finally { clearTimeout(t); if (signal) signal.removeEventListener('abort', stop); }
+  }
+
+  return { parse, fromUrl, read, HELPER };
 })();
 
 </script>
@@ -4535,7 +4660,7 @@ window.Lookback = (() => {
   ];
   const ICON = {
     back: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>',
-    plus: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+    x: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17"/></svg>', // the header's X: the old log tool's plus, turned 45 degrees
     check: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3 3 7-7" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     star: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2h8v12l-4-3.2L4 14z" fill="#fff"/></svg>', // want to go: a bookmark (the gold star is a friend's pick)
     pin: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6-5.3-6-11a6 6 0 0 1 12 0c0 5.7-6 11-6 11z"/><circle cx="12" cy="10" r="2.2"/></svg>',
@@ -4577,7 +4702,7 @@ window.Lookback = (() => {
     insets() { const c = document.querySelector('#ctl .stack').getBoundingClientRect(), right = Math.max(0, window.innerWidth - c.left) + 8; if (isPhone()) return { top: sheet && sheet.detent === 'full' ? 0 : Math.max(c.top + 4, insetPill ? $('areas').getBoundingClientRect().bottom + 8 : 0), right: insetClear ? right : 0, bottom: (sheet ? sheet.visible : 0) + 12, left: 0 }; return { top: document.querySelector('.top .search').getBoundingClientRect().bottom + 10, right, bottom: 12, left: 0 }; },
     spots: spotList, marks: marksFor, selectedSpot: () => state.loc.spot,
     alphaFor(i) { if (state.quiz) return 1; const filtered = state.filters.size > 0 && !matches(i) ? .25 : 1; const veil = !state.showAll && state.lens !== 'done' && !isDone(i) ? .35 : 1; return filtered * veil; },
-    onTap, onHover, onGestureStart() { closeLenses(); },
+    onTap, onHover, onGestureStart() { closeLenses(); openAreas(false); },
     // the floating chrome (the control capsule; the search field, which on the phone sits in the capsule's top slot) reserves its footprint so map labels avoid it
     occluders() { if (isPhone() && document.documentElement.classList.contains('sheet-full')) return []; return ['.top .search', '#ctl .stack', '#areas'].map(s => document.querySelector(s)).filter(el => el && el.offsetParent !== null && getComputedStyle(el).opacity !== '0').map(el => el.getBoundingClientRect()).filter(b => b.height > 0).map(b => [b.left - 4, b.top - 4, b.right + 4, b.bottom + 4]); },
   });
@@ -4643,6 +4768,7 @@ window.Lookback = (() => {
     const next = normalize(l), prev = state.loc;
     if (state.quiz && !opts.keepQuiz) endQuiz(true);
     if (state.placing && !opts.keepPlacing) stopPlacing();
+    if (state.pending && opts.view !== 'log') { state.pending = null; map.redraw(); } // off the log form: its picked place's dot goes too
     state.loc = next; state.view = opts.view || null;
     if (areaKey(next.region) !== areaKey(prev.region)) savePrefs();
     if (opts.push !== false) { try { const url = location.pathname + location.search + hashOf(next), n = hDepth(); if (opts.replace || level(next) === level(prev) && next.hood === prev.hood && next.sub === prev.sub) history.replaceState({ loc: next, s: SESSION, n }, '', url); else history.pushState({ loc: next, s: SESSION, n: n + 1 }, '', url); } catch (e) {} }
@@ -4703,11 +4829,18 @@ window.Lookback = (() => {
   window.addEventListener('popstate', e => { const b = backing; backing = null; if (b) { clearTimeout(b.t); if (b.late) return; } const l = (e.state && e.state.loc) || parseHash(location.hash); go(l, { push: false }); });
 
   // ---------- map callbacks ----------
+  // a spot's dot opens the spot only from inside its own place (the place, a section or a spot there open), and always for a spot in
+  // no place the map knows; anywhere else it stands for its place, so the tap (and the desktop hover) is the one that place gets there
+  function dotHit(hit) {
+    if (hit.type !== 'spot') return hit; const sp = state.spots[hit.id], i = sp ? IDX[sp.hood] : null;
+    if (i == null || state.loc.hood === sp.hood) return hit;
+    return { type: 'hood', i, hood: sp.hood, sub: map.hoodPx(i) > 300 ? subIndex(sp.hood, sp.sub) : -1 }; // a section as the place's own hit gives one (map.js hitTest)
+  }
   function onTap(hit, sx, sy) {
     closeLenses();
     if (state.placing) { if (hit.type === 'water' || hit.type === 'hood' || hit.type === 'landmark' || hit.type === 'spot') placePending(hit.x != null ? [hit.x, hit.y] : map.toMap(sx, sy)); return; }
     if (state.quiz) { if (hit.type === 'hood' || (hit.type === 'spot' && IDX[hit.hood] != null)) answer(hit.hood); return; } // a spot's hood is the log's word for it: only a name the map knows is an answer
-    const l = state.loc;
+    const l = state.loc; hit = dotHit(hit);
     if (hit.type === 'spot') { go({ spot: hit.id }, { fromMap: true }); return; }
     if (hit.type === 'landmark') { toast(hit.landmark.name + ' · ' + hit.landmark.hood, 2600); if (l.hood !== hit.hood) go({ hood: hit.hood }, { fromMap: true, fly: false }); return; }
     if (hit.type === 'hood') {
@@ -4721,7 +4854,7 @@ window.Lookback = (() => {
   }
   function onHover(hit, sx, sy) {
     if (!hit || isPhone()) { map.setHover(-1, -1, null); tip.classList.remove('on'); stage.classList.remove('pointing'); return; }
-    const l = state.loc;
+    const l = state.loc; if (!state.quiz && !state.placing) hit = dotHit(hit);
     if (hit.type === 'spot') { const sp = state.spots[hit.id]; map.setHover(-1, -1, hit.id); showTip(sx, sy, sp.name, (KINDS[sp.kind] || KINDS.other).label + ' · ' + (sp.sub || sp.hood)); stage.classList.add('pointing'); return; }
     if (hit.type === 'landmark') { map.setHover(-1, -1, null); showTip(sx, sy, hit.landmark.name, hit.landmark.hood); stage.classList.add('pointing'); return; }
     if (hit.type === 'hood') {
@@ -4787,33 +4920,61 @@ window.Lookback = (() => {
   }
   function closeLenses() { lensesEl.classList.remove('on'); lensBtn.setAttribute('aria-expanded', 'false'); }
   lensBtn.addEventListener('click', e => { e.stopPropagation(); const on = !lensesEl.classList.contains('on'); lensesEl.classList.toggle('on', on); lensBtn.setAttribute('aria-expanded', String(on)); });
-  document.addEventListener('pointerdown', e => { if (!e.target.closest('#lenses, #lens-btn')) closeLenses(); });
+  document.addEventListener('pointerdown', e => { if (!e.target.closest('#lenses, #lens-btn')) closeLenses(); if (!e.target.closest('#areas, #areas-menu')) openAreas(false); });
   $('zoom-in').addEventListener('click', () => map.zoom(1 / 1.6)); $('zoom-out').addEventListener('click', () => map.zoom(1.6));
-  document.addEventListener('keydown', e => { if (dialogOpen()) return; if (e.target.matches('input, textarea, select')) { if (e.key === 'Escape') e.target.blur(); return; } if (e.key === 'Escape') { if (state.view || level(state.loc) > 0) up(); } else if (e.key === '+' || e.key === '=') map.zoom(1 / 1.6); else if (e.key === '-') map.zoom(1.6); });
+  document.addEventListener('keydown', e => { if (dialogOpen()) return; if (e.key === 'Escape' && areasOpen()) { openAreas(false, true); return; } if (e.target.matches('input, textarea, select')) { if (e.key === 'Escape') e.target.blur(); return; } if (e.key === 'Escape') { if (state.view || level(state.loc) > 0) up(); } else if (e.key === '+' || e.key === '=') map.zoom(1 / 1.6); else if (e.key === '-') map.zoom(1.6); });
   const q = $('q');
-  q.addEventListener('input', () => { state.query = q.value.trim().toLowerCase(); q.classList.toggle('has', !!q.value); if (state.query) renderSearch(); else render(); });
-  q.addEventListener('keydown', e => { if (e.key === 'Enter') { const first = panel.querySelector('[data-first]'); if (first) first.click(); } });
+  q.addEventListener('input', () => { state.query = q.value.trim().toLowerCase(); q.classList.toggle('has', !!q.value); if (state.query) renderSearch(); else { dropMore(); render(); } });
+  // Enter: the first result, as before; with none, the explicit place search (js/places.js: Nominatim when Photon is down), as the
+  // log form does. A "More places" row only when nothing local matched
+  q.addEventListener('keydown', e => { if (e.key !== 'Enter') return; const first = panel.querySelector('[data-first]') || panel.querySelector('[data-more]'); if (first) first.click(); else if (searchCtx && searchCtx.term.length >= 2 && !searchCtx.only && !searchCtx.link) { askMore(searchCtx, true); fillMore(); } });
   // phone search mode: the card stays pinned and the sheet opens to full right under it, so results sit above the keyboard
   function endSearch(d) { document.documentElement.classList.remove('searching'); if (isPhone() && d) sheet.set(d, { quiet: true }); }
-  q.addEventListener('focus', () => { if (isPhone()) { document.documentElement.classList.add('searching'); sheet.set('full', { quiet: true }); } if (state.query) renderSearch(); });
+  q.addEventListener('focus', () => { openAreas(false); if (isPhone()) { document.documentElement.classList.add('searching'); sheet.set('full', { quiet: true }); } if (state.query) renderSearch(); });
   q.addEventListener('blur', () => { if (isPhone() && !q.value) endSearch('peek'); });
 
   // ---------- head + panel ----------
   // o: { eyebrow (text) or path: { crumbs, tag } (the tappable path, fitted by fitHead), title, tools, back, onBack, extra (phone root:
   // the recent spots row), compact (the title is for assistive tech only) }
+  // Every screen below the first screen of the map in play ends its tools with the X, which goes straight back to that first screen
+  // (the Bay Area's; an away map's own). Never on the log form, a pin drop, search or the quiz: they keep their own way out
+  const homeOf = l => { if (AWAY.includes(l.region)) return l.region; const sp = !l.hood && l.spot && state.spots[l.spot], b = sp && boxAt(sp.lon, sp.lat); return b ? areaRegion(b.area) : 'all'; }; // a spot in no place: the map its point is on
+  const showX = () => !state.query && !state.quiz && !state.placing && state.view !== 'log' && (!!state.view || !!state.loc.hood || !!state.loc.spot || state.loc.region !== homeOf(state.loc));
+  const toFirst = () => go({ region: homeOf(state.loc) }, { sheet: isPhone() ? 'peek' : undefined }); // a new history entry: Back returns to where the X was tapped
   function setHead(o) {
     head._path = o.path || null;
-    head.innerHTML = `<button type="button" class="up" aria-label="Back" ${o.back === false ? 'hidden' : ''}>${ICON.back}</button><div class="ttl"><p class="eyebrow">${o.path ? '' : (o.dot ? `<i style="--c:${o.dot}"></i>` : '') + (o.eyebrow || '')}</p><h2${o.compact ? ' class="sr"' : ''}>${o.title}</h2></div><div class="tools">${(o.tools || []).map(t => `<button type="button" data-tool="${t.id}" title="${esc(t.label)}" aria-label="${esc(t.label)}">${t.icon}</button>`).join('')}</div>${o.extra || ''}`;
+    o = Object.assign({}, o, { tools: (o.tools || []).concat(showX() ? [{ id: 'home', label: 'Back to the map', icon: ICON.x, run: toFirst }] : []) });
+    head.innerHTML = `<button type="button" class="up" aria-label="Back" ${o.back === false ? 'hidden' : ''}>${ICON.back}</button><div class="ttl"><p class="eyebrow">${o.path ? '' : (o.dot ? `<i style="--c:${o.dot}"></i>` : '') + (o.eyebrow || '')}</p><h2${o.compact ? ' class="sr"' : ''}>${o.title}</h2></div><div class="tools">${o.tools.map(t => `<button type="button" data-tool="${t.id}" title="${esc(t.label)}" aria-label="${esc(t.label)}">${t.icon}</button>`).join('')}</div>${o.extra || ''}`;
     head.classList.toggle('compact', !!o.compact);
     head.querySelector('.up').addEventListener('click', o.onBack || up);
-    (o.tools || []).forEach(t => head.querySelector(`[data-tool="${t.id}"]`).addEventListener('click', t.run));
+    o.tools.forEach(t => head.querySelector(`[data-tool="${t.id}"]`).addEventListener('click', t.run));
     if (o.extra) wire(head);
   }
   let headH = 0;
-  // the area switch on the map: the Bay Area and each away region, one tap apart. A tap opens that area's first screen
-  const areasEl = $('areas');
-  function renderAreas() { if (!areasEl || !AWAY.length) return; const cur = areaKey(state.loc.region); if (areasEl.dataset.cur === cur) return; areasEl.dataset.cur = cur; areasEl.innerHTML = [['bay', 'Bay Area', 'all']].concat(AWAY.map(r => [r, REGIONS[r].label, r])).map(([k, label, region]) => `<button type="button" data-area="${region}" aria-pressed="${cur === k}">${esc(label)}</button>`).join(''); }
-  if (areasEl) areasEl.addEventListener('click', e => { const b = e.target.closest('[data-area]'); if (b) go({ region: b.dataset.area }, { tap: true }); });
+  // the map chip on the map: the area you are on. A tap opens a menu of every area (the Bay Area, then each away region) with how
+  // much of it is walked; a row opens that area's first screen. The menu is #areas-menu, beside the chip, so it is never measured as
+  // the chip (insets, label occluders). It closes on a tap outside, Escape (back to the chip), a map drag, search and the full sheet
+  const areasEl = $('areas'), amenu = $('areas-menu'), AREAS = ['bay'].concat(AWAY);
+  const areaLabel = a => REGIONS[a === 'bay' ? 'all' : a].label, areaRegion = a => a === 'bay' ? 'all' : a;
+  const areaWalked = a => HOODS.reduce((s, h, i) => areaKey(h.region) === a ? [s[0] + (isDone(i) ? 1 : 0), s[1] + 1] : s, [0, 0]);
+  const areaLine = a => { const [n, t] = areaWalked(a), tag = a !== 'bay' && REGIONS[a].tag; return (tag ? tag + ' · ' : '') + `${n} of ${t} walked`; };
+  const areasOpen = () => !!amenu && !amenu.hidden;
+  let amenuHtml = '';
+  function renderAreas() {
+    if (!areasEl || !AWAY.length) return; const cur = areaKey(state.loc.region);
+    if (areasEl.dataset.cur !== cur) { areasEl.dataset.cur = cur; areasEl.innerHTML = `<button type="button" aria-haspopup="true" aria-expanded="${areasOpen()}" aria-controls="areas-menu">${esc(areaLabel(cur))}<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5l3.5 3.5 3.5-3.5"/></svg></button>`; }
+    if (!areasOpen()) return;
+    // live counts: a walk elsewhere re-renders, and an unchanged menu is left alone (the focus stays on its row)
+    const html = `<ul class="rows">${AREAS.map(a => `<li><button type="button" class="row" data-area="${a}"${a === cur ? ' aria-current="true"' : ''}><span class="ic ${areaWalked(a)[0] ? 'flag' : 'none'}"></span><span class="nm">${esc(areaLabel(a))}<small>${esc(areaLine(a))}</small></span><span class="rt">${a === cur ? '<svg viewBox="0 0 14 14" role="img" aria-label="Current map"><path d="M2.5 7.5l3 3 6-7"/></svg>' : ''}</span></button></li>`).join('')}</ul>`;
+    if (html !== amenuHtml) { amenuHtml = html; amenu.innerHTML = html; }
+  }
+  function openAreas(on, focus) {
+    if (!amenu || on === areasOpen()) return; amenu.hidden = !on; const b = areasEl.querySelector('button'); if (b) b.setAttribute('aria-expanded', String(on));
+    if (on) renderAreas(); else if (focus && b) b.focus();
+  }
+  if (areasEl) areasEl.addEventListener('click', e => { if (e.target.closest('button')) openAreas(!areasOpen()); });
+  if (amenu) amenu.addEventListener('click', e => { const b = e.target.closest('[data-area]'); if (!b) return; const kb = e.detail === 0; openAreas(false); go({ region: areaRegion(b.dataset.area) }, { tap: true }); if (kb) { const c = areasEl.querySelector('button'); if (c) c.focus(); } }); // chosen by keyboard: the focus goes back to the chip
+  new MutationObserver(() => { const c = document.documentElement.classList; if (c.contains('searching') || (isPhone() && c.contains('sheet-full'))) openAreas(false); }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] }); // search or the full sheet hides the chip
   function render() {
     renderLegend(); renderAreas();
     if (state.query) renderSearch();
@@ -4836,7 +4997,6 @@ window.Lookback = (() => {
   const rowSub = (hood, s, j) => { const n = Object.values(state.spots).filter(sp => sp.hood === hood && sp.sub === s.name).length; return `<li><button type="button" class="row" data-go='${attr({ hood, sub: s.name })}'>${s.star ? '<span class="ic starb" aria-label="Starred"></span>' : `<span class="ic sq" style="--c:${colorFor(IDX[hood])};opacity:${[1, .75, .5][j % 3]}"></span>`}<span class="nm">${esc(s.name)}<small>${s.star ? `<span class="why">${esc(s.star)}</span> · ` : ''}${esc(s.line)}</small></span><span class="rt">${n ? n + (n === 1 ? ' spot' : ' spots') : ''}<span class="chev"></span></span></button></li>`; };
   const rowSpot = (id, withPlace) => { const sp = state.spots[id], k = KINDS[sp.kind] || KINDS.other; const meta = [k.label, withPlace ? (sp.sub || sp.hood) : sp.sub, sp.note].filter(Boolean).join(' · '); const rt = sp.status === 'want' ? 'want to go' : (sp.rating > 0 ? '★'.repeat(Math.max(1, Math.min(5, Math.round(sp.rating) || 1))) : niceDate(sp.at)); return `<li><button type="button" class="row" data-go='${attr({ spot: id })}'><span class="ic" style="--c:${k.c};${sp.status === 'want' ? 'background:transparent;box-shadow:0 0 0 2px ' + k.c + ' inset' : ''}"></span><span class="nm">${esc(sp.name)}<small>${esc(meta)}</small></span><span class="rt">${esc(rt)}</span></button></li>`; };
   const spotsIn = (hood, sub) => Object.keys(state.spots).filter(id => state.spots[id].hood === hood && (!sub || state.spots[id].sub === sub)).sort((a, b) => (state.spots[a].at < state.spots[b].at ? 1 : -1));
-  const logTool = (hood, sub) => ({ id: 'log', label: 'Log a place', icon: ICON.plus, run: () => startLog({ hood, sub }) });
   // ---- Google Maps: a text query lands on the real place; a pinned, GPS or approximate spot keeps its coordinates
   // (a made-up name resolves to the wrong place). From place search, `where` is 'street · district · city'; the
   // district is unreliable, so only a street that starts with a number and the last part (the city) are used.
@@ -4908,8 +5068,8 @@ window.Lookback = (() => {
     const recent = Object.keys(state.spots).filter(id => IDX[state.spots[id].hood] != null && inRegion(IDX[state.spots[id].hood])).sort((a, b) => (state.spots[a].at < state.spots[b].at ? 1 : -1));
     // the first screen: the wordmark is the title, and the most recent spots are one tap away (in the phone's header, so the peek shows them)
     const chips = r === 'all' && recent.length ? `<div class="recent" role="list" aria-label="Recent spots">${recent.slice(0, 5).map(id => { const sp = state.spots[id], k = KINDS[sp.kind] || KINDS.other; return `<span role="listitem"><button type="button" data-go='${attr({ spot: id })}'><i class="${sp.status === 'want' ? 'want' : ''}" style="--c:${k.c}"></i>${esc(sp.name)}</button></span>`; }).join('')}${recent.length > 5 ? `<span role="listitem"><button type="button" class="all" data-view="spots">All ${recent.length} ›</button></span>` : ''}</div>` : '';
-    if (r === 'all') setHead({ back: false, eyebrow: 'Logbook · ' + (news ? `${news} new` : `${n} of ${total} walked`), title: 'Seven by Seven<em>.</em>', tools: [logTool(null, null)], extra: isPhone() ? chips : '' });
-    else setHead({ path: { crumbs: crumbsOf(state.loc) }, title: REGIONS[r].label, tools: [logTool(null, null)] });
+    if (r === 'all') setHead({ back: false, eyebrow: 'Logbook · ' + (news ? `${news} new` : `${n} of ${total} walked`), title: 'Seven by Seven<em>.</em>', extra: isPhone() ? chips : '' });
+    else setHead({ path: { crumbs: crumbsOf(state.loc) }, title: REGIONS[r].label });
     const entries = NAMES.filter(x => inRegion(IDX[x]) && state.done[slug(x)]).sort((a, b) => String(state.done[slug(b)].at ?? '').localeCompare(String(state.done[slug(a)].at ?? '')) || a.localeCompare(b));
     const wantList = NAMES.filter(x => inRegion(IDX[x]) && state.want[slug(x)] && !state.done[slug(x)]);
     const active = state.filters.size > 0, hits = active ? NAMES.filter(x => matches(IDX[x])) : [];
@@ -4958,7 +5118,7 @@ window.Lookback = (() => {
     const i = IDX[name], info = INFO[name], h = HOODS[i], k = slug(name), done = state.done[k], want = state.want[k], secs = subs(name), mine = spotsIn(name);
     const roof = h.max === Math.max(...HOODS.filter(x => x.region === h.region).map(x => x.max)), dis = state.canWrite ? '' : 'disabled';
     const keepNote = panel.dataset.name === name && panel.querySelector('#note') ? panel.querySelector('#note').value : null; panel.dataset.name = name;
-    setHead({ path: { crumbs: crumbsOf(state.loc) }, title: esc(name), tools: [logTool(name, null)] }); // the vibe is the first of the facts
+    setHead({ path: { crumbs: crumbsOf(state.loc) }, title: esc(name) }); // the vibe is the first of the facts
     const extras = mine.map(spotSrc).concat(secs.slice().sort((a, b) => !!b.star - !!a.star).map(s => ({ owner: ownerKey.section(name, s.name), label: s.name }))); // spots first, newest first (photos mostly live there and the hero caps its sources), then sections in list order
     panel.innerHTML = `
       ${hero(ownerKey.place(name), name, Object.assign(vibeLook(name), { extras }))}
@@ -4983,7 +5143,7 @@ window.Lookback = (() => {
   // ---- a section of a neighborhood ----
   function renderSub(hood, subName) {
     const s = subByName(hood, subName), i = IDX[hood], info = INFO[hood], mine = spotsIn(hood, subName), others = subs(hood).filter(x => x.name !== subName);
-    setHead({ path: { crumbs: crumbsOf(state.loc), tag: s.star ? '<span class="star"><b>★</b> Starred</span>' : null }, title: esc(subName), tools: [logTool(hood, subName)] }); // the reason for the star is the note at the top of the panel
+    setHead({ path: { crumbs: crumbsOf(state.loc), tag: s.star ? '<span class="star"><b>★</b> Starred</span>' : null }, title: esc(subName) }); // the reason for the star is the note at the top of the panel
     const mq = areaQuery(hood, subName), aq = areaApple(hood, subName);
     const sv = { key: 'sub:' + hood + '/' + subName, name: subName, href: tapLink(mq, aq), q: mq, z: 16, seed: [s.lon, s.lat], zoom: 15 };
     if (!paint(`
@@ -5027,7 +5187,7 @@ window.Lookback = (() => {
     let ids = Object.keys(state.spots).filter(id => IDX[state.spots[id].hood] != null && inRegion(IDX[state.spots[id].hood], r));
     if (f.kind) ids = ids.filter(id => state.spots[id].kind === f.kind); if (f.status) ids = ids.filter(id => (state.spots[id].status || 'been') === f.status);
     ids.sort((a, b) => (state.spots[a].at < state.spots[b].at ? 1 : -1));
-    setHead({ eyebrow: 'Logbook', title: 'Spots', onBack: () => go(state.loc, { replace: true, fly: false }), tools: [logTool(null, null)] });
+    setHead({ eyebrow: 'Logbook', title: 'Spots', onBack: () => go(state.loc, { replace: true, fly: false }) });
     panel.innerHTML = `<div class="textlinks chips"><button type="button" data-sf="status:" aria-pressed="${!f.status}">All</button><button type="button" data-sf="status:been" aria-pressed="${f.status === 'been'}">Been</button><button type="button" data-sf="status:want" aria-pressed="${f.status === 'want'}">Want to go</button></div>
       <div class="textlinks chips"><button type="button" data-sf="kind:" aria-pressed="${!f.kind}">Any kind</button>${Object.entries(KINDS).map(([k, v]) => `<button type="button" data-sf="kind:${k}" aria-pressed="${f.kind === k}">${v.label}</button>`).join('')}</div>
       <h3>${ids.length} ${ids.length === 1 ? 'spot' : 'spots'}</h3>${ids.length ? `<ul class="rows">${ids.map(id => rowSpot(id, true)).join('')}</ul>` : '<p class="empty">Nothing matches.</p>'}`;
@@ -5038,24 +5198,137 @@ window.Lookback = (() => {
   function rankOf(text, qq) { const t = String(text || '').toLowerCase(); let j = t.indexOf(qq); if (j < 0) return 9; if (j === 0) return 0; for (; j >= 0; j = t.indexOf(qq, j + 1)) if (!/[\p{L}\p{N}]/u.test(t[j - 1])) return 1; return 2; }
   // the matches, best rank first, ties alphabetical; names: the texts that count (an alias, a note: the note only as 'contains'). A synced
   // spot's name is anyone's to write (a number, nothing): the labels compare as strings
-  const ranked = (items, names, label) => items.map(x => [x, Math.min(...names(x).map(([t, floor]) => Math.max(floor || 0, rankOf(t, state.query))))]).filter(a => a[1] < 9).sort((a, b) => a[1] - b[1] || String(label(a[0]) ?? '').localeCompare(String(label(b[0]) ?? ''))).map(a => a[0]);
+  const ranked = (items, names, label, qq = state.query) => items.map(x => [x, Math.min(...names(x).map(([t, floor]) => Math.max(floor || 0, rankOf(t, qq))))]).filter(a => a[1] < 9).sort((a, b) => a[1] - b[1] || String(label(a[0]) ?? '').localeCompare(String(label(b[0]) ?? ''))).map(a => a[0]);
+  // a map keyword: the words that name an area (an away region's label, its city, and the label's last word: "vegas"; the Bay's own)
+  const AREA_NAMES = AREAS.map(a => [a, a === 'bay' ? ['bay area', 'san francisco', 'sf'] : [REGIONS[a].label, REGIONS[a].city, / /.test(REGIONS[a].label) ? REGIONS[a].label.split(' ').pop() : ''].filter(Boolean).map(s => s.toLowerCase())]);
+  const areaNamed = s => (AREA_NAMES.find(([, ns]) => ns.includes(s)) || [])[0] || null;
+  // typed text that starts or ends with whole words naming an area, with 2+ characters left: { area, rest, word } (longest name first)
+  function mapWord(text) {
+    const w = text.split(/[\s,]+/).filter(Boolean);
+    for (let k = w.length - 1; k >= 1; k--) for (const [name, rest] of [[w.slice(-k), w.slice(0, -k)], [w.slice(0, k), w.slice(k)]]) { const a = areaNamed(name.join(' ').toLowerCase()), r = rest.join(' '); if (a && r.length >= 2) return { area: a, rest: r, word: name.join(' ') }; }
+    return null;
+  }
+  const spotArea = sp => IDX[sp.hood] != null ? areaKey(HOODS[IDX[sp.hood]].region) : okLL(sp.lat, sp.lon) ? (boxAt(sp.lon, sp.lat) || {}).area || null : null;
+  // the four local groups for a query, all areas or one (a: after a map keyword)
+  function localHits(qq, a) {
+    const inA = hood => !a || (IDX[hood] != null && areaKey(HOODS[IDX[hood]].region) === a);
+    const hoods = ranked(NAMES.filter(inA), n => [[n], [SHORT[n]]], n => n, qq);
+    const allSecs = []; HOODS.forEach(h => { if (inA(h.name)) subs(h.name).forEach(s => allSecs.push({ hood: h.name, sub: s.name })); });
+    const secs = ranked(allSecs, x => [[x.sub]], x => x.sub, qq);
+    const spots = ranked(Object.keys(state.spots).filter(id => !a || spotArea(state.spots[id]) === a), id => [[state.spots[id].name], [state.spots[id].note, 2]], id => state.spots[id].name, qq);
+    const lms = ranked(map.landmarks.filter(l => inA(l.hood)), l => [[l.name]], l => l.name, qq);
+    return { hoods, secs, spots, lms, n: hoods.length + secs.length + spots.length + lms.length };
+  }
+  // place search beside them (js/places.js, inside the box of the area in play): typing waits 350 ms, a newer query drops an older
+  // answer, and the answer fills only its own slot (#more) at the end of the panel: nothing above it is redrawn, so no tap, focus or
+  // caret is lost. Unreachable, the group is simply absent
+  const more = { key: '', st: '', res: [], timer: 0, n: 0 }; // st: 'busy', 'done' or 'down', for the query `key` (area|text)
+  let searchCtx = null;
+  function dropMore() { clearTimeout(more.timer); more.n++; more.key = more.st = ''; more.res = []; searchCtx = null; dropLink(); }
+  const clearQ = d => { q.value = ''; state.query = ''; q.classList.remove('has'); q.blur(); endSearch(d); dropMore(); };
+  const metres = (a, b) => Math.hypot((a.lon - b.lon) * Math.cos(a.lat * Math.PI / 180) * 111320, (a.lat - b.lat) * 110540);
+  const isMine = r => Object.values(state.spots).some(sp => okLL(sp.lat, sp.lon) && String(sp.name ?? '').trim().toLowerCase() === r.name.trim().toLowerCase() && metres(sp, r) < 75); // already one of your spots
+  function askMore(c, explicit) {
+    if (!explicit && more.key === c.key) return; // asked already: it answers into the slot
+    clearTimeout(more.timer); const my = ++more.n; more.key = c.key; more.st = 'busy'; more.res = [];
+    more.timer = setTimeout(async () => {
+      const b = (BOXES.find(x => x.area === c.area) || {}).b, v = Geom.unproj(map.cam.x + map.cam.w / 2, map.cam.y + map.cam.w * map.H / map.W / 2), bias = b && v[0] >= b[0] && v[0] <= b[2] && v[1] >= b[1] && v[1] <= b[3] ? v : null; // the view's centre, when it is in that area
+      let res;
+      try { if (!window.Places) throw new Error('no place search'); res = await window.Places.search(c.term, bias, { explicit, bbox: b || null }); }
+      catch (e) { if (my !== more.n) return; if (e.name === 'AbortError') { more.key = more.st = ''; return; } more.st = 'down'; fillMore(); return; } // aborted by the log form's search: asked again on the next render
+      if (my !== more.n) return;
+      more.res = (res || []).filter(r => !isMine(r)).slice(0, 6); more.st = 'done'; fillMore();
+    }, explicit ? 0 : 350);
+  }
+  // a result's small line: kind · street · district, city
+  const placeLine = r => { const p = String(r.where || '').split(' · ').filter(Boolean), w = p.length > 1 ? p.slice(0, -2).concat(p.slice(-2).join(', ')) : p; return [r.osm ? r.osm[0].toUpperCase() + r.osm.slice(1) : '', ...w].filter(Boolean).join(' · '); };
+  // the slot: the found places; nothing local and still searching, a quiet line; nothing at all, the miss with Maps and a pin
+  function moreHtml(c) {
+    if (c.only) return '';
+    if (c.link) return c.n ? '' : '<p class="empty">That is not a Maps link.</p>';
+    const st = more.key === c.key ? more.st : '', res = st === 'done' ? more.res : [], al = esc(areaLabel(c.area)), label = c.kw ? 'In ' + al : 'More places · ' + al;
+    const note = c.kw ? `<p class="fine" style="margin-top:18px">“${esc(c.kw)}” searched the ${al} map.${res.length && state.canWrite ? ' Tap a place to see it on the map and save it as been or want to go.' : ''}</p>` : '';
+    if (res.length) return `<h3>${label} <span class="n">${res.length}</span></h3><ul class="rows">${res.map((r, i) => `<li><button type="button" class="row" data-more="${i}"><span class="ic none"></span><span class="nm">${esc(r.name)}<small>${esc(placeLine(r))}</small></span><span class="rt">${state.canWrite ? '<span class="add" role="img" aria-label="Add"><svg viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg></span>' : ''}</span></button></li>`).join('')}</ul>${note}`;
+    if (c.n) return note;
+    if (st === 'busy') return '<p class="empty">Searching…</p>';
+    return `${c.kw ? `<h3>${label} <span class="n">0</span></h3>` : ''}<p class="empty">Nothing called “${esc(c.shown)}” in the map data for ${al}.</p>
+      ${missBtns(c.shown, c.area)}${note}`;
+  }
+  // the miss's buttons: the name in Apple Maps or Google Maps (with the area's city and state), or a pin dropped in that area
+  function missBtns(name, area) {
+    const ar = REGIONS[areaRegion(area)], mq = joinQ([name, ar.city || 'San Francisco', ar.st || 'CA']), b = (BOXES.find(x => x.area === area) || {}).b;
+    return `<div class="missbtns"><a class="btn primary" href="${esc(appleLink(mq, b ? { sll: ll((b[1] + b[3]) / 2, (b[0] + b[2]) / 2) } : {}))}" target="_blank" rel="noopener">Look it up in Apple Maps</a><a class="btn" href="${esc(mapsLink(mq))}" target="_blank" rel="noopener">Google Maps</a><button type="button" class="btn" data-pin>Drop a pin</button></div>`;
+  }
+  function fillMore() {
+    const c = searchCtx, slot = panel.querySelector('#more'); if (!c || !slot || !state.query) return;
+    const html = moreHtml(c); if (slot._html === html) return; slot._html = html; slot.innerHTML = html; wireMore(slot, c);
+    const eb = head.querySelector('.eyebrow'), t = c.n + (more.key === c.key && more.st === 'done' ? more.res.length : 0); if (eb) eb.textContent = t ? `Search · ${t} ${t === 1 ? 'result' : 'results'}` : 'Search';
+  }
+  function wireMore(slot, c) {
+    const res = more.res; slot.querySelectorAll('[data-more]').forEach(b => b.addEventListener('click', () => { const r = res[+b.dataset.more]; if (r) addFound(r, c.area); }));
+    const p = slot.querySelector('[data-pin]'); if (p) p.addEventListener('click', () => pinFor(c.shown, c.area));
+  }
+  // a "More places" row: off to its area, the map flies there, and the log form opens with the place picked exactly as from the form's
+  // own suggestions (only been or want to go is left to choose). A log that cannot be written only flies the map there
+  function addFound(r, area) {
+    clearQ(isPhone() ? 'peek' : null); if (areaKey(state.loc.region) !== area) go({ region: areaRegion(area) }, { tap: true, fly: false });
+    const [x, y] = Geom.proj([r.lon, r.lat]);
+    if (state.canWrite) { startLog({ place: r }); state.pending = { x, y }; map.redraw(); } else { render(); toast(r.name || PIN_NAME, 2600); }
+    map.flyTo([x - .01, y - .01, x + .01, y + .01], 1, U * 0.028);
+  }
+  // the miss's Drop a pin: the log form's own pin drop, in that area, with the name typed
+  function pinFor(name, area) { clearQ(null); if (areaKey(state.loc.region) !== area) go({ region: areaRegion(area) }, { tap: true }); startLog({ name, pin: true }); }
+  // a pasted Apple or Google Maps link (js/link.js): one group, "From your link", instead of the usual ones, and the link is never sent
+  // to the place search. A short link is read by the link helper, once per link (a change of link aborts it); a link that gives only
+  // a name searches that name as if it had been typed
+  const PIN_NAME = 'Dropped pin'; // a place from a link without a name: the row's name (the form's name is left for the user to type)
+  const lnk = { url: '', st: '', got: null, ac: null }; // the short link being read: st 'busy', 'done' (got: a place or a name) or 'fail'
+  function dropLink() { if (lnk.ac) lnk.ac.abort(); lnk.url = lnk.st = ''; lnk.got = lnk.ac = null; }
+  function readLink(url) {
+    if (lnk.url === url) return; dropLink(); const ac = lnk.ac = new AbortController(); lnk.url = url; lnk.st = 'busy';
+    Link.read(url, ac.signal).then(got => { if (lnk.ac !== ac) return; lnk.ac = null; lnk.got = got; lnk.st = got ? 'done' : 'fail'; if (state.query) renderSearch(); });
+  }
+  function renderLink(lk, got) {
+    clearTimeout(more.timer); more.n++; more.key = more.st = ''; searchCtx = null; // no place search for a link
+    const pl = got && got.t === 'place' ? { name: got.name || lk.name || '', lat: got.lat, lon: got.lon, where: got.where || '' } : null, box = pl && boxAt(pl.lon, pl.lat), here = areaKey(state.loc.region);
+    let body, n = 0;
+    if (pl && box) {
+      const [x, y] = Geom.proj([pl.lon, pl.lat]), w = locateXY(x, y), line = [areaLabel(box.area), w.hood, w.sub].filter(Boolean).join(' · '); n = 1;
+      body = `<ul class="rows"><li><button type="button" class="row" data-first data-link><span class="ic none"></span><span class="nm">${esc(pl.name || PIN_NAME)}<small>${esc(line)}</small></span><span class="rt">${state.canWrite ? '<span class="add" role="img" aria-label="Add"><svg viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg></span>' : ''}</span></button></li></ul>`;
+    } else if (pl) body = '<p class="empty">That place is outside your maps.</p>';
+    else if (lk.t === 'short' && lnk.st === 'busy') body = '<p class="empty">Reading the link…</p>';
+    else body = `<p class="empty">Could not read that link. Open it, then copy the full link from the address bar and paste that.</p>${lk.name ? missBtns(lk.name, here) : ''}`;
+    setHead({ eyebrow: n ? 'Search · 1 result' : 'Search', title: 'Search results', compact: true, onBack: () => { clearQ('peek'); render(); } });
+    panel.innerHTML = `<h3>From your link</h3>${body}`;
+    const b = panel.querySelector('[data-link]'); if (b) b.addEventListener('click', () => addFound(Object.assign(pl, { src: pl.name ? 'search' : 'pin' }), box.area));
+    const p = panel.querySelector('[data-pin]'); if (p) p.addEventListener('click', () => pinFor(lk.name, here));
+  }
   function renderSearch() {
-    const hoods = ranked(NAMES, n => [[n], [SHORT[n]]], n => n);
-    const allSecs = []; HOODS.forEach(h => subs(h.name).forEach(s => allSecs.push({ hood: h.name, sub: s.name })));
-    const secs = ranked(allSecs, x => [[x.sub]], x => x.sub);
-    const spots = ranked(Object.keys(state.spots), id => [[state.spots[id].name], [state.spots[id].note, 2]], id => state.spots[id].name);
-    const lms = ranked(map.landmarks, l => [[l.name]], l => l.name);
-    const total = hoods.length + secs.length + spots.length + lms.length;
+    const pasted = q.value.trim(), lk = window.Link ? Link.parse(pasted) : { t: 'other' };
+    if (lk.t === 'short') readLink(lk.url); else if (lnk.url) dropLink();
+    const got = lk.t === 'short' ? (lnk.st === 'done' ? lnk.got : null) : lk;
+    if (lk.t !== 'other' && !(got && got.t === 'name')) return renderLink(lk, got);
+    // as typed first (a link's name: as if typed); with no local match, a map keyword at either end searches the rest in that area
+    const typed = got && got.t === 'name' ? got.name : pasted, qq = typed.toLowerCase(); let L = localHits(qq, null), kw = null;
+    if (!L.n && (kw = mapWord(typed))) L = localHits(kw.rest.toLowerCase(), kw.area);
+    const only = AWAY.length ? areaNamed(qq.replace(/[\s,]+/g, ' ')) : null, maps = only ? [only] : []; // just a map's name: a row that opens it
+    const { hoods, secs, spots, lms } = L, area = kw ? kw.area : areaKey(state.loc.region), term = kw ? kw.rest : typed;
+    const c = searchCtx = { area, kw: kw && kw.word, term, shown: term, only: !!only, link: /https?:\/\//i.test(typed), n: L.n + maps.length, key: area + '|' + term.toLowerCase() }; // link: a link that is not a Maps link, never sent to place search
+    if (!c.only && !c.link && term.length >= 3) askMore(c); else if (more.key !== c.key) { clearTimeout(more.timer); more.n++; more.key = more.st = ''; }
+    const total = c.n + (more.key === c.key && more.st === 'done' ? more.res.length : 0);
     // the query is already in the field above: the header says how many, and its heading names the panel for assistive tech
-    setHead({ eyebrow: total ? `Search · ${total} ${total === 1 ? 'result' : 'results'}` : 'Search', title: 'Search results', compact: true, onBack: () => { q.value = ''; state.query = ''; q.classList.remove('has'); q.blur(); endSearch('peek'); render(); } });
+    setHead({ eyebrow: total ? `Search · ${total} ${total === 1 ? 'result' : 'results'}` : 'Search', title: 'Search results', compact: true, onBack: () => { clearQ('peek'); render(); } });
     let first = true; const F = () => { const f = first ? 'data-first' : ''; first = false; return f; };
+    const slot = moreHtml(c);
     panel.innerHTML = `
+      ${maps.length ? `<h3>Maps</h3><ul class="rows">${maps.map(a => `<li><button type="button" class="row" ${F()} data-go='${attr({ region: areaRegion(a) })}'><span class="ic ${areaWalked(a)[0] ? 'flag' : 'none'}"></span><span class="nm">${esc(areaLabel(a))}<small>${esc(areaLine(a))}</small></span><span class="rt"><span class="chev"></span></span></button></li>`).join('')}</ul>` : ''}
       ${hoods.length ? `<h3>Places <span class="n">${hoods.length}</span></h3><ul class="rows">${hoods.map(n => `<li><button type="button" class="row" ${F()} data-go='${attr({ hood: n })}'><span class="ic ${isDone(IDX[n]) ? 'flag' : isWant(IDX[n]) ? 'star' : 'none'}"></span><span class="nm">${esc(n)}<small>${esc(REGIONS[HOODS[IDX[n]].region].label)}</small></span><span class="rt"><span class="chev"></span></span></button></li>`).join('')}</ul>` : ''}
       ${secs.length ? `<h3>Sections <span class="n">${secs.length}</span></h3><ul class="rows">${secs.map(x => `<li><button type="button" class="row" ${F()} data-go='${attr(x)}'><span class="ic sq"></span><span class="nm">${esc(x.sub)}<small>${esc(x.hood)}</small></span><span class="rt"><span class="chev"></span></span></button></li>`).join('')}</ul>` : ''}
       ${lms.length ? `<h3>Landmarks</h3><ul class="rows">${lms.map(l => `<li><button type="button" class="row" ${F()} data-go='${attr({ hood: l.hood })}'><span class="ic sq" style="--c:var(--ink)"></span><span class="nm">${esc(l.name)}<small>${esc(l.hood)}</small></span><span class="rt"><span class="chev"></span></span></button></li>`).join('')}</ul>` : ''}
       ${spots.length ? `<h3>Your spots <span class="n">${spots.length}</span></h3><ul class="rows">${spots.map(id => rowSpot(id, true).replace('class="row"', `class="row" ${F()}`)).join('')}</ul>` : ''}
-      ${!hoods.length && !secs.length && !spots.length && !lms.length ? `<p class="empty">Nothing called “${esc(q.value)}”. To log a new place, open a neighborhood and tap +.</p>` : ''}`;
-    panel.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => { q.value = ''; state.query = ''; q.classList.remove('has'); q.blur(); endSearch('half'); })); // before wire(): go() must see the query cleared
+      <div id="more">${slot}</div>`;
+    const sl = panel.querySelector('#more'); sl._html = slot; wireMore(sl, c);
+    panel.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => clearQ('half'))); // before wire(): go() must see the query cleared
     wire(panel);
   }
 
@@ -5336,14 +5609,18 @@ window.Lookback = (() => {
   // ---------- logging a place ----------
   function hoodAt(x, y) { for (let i = 0; i < HOODS.length; i++) { const bb = map.bbox[i]; if (x < bb[0] || x > bb[2] || y < bb[1] || y > bb[3]) continue; if (Geom.inPolys(window.HPP[i], x, y)) return i; } return -1; }
   function locateXY(x, y) { const i = hoodAt(x, y); if (i < 0) return { hood: null, sub: null }; const j = map.subIndexAt(i, x, y); return { hood: HOODS[i].name, sub: j >= 0 ? subs(HOODS[i].name)[j].name : null }; }
+  // ctx.place: a place from search's "More places", picked as from the form's suggestions (the phone keeps the map in view: half);
+  // ctx.pin with ctx.name: search's Drop a pin, the name typed and the pin drop on at once
   function startLog(ctx) {
-    const sp = ctx.edit ? state.spots[ctx.edit] : null;
-    state.draft = sp ? Object.assign({}, sp, { hood: IDX[sp.hood] != null ? sp.hood : null, sub: IDX[sp.hood] != null ? sp.sub : null, id: ctx.edit, x: sp._xy ? sp._xy[0] : null, y: sp._xy ? sp._xy[1] : null }) : { id: null, name: '', kind: 'food', status: 'been', rating: 0, note: '', at: today(), hood: ctx.hood || state.loc.hood || null, sub: ctx.sub || (ctx.hood ? null : state.loc.sub) || null, lon: null, lat: null, x: null, y: null, where: '', src: null };
+    const sp = ctx.edit ? state.spots[ctx.edit] : null, pl = ctx.place || null;
+    state.draft = sp ? Object.assign({}, sp, { hood: IDX[sp.hood] != null ? sp.hood : null, sub: IDX[sp.hood] != null ? sp.sub : null, id: ctx.edit, x: sp._xy ? sp._xy[0] : null, y: sp._xy ? sp._xy[1] : null }) : { id: null, name: ctx.name || '', kind: 'food', status: 'been', rating: 0, note: '', at: today(), hood: pl ? null : ctx.hood || state.loc.hood || null, sub: pl ? null : ctx.sub || (ctx.hood ? null : state.loc.sub) || null, lon: null, lat: null, x: null, y: null, where: '', src: null };
     // no place chosen (the first screen, a region): most likely it is where you stand, so the location lookup starts at once. With no
     // location (refused, unavailable, timed out, off the map) the form simply stays as it is, with no message
-    const d = state.draft; if (!sp && !d.hood && navigator.geolocation) d.locating = true;
-    go(state.loc, { view: 'log', fly: false, replace: true, sheet: isPhone() ? 'full' : undefined });
-    if (!sp) { const qi = panel.querySelector('#lf-q'); if (qi) qi.focus({ preventScroll: true }); } // the name first, still inside the + tap (iOS opens the keyboard only for a focus in a tap)
+    const d = state.draft; if (pl) pickPlace(d, pl); if (ctx.pin) d.pinning = true; // pinning: no autofocus (on the phone a focus opens the sheet over the map)
+    if (!sp && !d.hood && !pl && !ctx.pin && navigator.geolocation) d.locating = true;
+    go(state.loc, { view: 'log', fly: false, replace: true, sheet: isPhone() ? (pl ? 'half' : ctx.pin ? 'peek' : 'full') : undefined });
+    if (ctx.pin) startPin();
+    else if (!sp && !pl) { const qi = panel.querySelector('#lf-q'); if (qi) qi.focus({ preventScroll: true }); } // the name first, still inside the tap (iOS opens the keyboard only for a focus in a tap)
     if (d.locating) locate(pos => { d.locating = false; if (state.draft === d && d.lon == null) fillGps(d, pos); else gpsIdle(d); }, { quiet: true, fail: () => { d.locating = false; gpsIdle(d); } });
   }
   // a location that lands while the form is open changes the form in place, never by a rebuild: that would take what is being typed,
@@ -5367,7 +5644,7 @@ window.Lookback = (() => {
     const placed = d.lon != null;
     setHead({ eyebrow: d.id ? 'Edit spot' : 'Log a place', title: d.id ? esc(d.name) : (d.hood ? `In ${esc(d.sub || d.hood)}` : 'Somewhere on the map'), onBack: cancelLog, tools: [] });
     panel.innerHTML = `<form id="logform" autocomplete="off">
-      <div class="field"><label for="lf-q">${placed ? 'Place' : 'Find the place'}</label><input id="lf-q" placeholder="Search a restaurant, bar, park…" value="${esc(d.name)}" ${placed ? '' : 'autofocus'}>
+      <div class="field"><label for="lf-q">${placed ? 'Place' : 'Find the place'}</label><input id="lf-q" placeholder="Search a restaurant, bar, park…" value="${esc(d.name)}" ${placed || d.pinning ? '' : 'autofocus'}>
         ${placed ? whereLine(d) : ''}</div>
       <ul class="suggest" id="lf-sug" hidden></ul>
       <p class="empty" id="lf-nosearch" style="font-size:12.5px;margin:-4px 0 10px" ${state.searchDown ? '' : 'hidden'}>Live suggestions are not available here. Press Enter to search, or type the name and drop a pin.</p>
@@ -5392,10 +5669,14 @@ window.Lookback = (() => {
     panel.querySelector('#lf-note').addEventListener('input', e => d.note = e.target.value);
     panel.querySelector('#lf-cancel').addEventListener('click', cancelLog);
     const clr = panel.querySelector('#lf-clear'); if (clr) clr.addEventListener('click', () => clearWhere(d));
-    const pin = panel.querySelector('#lf-pin'); if (pin) pin.addEventListener('click', () => { state.placing = true; state.pending = null; stage.classList.add('placing'); if (isPhone()) sheet.set('peek'); setHead({ eyebrow: 'Drop a pin', title: 'Tap the map', onBack: () => { stopPlacing(); renderLogForm(); if (isPhone()) sheet.set('full'); }, tools: [] }); toast('Tap the map where it is', 3200); map.redraw(); });
+    const pin = panel.querySelector('#lf-pin'); if (pin) pin.addEventListener('click', startPin);
     const gps = panel.querySelector('#lf-gps'); if (gps) gps.addEventListener('click', () => locate(pos => { if (state.draft === d) fillGps(d, pos); }));
     form.addEventListener('submit', e => { e.preventDefault(); saveDraft(); });
   }
+  function startPin() { state.placing = true; state.pending = null; stage.classList.add('placing'); if (isPhone()) sheet.set('peek'); setHead({ eyebrow: 'Drop a pin', title: 'Tap the map', onBack: () => { stopPlacing(); renderLogForm(); if (isPhone()) sheet.set('full'); }, tools: [] }); toast('Tap the map where it is', 3200); map.redraw(); }
+  // a place picked from place search (the form's suggestions, search's "More places"): its name, where and kind, and the place and
+  // section it is in. r.src: a pasted link's place without a name is a pin ('pin'); everything else is a search pick
+  function pickPlace(d, r) { const [x, y] = Geom.proj([r.lon, r.lat]), w = locateXY(x, y); Object.assign(d, { name: r.name, lon: r.lon, lat: r.lat, x, y, where: r.where, src: r.src || 'search', hood: w.hood || d.hood, sub: w.sub, kind: r.kind || d.kind }); }
   async function suggest(v, sug, qi, explicit) {
     const my = ++sugCtrl, d = state.draft; let res = []; if (!d) return; // the form was saved or left before the typing pause ended
     const bias = d.hood ? (() => { const bb = map.hoodBBox(IDX[d.hood]); return Geom.unproj((bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2); })() : null;
@@ -5405,7 +5686,7 @@ window.Lookback = (() => {
     if (my !== sugCtrl || !state.draft || state.view !== 'log') return;
     if (!res.length) { sug.hidden = true; return; }
     sug.hidden = false; sug.innerHTML = res.map((r, i) => `<li><button type="button" data-i="${i}"><span><b>${esc(r.name)}</b><small>${esc(r.where)}</small></span><span class="k">${esc(r.osm)}</span></button></li>`).join('');
-    sug.querySelectorAll('[data-i]').forEach(b => b.addEventListener('click', () => { const r = res[+b.dataset.i], [x, y] = Geom.proj([r.lon, r.lat]), w = locateXY(x, y); Object.assign(d, { name: r.name, lon: r.lon, lat: r.lat, x, y, where: r.where, src: 'search', hood: w.hood || d.hood, sub: w.sub, kind: r.kind || d.kind }); renderLogForm(); }));
+    sug.querySelectorAll('[data-i]').forEach(b => b.addEventListener('click', () => { pickPlace(d, res[+b.dataset.i]); renderLogForm(); }));
   }
   function placePending(xy) {
     const tEl = $('toast'); tEl.classList.remove('on'); clearTimeout(toastTimer); // the 'tap the map' hint is done

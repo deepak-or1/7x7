@@ -696,5 +696,6 @@ window.REGIONS = { all:{label:'Bay Area', the:'the whole map', roof:'the roof of
   // a map link ends in (its places are stretches of the Strip, not towns); low: where its Hills ramp starts (the Bay's: sea level);
   // ordered: its places are listed in map order (north to south), not by name; detail: its places count as this many times
   // their size on screen, so its sections (single resorts) and landmarks show from the region view. A place there may carry
-  // tone: the colour it is drawn in under the Character lens, so the five stretches read apart (all five are 'buzz')
-  vegas:{label:'Las Vegas', the:'the whole Strip', roof:'the Strip’s high point', away:true, ordered:true, detail:5, st:'NV', city:'Las Vegas', low:{m:635, label:'2,080 ft'}} };
+  // tone: the colour it is drawn in under the Character lens, so the five stretches read apart (all five are 'buzz'). tag: a
+  // short name for what the map covers, shown before its count in the map chip's menu
+  vegas:{label:'Las Vegas', the:'the whole Strip', roof:'the Strip’s high point', away:true, ordered:true, detail:5, st:'NV', city:'Las Vegas', low:{m:635, label:'2,080 ft'}, tag:'The Strip'} };

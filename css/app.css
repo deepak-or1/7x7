@@ -127,17 +127,26 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .search input::placeholder { color: var(--muted); }
 
 /* ---------- the control capsule: top right of the map (search on the phone), locate, layers (the menu holds the legend), zoom ---------- */
-/* the area switch: Bay Area | Las Vegas. A pill beside the search field (it steps aside while the field is in use); on the phone, top left of the map */
-.areas { position: absolute; z-index: 4; left: calc(max(var(--m), env(safe-area-inset-left, 0px)) + 232px); top: max(var(--m), env(safe-area-inset-top, 0px)); display: flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: var(--glass-ring); transition: opacity .2s; }
+/* the map chip: the area you are on, and a down arrow. A pill beside the search field (it steps aside while the field is in use); on
+   the phone, top left of the map. A tap opens its menu right under it: one row per area, how much of it is walked, a tick on this one */
+.areas { position: absolute; z-index: 4; left: calc(max(var(--m), env(safe-area-inset-left, 0px)) + 232px); top: max(var(--m), env(safe-area-inset-top, 0px)); display: flex; padding: 3px; border-radius: 999px; background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: var(--glass-ring); transition: opacity .2s; }
 .areas:empty { display: none; }
-.areas button { height: 34px; padding: 0 14px; border: 0; border-radius: 999px; background: transparent; font: 600 13.5px/1 var(--sans); color: var(--ink-2, var(--muted)); white-space: nowrap; }
-.areas button:hover { color: var(--ink); }
-.areas button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.areas button { display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 11px 0 13px; border: 0; border-radius: 999px; background: transparent; font: 600 13.5px/1 var(--sans); color: var(--ink); white-space: nowrap; }
+.areas button:hover { background: var(--glass-hover); }
+.areas button svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: transform .2s var(--ease); }
+.areas button[aria-expanded="true"] svg { transform: rotate(180deg); }
+.amenu { position: absolute; z-index: 4; left: calc(max(var(--m), env(safe-area-inset-left, 0px)) + 232px); top: calc(max(var(--m), env(safe-area-inset-top, 0px)) + 48px); width: 264px; padding: 4px 16px; border-radius: 20px; background: var(--glass-strong); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: var(--glass-ring); color: var(--ink); }
+.amenu[hidden], .top:focus-within ~ .amenu { display: none; }
+.amenu .row { padding: 12px 0; }
+.amenu .row .nm small { color: var(--glass-muted); }
+.amenu .row .rt svg { width: 14px; height: 14px; fill: none; stroke: var(--accent-deep, var(--accent)); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vertical-align: middle; }
 .top:focus-within ~ .areas { opacity: 0; pointer-events: none; }
 @media (max-width: 880px) {
   .areas { left: max(var(--m), env(safe-area-inset-left, 0px)); box-shadow: inset 0 0 0 1px var(--glass-edge), inset 0 1px 0 var(--glass-hi), var(--glass-shadow); }
-  .areas button { height: 38px; padding: 0 15px; font-size: 14.5px; }
+  .areas button { height: 38px; padding: 0 14px 0 16px; font-size: 14.5px; }
+  .amenu { left: max(var(--m), env(safe-area-inset-left, 0px)); top: calc(max(var(--m), env(safe-area-inset-top, 0px)) + 52px); width: min(264px, calc(100vw - 2 * var(--m) - 52px)); } /* never over the control capsule */
   .sheet-full .areas, .searching .areas { opacity: 0; pointer-events: none; }
+  .sheet-full .amenu, .searching .amenu { display: none; }
 }
 .ctl { position: absolute; right: calc(var(--side) + 16px + max(16px, env(safe-area-inset-right, 0px))); top: max(16px, env(safe-area-inset-top, 0px)); display: flex; flex-direction: column; z-index: 4; overflow: visible; }
 .ctl .stack { display: flex; flex-direction: column; overflow: hidden; border-radius: var(--r-sm); }
@@ -289,6 +298,10 @@ a.btn { text-decoration: none; }
 .row .nm { font-weight: 500; font-size: 14.5px; line-height: 1.25; min-width: 0; }
 .row .nm small { display: block; color: var(--muted); font-size: 12px; font-weight: 400; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .row .rt { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.row .rt .add { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; box-shadow: inset 0 0 0 1px var(--line-2); color: var(--ink); } /* search's "More places": log it */
+.row .rt .add svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.row:hover .rt .add { box-shadow: inset 0 0 0 1px var(--ink); }
+.missbtns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; } /* search found nothing: look it up in Maps, or drop a pin */
 .row .rt .chev { display: inline-block; width: 7px; height: 7px; border-right: 1.5px solid var(--line-2); border-bottom: 1.5px solid var(--line-2); transform: rotate(-45deg); margin-left: 8px; vertical-align: 1px; }
 .cols2 { columns: 2; column-gap: 18px; } .cols2 li { break-inside: avoid; }
 

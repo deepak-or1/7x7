@@ -1130,7 +1130,7 @@
     pool = pool.filter(i => HOODS[i].name !== state.loc.hood); if (!pool.length) return;
     go({ hood: HOODS[pool[Math.floor(Math.random() * pool.length)]].name });
   }
-  // The quiz: ten places of the region in play, one at a time. The question is pinned on the map (#qz: under the area switch, beside
+  // The quiz: ten places of the region in play, one at a time. The question is pinned on the map (#qz: under the map chip, beside
   // the controls); on the phone the sheet drops to its peek and carries only the hint and Quit. The place about to be picked is
   // tinted (map.js: under the pointer, or under a finger held down; the answer is taken on release). An answer shows at once on the
   // map: the right place green with its name and a check, and after a miss the tapped place red with its own name and a cross, with

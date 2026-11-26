@@ -104,6 +104,12 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .stage.placing { cursor: crosshair; }
 .stage.pointing { cursor: pointer; }
 #map { display: block; width: 100%; height: 100%; }
+/* the 3D map (beta, js/map3d.js): its two canvases over the stage (the scene, and the names above it), and the button that faces north again */
+.stage canvas.m3d { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.stage canvas.m3d-labels { pointer-events: none; }
+.m3d-north { position: absolute; z-index: 1; left: max(var(--m), env(safe-area-inset-left, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); width: 40px; height: 40px; padding: 0; border: 0; border-radius: 50%; display: grid; place-items: center; color: var(--ink-2); background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: var(--glass-ring); }
+.m3d-north svg { width: 20px; height: 20px; } .m3d-north .n { fill: var(--accent); } .m3d-north .s { fill: currentColor; opacity: .35; }
+@media (max-width: 880px) { .m3d-north { bottom: calc(var(--sheet-vis) + 12px); } }
 .tip { position: absolute; pointer-events: none; background: var(--ink); color: var(--paper); padding: 6px 10px; border-radius: 6px; font-size: 12.5px; font-weight: 600; transform: translate(-50%, calc(-100% - 14px)); white-space: nowrap; opacity: 0; transition: opacity .12s; z-index: 5; }
 .tip small { display: block; font-weight: 400; opacity: .78; font-size: 11.5px; }
 .tip.on { opacity: 1; }
@@ -359,6 +365,8 @@ textarea.note { min-height: 64px; resize: vertical; margin-top: 10px; }
 .switch input { width: 36px; height: 20px; appearance: none; background: var(--line-2); border-radius: 999px; position: relative; cursor: pointer; margin: 0; transition: background .15s; flex: none; }
 .switch input::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--paper); transition: transform .15s; }
 .switch input:checked { background: var(--accent); } .switch input:checked::after { transform: translateX(16px); }
+.switch small { display: block; font-size: 12px; font-weight: 400; color: var(--muted); } .switch input:disabled { opacity: .5; cursor: default; } /* the 3D map's switch where it cannot run */
+.fine.m3d-credit { margin-top: 8px; padding-top: 0; border-top: 0; } .fine.m3d-credit a { color: inherit; } /* the 3D map's sources, under the other small print */
 details.more { border-top: 1px solid var(--line); margin-top: 22px; }
 details.more summary { list-style: none; cursor: pointer; font-size: 11.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 12px 0 8px; display: flex; justify-content: space-between; }
 details.more summary::-webkit-details-marker { display: none; }

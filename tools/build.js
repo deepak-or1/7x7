@@ -27,6 +27,9 @@ let top = head
 // the <title> first, then the viewport-fit promise (the page keeps max(16px, safe-area) side gutters in its panel)
 top = top.replace(/\s*<title>Seven by Seven<\/title>\s*/, '');
 top = '<title>Seven by Seven</title>\n<meta name="claude:viewport-fit-sides" content="cover">\n' + top.trim();
+// the artifact keeps the flat map: the 3D map (beta) loads three.js from a CDN and its own files from beside the page, and a
+// single file has neither (js/app.js makes the flat map when window.MapView3D is not there)
+body = body.replace(/<script data-map3d>[\s\S]*?<\/script>\s*/, '').replace(/<script src="js\/map3d\.js"><\/script>\s*/, '');
 body = body.replace(/<script src="([^"]+)"><\/script>/g, (m, src) => '<script>\n' + read(src).replace(/<\/script/gi, '<\\/script') + '\n</script>');
 fs.mkdirSync(path.join(root, 'dist'), { recursive: true });
 const out = top + '\n' + body.trim() + '\n';

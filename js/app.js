@@ -51,8 +51,8 @@
 
   // ---------- state ----------
   const state = { loc: { region: 'all', hood: null, sub: null, spot: null }, view: null, lens: 'vibe', filters: new Set(), query: '', showAll: true, theme: 'system', done: bare(), want: bare(), spots: bare(), placing: false, pending: null, draft: null, canWrite: true, store: 'none', quiz: null, hover: -1 };
-  try { const s = JSON.parse(localStorage.getItem('sbs-prefs-v3') || localStorage.getItem('sbs-prefs-v2') || '{}'); if (LENSES[s.lens || s.mode]) state.lens = s.lens || s.mode; if (s.showAll === false) state.showAll = false; if (s.theme === 'light' || s.theme === 'dark') state.theme = s.theme; if (AWAY.includes(s.area)) state.lastArea = s.area; } catch (e) {}
-  const savePrefs = () => { try { localStorage.setItem('sbs-prefs-v3', JSON.stringify({ lens: state.lens, showAll: state.showAll, theme: state.theme, area: areaKey(state.loc.region) })); } catch (e) {} }; // area: the app opens in the area it was left in
+  try { const s = JSON.parse(localStorage.getItem('sbs-prefs-v3') || localStorage.getItem('sbs-prefs-v2') || '{}'); if (LENSES[s.lens || s.mode]) state.lens = s.lens || s.mode; if (s.showAll === false) state.showAll = false; if (s.theme === 'light' || s.theme === 'dark') state.theme = s.theme; if (AWAY.includes(s.area)) state.lastArea = s.area; state.map3d = s.map3d === true; } catch (e) {}
+  const savePrefs = () => { try { localStorage.setItem('sbs-prefs-v3', JSON.stringify(Object.assign({ lens: state.lens, showAll: state.showAll, theme: state.theme, area: areaKey(state.loc.region) }, state.map3d ? { map3d: true } : null))); } catch (e) {} }; // area: the app opens in the area it was left in; map3d: the 3D map (beta), kept only while it is on
   function applyTheme() { if (state.theme === 'light' || state.theme === 'dark') document.documentElement.setAttribute('data-theme', state.theme); else document.documentElement.removeAttribute('data-theme'); syncThemeColor(); if (window.StreetMap) StreetMap.restyle(); }
   // the browser / PWA status band follows the theme the page actually shows: the paper tone at the top of the map
   function syncThemeColor() { const c = getComputedStyle(document.documentElement).getPropertyValue('--land-other').trim(); if (c) document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.setAttribute('content', c)); } // both metas (their media attributes only matter before this runs)
@@ -77,7 +77,10 @@
   const spotList = () => { const out = []; for (const id in state.spots) { const sp = state.spots[id]; if (!sp._xy) sp._xy = Geom.proj([sp.lon, sp.lat]); out.push({ id, x: sp._xy[0], y: sp._xy[1], c: (KINDS[sp.kind] || KINDS.other).c, name: sp.name, status: sp.status || 'been', hood: sp.hood }); } if (state.pending) out.push({ id: 'pending', x: state.pending.x, y: state.pending.y, c: 'var(--accent)', name: '', status: 'pending' }); return out; };
   const marksFor = () => HOODS.map((h, i) => isDone(i) ? 'flag' : isWant(i) ? 'star' : null);
   const matches = i => { if (!inRegion(i)) return false; const info = INFO[HOODS[i].name]; for (const t of state.filters) if (!info.tags.includes(t)) return false; return true; };
-  const map = window.MapView(canvas, {
+  // the 3D map (beta) when it was asked for (index.html) and can run here (js/map3d.js: three.js loaded, WebGL), else the flat map
+  const mapEngine = (c, o) => { let m = null; try { m = window.SBS_MAP3D && window.MapView3D && window.MapView3D(c, o); } catch (e) { console.error('3D map: ' + (e && e.stack || e)); c.hidden = false; c.parentElement.querySelectorAll('.m3d, .m3d-north').forEach(el => el.remove()); } return m || window.MapView(c, o); }; // whatever the 3D map throws, the flat map
+  const map3dOff = () => { try { return !!sessionStorage.getItem('sbs-map3d-off'); } catch (e) { return false; } }; // the 3D map failed here this session and came back as the flat map
+  const map = mapEngine(canvas, {
     // framing: above the phone sheet; the desktop clear of the search pill (top left) and the control capsule (a column beside the
     // logbook). The phone frames across the full width, and in the column left of its capsule only when the shape would run under
     // it (insetClear, set by frame())
@@ -190,6 +193,8 @@
     const fit = () => map.fitView(bb[0], bb[1], bb[2], bb[3], pad, minW); let v = fit();
     if (isPhone() && polys) {
       const under = el => { if (!el || !el.offsetParent) return false; const c = el.getBoundingClientRect(), k = map.W / v.w, x0 = c.left - 6, y0 = c.top - 6, x1 = c.right + 6, y1 = c.bottom + 6;
+        if (map.is3d) return polys.some(poly => poly.some(ring => ring.some(([x, y]) => { const [sx, sy] = map.toScreen(x, y, v); return sx > x0 && sx < x1 && sy > y0 && sy < y1; }))) // the 3D map leans: it projects, and ray-casts, for the view asked about
+          || [[x0, y0], [x0, y1], [x1, y0], [x1, y1]].some(([sx, sy]) => { const q = map.toMap(sx, sy, v); return Geom.inPolys(polys, q[0], q[1]); });
         return polys.some(poly => poly.some(ring => ring.some(([x, y]) => { const sx = (x - v.x) * k, sy = (y - v.y) * k; return sx > x0 && sx < x1 && sy > y0 && sy < y1; })))
           || [[x0, y0], [x0, y1], [x1, y0], [x1, y1]].some(([sx, sy]) => Geom.inPolys(polys, v.x + sx / k, v.y + sy / k)); };
       if (under($('areas'))) { insetPill = true; v = fit(); }
@@ -478,10 +483,12 @@
       <h3>Stamps <span class="n">${earned.length} of ${STAMPS.length}</span></h3><div class="stamps">${STAMPS.map(st => `<div class="stamp ${st.test(s) ? 'got' : ''}"><b>${st.icon}</b>${st.label}</div>`).join('')}</div>
       <details class="more"><summary>Settings</summary>
         <label class="switch"><span>Color every place, been or not</span><input type="checkbox" id="show-all" ${state.showAll ? 'checked' : ''}></label>
+        <label class="switch"><span>3D map (beta)${!window.MapView3D || (window.SBS_MAP3D && !map.is3d) || map3dOff() ? '<small>Not available here</small>' : ''}</span><input type="checkbox" id="map3d" ${state.map3d || window.SBS_MAP3D ? 'checked' : ''} ${window.MapView3D ? '' : 'disabled'}></label>
         <div class="field" style="margin-top:12px"><label>Appearance</label><div class="seg">${['system', 'light', 'dark'].map(t => `<button type="button" data-theme-pick="${t}" aria-pressed="${state.theme === t}">${t === 'system' ? 'System' : t[0].toUpperCase() + t.slice(1)}</button>`).join('')}</div></div>
         ${state.store === 'sync' ? `<div class="field"><label for="who-in">Your name on this device</label><input id="who-in" maxlength="${WHO_MAX}" autocomplete="given-name" enterkeyhint="done" placeholder="Shown on what you add" value="${esc(who())}"></div>` : ''}
         <div class="actions" style="margin-top:4px"><button type="button" class="btn sm" id="export">Export log</button><button type="button" class="btn sm" id="import">Import</button><input type="file" id="import-file" accept="application/json" hidden>${state.store === 'sync' ? '<button type="button" class="btn sm primary" id="share-log">Share this log</button><button type="button" class="btn sm" id="join-log">Join a log</button>' + (prevKeys().length ? '<button type="button" class="btn sm quiet" id="back-log">Back to the previous log</button>' : '') : ''}</div>
         <p class="fine">${state.store === 'db' ? 'Your log, list, spots and notes are saved with this artifact and shared with everyone it is shared with.' : state.store === 'sync' ? 'This log is shared: everyone who opens your link sees it and adds to it, live. Keep the link private, and bookmark it on each phone. Photos are shared with the log the same way, but Export log does not include them.' : 'Your log is saved in this browser. Export it now and then to keep a copy, or to move it to another device.'} San Francisco boundaries from the SF Planning Department, high points from Mapzen elevation data. Boundaries everywhere else in the Bay Area from the US Census; their high points are approximate. The Las Vegas Strip is drawn between I-15 and Paradise Road, cut at its cross streets. Place search by Photon, © OpenStreetMap contributors.</p>
+        ${window.MapView3D ? '<p class="fine m3d-credit">3D map: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>. United States 3DEP (formerly NED) and global GMTED2010 and SRTM terrain data courtesy of the U.S. Geological Survey.</p>' : ''}
       </details>`;
     panel.querySelector('#surprise').addEventListener('click', surprise);
     panel.querySelector('#quiz').addEventListener('click', startQuiz);
@@ -489,6 +496,10 @@
     panel.querySelectorAll('[data-mood]').forEach(b => b.addEventListener('click', () => { const t = b.dataset.mood; state.filters.has(t) ? state.filters.delete(t) : state.filters.add(t); map.invalidate(); render(); panel.querySelector('#moods').hidden = false; }));
     panel.querySelectorAll('[data-theme-pick]').forEach(b => b.addEventListener('click', () => { state.theme = b.dataset.themePick; savePrefs(); applyTheme(); map.refreshPalette(); recolor(false); render(); }));
     panel.querySelector('#show-all').addEventListener('change', e => { state.showAll = e.target.checked; savePrefs(); map.invalidate(); });
+    panel.querySelector('#map3d').addEventListener('change', e => { // the other map engine: kept with the prefs, and the page loads again with it (an engine named in the address is dropped, or it would win)
+      state.map3d = e.target.checked; savePrefs(); try { sessionStorage.removeItem('sbs-map3d-off'); sessionStorage.removeItem('sbs-map3d-q'); } catch (err) {}
+      const u = new URL(location.href); u.searchParams.delete('map'); if (u.href === location.href) location.reload(); else location.replace(u.href);
+    });
     panel.querySelector('#export').addEventListener('click', exportLog);
     panel.querySelector('#import').addEventListener('click', () => panel.querySelector('#import-file').click());
     panel.querySelector('#import-file').addEventListener('change', e => importLog(e.target.files[0]));
@@ -1155,14 +1166,15 @@
   // fly to bb with its top clear of the prompt (fit, then fit again with the shortfall added above, in map units)
   function quizFit(bb, pad = 1.08, minW = 0, dur) {
     const b = bb.slice(), need = quizMap.top() + 10; let v;
-    for (let n = 0; n < 3; n++) { v = map.fitView(b[0], b[1], b[2], b[3], pad, minW); const k = map.W / v.w, sy = (bb[1] - v.y) * k; if (sy >= need - 1) break; b[1] -= (need - sy) / k; }
+    for (let n = 0; n < 3; n++) { v = map.fitView(b[0], b[1], b[2], b[3], pad, minW); const k = map.W / v.w, sy = map.is3d ? Math.min(map.toScreen(bb[0], bb[1], v, bb)[1], map.toScreen(bb[2], bb[1], v, bb)[1]) : (bb[1] - v.y) * k; if (sy >= need - 1) break; b[1] -= (need - sy) / k; } // the 3D map: the top corners as it would draw them, at the top of the blocks there
     map.flyToView(v, dur);
   }
   // after a miss: both places on screen, clear of the prompt, the sheet and the edges, and the right one big enough to see; else fly to them
   function quizShow(names) {
     const k = map.k, c = map.cam, top = quizMap.top() + 6, bottom = map.H - (isPhone() ? sheet.visible : 0) - 8, right = isPhone() ? map.W - 4 : sheetEl.getBoundingClientRect().left - 8;
     const bbs = names.map(n => map.hoodBBox(IDX[n])), u = [Math.min(...bbs.map(b => b[0])), Math.min(...bbs.map(b => b[1])), Math.max(...bbs.map(b => b[2])), Math.max(...bbs.map(b => b[3]))];
-    const seen = bbs.every((b, j) => { const x0 = (b[0] - c.x) * k, y0 = (b[1] - c.y) * k, x1 = (b[2] - c.x) * k, y1 = (b[3] - c.y) * k; return x0 >= 4 && x1 <= right && y0 >= top && y1 <= bottom && (j === 0 || Math.max(x1 - x0, y1 - y0) >= 24); });
+    const on = b => { if (!map.is3d) return [(b[0] - c.x) * k, (b[1] - c.y) * k, (b[2] - c.x) * k, (b[3] - c.y) * k]; const q = [[b[0], b[1]], [b[2], b[1]], [b[0], b[3]], [b[2], b[3]]].flatMap(([x, y]) => [map.toScreen(x, y), map.toScreen(x, y, undefined, b)]); return [Math.min(...q.map(p => p[0])), Math.min(...q.map(p => p[1])), Math.max(...q.map(p => p[0])), Math.max(...q.map(p => p[1]))]; }; // the 3D map: the box's corners as drawn, on the ground and at the top of the blocks there
+    const seen = bbs.every((b, j) => { const [x0, y0, x1, y1] = on(b); return x0 >= 4 && x1 <= right && y0 >= top && y1 <= bottom && (j === 0 || Math.max(x1 - x0, y1 - y0) >= 24); });
     if (!seen) { quizFit(u, 1.3, U * 0.05); state.quiz.moved = true; }
   }
   // the prompt on the map: the question, then the answer; a row of ten dots (green, red, empty) and "3 of 10 · 2 right"

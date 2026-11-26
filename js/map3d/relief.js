@@ -40,6 +40,7 @@
   // out of a coarse grid's bytes (a plain would show them as terraces); ridges and valleys keep what the grid has
   function grid(g, blur) {
     if (!g || !(g.w > 1) || !(g.h > 1) || !(g.step > 0) || !g.bbox || typeof g.data !== 'string') throw new Error('the height grid is not there');
+    const bb = g.bbox; if (!Number.isInteger(g.w) || !Number.isInteger(g.h) || !isFinite(g.step) || bb.length !== 4 || ![0, 1, 2, 3].every(k => typeof bb[k] === 'number' && isFinite(bb[k])) || !(bb[2] > bb[0]) || !(bb[3] > bb[1])) throw new Error('the height grid\'s header is not whole');
     const bin = atob(g.data), w = g.w, h = g.h, n = w * h; if (bin.length !== n) throw new Error('the height grid is cut short: ' + bin.length + ' of ' + n);
     let m = new Float32Array(n); for (let k = 0; k < n; k++) m[k] = bin.charCodeAt(k) * g.step;
     if (blur) { const t = new Float32Array(n), lo = g.step * 0.6, hi = g.step * 2.2;
@@ -250,9 +251,12 @@
       if (S > 1.6) { let lo = Infinity, hi = -Infinity; for (let q = 0; q <= 8; q++) for (let r = 0; r <= 8; r++) { const v = heightAt(b[0] + (b[2] - b[0]) * q / 8, b[1] + (b[3] - b[1]) * r / 8); if (v < lo) lo = v; if (v > hi) hi = v; } if (hi - lo > (d < 260 ? 3.4 : 5.5)) S /= 2; } // hill country is read more closely than a plain
       const L = LAT[i] = lattice(b, S); fine[i] = inFine ? 1 : 0; near[i] = inFine || d < 95 ? 1 : 0;
       if (inFine) { const cnx = (L.nx - 1) / 4 + 1, cnz = (L.nz - 1) / 4 + 1, H = new Float32Array(cnx * cnz); for (let j = 0; j < cnz; j++) for (let k = 0; k < cnx; k++) H[j * cnx + k] = L.H[j * 4 * L.nx + k * 4]; FAR[i] = { S: SC, x0: L.x0, z0: L.z0, nx: cnx, nz: cnz, H }; }
-      let lo = Infinity, hi = -Infinity; for (let k = 0; k < L.H.length; k++) { const v = L.H[k]; if (v < lo) lo = v; if (v > hi) hi = v; } min[i] = lo; max[i] = hi;
+      let lo = Infinity, hi = -Infinity; for (let k = 0; k < L.H.length; k++) { const v = L.H[k]; if (v < lo) lo = v; if (v > hi) hi = v; else if (v !== v) { hi = NaN; break; } } min[i] = lo; max[i] = hi;
+      if (!isFinite(hi)) throw new Error('the ground of ' + hd.name + ' is not a number');   // (the map falls back to the plateaus)
     });
-    const has = i => !!LAT[i], h = (i, x, z) => hL(LAT[i], x, z);
+    // USE: the lattice each reader of the ground reads (h, ray, drape, fill): the full one, or, for a place with a far mesh whose full
+    // mesh could not be made, that far one (coarse below), so that what stands on the place and what is drawn of it agree
+    const USE = LAT.slice(), has = i => !!LAT[i], h = (i, x, z) => hL(USE[i], x, z);
     // the blocks of every place, as land.js's buildTiles gives them, the places with a far mesh last (so they can be left undrawn
     // while their full meshes are): tiles[i] also carries edge (the rim as it lies) and, for those, far: true. split: the index
     // count before them
@@ -280,7 +284,7 @@
     // lines laid on a place's ground: segs [ax, az, bx, bz, ...] cut wherever they cross a line or a diagonal of its lattice, so
     // each piece lies in one triangle. Returns { segs, hs: the height at each end }
     function drape(i, segs) {
-      const L = LAT[i], S = L.S, out = [], hs = [], ts = [];
+      const L = USE[i], S = L.S, out = [], hs = [], ts = [];
       for (let s = 0; s < segs.length; s += 4) {
         const ax = segs[s], az = segs[s + 1], bx = segs[s + 2], bz = segs[s + 3], fa = [(ax - L.x0) / S, (az - L.z0) / S], fb = [(bx - L.x0) / S, (bz - L.z0) / S]; fa.push(fa[0] + fa[1]); fb.push(fb[0] + fb[1]); ts.length = 0;
         for (let q = 0; q < 3; q++) { const lo = Math.min(fa[q], fb[q]), hi = Math.max(fa[q], fb[q]); for (let li = Math.ceil(lo); li <= hi; li++) { const t = (li - fa[q]) / (fb[q] - fa[q]); if (t > 1e-6 && t < 1 - 1e-6) ts.push(t); } }
@@ -291,7 +295,7 @@
     }
     // a polygon laid on a place's ground (a section's tint): { pos: [x, y, z, ...], idx }
     function fill(i, ring) {
-      const L = LAT[i]; let a = 0; for (let k = 0, q = ring.length - 1; k < ring.length; q = k++) a += ring[q][0] * ring[k][1] - ring[k][0] * ring[q][1];
+      const L = USE[i]; let a = 0; for (let k = 0, q = ring.length - 1; k < ring.length; q = k++) a += ring[q][0] * ring[k][1] - ring[k][0] * ring[q][1];
       const t = tess(L, [a > 0 ? ring : ring.slice().reverse()]), pos = [], idx = [];
       for (let v = 0; v < t.P.length; v += 2) pos.push(t.P[v], hL(L, t.P[v], t.P[v + 1]), t.P[v + 1]);
       for (let k = 0; k < t.T.length; k += 3) idx.push(t.T[k], t.T[k + 2], t.T[k + 1]);
@@ -301,7 +305,7 @@
     // lift higher and is stretched by vex, as the scene draws it): walked from one line or diagonal of the lattice to the next, so
     // within each step the ground is one triangle and the crossing is exact. -1: it stays above
     function ray(i, ox, oy, oz, dx, dy, dz, ta, tb, lift, vex) {
-      const L = LAT[i], S = L.S, g = t => oy + dy * t - (hL(L, ox + dx * t, oz + dz * t) + lift) * vex; let t = ta, gp = g(t); if (gp <= 0) return ta;
+      const L = USE[i], S = L.S, g = t => oy + dy * t - (hL(L, ox + dx * t, oz + dz * t) + lift) * vex; let t = ta, gp = g(t); if (gp <= 0) return ta;
       const a0 = (ox - L.x0) / S, a1 = (oz - L.z0) / S, a2 = a0 + a1, d0 = dx / S, d1 = dz / S, d2 = d0 + d1;
       const next = (a, d) => { if (Math.abs(d) < 1e-12) return Infinity; const v = a + d * t, k = d > 0 ? Math.floor(v + 1e-9) + 1 : Math.ceil(v - 1e-9) - 1; return (k - a) / d; };
       for (let q = 0; q < 30000; q++) {
@@ -311,7 +315,10 @@
       return -1;
     }
     const fineList = []; for (let i = 0; i < n; i++) if (FAR[i]) fineList.push(i);
-    return { heightAt, has, h, max, min, fine, fineList, step: i => LAT[i].S, ray, buildTiles, buildFine, drape, fill, lattices: LAT };
+    // the full meshes failed as they were made: the places with a far mesh keep it, and from here on their ground is read from it
+    // (and their highest point is the far lattice's own)
+    function coarse() { for (const i of fineList) { const F = FAR[i]; USE[i] = F; let hi = -Infinity; for (let k = 0; k < F.H.length; k++) if (F.H[k] > hi) hi = F.H[k]; max[i] = hi; } }
+    return { heightAt, has, h, max, min, fine, fineList, step: i => USE[i].S, ray, buildTiles, buildFine, drape, fill, coarse, lattices: LAT };
   }
 
   M3D.relief = { make, tess, curve, KH, KP, M0 };

@@ -14,23 +14,29 @@
   const M3D = window.M3D, land = M3D && M3D.land; if (!land) return;
   const Geom = window.Geom, K = 1 / land.UNIT_M;
   const CS = 6;                                   // the side of a chunk, in map units
-  const V = 2;                                    // heights are drawn at twice the map's scale: about what the ground's own heights and the fabric's houses are drawn at, and near the landmark models' enlargement (2.5 for the two downtown towers), so they stand right among their neighbours without the real towers turning to needles
+  const V = 2.5;                                  // heights are drawn at two and a half times the map's scale: the downtown landmark models' own enlargement (Salesforce Tower, the Pyramid), so they stand among their real neighbours as in life (and as the models grow from afar, uRise, these grow with them)
+  const TALL = 60;                                // a building this tall (metres) or taller stands from the city-wide view inwards (tall below), the rest arrive by chunk as the camera comes near
   const CELL = 1.5;                               // the grid that answers "is this point built on"
+  const FAR = 300;                                // an outline further than this from its area's origin, in map units (about 43 km), is not a building of that area
   const NV = 3, NB = 4, NW = 4;                   // numbers per vertex: position; aB [the ground it grows from, place, tint, the chunk's slot]; aW [along the wall, above the ground, 1 wall / 0 roof, the building's height]
 
-  // one area of js/map3d/buildings.js (its header gives the format): [{ h, base, roof, pts: [x, y, ...] metres east and north }]
+  // one area of js/map3d/buildings.js (its header gives the format): [{ h, base, roof, pts: [x, y, ...] metres east and north }];
+  // an outline of fewer than 3 or more than 4000 points is read past and left out (out.read counts every outline read)
   function unpack(area) {
     const bin = atob(area.data), n = bin.length, s = new Uint8Array(n); for (let k = 0; k < n; k++) s[k] = bin.charCodeAt(k);
     let i = 0, px = 0, py = 0; const out = [];
     const uv = () => { let v = 0, m = 1, b; do { if (i >= n) throw new Error('the building data is cut short'); b = s[i++]; v += (b & 127) * m; m *= 128; } while (b & 128); return v; };
     const sv = () => { const u = uv(); return u & 1 ? -(u + 1) / 2 : u / 2; };
+    let read = 0;
     while (i < n) {
-      const h = uv(), base = uv(), roof = uv(), np = uv(); if (np < 3 || np > 4000) throw new Error('the building data is not whole');
+      const h = uv(), base = uv(), roof = uv(), np = uv(); read++;
+      if (np * 2 > n - i) throw new Error('the building data is not whole');   // (every point takes two bytes at least: a count past what is left cannot be read past)
+      if (!(np >= 3 && np <= 4000)) { if (np >= 1) { px += sv(); py += sv(); for (let k = 1; k < np && i < n; k++) { sv(); sv(); } } continue; }   // (the next outline starts from this one's first point)
       const pts = new Float64Array(np * 2); let x = px + sv(), y = py + sv(); px = x; py = y; pts[0] = x; pts[1] = y;
       for (let k = 1; k < np; k++) { x += sv(); y += sv(); pts[k * 2] = x; pts[k * 2 + 1] = y; }
       out.push({ h, base, roof, pts });
     }
-    return out;
+    out.read = read; return out;
   }
   const inRing = (p, n, x, z) => { let c = false; for (let i = 0, j = n - 1; i < n; j = i++) { const xi = p[i * 2], zi = p[i * 2 + 1], xj = p[j * 2], zj = p[j * 2 + 1]; if ((zi > z) !== (zj > z) && x < (xj - xi) * (z - zi) / (zj - zi) + xi) c = !c; } return c; };
   // a simple polygon (x, z pairs, counter-clockwise as land.js counts area) cut into triangles by its ears: indices into it
@@ -50,22 +56,34 @@
   // there; boxes: [[x0, z0, x1, z1], ...] the plans of the landmark models (a model wins over the outline at its spot) }
   function make(data, env) {
     if (!data || !Array.isArray(data.areas) || !data.areas.length) throw new Error('the building data is not there');
-    const chunks = new Map(), grid = new Map(), dens = new Map(), ck = (x, z) => Math.floor(x / CELL) * 8192 + Math.floor(z / CELL); let total = 0;
+    const chunks = new Map(), grid = new Map(), dens = new Map(), groups = [], ck = (x, z) => Math.floor(x / CELL) * 8192 + Math.floor(z / CELL); let total = 0;
+    // an area that cannot be read is left out, the others stand; an outline that is not a building's (its box wider than a chunk, or
+    // not near its area at all: a corrupt step) is left out, the rest of its area stands
+    let areas = 0;
     for (const a of data.areas) {
-      const list = unpack(a); if (a.count != null && list.length !== a.count) throw new Error('the building data is cut short: ' + list.length + ' of ' + a.count + ' in ' + a.name);
+      const tallOf = [];
+      let list, O;
+      try { list = unpack(a); if (a.count != null && list.read !== a.count) throw new Error('the building data is cut short: ' + list.read + ' of ' + a.count);
+        if (!a.origin || !isFinite(a.origin[0]) || !isFinite(a.origin[1])) throw new Error('the area has no origin'); O = Geom.proj(a.origin); }
+      catch (e) { console.warn('3D map, the real buildings of ' + (a && a.name) + ' left out: ' + (e && e.message || e)); continue; }
+      areas++;
       const o = a.origin, kx = 1 / (111320 * Math.cos(o[1] * Math.PI / 180)), core = a.name === 'sf-core';
       for (const b of list) {
         const n = b.pts.length / 2, p = new Float32Array(n * 2); let ar = 0, cx = 0, cz = 0, x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity;
         for (let k = 0; k < n; k++) { const q = Geom.proj([o[0] + b.pts[k * 2] * kx, o[1] + b.pts[k * 2 + 1] / 111320]); p[k * 2] = q[0]; p[k * 2 + 1] = q[1]; cx += q[0]; cz += q[1]; if (q[0] < x0) x0 = q[0]; if (q[0] > x1) x1 = q[0]; if (q[1] < z0) z0 = q[1]; if (q[1] > z1) z1 = q[1]; }
+        if (!(x1 - x0 <= CS && z1 - z0 <= CS) || !(Math.abs(x0 - O[0]) < FAR && Math.abs(x1 - O[0]) < FAR && Math.abs(z0 - O[1]) < FAR && Math.abs(z1 - O[1]) < FAR)) continue;
         for (let k = 0, j = n - 1; k < n; j = k++) ar += p[j * 2] * p[k * 2 + 1] - p[k * 2] * p[j * 2 + 1];
         if (ar < 0) { for (let k = 0; k < n >> 1; k++) { const j = n - 1 - k, tx = p[k * 2], tz = p[k * 2 + 1]; p[k * 2] = p[j * 2]; p[k * 2 + 1] = p[j * 2 + 1]; p[j * 2] = tx; p[j * 2 + 1] = tz; } ar = -ar; }   // the solid on the left, as land.js winds its rings
         if (!(ar > 1e-5) || !(b.h > 0)) continue;
         const rec = { p, n, h: b.h, base: b.base, roof: b.roof, cx: cx / n, cz: cz / n, x0, z0, x1, z1, area: ar / 2, tint: ((total * 2654435761) >>> 0) / 4294967296, place: undefined }; total++;
-        const key = Math.floor(rec.cx / CS) * 65536 + Math.floor(rec.cz / CS); let l = chunks.get(key); if (!l) chunks.set(key, l = []); l.push(rec);
+        const key = Math.floor(rec.cx / CS) * 65536 + Math.floor(rec.cz / CS); if (b.h >= TALL) { rec.key = key; tallOf.push(rec); } else { let l = chunks.get(key); if (!l) chunks.set(key, l = []); l.push(rec); }
         for (let i = Math.floor(x0 / CELL); i <= Math.floor(x1 / CELL); i++) for (let j = Math.floor(z0 / CELL); j <= Math.floor(z1 / CELL); j++) { const g = i * 8192 + j; let q = grid.get(g); if (!q) grid.set(g, q = []); q.push(rec); }
         if (core) { const g = ck(rec.cx, rec.cz); dens.set(g, (dens.get(g) || 0) + 1); }
       }
+      // the area's tall buildings, by chunk, in groups of about fifty (each group one shape: tall below)
+      tallOf.sort((u, v) => u.key - v.key); for (let k = 0; k < tallOf.length; k += 50) groups.push(tallOf.slice(k, k + 50));
     }
+    if (!areas) throw new Error('no area of the building data could be read');
     // is the circle r round a point built on (by any outline, kept or not: nothing made up stands there either)
     function solid(x, z, r) {
       for (let i = Math.floor((x - r) / CELL); i <= Math.floor((x + r) / CELL); i++) for (let j = Math.floor((z - r) / CELL); j <= Math.floor((z + r) / CELL); j++) {
@@ -85,9 +103,12 @@
       if (on >= b.n * 0.7) b.place = i;
     }
     const has = (ix, iz) => chunks.has(ix * 65536 + iz);
-    // one chunk's buildings as one shape, the tallest first (a lighter picture draws the first part of it): null when it has none
-    function chunk(ix, iz) {
-      const list = chunks.get(ix * 65536 + iz); if (!list) return null;
+    // one chunk's buildings (the ones under TALL) as one shape, the tallest first (a lighter picture draws the first part of it):
+    // null when it has none. tall(g): the same for a group of the tall buildings (tallCount of them)
+    const chunk = (ix, iz) => shape(chunks.get(ix * 65536 + iz), ix, iz);
+    const tall = g => { const l = groups[g]; return l ? shape(l, Math.floor(l[0].cx / CS), Math.floor(l[0].cz / CS)) : null; };
+    function shape(list, ix, iz) {
+      if (!list) return null;
       const keep = []; for (const b of list) { if (b.place === undefined) settle(b); if (b.place >= 0) keep.push(b); } if (!keep.length) return null;
       keep.sort((a, b) => b.h - a.h);
       const pos = [], nor = [], aB = [], aW = [], idx = [], tri = [], cuts = []; let nv = 0, y0 = Infinity, y1 = -Infinity;
@@ -124,20 +145,21 @@
       });
       return { ix, iz, count: keep.length, n: nv, pos: new Float32Array(pos), nor: new Float32Array(nor), aB: new Float32Array(aB), aW: new Float32Array(aW), idx: nv > 65535 ? new Uint32Array(idx) : new Uint16Array(idx), quarter: cuts[0] || idx.length, half: cuts[1] || idx.length, y0, y1 };
     }
-    return { chunk, has, solid, dense, total, CS };
+    return { chunk, has, solid, dense, total, CS, tall, tallCount: groups.length, TALL };
   }
 
   // ---- drawing ----
   // U: the fabric's uniforms (js/map3d/fabric.js gl): the texture of place colours and lifts (row 0) and of each chunk's growth
-  // (row 1), how far the fabric stands, the circle it stands in, what it is mixed towards, the colour of lit windows
+  // (row 1), how far the fabric stands, the circle it stands in, what it is mixed towards, the colour of lit windows; and uRise,
+  // how much further than the ground's own stretch heights are drawn (the landmark models' growth from afar)
   function gl(THREE, U) {
     const HEAD = `
 attribute vec4 aB; attribute vec4 aW;
-uniform sampler2D uPlace; uniform float uTexW; uniform float uGrow; uniform vec4 uFocus;`;
+uniform sampler2D uPlace; uniform float uTexW; uniform float uGrow; uniform vec4 uFocus; uniform float uRise;`;
     const POS = `
 vec4 fpl = texture2D(uPlace, vec2((aB.y + 0.5) / uTexW, 0.25));
 float fg = uGrow * texture2D(uPlace, vec2((aB.w + 0.5) / uTexW, 0.75)).r * (1.0 - smoothstep(uFocus.z, uFocus.w, distance(position.xz, uFocus.xy)));
-vec3 transformed = step(0.02, fg) * vec3(position.x, aB.x + (position.y - aB.x) * fg + fpl.a, position.z);`;
+vec3 transformed = step(0.02, fg) * vec3(position.x, aB.x + (position.y - aB.x) * fg * uRise + fpl.a, position.z);`;
     const uni = s => { for (const k in U) s.uniforms[k] = U[k]; };
     const mat = new THREE.MeshStandardMaterial({ metalness: 0, roughness: 0.84 });
     mat.customProgramCacheKey = () => 'm3d-real';

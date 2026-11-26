@@ -160,10 +160,11 @@
     const vexOf = d => RL ? 1 + (VEX_HILLS - 1) * smooth(Math.log(d), Math.log(220), Math.log(1400)) : 1 + (VEX_FAR - 1) * smooth(Math.log(d), Math.log(240), Math.log(1700)); // heights stretch as the map zooms out, so the hills still stand up when they are a few pixels wide (real ground, which no longer stands at each place's highest point all over, is stretched further)
     // position and axes for a state { cx, cz, w, th, off }
     // (over real ground a low, close camera also keeps clear of the hill it stands over: the tilt comes up until it is CAM_OVER
-    // above the ground under it, so a view carried towards a mountain rides up its side instead of entering it)
+    // above the ground under it, so a view carried towards a mountain rides up its side instead of entering it; only in the bay:
+    // outside the height grids heightAt answers with their edge, which means nothing there)
     function camOf(s) {
       const d = dOf(s.w), st = Math.sin(s.th), ct = Math.cos(s.th); let ph = phOf(s.w, s.off);
-      if (RL && ph > 0.8 && FOCUS_Y + d * Math.cos(ph) < HMAX * VEX_HILLS + CAM_OVER) { const vx = vexOf(d); for (let q = 0; q < 3; q++) { const r = d * Math.sin(ph), x = s.cx + r * st, z = s.cz + r * ct, g = Math.max(RL.heightAt(x, z), RL.heightAt(x + 1.2, z), RL.heightAt(x - 1.2, z), RL.heightAt(x, z + 1.2), RL.heightAt(x, z - 1.2)) * vx + CAM_OVER; if (FOCUS_Y + d * Math.cos(ph) >= g) break; ph = Math.max(PH_MIN, Math.acos(clamp((g - FOCUS_Y) / d, -1, 1))); } }
+      if (RL && area.id === 'bay' && ph > 0.8 && FOCUS_Y + d * Math.cos(ph) < HMAX * VEX_HILLS + CAM_OVER) { const vx = vexOf(d); for (let q = 0; q < 3; q++) { const r = d * Math.sin(ph), x = s.cx + r * st, z = s.cz + r * ct, g = Math.max(RL.heightAt(x, z), RL.heightAt(x + 1.2, z), RL.heightAt(x - 1.2, z), RL.heightAt(x, z + 1.2), RL.heightAt(x, z - 1.2)) * vx + CAM_OVER; if (FOCUS_Y + d * Math.cos(ph) >= g) break; ph = Math.max(PH_MIN, Math.acos(clamp((g - FOCUS_Y) / d, -1, 1))); } }
       const sp = Math.sin(ph), cp = Math.cos(ph);
       const fx = -sp * st, fy = -cp, fz = -sp * ct, rl = Math.hypot(fz, fx) || 1, rx = -fz / rl, rz = fx / rl;
       return { d, ph, vex: vexOf(d), px: s.cx + d * sp * st, py: FOCUS_Y + d * cp, pz: s.cz + d * sp * ct, fx, fy, fz, rx, rz, ux: -rz * fy, uy: rz * fx - rx * fz, uz: rx * fy, g: F * H / 2 };
@@ -284,13 +285,26 @@
     // (a finger in the sky holds the ground just under the horizon)
     const underSky = (c, sy) => Math.max(sy, H / 2 - c.g / Math.tan(c.ph) + H * 0.05);
     function grabAt(s, sx, sy) { const c = camOf(s), p = pick(c, sx, underSky(c, sy)); return { x: p.x, z: p.y, h: p.h }; }
-    function hold(s, g, sx, sy) { const c = camOf(s), p = planeAt(c, sx, underSky(c, sy), g.h * c.vex); s.cx += g.x - p[0]; s.cz += g.z - p[1]; }
+    // (where the camera rides up over a hill the tilt changes with the centre, and the plain move misses: it is made again with the
+    // camera that move gives, three times at most, until the point is within half a pixel of the finger. Each time the better of
+    // two corrections is kept: the plain one, and one that allows for how the point under the finger moves with the centre there)
+    function hold(s, g, sx, sy) {
+      const at = (cx, cz) => { const c = camOf({ cx, cz, w: s.w, th: s.th, off: s.off }), y = underSky(c, sy), p = planeAt(c, sx, y, g.h * c.vex), e = project(c, g.x, g.h * c.vex, g.z); return { f: [p[0] - g.x, p[1] - g.z], px: Math.hypot(e[0] - sx, e[1] - y) }; };
+      let r = at(s.cx, s.cz); s.cx -= r.f[0]; s.cz -= r.f[1];
+      for (let q = 0; q < 3; q++) {
+        r = at(s.cx, s.cz); if (!(r.px >= 0.5)) break;
+        const h = s.w * 1e-4, a = at(s.cx + h, s.cz).f, b = at(s.cx, s.cz + h).f, f = r.f, j11 = (a[0] - f[0]) / h, j21 = (a[1] - f[1]) / h, j12 = (b[0] - f[0]) / h, j22 = (b[1] - f[1]) / h, det = j11 * j22 - j12 * j21, steps = [f, [f[0] / 2, f[1] / 2]];
+        if (Math.abs(det) > 1e-9) { const nx = (j22 * f[0] - j12 * f[1]) / det, nz = (j11 * f[1] - j21 * f[0]) / det; steps.unshift([nx, nz], [nx / 2, nz / 2]); }
+        let best = null, bp = r.px; for (const m of steps) { if (!(Math.hypot(m[0], m[1]) < s.w)) continue; const t = at(s.cx - m[0], s.cz - m[1]); if (t.px < bp) { bp = t.px; best = m; } }
+        if (!best) break; s.cx -= best[0]; s.cz -= best[1];
+      }
+    }
     function zoomAt(sx, sy, factor, instant) { // keep what is under (sx, sy) where it is
       const b = instant ? cur : goal, a = grabAt(b, sx, sy); b.w = clamp(b.w * factor, minW(), maxW()); hold(b, a, sx, sy); limit(b);
       if (instant) { Object.assign(goal, cur); mode = 'drag'; } else if (mode !== 'smooth') { fly = null; mode = 'smooth'; }
       userMoved = true; kick();
     }
-    function setTilt(s, d) { const dd = dOf(s.w), a = phAuto(dd); s.off = clamp(phOf(s.w, s.off) + d, PH_MIN, phTop(dd, a)) - a; }
+    function setTilt(s, d) { const dd = dOf(s.w), a = phAuto(dd); s.off = clamp(camOf(s).ph + d, PH_MIN, phTop(dd, a)) - a; s.off = camOf(s).ph - a; } // from the tilt drawn, and only as far as it is drawn (over a hill, less than asked for): no tilt is stored up there to fall on the view when it leaves the hill
 
     // ---- the scene ----
     renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap; renderer.shadowMap.autoUpdate = false;
@@ -315,9 +329,9 @@
     // is lifted (setLift); row 1, a texel per chunk of fabric, how far it has grown
     let TW = 512; while (TW < HOODS.length) TW *= 2;
     const placeData = new Float32Array(TW * 2 * 4), placeTex = new THREE.DataTexture(placeData, TW, 2, THREE.RGBAFormat, THREE.FloatType); placeTex.magFilter = placeTex.minFilter = THREE.NearestFilter; placeTex.needsUpdate = true;
-    const fabU = { uPlace: { value: placeTex }, uTexW: { value: TW }, uGrow: { value: 0 }, uFocus: { value: new THREE.Vector4(0, 0, 1, 2) }, uPale: { value: new THREE.Color() }, uRoofK: { value: 0.5 }, uWallK: { value: 0.3 }, uTree: { value: new THREE.Color() }, uTreeK: { value: 0.5 }, uWin: { value: new THREE.Color(0, 0, 0) } };
+    const fabU = { uPlace: { value: placeTex }, uTexW: { value: TW }, uGrow: { value: 0 }, uFocus: { value: new THREE.Vector4(0, 0, 1, 2) }, uPale: { value: new THREE.Color() }, uRoofK: { value: 0.5 }, uWallK: { value: 0.3 }, uTree: { value: new THREE.Color() }, uTreeK: { value: 0.5 }, uWin: { value: new THREE.Color(0, 0, 0) }, uRise: { value: 1 } }; // uRise: the real buildings' growth from afar, the landmarks' (updateScene)
     const fab = { gen: null, gl: null, chunks: new Map(), queue: [], slots: Array.from({ length: TW }, (_, i) => TW - 1 - i), timer: 0, live: 0, land: new Map(), key: '', nb: 0, nt: 0 };
-    const rb = { gen: null, gl: null, chunks: new Map(), queue: [], slots: fab.slots.splice(0, 72), timer: 0, live: 0, key: '', n: 0, tris: 0 }; // the real buildings (js/map3d/real.js): their chunks, as the fabric's, with slots of their own in the same texture
+    const rb = { gen: null, gl: null, chunks: new Map(), queue: [], slots: fab.slots.splice(0, 72), timer: 0, live: 0, key: '', n: 0, tris: 0, tall: [], tallNext: 0, tallTimer: 0, tallGl: null, tallU: null }; // the real buildings (js/map3d/real.js): their chunks, as the fabric's, with slots of their own in the same texture; and the tall ones, in a few shapes of their own made once (tallPump)
     const sky = AIR ? AIR.sky(THREE) : null; if (sky) scene.add(sky.mesh);
     const waterU = AIR ? AIR.water(THREE, waterMat) : null; let noise = null, wash = null, fogBank = null, ferries = [], traffic = null;
     function meshOf(S, mat) {
@@ -412,6 +426,12 @@
           const t0 = now(); if (RB && !/[?&]m3d-real=off(?:&|$)/.test(location.search)) try {
             const boxes = icons.map(ic => { const b = ic.geometry.boundingBox, k = 1.12; return [ic.x + b.min.x * k, ic.z + b.min.z * k, ic.x + b.max.x * k, ic.z + b.max.z * k]; }); // a landmark's plan, a little grown: no real outline stands in it
             rb.gen = RB.make(M3D.buildingData, { inTop: (x, z) => { const i = hoodAt(x, z); return i >= 0 && Geom.inPolys(tiles[i].tops, x, z) ? i : -1; }, inTopOf: (i, x, z) => Geom.inPolys(tiles[i].tops, x, z), hAt, boxes }); rb.gl = RB.gl(THREE, fabU);
+            rb.tallU = Object.assign({}, fabU, { uGrow: { value: 0 }, uFocus: { value: new THREE.Vector4(0, 0, 1e6, 2e6) } }); rb.tallGl = RB.gl(THREE, rb.tallU); // the tall ones: their own rise (from the city-wide view), everywhere in sight
+            // its two shaders are made now, one a frame, on a building nobody sees (as the fabric's below): not in the first flight in
+            const slot = rb.slots.pop(), d = rb.gl.mesh({ ix: 0, iz: 0, n: 3, pos: new Float32Array([cur.cx, 0, cur.cz, cur.cx + 0.01, 0, cur.cz, cur.cx, 0.01, cur.cz]), nor: new Float32Array([0, 1, 0, 0, 1, 0, 0, 1, 0]), aB: new Float32Array(12), aW: new Float32Array(12), idx: new Uint16Array([0, 1, 2]), y0: 0, y1: 0.01 }, slot);
+            placeData[(TW + slot) * 4] = 0; d.frustumCulled = false; d.castShadow = false;
+            const seq = [() => landG.add(d), () => { d.castShadow = true; shadowDirty = true; }, () => { landG.remove(d); d.geometry.dispose(); rb.slots.push(slot); }];
+            let q = 0; const go = () => { if (dead) return; const t1 = now(); seq[q++](); needs = true; if (raf) { cancelAnimationFrame(raf); raf = 0; } lastT = now(); frame(lastT, true); stat.build['realWarm' + q] = now() - t1; if (q < seq.length) setTimeout(go, 120); }; setTimeout(go, 120);
           } catch (e) { rb.gen = rb.gl = null; console.warn('3D map, the real buildings left out: ' + (e && e.message || e)); }
           stat.build.real = now() - t0;
         },
@@ -439,7 +459,9 @@
               const segs = [], hs = []; list.forEach(i => { const f = tiles[i].fine; f.r0 = segs.length; rimSegs(f.rim, segs, hs); f.r1 = segs.length; });
               rimF = new THREE.Mesh(ribbon(segs, 0.006, 1, hs), rim.material); rimF.renderOrder = 1; rimF.frustumCulled = false; rimF.visible = false; rimFBase = new Float32Array(rimF.geometry.attributes.position.count); for (let k = 0; k < rimFBase.length; k++) rimFBase[k] = rimF.geometry.attributes.position.array[k * 3 + 1]; secG.add(rimF);
               heights(); list.forEach(i => { tiles[i].H = HT[i]; if (liftV[i]) setLift(i, liftV[i]); }); paintAll = true;
-            } catch (e) { console.warn('3D map, the close relief left out: ' + (e && e.stack || e)); fineMesh = null; }
+            } catch (e) { console.warn('3D map, the close relief left out: ' + (e && e.stack || e)); fineMesh = null;
+              // the far meshes stay what is drawn: from here on taps, spots, lines, names and what stands on those places read their ground
+              if (RL && RL.coarse) { RL.coarse(); heights(); list.forEach(i => { tiles[i].fine = null; tiles[i].H = HT[i]; }); for (const m of secMeshes.values()) m.dirty = true; selKey = ''; paintAll = true; } }
             fineBusy = false; stat.build.fine = Math.round(spent); stat.build.fineDone = Math.round(now() - t0); needs = true; kick();
           };
           go();
@@ -447,7 +469,7 @@
         () => { // the city fabric (js/map3d/fabric.js): only its plan; its chunks are made as the camera comes near
           const t0 = now(); try { if (FB && FB.gl) {
             const avoid = []; for (const ic of icons) avoid.push([ic.x, ic.z, ic.r * 1.8 + 0.2]); for (const f of cityFoot) avoid.push(f); HOODS.forEach(h => avoid.push([h.cx, h.cy, 0.5])); // (landmarks are drawn up to about 1.8 times their size while the fabric shows)
-            fab.gen = FB.make({ HOODS, BB, HT, hAt, INFO: window.INFO, SUBD, REGS, proj, inTop: (i, x, z) => Geom.inPolys(tiles[i].tops, x, z), avoid, strip: cityStrip, solid: rb.gen ? rb.gen.solid : null, dense: rb.gen ? rb.gen.dense : null }); fab.gl = FB.gl(THREE, fabU);
+            fab.gen = FB.make({ HOODS, BB, HT, hAt, INFO: window.INFO, SUBD, REGS, proj, inTop: (i, x, z) => Geom.inPolys(tiles[i].tops, x, z), avoid, strip: cityStrip, solid: rb.gen ? (x, z, r) => !!rb.gen && rb.gen.solid(x, z, r) : null, dense: rb.gen ? (x, z) => !!rb.gen && rb.gen.dense(x, z) : null }); fab.gl = FB.gl(THREE, fabU); // (solid, dense: once the real buildings have given up, rbGiveUp, nothing real stands anywhere)
             // its four shaders are made now, one a frame, on a building and a tree nobody sees: not in the middle of the first flight in
             const d = fab.gl.mesh({ ix: 0, iz: 0, nb: 1, nt: 1, b: new Float32Array([cur.cx, 0, cur.cz, 0, 1, 1, 1, 0, 0, 0, 0]), t: new Float32Array([cur.cx, 0, cur.cz, 1, 0, 0, 0]) }, fab.slots.shift());
             for (const m of [d.b, d.t]) { m.frustumCulled = false; m.castShadow = false; }
@@ -555,7 +577,7 @@
       if (fab.queue.length) fab.timer = setTimeout(fabPump, 0);
     }
     // the real buildings' chunks: made the same way, a few milliseconds at a time; the furthest dropped when there are many
-    const RCS = RB ? RB.CS : 6, RB_MAX = 60;
+    const RCS = RB ? RB.CS : 6, RB_MAX = 56, TALL_D = [650, 900]; // RB_MAX: under the 60 slots the tall groups leave the chunks (72 less 12), so the furthest are dropped before the slots run out; TALL_D: the camera's distances at which the tall real buildings have risen, and from which they start to rise (the first screen is further off)
     const rbDist = (ch, f) => Math.hypot((ch.ix + 0.5) * RCS - f.x, (ch.iz + 0.5) * RCS - f.y);
     function rbDrop(k, ch) { if (ch.m) { landG.remove(ch.m); ch.m.geometry.dispose(); placeData[(TW + ch.slot) * 4] = 0; rb.slots.push(ch.slot); rb.live--; rb.n -= ch.n; rb.tris -= ch.tris; } rb.chunks.delete(k); }
     function rbPump() {
@@ -568,10 +590,31 @@
           const slot = rb.slots.pop(), m = rb.gl.mesh(c, slot); placeData[(TW + slot) * 4] = 0; placeTex.needsUpdate = true; landG.add(m);
           rb.chunks.set(q.k, { ix: q.ix, iz: q.iz, slot, m, g: 0, n: c.count, tris: c.idx.length / 3, half: c.half, quarter: c.quarter }); rb.live++; rb.n += c.count; rb.tris += c.idx.length / 3; made = true;
         }
-      } catch (e) { console.warn('3D map, the real buildings stopped: ' + (e && e.stack || e)); rb.queue.length = 0; rb.gen = null; }   // (what is made stays; the fabric made so far keeps clear of them)
+      } catch (e) { rbGiveUp(e); made = true; }
       if (made) { needs = true; kick(); }
       if (rb.live > RB_MAX) { const far = [...rb.chunks].filter(e => e[1].m).map(e => [rbDist(e[1], f), e]).sort((a, b) => b[0] - a[0]); for (let i = 0; i < far.length && rb.live > RB_MAX * 0.8; i++) rbDrop(far[i][1][0], far[i][1][1]); }
       if (rb.queue.length) rb.timer = setTimeout(rbPump, 0);
+    }
+    // the tall real buildings (real.js tall): made once, a group at a time, a few milliseconds a turn, when the map first comes to the city-wide view; then kept
+    function tallPump() {
+      rb.tallTimer = 0; if (dead || !rb.gen || !rb.tallGl) return; const t0 = now(), budget = moving ? 2.5 : 6; let made = false;
+      try {
+        while (rb.tallNext < rb.gen.tallCount && now() - t0 < budget && rb.slots.length) {
+          const c = rb.gen.tall(rb.tallNext++); if (!c) continue;
+          const slot = rb.slots.pop(), m = rb.tallGl.mesh(c, slot), g = m.geometry; placeData[(TW + slot) * 4] = 0; placeTex.needsUpdate = true;
+          g.computeBoundingSphere(); g.boundingSphere.radius += (c.y1 - c.y0) * 1.7 + LIFT + 1; m.visible = false; landG.add(m); // (it grows from its ground as far as the landmarks do: uRise)
+          rb.tall.push({ m, slot, g: 0, n: c.count, tris: c.idx.length / 3 }); made = true;
+        }
+      } catch (e) { rbGiveUp(e); return; }
+      if (made) { needs = true; kick(); }
+      if (rb.gen && rb.tallNext < rb.gen.tallCount && rb.slots.length) rb.tallTimer = setTimeout(tallPump, 0);
+    }
+    // the real buildings fail while they are made: they are all taken away, and the fabric made so far with them (it kept clear of
+    // them) is made again, now in their place (its wrappers of solid and dense answer "nothing real here" from now on)
+    function rbGiveUp(e) {
+      console.warn('3D map, the real buildings stopped: ' + (e && e.stack || e)); rb.queue.length = 0; rb.gen = null; rb.key = '';
+      for (const [k, ch] of [...rb.chunks]) rbDrop(k, ch); for (const t of rb.tall) { landG.remove(t.m); t.m.geometry.dispose(); placeData[(TW + t.slot) * 4] = 0; rb.slots.push(t.slot); } rb.tall.length = 0; placeTex.needsUpdate = true;
+      for (const [k, ch] of [...fab.chunks]) fabDrop(k, ch); fab.queue.length = 0; fab.key = ''; shadowDirty = true;
     }
     // each frame: how far the fabric stands for the zoom, the circle of ground it stands in (a little ahead of the middle of a
     // tilted view), which chunks that asks for, and each chunk's own rise when it is new
@@ -603,6 +646,12 @@
         if (ch.g < 1 && tgt > 0) { ch.g = RM.matches ? 1 : Math.min(1, ch.g + dt / 450); placeData[(TW + ch.slot) * 4] = 1 - Math.pow(1 - ch.g, 3); placeTex.needsUpdate = true; anim = true; shadowDirty = true; }
         ch.m.visible = tgt > 0 && rbDist(ch, f) < R1 + RCS; ch.m.castShadow = Q.fabShadow; ch.m.geometry.setDrawRange(0, Q.fab >= 1 ? Infinity : Q.fab >= 0.5 ? ch.half : ch.quarter);
       }
+      // the tall real buildings: from the city-wide view inwards (they rise between these distances), everywhere they are, each group grown in when it is new
+      if (rb.tallGl) { const tt = quiz ? 0 : 1 - smooth(Math.log(c.d), Math.log(TALL_D[0]), Math.log(TALL_D[1]));
+        if (tt !== rb.tallU.uGrow.value) { rb.tallU.uGrow.value = tt; shadowDirty = true; }
+        if (tt > 0 && rb.gen && rb.tallNext < rb.gen.tallCount && !rb.tallTimer) rb.tallTimer = setTimeout(tallPump, 0);
+        for (const t of rb.tall) { if (t.g < 1 && tt > 0) { t.g = RM.matches ? 1 : Math.min(1, t.g + dt / 450); placeData[(TW + t.slot) * 4] = 1 - Math.pow(1 - t.g, 3); placeTex.needsUpdate = true; anim = true; shadowDirty = true; }
+          t.m.visible = tt > 0.02; t.m.castShadow = Q.fabShadow; } }
       return anim;
     }
 
@@ -796,6 +845,7 @@
       c.vex = vex;
       // the landmarks grow a little as the map zooms out, so the skyline reads from across the bay; each stands on its block
       const k = clamp(Math.pow(c.d / 150, 0.7), 1, 2.6); if (Math.abs(k - lmScale) > 0.004) { lmScale = k; shadowDirty = true; }
+      fabU.uRise.value = lmScale / vex;                                 // the real buildings stand at the landmarks' scale, near or far (js/map3d/real.js V)
       const show = !quiz; // the quiz hides the landmarks and the skylines, as the flat map hides its glyphs: they are hints
       for (const ic of icons) { // a model a few pixels tall is not drawn at all (nor its shadow): with some seventy of them that is most of them, most of the time
         const y = ic.y + (ic.hood >= 0 ? liftV[ic.hood] : 0), zc = (ic.x - c.px) * c.fx + (y * vex - c.py) * c.fy + (ic.z - c.pz) * c.fz; ic.px = zc > 0 ? ic.h * lmScale * c.g / zc : 0;
@@ -875,8 +925,27 @@
     function haloStar(x, y, size) { starPath(ctx, x, y, size * .5); ctx.strokeStyle = P.labelHalo; ctx.lineWidth = Math.max(2, size * .26); ctx.lineJoin = 'round'; ctx.stroke(); ctx.fillStyle = P.star; ctx.fill(); }
     const at = (x, y, h) => project(C, x, h * C.vex, y);                 // a map point at a height, on screen
     const bboxOn = i => { const b = BB[i], h = topAt(i); let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity; for (const [x, y] of [[b[0], b[1]], [b[2], b[1]], [b[0], b[3]], [b[2], b[3]]]) { const p = at(x, y, h); x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]); } return [x0, y0, x1, y1]; };
+    // Names behind a hill: is the anchor of a name (x, z on the map, y the height it stands at) hidden from the eye by real ground
+    // between them? The line from the camera to a point OCC_UP above it is walked over the ground of each place it passes over
+    // below that place's highest point (relief.js ray; the plateaus of the flat land never hid a name, nor do they now). An answer is
+    // kept while the camera and the anchor stay where they are; at most OCC_MS a frame goes on new answers, the rest keep their last
+    // one until their turn (a name that goes behind a hill fades out as any name does)
+    const OCC_UP = 0.1, OCC_MS = 0.3, occ = new Map(); let occCam = '', occSpent = 0;
+    function behind(id, x, z, y) {
+      const c = C, key = occCam + '|' + y, e = occ.get(id); if (e && e.k === key) return e.v;
+      if (occSpent >= OCC_MS) return e ? e.v : false;
+      const t0 = now(), ex = x - c.px, ey = y * c.vex + OCC_UP - c.py, ez = z - c.pz, bx0 = Math.min(c.px, x), bx1 = Math.max(c.px, x), bz0 = Math.min(c.pz, z), bz1 = Math.max(c.pz, z); let v = false;
+      for (let j = 0; j < HOODS.length && !v; j++) {
+        const b = BB[j]; if (b[2] < bx0 || b[0] > bx1 || b[3] < bz0 || b[1] > bz1 || !RL.has(j)) continue;
+        let ta = 0, tb = 1 - 1e-4; const top = HT[j] * c.vex; if (ey < 0) ta = Math.max(ta, (top - c.py) / ey); else if (c.py > top) continue;   // where the line is below the place's highest point
+        for (const [o, d, lo, hi] of [[c.px, ex, b[0], b[2]], [c.pz, ez, b[1], b[3]]]) { if (Math.abs(d) < 1e-9) { if (o < lo || o > hi) ta = 2; continue; } const u = (lo - o) / d, w = (hi - o) / d; ta = Math.max(ta, Math.min(u, w)); tb = Math.min(tb, Math.max(u, w)); } // and over its box
+        if (ta < tb && RL.ray(j, c.px, c.py, c.pz, ex, ey, ez, ta, tb, 0, c.vex) >= 0) v = true;
+      }
+      occSpent += now() - t0; if (occ.size > 4000) occ.clear(); occ.set(id, { k: key, v }); return v;
+    }
     function drawOverlay(t, dt) {
       const c = C, k = kNow(), phone = isPhone(), fsz = phone ? 10.5 : 11.5, I = insets(); let anim = false;
+      occCam = c.px + ',' + c.py + ',' + c.pz + ',' + c.vex; occSpent = 0;
       ctx.setTransform(pr, 0, 0, pr, 0, 0); ctx.clearRect(0, 0, W, H); ctx.textBaseline = 'middle'; ctx.textAlign = 'center'; ctx.globalAlpha = 1; if (supportsLS) ctx.letterSpacing = '0px';
       const placed = [], clash = (b, self) => placed.some(q => (q.own == null || q.own !== self) && b[0] < q[2] && b[2] > q[0] && b[1] < q[3] && b[3] > q[1]);
       if (o.occluders) for (const b of o.occluders()) placed.push(b);     // floating chrome over the canvas
@@ -920,6 +989,7 @@
         for (const i of order) {
           const h = HOODS[i], hot = i === sel || i === hover; if (!hot && !didRegions) { regions(); didRegions = true; }
           if (!hot && anchor[i][2] > c.d * 3.2) continue;                       // far off in a low view: in the haze, unnamed
+          if (!hot && RL && behind('h' + i, h.cx, h.cy, anchY(i))) continue;    // behind a hill
           if (farOn && region !== 'all' && h.region !== region && !hot) continue;
           const side = DETAIL[i] > 1; if (!side && subF[i] > .6) continue;       // its sections are named instead
           const name = SHORT[h.name] || h.name, text = farNames ? name.toUpperCase() : name, size = hot ? lsz * 1.1 : lsz, st = STAR[i] ? size * 1.15 : 0;
@@ -948,7 +1018,8 @@
         for (let i = 0; i < HOODS.length; i++) if (subF[i] > 0.2 || (i === sel && subF[i] > 0.01)) { const cells = subsOf(i); if (cells) cells.forEach((cell, j) => (i === sel && j === selSub ? hotL : cell.star ? secs : plain).push([i, j, cell])); }
         for (const [i, j, cell] of hotL.concat(secs, plain)) {
           const hot = i === sel && j === selSub, big = hot && phone, ss = big ? fsz * 1.25 : fsz, sw = cell.star ? ss * 1.05 + 3 : 0, wt = big ? 600 : 500;
-          const tw = measure(cell.name, wt, ss) + sw, th = ss * 1.2, p = at(cell.c[0], cell.c[1], gAt(i, cell.c[0], cell.c[1])); if (p[2] <= 0 || (!hot && p[2] > c.d * 1.9) || p[0] < -40 || p[0] > W + 40 || p[1] < -20 || p[1] > H + 20) continue;
+          const tw = measure(cell.name, wt, ss) + sw, th = ss * 1.2, gy = gAt(i, cell.c[0], cell.c[1]), p = at(cell.c[0], cell.c[1], gy); if (p[2] <= 0 || (!hot && p[2] > c.d * 1.9) || p[0] < -40 || p[0] > W + 40 || p[1] < -20 || p[1] > H + 20) continue;
+          if (!hot && RL && behind('c' + i + ':' + j, cell.c[0], cell.c[1], gy)) continue;
           const kl = c.g / p[2], box = [p[0] - tw / 2 - 2, p[1] - th / 2, p[0] + tw / 2 + 2, p[1] + th / 2];
           const fits = (cell.bbox[2] - cell.bbox[0]) * kl >= tw * .8 && (cell.bbox[3] - cell.bbox[1]) * kl * cosT >= th * 1.1;
           if (!(cell.star || fits || hot) || clash(box) || !(hot || inView(box))) continue;
@@ -1214,7 +1285,7 @@
       hoodPx,
       // for tests and the console: what was built and how long it took, what a frame draws, and the cost of frames along a flight
       stats() { const info = renderer.info; let tris = 0; const seen = q => { for (let p = q; p; p = p.parent) if (!p.visible) return false; return true; }; scene.traverse(q => { if ((q.isMesh || q.isPoints) && seen(q) && q.geometry) { const g = q.geometry, n = q.isPoints ? 0 : Math.min(g.drawRange.count, g.index ? g.index.count : g.attributes.position.count) / 3; tris += n * (q.isInstancedMesh ? q.count : g.isInstancedBufferGeometry ? g.instanceCount : 1); } });
-        return { ready, blocks: stat.blocks, build: stat.build, firstFrame: stat.firstFrame ? Math.round(stat.firstFrame - stat.t0) : 0, sinceNav: stat.firstFrame ? Math.round(stat.firstFrame) : 0, frames: stat.frames, lastMs: +stat.lastMs.toFixed(2), sceneTriangles: Math.round(tris), calls: info.render.calls, triangles: info.render.triangles, pr, size: [W, H], dark, area: area.id, quality: Q.level, gov: { last: gov.last || 0, good: gov.good, fails: gov.fails.slice() }, fog: fogBank ? +fogBank.U.uK.value.toFixed(3) : 0, land: { relief: !!RL, close: fineOn, closeReady: !!fineMesh, places: RL ? RL.fineList.length : 0 }, real: { on: !!rb.gen, chunks: rb.live, buildings: rb.n, triangles: rb.tris, queue: rb.queue.length }, fabric: { chunks: fab.live, buildings: fab.nb, trees: fab.nt, grow: +fabU.uGrow.value.toFixed(2), queue: fab.queue.length }, why: stat.why, ambient: { on: ambOn(), t: +ambT.toFixed(2), frames: stat.amb, left: Math.max(0, Math.round(ambUntil - now())), ferry: ferries[0] ? [+ferries[0].mesh.position.x.toFixed(3), +ferries[0].mesh.position.z.toFixed(3)] : null }, view: Object.assign({ ph: +camOf(cur).ph.toFixed(3) }, cur) }; },
+        return { ready, blocks: stat.blocks, build: stat.build, firstFrame: stat.firstFrame ? Math.round(stat.firstFrame - stat.t0) : 0, sinceNav: stat.firstFrame ? Math.round(stat.firstFrame) : 0, frames: stat.frames, lastMs: +stat.lastMs.toFixed(2), sceneTriangles: Math.round(tris), calls: info.render.calls, triangles: info.render.triangles, pr, size: [W, H], dark, area: area.id, quality: Q.level, gov: { last: gov.last || 0, good: gov.good, fails: gov.fails.slice() }, fog: fogBank ? +fogBank.U.uK.value.toFixed(3) : 0, land: { relief: !!RL, close: fineOn, closeReady: !!fineMesh, places: RL ? RL.fineList.length : 0 }, real: { on: !!rb.gen, chunks: rb.live, buildings: rb.n, triangles: rb.tris, queue: rb.queue.length, tall: { groups: rb.tall.length, of: rb.gen ? rb.gen.tallCount : 0, buildings: rb.tall.reduce((s, t) => s + t.n, 0), triangles: rb.tall.reduce((s, t) => s + t.tris, 0), rise: rb.tallU ? +rb.tallU.uGrow.value.toFixed(2) : 0 } }, fabric: { chunks: fab.live, buildings: fab.nb, trees: fab.nt, grow: +fabU.uGrow.value.toFixed(2), queue: fab.queue.length }, why: stat.why, ambient: { on: ambOn(), t: +ambT.toFixed(2), frames: stat.amb, left: Math.max(0, Math.round(ambUntil - now())), ferry: ferries[0] ? [+ferries[0].mesh.position.x.toFixed(3), +ferries[0].mesh.position.z.toFixed(3)] : null }, view: Object.assign({ ph: +camOf(cur).ph.toFixed(3) }, cur) }; },
       bench(n = 60) { // n frames spread along the flight in progress or, at rest, a small orbit; each forced to finish on the GPU
         const gl = renderer.getContext(), px = new Uint8Array(4), keep = Object.assign({}, cur), times = [];
         for (let i = 0; i < n; i++) { cur.th = keep.th + Math.sin(i / n * Math.PI * 2) * 0.12; cur.w = keep.w * (1 + 0.25 * Math.sin(i / n * Math.PI)); cur.cx = keep.cx + Math.sin(i * 0.2) * keep.w * 0.05; const t0 = now(); C = camOf(cur); const vx = C.vex; C.vex = vex; prepare(16); updateScene(t0, vx, 16); renderer.render(scene, camera); drawOverlay(t0, 16); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); times.push(now() - t0); }

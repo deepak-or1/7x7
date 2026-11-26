@@ -69,8 +69,12 @@
     const THREE = window.THREE, M3D = window.M3D || {}, land = M3D.land, MD = M3D.models, FB = M3D.fabric, AIR = M3D.air, RB = M3D.real; // the fabric and the air are extras: without their files the map is the plain blocks
     if (!THREE || !land || !MD || !window.MapView) return null;          // three.js or the 3D files did not load: the flat map
     o = o || {};
+    // the speed test's switches (js/map3d/bench.js), read once: ?m3d-pr=<1..3> one pixel ratio always, m3d-aa=off, m3d-shadows=off, m3d-q=<0..6> one quality
+    // level (the governor and the session's level left out), m3d-shadowhold=off and m3d-pump=old (the rules before the speed fixes). None in the address: none changes anything
+    const qsv = k => { const m = new RegExp('[?&]m3d-' + k + '=([^&]*)').exec(location.search); return m ? m[1] : null; };
+    const SW = { pr: +qsv('pr') > 0 ? clamp(+qsv('pr'), 1, 3) : 0, aa: qsv('aa') !== 'off', shadows: qsv('shadows') !== 'off', q: /^[0-6]$/.test(qsv('q') || '') ? +qsv('q') : -1, hold: qsv('shadowhold') !== 'off', pumpOld: qsv('pump') === 'old' };
     const glc = document.createElement('canvas'), lbl = document.createElement('canvas');
-    let renderer; try { renderer = new THREE.WebGLRenderer({ canvas: glc, antialias: true, alpha: false, powerPreference: 'high-performance' }); } catch (e) { return null; } // no WebGL here: the flat map
+    let renderer; try { renderer = new THREE.WebGLRenderer({ canvas: glc, antialias: SW.aa, alpha: false, powerPreference: 'high-performance' }); } catch (e) { return null; } // no WebGL here: the flat map
     // the canvas is opaque: until the scene is ready it shows the theme's water, never black
     try { renderer.setClearColor(getComputedStyle(document.documentElement).getPropertyValue('--water').trim() || '#888888', 1); renderer.clear(); } catch (e) {}
     // From here a throw undoes what was done (the catch at the end) and the app makes the flat map; dead stops what was already started
@@ -117,10 +121,10 @@
     let region = 'all', sel = -1, selSub = -1, hover = -1, hoverSub = -1, hoverSpot = null, quiz = false, press = -1;
     const colNow = HOODS.map(() => [200, 200, 200]), colTo = HOODS.map(() => [200, 200, 200]); let colAnim = false, paintAll = true;
     const alphaNow = new Float32Array(HOODS.length).fill(1), flagNow = new Uint8Array(HOODS.length), liftV = new Float32Array(HOODS.length), liftAnim = new Map();
-    const farA = [1], markAnim = {}; let me = null, meT0 = 0, drawnSpots = [], lmBox = [], farNames = false;
+    const farA = [1], markAnim = {}; let me = null, meT0 = 0, meTimer = 0, drawnSpots = [], lmBox = [], farNames = false;
     const lblA = new Map(), lblLast = new Map(), lmA = LANDS.map(() => 0), measureCache = new Map(), hoodCache = new Map();
     const P = {}; let LK = null, dark = false;                             // the tokens, and the look made from them
-    const stat = { t0: now(), firstFrame: 0, build: { relief: now() - tRelief }, blocks: '', frames: 0, lastMs: 0, amb: 0 };
+    const stat = { t0: now(), firstFrame: 0, build: { relief: now() - tRelief }, blocks: '', frames: 0, lastMs: 0, amb: 0, shadowDraws: 0 };
     let ambUntil = 0, ambT = 0, ambLast = 0, ambTimer = 0, ambTick = false, olAnim = true, sunAt = 0, sunKey = '', fogLens = false; // ambient motion: until when it runs, its own seconds, the timer of its next frame
     const poke = () => { ambUntil = now() + AMB_MS; };                    // a touch (or a move the app asked for): the ambient motion runs on from here
     const ambOn = () => AMBIENT && ready && Q.life && !RM.matches && !document.hidden && now() < ambUntil; // the governor's first step gives it up
@@ -130,8 +134,9 @@
     const topAt = i => HT[i] + liftV[i], anchY = i => AY[i] + liftV[i], gAt = (i, x, z) => hAt(i, x, z) + liftV[i]; // the highest point of a place as it stands (lifted when selected), the ground at its anchor, the ground at a point of it
 
     // ---- palette ----
+    const spotCol = new Map(), spotColor = c => { let v = spotCol.get(c); if (v === undefined) { v = cssColor(c); spotCol.set(c, v); } return v; }; // a spot's colour, looked up once (again after refreshPalette: the theme or the palette changed)
     function refreshPalette() {
-      const cs = getComputedStyle(document.documentElement); for (const k in VARS) P[k] = cs.getPropertyValue(VARS[k]).trim() || '#888888';
+      spotCol.clear(); const cs = getComputedStyle(document.documentElement); for (const k in VARS) P[k] = cs.getPropertyValue(VARS[k]).trim() || '#888888';
       const w = hex2rgb(P.water); dark = (w[0] * .3 + w[1] * .59 + w[2] * .11) < 110;
       const L = LOOKS[dark ? 'night' : 'paper'], pal = Object.assign({}, BUILT[dark ? 'night' : 'paper']);
       Object.assign(pal, { gg: P.gg, ggShade: mixHex(P.gg, '#000000', .1), ggCable: mixHex(P.gg, '#000000', .05), steel: P.steel, steelShade: mixHex(P.steel, '#000000', .14), steelCable: mixHex(P.steel, '#000000', .07), flag: P.accent, ribbon: P.want });
@@ -312,7 +317,7 @@
     const scene = new THREE.Scene(); scene.fog = new THREE.Fog(0xffffff, 100, 1000);
     const camera = new THREE.PerspectiveCamera(FOV, 1, 1, 10000);
     const hemi = new THREE.HemisphereLight(0xffffff, 0xffffff, 1), key = new THREE.DirectionalLight(0xffffff, 1);
-    key.castShadow = true; key.shadow.mapSize.set(coarse ? 2048 : 4096, coarse ? 2048 : 4096); key.shadow.bias = -0.0004; key.shadow.normalBias = 0.6;
+    key.castShadow = SW.shadows; key.shadow.mapSize.set(coarse ? 2048 : 4096, coarse ? 2048 : 4096); key.shadow.bias = -0.0004; key.shadow.normalBias = 0.6;
     scene.add(hemi, key, key.target);
     const landG = new THREE.Group(); scene.add(landG);                     // everything that stands on the land: its heights stretch with the zoom
     const secG = new THREE.Group(); landG.add(secG);
@@ -320,7 +325,7 @@
     let tiles = null, tileMesh = null, tilePos = null, tileCol = null, baseY = null, tileS = null, landMesh = null, landS = null, bridges = null, icons = [], cityParts = [];
     let blockRings = null, cityFoot = [], cityStrip = [];
     let fineS = null, fineMesh = null, finePos = null, fineCol = null, fineBaseY = null, fineOn = false, fineBusy = false, tileSplit = 0, rimSplit = 0, rimF = null, rimBase = null, rimFBase = null, scatterY = null; // the full meshes of the places the fine grid covers (the relief), drawn close in instead of their far ones
-    let rim = null, rimPos = null, flags = null, books = null, waterTex = null, wcv = null, wbox = null, wsc = 1, beam = null, nightBuilt = false, scatter = null, shadowDirty = true, vex = 1, lmScale = 1, sh = {}, lightBasis = null;
+    let rim = null, rimPos = null, flags = null, books = null, waterTex = null, wcv = null, wbox = null, wsc = 1, beam = null, nightBuilt = false, scatter = null, shadowDirty = true, vex = 1, lmScale = 1, sh = {}, shT = 0, lightBasis = null;
     const tileMat = new THREE.MeshStandardMaterial({ vertexColors: true, metalness: 0 }), landMat = new THREE.MeshStandardMaterial({ vertexColors: true, metalness: 0, roughness: 0.95 });
     const farMat = new THREE.MeshStandardMaterial({ metalness: 0, roughness: 0.95 }), waterMat = new THREE.MeshStandardMaterial({});
     const inlandMat = new THREE.MeshStandardMaterial({ metalness: 0, roughness: 0.5, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
@@ -421,7 +426,7 @@
             const sea = new THREE.Mesh(g, waterMat); sea.receiveShadow = true; scene.add(sea); } // the blocks, the bridges and the towers throw their shadows on it too, close in
           stat.build.land = now() - t0;
         },
-        () => { const t0 = now(); applyLook(); try { const q = Math.round(+sessionStorage.getItem('sbs-map3d-q')); if (q > 0) setQuality(q); } catch (e) {} stat.build.look = now() - t0; ready = true; needs = true; poke(); kick(); }, // (the step the governor settled on earlier in this session: a slow device does not start from the top again)
+        () => { const t0 = now(); applyLook(); try { const q = SW.q >= 0 ? SW.q : Math.round(+sessionStorage.getItem('sbs-map3d-q')); if (q > 0) setQuality(q); } catch (e) {} stat.build.look = now() - t0; ready = true; needs = true; poke(); kick(); }, // (the step the governor settled on earlier in this session: a slow device does not start from the top again)
         () => { // after the first frame: the real buildings' outlines (js/map3d/real.js, from js/map3d/buildings.js), unpacked and sorted by chunk; their shapes are made as the camera comes near. Without them (the file missing or cut short, ?m3d-real=off) the town is the made-up one it was
           const t0 = now(); if (RB && !/[?&]m3d-real=off(?:&|$)/.test(location.search)) try {
             const boxes = icons.map(ic => { const b = ic.geometry.boundingBox, k = 1.12; return [ic.x + b.min.x * k, ic.z + b.min.z * k, ic.x + b.max.x * k, ic.z + b.max.z * k]; }); // a landmark's plan, a little grown: no real outline stands in it
@@ -556,16 +561,20 @@
     function applyAir() { const L = LK; if (wash) wash.U.uCol.value.set(L.wash); if (fogBank) fogBank.U.uCol.value.set(L.fogC); for (const f of ferries) f.wake.material.uniforms.uCol.value.set(L.wash); }
 
     // ---- the city fabric: chunks of it made as the camera comes near, a few milliseconds at a time, kept while they are near ----
-    const CS = FB ? FB.CS : 8, Q = { level: 0, life: true, fabShadow: true, shadows: true, fab: 1, cap: [2, 3] }; // Q: what the frame rate allows (the governor below)
+    const CS = FB ? FB.CS : 8, Q = { level: 0, life: true, fabShadow: true, shadows: SW.shadows, fab: 1, cap: [2, 3] }; // Q: what the frame rate allows (the governor below)
+    const T = {}, TQ = {}; let plainMat = null, onDraw = null; // the speed test's settings (tune below): T the pixel ratio and the rules, TQ what it sets of Q; onDraw: told of every frame drawn
     // a chunk's geometry shares the unit building's and tree's position, normal and uv (js/map3d/fabric.js inst): detached first, so
     // dispose frees only the chunk's own buffer, not the GL buffers the other chunks draw with
     const fabFree = m => { const g = m.geometry; for (const k of ['position', 'normal', 'uv']) if (g.attributes[k]) g.deleteAttribute(k); if (g.index) g.setIndex(null); g.dispose(); };
     const fabDist = (ch, f) => Math.hypot((ch.ix + 0.5) * CS - f.x, (ch.iz + 0.5) * CS - f.y);
     function fabLand(ix, iz) { const k = ix * 65536 + iz; let v = fab.land.get(k); if (v === undefined) { const x0 = ix * CS, z0 = iz * CS; v = false; for (let i = 0; i < HOODS.length && !v; i++) { const b = BB[i]; v = b[2] > x0 && b[0] < x0 + CS && b[3] > z0 && b[1] < z0 + CS; } fab.land.set(k, v); } return v; }
     function fabDrop(k, ch) { for (const m of [ch.b, ch.t]) if (m) { landG.remove(m); fabFree(m); } if (ch.slot != null) { placeData[(TW + ch.slot) * 4] = 0; fab.slots.push(ch.slot); fab.live--; fab.nb -= ch.nb; fab.nt -= ch.nt; } fab.chunks.delete(k); }
-    function fabPump() {
-      fab.timer = 0; if (dead || !fab.gen) return; const t0 = now(), budget = moving ? 2.5 : 7, f = fabU.uFocus.value; let made = false;
-      while (fab.queue.length && now() - t0 < budget) {
+    // While the map moves the three pumps below are not run from their timers (a timer turn then returns at once): draw gives them one turn
+    // a frame between them, after the render, until end (pumpTurn); at rest they run from their timers as before (m3d-pump=old: always the timers)
+    const byFrame = () => moving && !SW.pumpOld;
+    function fabPump(end) {
+      if (!end) fab.timer = 0; if (dead || !fab.gen || (!end && byFrame())) return; const t0 = now(), budget = moving ? 2.5 : 7, f = fabU.uFocus.value; let made = false;
+      while (fab.queue.length && (end ? now() < end : now() - t0 < budget)) {
         const q = fab.queue.shift(); if (fab.chunks.has(q.k) || fabDist(q, f) > f.w + CS * 2) continue;     // made already, or the view has moved on
         const c = fab.gen.chunk(q.ix, q.iz); if (!c.nb && !c.nt) { fab.chunks.set(q.k, { ix: q.ix, iz: q.iz }); continue; }
         if (!fab.slots.length) { fab.queue.length = 0; break; }
@@ -574,16 +583,16 @@
       }
       if (made) { needs = true; kick(); }
       if (fab.live > FAB_MAX) { const far = [...fab.chunks].filter(e => e[1].slot != null).map(e => [fabDist(e[1], f), e]).sort((a, b) => b[0] - a[0]); for (let i = 0; i < far.length && fab.live > FAB_MAX * 0.8; i++) fabDrop(far[i][1][0], far[i][1][1]); }
-      if (fab.queue.length) fab.timer = setTimeout(fabPump, 0);
+      if (fab.queue.length && !fab.timer && !byFrame()) fab.timer = setTimeout(fabPump, 0);
     }
     // the real buildings' chunks: made the same way, a few milliseconds at a time; the furthest dropped when there are many
     const RCS = RB ? RB.CS : 6, RB_MAX = 56, TALL_D = [650, 900]; // RB_MAX: under the 60 slots the tall groups leave the chunks (72 less 12), so the furthest are dropped before the slots run out; TALL_D: the camera's distances at which the tall real buildings have risen, and from which they start to rise (the first screen is further off)
     const rbDist = (ch, f) => Math.hypot((ch.ix + 0.5) * RCS - f.x, (ch.iz + 0.5) * RCS - f.y);
     function rbDrop(k, ch) { if (ch.m) { landG.remove(ch.m); ch.m.geometry.dispose(); placeData[(TW + ch.slot) * 4] = 0; rb.slots.push(ch.slot); rb.live--; rb.n -= ch.n; rb.tris -= ch.tris; } rb.chunks.delete(k); }
-    function rbPump() {
-      rb.timer = 0; if (dead || !rb.gen) return; const t0 = now(), budget = moving ? 2.5 : 6, f = fabU.uFocus.value; let made = false;
+    function rbPump(end) {
+      if (!end) rb.timer = 0; if (dead || !rb.gen || (!end && byFrame())) return; const t0 = now(), budget = moving ? 2.5 : 6, f = fabU.uFocus.value; let made = false;
       try {
-        while (rb.queue.length && now() - t0 < budget) {
+        while (rb.queue.length && (end ? now() < end : now() - t0 < budget)) {
           const q = rb.queue.shift(); if (rb.chunks.has(q.k) || rbDist(q, f) > f.w + RCS * 2) continue;
           const c = rb.gen.chunk(q.ix, q.iz); if (!c) { rb.chunks.set(q.k, { ix: q.ix, iz: q.iz }); continue; }
           if (!rb.slots.length) { rb.queue.length = 0; break; }
@@ -593,13 +602,13 @@
       } catch (e) { rbGiveUp(e); made = true; }
       if (made) { needs = true; kick(); }
       if (rb.live > RB_MAX) { const far = [...rb.chunks].filter(e => e[1].m).map(e => [rbDist(e[1], f), e]).sort((a, b) => b[0] - a[0]); for (let i = 0; i < far.length && rb.live > RB_MAX * 0.8; i++) rbDrop(far[i][1][0], far[i][1][1]); }
-      if (rb.queue.length) rb.timer = setTimeout(rbPump, 0);
+      if (rb.queue.length && !rb.timer && !byFrame()) rb.timer = setTimeout(rbPump, 0);
     }
     // the tall real buildings (real.js tall): made once, a group at a time, a few milliseconds a turn, when the map first comes to the city-wide view; then kept
-    function tallPump() {
-      rb.tallTimer = 0; if (dead || !rb.gen || !rb.tallGl) return; const t0 = now(), budget = moving ? 2.5 : 6; let made = false;
+    function tallPump(end) {
+      if (!end) rb.tallTimer = 0; if (dead || !rb.gen || !rb.tallGl || (!end && byFrame()) || (end && !rb.tallGo)) return; const t0 = now(), budget = moving ? 2.5 : 6; let made = false;
       try {
-        while (rb.tallNext < rb.gen.tallCount && now() - t0 < budget && rb.slots.length) {
+        while (rb.tallNext < rb.gen.tallCount && (end ? now() < end : now() - t0 < budget) && rb.slots.length) {
           const c = rb.gen.tall(rb.tallNext++); if (!c) continue;
           const slot = rb.slots.pop(), m = rb.tallGl.mesh(c, slot), g = m.geometry; placeData[(TW + slot) * 4] = 0; placeTex.needsUpdate = true;
           g.computeBoundingSphere(); g.boundingSphere.radius += (c.y1 - c.y0) * 1.7 + LIFT + 1; m.visible = false; landG.add(m); // (it grows from its ground as far as the landmarks do: uRise)
@@ -607,8 +616,12 @@
         }
       } catch (e) { rbGiveUp(e); return; }
       if (made) { needs = true; kick(); }
-      if (rb.gen && rb.tallNext < rb.gen.tallCount && rb.slots.length) rb.tallTimer = setTimeout(tallPump, 0);
+      if (rb.gen && rb.tallNext < rb.gen.tallCount && rb.slots.length && !rb.tallTimer && !byFrame()) rb.tallTimer = setTimeout(tallPump, 0);
     }
+    let pumpI = 0; // the pump that goes first in the next frame's turn
+    function pumpTurn() { const end = now() + 2.5, P3 = [fabPump, rbPump, tallPump], r0 = raf, l0 = lastT; for (let q = 0; q < 3; q++) P3[(pumpI + q) % 3](end); pumpI = (pumpI + 1) % 3; if (raf !== r0) { cancelAnimationFrame(raf); raf = r0; lastT = l0; } } // (a chunk made asks for a frame: draw asks for it itself, once)
+    const pumpWork = () => !!((fab.gen && fab.queue.length) || (rb.gen && (rb.queue.length || (rb.tallGo && rb.tallGl && rb.tallNext < rb.gen.tallCount && rb.slots.length)))); // a queue the pumps can still work on
+    function pumpsGo() { if (fab.queue.length && !fab.timer) fab.timer = setTimeout(fabPump, 0); if (rb.queue.length && !rb.timer) rb.timer = setTimeout(rbPump, 0); if (rb.tallGo && rb.gen && rb.tallNext < rb.gen.tallCount && rb.slots.length && !rb.tallTimer) rb.tallTimer = setTimeout(tallPump, 0); } // at rest again: the timers of the queues with work
     // the real buildings fail while they are made: they are all taken away, and the fabric made so far with them (it kept clear of
     // them) is made again, now in their place (its wrappers of solid and dense answer "nothing real here" from now on)
     function rbGiveUp(e) {
@@ -628,10 +641,10 @@
       if (k > FK0 * 0.75 && !quiz && Q.fab > 0) {
         const i0 = Math.floor((fx - R1) / CS), i1 = Math.floor((fx + R1) / CS), j0 = Math.floor((fz - R1) / CS), j1 = Math.floor((fz + R1) / CS), key = [i0, i1, j0, j1].join(',');
         if (fab.gl && key !== fab.key) { fab.key = key; const q = []; for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) { const d = Math.hypot((i + 0.5) * CS - fx, (j + 0.5) * CS - fz), kk = i * 65536 + j; if (d > R1 + CS * 0.7 || fab.chunks.has(kk) || !fabLand(i, j)) continue; q.push({ k: kk, ix: i, iz: j, d }); } q.sort((a, b) => a.d - b.d); fab.queue = q; }
-        if (fab.queue.length && !fab.timer) fab.timer = setTimeout(fabPump, 0);
+        if (fab.queue.length && !fab.timer && !byFrame()) fab.timer = setTimeout(fabPump, 0);
         if (rb.gen) { const a0 = Math.floor((fx - R1) / RCS), a1 = Math.floor((fx + R1) / RCS), b0 = Math.floor((fz - R1) / RCS), b1 = Math.floor((fz + R1) / RCS), rk = [a0, a1, b0, b1].join(',');
           if (rk !== rb.key) { rb.key = rk; const q = []; for (let i = a0; i <= a1; i++) for (let j = b0; j <= b1; j++) { const d = Math.hypot((i + 0.5) * RCS - fx, (j + 0.5) * RCS - fz), kk = i * 65536 + j; if (d > R1 + RCS * 0.7 || rb.chunks.has(kk) || !rb.gen.has(i, j)) continue; q.push({ k: kk, ix: i, iz: j, d }); } q.sort((a, b) => a.d - b.d); rb.queue = q; }
-          if (rb.queue.length && !rb.timer) rb.timer = setTimeout(rbPump, 0); }
+          if (rb.queue.length && !rb.timer && !byFrame()) rb.timer = setTimeout(rbPump, 0); }
       }
       const f = U.uFocus.value;
       for (const ch of fab.chunks.values()) {
@@ -649,7 +662,7 @@
       // the tall real buildings: from the city-wide view inwards (they rise between these distances), everywhere they are, each group grown in when it is new
       if (rb.tallGl) { const tt = quiz ? 0 : 1 - smooth(Math.log(c.d), Math.log(TALL_D[0]), Math.log(TALL_D[1]));
         if (tt !== rb.tallU.uGrow.value) { rb.tallU.uGrow.value = tt; shadowDirty = true; }
-        if (tt > 0 && rb.gen && rb.tallNext < rb.gen.tallCount && !rb.tallTimer) rb.tallTimer = setTimeout(tallPump, 0);
+        if (tt > 0 && rb.gen && rb.tallNext < rb.gen.tallCount) { rb.tallGo = true; if (!rb.tallTimer && !byFrame()) rb.tallTimer = setTimeout(tallPump, 0); }
         for (const t of rb.tall) { if (t.g < 1 && tt > 0) { t.g = RM.matches ? 1 : Math.min(1, t.g + dt / 450); placeData[(TW + t.slot) * 4] = 1 - Math.pow(1 - t.g, 3); placeTex.needsUpdate = true; anim = true; shadowDirty = true; }
           t.m.visible = tt > 0.02; t.m.castShadow = Q.fabShadow; } }
       return anim;
@@ -859,10 +872,11 @@
         const m = marks[i]; if (!m) continue; const h = HOODS[i], y = anchY(i), zc = (h.cx - c.px) * c.fx + (y * vex - c.py) * c.fy + (h.cy - c.pz) * c.fz; if (zc <= 0) continue;
         let s = clamp((m === 'flag' ? 20 : 17) * zc / c.g, 0.5, MARK_MAX);
         if (markAnim[i]) { const p = (t - markAnim[i]) / 420; if (p < 1) { s *= 1 + Math.sin(p * Math.PI) * .6 * (1 - p); pop = true; } else delete markAnim[i]; }
-        m4.compose(ps.set(h.cx, y, h.cy), qt, sc.set(s, s / vex, s)); if (m === 'flag') flags.setMatrixAt(nf++, m4); else books.setMatrixAt(nb++, m4);
+        m4.compose(ps.set(h.cx, y, h.cy), qt, sc.set(s, s / vex, s)); const im = m === 'flag' ? flags : books, j = m === 'flag' ? nf++ : nb++, ia = im.instanceMatrix.array, me4 = m4.elements; // (sent to the GPU only when a matrix or the count changed)
+        for (let k = 0; k < 16; k++) if (ia[j * 16 + k] !== Math.fround(me4[k])) { im.setMatrixAt(j, m4); im.instanceMatrix.needsUpdate = true; break; }
       }
-      if (flags.count !== nf || books.count !== nb) shadowDirty = true;
-      flags.count = nf; books.count = nb; flags.instanceMatrix.needsUpdate = books.instanceMatrix.needsUpdate = true;
+      if (flags.count !== nf || books.count !== nb) { shadowDirty = true; flags.instanceMatrix.needsUpdate = books.instanceMatrix.needsUpdate = true; }
+      flags.count = nf; books.count = nb;
       // sections
       if (fineMesh) { const kk = kNow(), want = fineOn ? kk > 2.2 : kk > 2.8; if (want !== fineOn) setFine(want); }   // the full relief from the scale of the city inwards (with some slack, so it does not flicker between the two)
       lineW.value = 1 / kNow(); updateSections(subF); rim.material.opacity = (dark ? .5 : .55) * smooth(kNow(), 1.5, 6); rim.visible = rim.material.opacity > .01; if (rimF) rimF.visible = rim.visible && fineOn;
@@ -887,11 +901,16 @@
         for (const g of pts) for (const y of [0, hTop]) { v3.set(g[0], y, g[1]).applyMatrix4(lightBasis.inv); x0 = Math.min(x0, v3.x); x1 = Math.max(x1, v3.x); y0 = Math.min(y0, v3.y); y1 = Math.max(y1, v3.y); z0 = Math.min(z0, v3.z); z1 = Math.max(z1, v3.z); }
         const Wb = Math.pow(1.12, Math.ceil(Math.log(Math.max(x1 - x0, y1 - y0, 4) + 2) / Math.log(1.12))), tx = Wb / key.shadow.mapSize.x;
         const L0 = Math.floor((x0 + x1 - Wb) / 2 / tx) * tx, B0 = Math.floor((y0 + y1 - Wb) / 2 / tx) * tx, N0 = Math.max(1, Math.floor((-z1 - 40) / 50) * 50), F0 = Math.ceil((-z0 + 40) / 50) * 50;
-        if (L0 !== sh.l || B0 !== sh.b || Wb !== sh.w || N0 !== sh.n || F0 !== sh.f || shadowDirty) {
-          sh = { l: L0, b: B0, w: Wb, n: N0, f: F0 }; const sc2 = key.shadow.camera;
-          sc2.left = L0; sc2.right = L0 + Wb; sc2.bottom = B0; sc2.top = B0 + Wb; sc2.near = N0; sc2.far = F0; sc2.updateProjectionMatrix();
-          key.shadow.normalBias = tx * 2.2; key.shadow.bias = -0.0006; renderer.shadowMap.needsUpdate = true; shadowDirty = false;
-        }
+        const box = (l, b, w, n, f, t, loose) => { sh = { l, b, w, n, f, loose }; const sc2 = key.shadow.camera;
+          sc2.left = l; sc2.right = l + w; sc2.bottom = b; sc2.top = b + w; sc2.near = n; sc2.far = f; sc2.updateProjectionMatrix();
+          key.shadow.normalBias = t * 2.2; key.shadow.bias = -0.0006; renderer.shadowMap.needsUpdate = true; shadowDirty = false; shT = now(); stat.shadowDraws++; };
+        // while the map moves the box is kept, and the shadows not drawn again, as long as what is needed lies inside it and it is not much too
+        // big; else a box 1.3 times as wide (quantised and snapped as above, a step of 50 more each side in depth). What stands in it changing
+        // draws them again at most every 100 ms; the first frame at rest fits tightly again (m3d-shadowhold=off, tune shadowHold false: every frame as at rest)
+        if (moving && SW.hold && T.shadowHold !== false) {
+          if (!(sh.w && x0 >= sh.l && x1 <= sh.l + sh.w && y0 >= sh.b && y1 <= sh.b + sh.w && N0 >= sh.n && F0 <= sh.f && sh.w <= Wb * 1.6)) { const w2 = Math.pow(1.12, Math.ceil(Math.log(Wb * 1.3) / Math.log(1.12))), t2 = w2 / key.shadow.mapSize.x; box(Math.floor((x0 + x1 - w2) / 2 / t2) * t2, Math.floor((y0 + y1 - w2) / 2 / t2) * t2, w2, Math.max(1, N0 - 50), F0 + 50, t2, true); }
+          else if (shadowDirty && now() - shT >= 100) { renderer.shadowMap.needsUpdate = true; shadowDirty = false; shT = now(); stat.shadowDraws++; }
+        } else if (L0 !== sh.l || B0 !== sh.b || Wb !== sh.w || N0 !== sh.n || F0 !== sh.f || shadowDirty) box(L0, B0, Wb, N0, F0, tx, false);
       }
       lightMat.uniforms.uScale.value = H * pr / (2 * Math.tan(FOV * Math.PI / 360)); lightMat.uniforms.uMin.value = 1.4 * pr;
       return pop || fabAnim;
@@ -1054,7 +1073,7 @@
         ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI * 2);
         if (sp.status === 'pending' && phone) { ctx.beginPath(); ctx.arc(sx, sy, r * 1.5, 0, Math.PI * 2); ctx.globalAlpha = .22; ctx.fillStyle = P.accent; ctx.fill(); ctx.globalAlpha = 1; ctx.setLineDash([3, 2]); ctx.strokeStyle = P.accent; ctx.lineWidth = 2; ctx.stroke(); ctx.setLineDash([]); ctx.beginPath(); ctx.arc(sx, sy, r * .45, 0, Math.PI * 2); ctx.fillStyle = P.accent; ctx.fill(); }
         else if (sp.status === 'pending') { ctx.fillStyle = P.paper; ctx.fill(); ctx.setLineDash([2, 1.5]); ctx.strokeStyle = P.accent; ctx.lineWidth = 1.5; ctx.stroke(); ctx.setLineDash([]); }
-        else { ctx.fillStyle = P.paper; ctx.fill(); ctx.strokeStyle = hot ? P.ink : 'rgba(0,0,0,.25)'; ctx.lineWidth = hot ? 1.5 : 1; ctx.stroke(); ctx.beginPath(); ctx.arc(sx, sy, r * .55, 0, Math.PI * 2); const cc = cssColor(sp.c); if (sp.status === 'want') { ctx.strokeStyle = cc; ctx.lineWidth = 1.6; ctx.stroke(); } else { ctx.fillStyle = cc; ctx.fill(); } }
+        else { ctx.fillStyle = P.paper; ctx.fill(); ctx.strokeStyle = hot ? P.ink : 'rgba(0,0,0,.25)'; ctx.lineWidth = hot ? 1.5 : 1; ctx.stroke(); ctx.beginPath(); ctx.arc(sx, sy, r * .55, 0, Math.PI * 2); const cc = spotColor(sp.c); if (sp.status === 'want') { ctx.strokeStyle = cc; ctx.lineWidth = 1.6; ctx.stroke(); } else { ctx.fillStyle = cc; ctx.fill(); } }
         if (k > 16 && sp.name) { const tw = measure(sp.name, 500, fsz), box = [sx + r + 3, sy - 7, sx + r + 3 + tw + 4, sy + 7]; if (!clash(box, 'dot') || hot) { placed.push(box); haloText(sp.name, sx + r + 5, sy, fsz, P.label); } }
       }
       if (quiz && ready) anim = quizBadges(I, t) || anim;
@@ -1096,15 +1115,16 @@
     // for a while, one step back, and not again to a step that failed twice ----
     const gov = { ts: [], good: 0, at: 0, skip: 0, fresh: false, fails: [], was: false, min: Infinity };
     function setQuality(n) {
-      n = clamp(n, 0, 6); if (n === Q.level) return; Q.level = n; Q.life = n < 1; Q.fabShadow = n < 2; Q.shadows = n < 3; Q.fab = n < 4 ? 1 : n < 5 ? 0.5 : 0.25; Q.cap = n < 5 ? [2, 3] : n < 6 ? [1.5, 2] : [1, 1.5];
-      key.castShadow = Q.shadows; setPR(Math.min(dpr, Q.cap[moving ? 0 : 1])); shadowDirty = true; needs = true; gov.ts.length = 0; gov.good = 0; gov.skip = 10; gov.at = now();
-      try { sessionStorage.setItem('sbs-map3d-q', String(n)); } catch (e) {}
+      n = clamp(n, 0, 6); if (n === Q.level) return; qSet(n);
+      key.castShadow = Q.shadows; setPR(prOf()); shadowDirty = true; needs = true; gov.ts.length = 0; gov.good = 0; gov.skip = 10; gov.at = now();
+      if (SW.q < 0) try { sessionStorage.setItem('sbs-map3d-q', String(n)); } catch (e) {}
     }
+    function qSet(n) { Q.level = n; Q.life = n < 1; Q.fabShadow = n < 2; Q.shadows = n < 3 && SW.shadows; Q.fab = n < 4 ? 1 : n < 5 ? 0.5 : 0.25; Q.cap = n < 5 ? [2, 3] : n < 6 ? [1.5, 2] : [1, 1.5]; Object.assign(Q, TQ); }
     // gap: the time since the frame before (draw's own clock, not reset by input), when both were frames of a moving map; judged by
     // the middle one of every 24, against the shortest gap seen: a screen held to 30 frames a second (Low Power Mode) is not a slow
     // device. A step up stays fresh until its first judgement: a slow one counts it as failed
     function govern(gap, mv) {
-      const was = gov.was; gov.was = mv; if (!mv || !was || gap > 100) return; if (gap > 4) gov.min = Math.min(gov.min, gap); if (gov.skip > 0) { gov.skip--; return; } // over 100 ms: a finger at rest, not a frame
+      const was = gov.was; gov.was = mv; if (!mv || !was || gap > 100 || SW.q >= 0) return; if (gap > 4) gov.min = Math.min(gov.min, gap); if (gov.skip > 0) { gov.skip--; return; } // over 100 ms: a finger at rest, not a frame
       const ref = Math.min(gov.min, 34) * 1.3, fail = () => { if (gov.fresh) gov.fails[Q.level] = (gov.fails[Q.level] || 0) + 1; gov.fresh = false; }; // (no screen runs slower than 30 a second: frames longer than that are slow)
       gov.ts.push(gap); if (gov.ts.length === 8 && Math.min.apply(null, gov.ts) > Math.max(40, ref)) { gov.ts.length = 0; gov.last = 41; fail(); return setQuality(Q.level + 2); } // eight very long frames in a row: two steps at once
       if (gov.ts.length < 24) return; const m = gov.ts.slice().sort((a, b) => a - b)[12]; gov.ts.length = 0; gov.last = +m.toFixed(1);
@@ -1118,6 +1138,7 @@
 
     // ---- the frame loop: drawn on demand ----
     function kick() { if (!raf) { lastT = now(); raf = requestAnimationFrame(frame); } }
+    function prOf() { const f = T.pr || SW.pr; return f ? Math.min(dpr, clamp(f, 1, 3)) : Math.min(dpr, Q.cap[moving ? 0 : 1]); } // the pixel ratio for the frame: the speed test's when it set one, else the governor's cap (lighter while the map moves)
     function setPR(p) { if (p === pr) return; pr = p; renderer.setPixelRatio(pr); renderer.setSize(W, H, false); lbl.width = Math.round(W * pr); lbl.height = Math.round(H * pr); needs = true; }
     // until a frame has drawn, an error in one is a 3D map that cannot run here: the flat map instead (giveUp); after that, as any error
     function frame(t, direct) { if (dead) { raf = 0; return; } if (stat.firstFrame) return draw(t, direct); try { draw(t, direct); } catch (e) { giveUp(e); } } // direct: drawn in this task (resize, warm-up), not at a screen refresh
@@ -1136,12 +1157,12 @@
       const amb = ambOn(), tick = ambTick; ambTick = false; if (amb) { if (ambLast) ambT += Math.min(0.1, (t - ambLast) / 1000); ambLast = t; } else ambLast = 0;
       if (!dark && !busy && !ptrs.size && t - sunAt > 240000) { sunAt = t; const k0 = sunKey; refreshPalette(); if (sunKey !== k0) applyLook(); }
       let anim = prepare(dt), why = (busy ? 1 : 0) | (anim ? 2 : 0) | (needs ? 4 : 0); if (stepLifts(t)) { anim = true; needs = true; why |= 8; }
-      const mv = busy || ptrs.size > 0; govern(fgap, mv); if (mv !== moving) { moving = mv; setPR(Math.min(dpr, Q.cap[moving ? 0 : 1])); } // a lighter frame while the map moves, the full one when it rests
+      const mv = busy || ptrs.size > 0; govern(fgap, mv); if (mv !== moving) { moving = mv; setPR(prOf()); if (!mv && (sh.loose || shadowDirty || (SW.hold && T.shadowHold !== false))) needs = true; if (!mv && !SW.pumpOld) pumpsGo(); } // a lighter frame while the map moves, the full one when it rests
       const only = tick && amb && !needs && !busy && !anim && !olAnim;      // a frame of ambient motion alone: the scene is drawn, the names stand as they are
-      if (needs || (tick && amb)) { needs = false; if (updateScene(t, vx, dt)) { anim = true; needs = true; why |= 16; } renderer.render(scene, camera); stat.frames++; stat.drawn = now(); if (only) stat.amb++; if (!stat.firstFrame) stat.firstFrame = now(); }
-      if (!only) { olAnim = drawOverlay(t, dt); anim = olAnim || anim; } stat.lastMs = now() - t0; stat.why = why | (olAnim ? 32 : 0) | (me ? 64 : 0) | (tick ? 128 : 0);
-      if (busy || anim || me || needs) raf = requestAnimationFrame(frame);
-      else if (amb && !ambTimer) ambArm(AMB_GAP - 5);
+      if (needs || (tick && amb)) { needs = false; if (updateScene(t, vx, dt)) { anim = true; needs = true; why |= 16; } renderer.render(scene, camera); stat.frames++; stat.drawn = now(); if (only) stat.amb++; if (!stat.firstFrame) stat.firstFrame = now(); if (onDraw) onDraw(t, mv || !!anim, only); }
+      if (!only) { olAnim = drawOverlay(t, dt); anim = olAnim || anim; } if (byFrame()) pumpTurn(); stat.lastMs = now() - t0; stat.why = why | (olAnim ? 32 : 0) | (me ? 64 : 0) | (tick ? 128 : 0);
+      if (busy || anim || needs || (byFrame() && pumpWork())) raf = requestAnimationFrame(frame); // (a finger at rest on the map: the pumps' turns go on while there is work)
+      else { if (me && !meTimer) meTimer = setTimeout(() => { meTimer = 0; if (!dead) kick(); }, 33); if (amb && !ambTimer) ambArm(AMB_GAP - 5); } // the location dot's pulse alone: a frame every 33 ms at most, and the ambient motion goes on
       if (busy && o.onMove) o.onMove();
     }
 
@@ -1240,13 +1261,13 @@
     // out of sight: the ambient motion stops at once; back in sight within its time, it picks up where it stood
     document.addEventListener('visibilitychange', () => { if (document.hidden) { clearTimeout(ambTimer); ambTimer = 0; } else if (ambOn()) { ambTick = true; kick(); } }, { signal: sig });
     glc.addEventListener('webglcontextlost', e => e.preventDefault());
-    glc.addEventListener('webglcontextrestored', () => { shadowDirty = true; needs = true; kick(); });
+    glc.addEventListener('webglcontextrestored', () => { shadowDirty = true; shT = -1e9; needs = true; kick(); });
 
     // ---- resize ----
     function resize() {
       const r = stage.getBoundingClientRect(), w = Math.max(1, Math.round(r.width)), h = Math.max(1, Math.round(r.height)), d = Math.min(window.devicePixelRatio || 1, 3);
       if (w === W && h === H && d === dpr) return;
-      const first = W <= 1, W0 = W, H0 = H; W = w; H = h; dpr = d; pr = Math.min(dpr, Q.cap[moving ? 0 : 1]); camV++;
+      const first = W <= 1, W0 = W, H0 = H; W = w; H = h; dpr = d; pr = prOf(); camV++;
       renderer.setPixelRatio(pr); renderer.setSize(W, H, false); lbl.width = Math.round(W * pr); lbl.height = Math.round(H * pr);
       // the tilt is nearly straight down from the distance of the first screen (the bay core, as the flat map lands on it)
       const all = base.regionBBox('all'); dFar = Math.max(400, dOf(Math.max(all[2] - all[0], (all[3] - all[1]) * W / H) * 1.06));
@@ -1260,6 +1281,7 @@
     (function watchDpr() { try { const mq = matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`); mq.addEventListener('change', () => { resize(); watchDpr(); }, { once: true, signal: sig }); } catch (e) {} })();
     refreshPalette(); resize(); build();
 
+    let gpu = null; const gpuName = () => { if (gpu == null) try { const gl = renderer.getContext(), x = gl.getExtension('WEBGL_debug_renderer_info'); gpu = String(x && gl.getParameter(x.UNMASKED_RENDERER_WEBGL) || gl.getParameter(gl.RENDERER) || ''); } catch (e) { gpu = ''; } return gpu; }; // for stats(): the GPU's name, where the browser gives it
     return {
       is3d: true,
       get cam() { return cam; }, get k() { return kNow(); }, get W() { return W; }, get H() { return H; },
@@ -1284,13 +1306,20 @@
       subsShowing(i) { return subsOf(i) && (hoodPx(i) > 560 || i === sel); },
       hoodPx,
       // for tests and the console: what was built and how long it took, what a frame draws, and the cost of frames along a flight
-      stats() { const info = renderer.info; let tris = 0; const seen = q => { for (let p = q; p; p = p.parent) if (!p.visible) return false; return true; }; scene.traverse(q => { if ((q.isMesh || q.isPoints) && seen(q) && q.geometry) { const g = q.geometry, n = q.isPoints ? 0 : Math.min(g.drawRange.count, g.index ? g.index.count : g.attributes.position.count) / 3; tris += n * (q.isInstancedMesh ? q.count : g.isInstancedBufferGeometry ? g.instanceCount : 1); } });
-        return { ready, blocks: stat.blocks, build: stat.build, firstFrame: stat.firstFrame ? Math.round(stat.firstFrame - stat.t0) : 0, sinceNav: stat.firstFrame ? Math.round(stat.firstFrame) : 0, frames: stat.frames, lastMs: +stat.lastMs.toFixed(2), sceneTriangles: Math.round(tris), calls: info.render.calls, triangles: info.render.triangles, pr, size: [W, H], dark, area: area.id, quality: Q.level, gov: { last: gov.last || 0, good: gov.good, fails: gov.fails.slice() }, fog: fogBank ? +fogBank.U.uK.value.toFixed(3) : 0, land: { relief: !!RL, close: fineOn, closeReady: !!fineMesh, places: RL ? RL.fineList.length : 0 }, real: { on: !!rb.gen, chunks: rb.live, buildings: rb.n, triangles: rb.tris, queue: rb.queue.length, tall: { groups: rb.tall.length, of: rb.gen ? rb.gen.tallCount : 0, buildings: rb.tall.reduce((s, t) => s + t.n, 0), triangles: rb.tall.reduce((s, t) => s + t.tris, 0), rise: rb.tallU ? +rb.tallU.uGrow.value.toFixed(2) : 0 } }, fabric: { chunks: fab.live, buildings: fab.nb, trees: fab.nt, grow: +fabU.uGrow.value.toFixed(2), queue: fab.queue.length }, why: stat.why, ambient: { on: ambOn(), t: +ambT.toFixed(2), frames: stat.amb, left: Math.max(0, Math.round(ambUntil - now())), ferry: ferries[0] ? [+ferries[0].mesh.position.x.toFixed(3), +ferries[0].mesh.position.z.toFixed(3)] : null }, view: Object.assign({ ph: +camOf(cur).ph.toFixed(3) }, cur) }; },
+      stats(lite) { const info = renderer.info; let tris = 0; const seen = q => { for (let p = q; p; p = p.parent) if (!p.visible) return false; return true; }; if (!lite) scene.traverse(q => { if ((q.isMesh || q.isPoints) && seen(q) && q.geometry) { const g = q.geometry, n = q.isPoints ? 0 : Math.min(g.drawRange.count, g.index ? g.index.count : g.attributes.position.count) / 3; tris += n * (q.isInstancedMesh ? q.count : g.isInstancedBufferGeometry ? g.instanceCount : 1); } });
+        return { ready, blocks: stat.blocks, build: stat.build, firstFrame: stat.firstFrame ? Math.round(stat.firstFrame - stat.t0) : 0, sinceNav: stat.firstFrame ? Math.round(stat.firstFrame) : 0, frames: stat.frames, lastMs: +stat.lastMs.toFixed(2), sceneTriangles: Math.round(tris), calls: info.render.calls, triangles: info.render.triangles, pr, size: [W, H], dark, area: area.id, quality: Q.level, gov: { last: gov.last || 0, good: gov.good, fails: gov.fails.slice() }, fog: fogBank ? +fogBank.U.uK.value.toFixed(3) : 0, land: { relief: !!RL, close: fineOn, closeReady: !!fineMesh, places: RL ? RL.fineList.length : 0 }, real: { on: !!rb.gen, chunks: rb.live, buildings: rb.n, triangles: rb.tris, queue: rb.queue.length, tall: { groups: rb.tall.length, of: rb.gen ? rb.gen.tallCount : 0, buildings: rb.tall.reduce((s, t) => s + t.n, 0), triangles: rb.tall.reduce((s, t) => s + t.tris, 0), rise: rb.tallU ? +rb.tallU.uGrow.value.toFixed(2) : 0 } }, fabric: { chunks: fab.live, buildings: fab.nb, trees: fab.nt, grow: +fabU.uGrow.value.toFixed(2), queue: fab.queue.length }, why: stat.why, ambient: { on: ambOn(), t: +ambT.toFixed(2), frames: stat.amb, left: Math.max(0, Math.round(ambUntil - now())), ferry: ferries[0] ? [+ferries[0].mesh.position.x.toFixed(3), +ferries[0].mesh.position.z.toFixed(3)] : null }, view: Object.assign({ ph: +camOf(cur).ph.toFixed(3) }, cur),
+          shadows: Q.shadows, fab: Q.fab, dpr, gpu: gpuName(), moving, shadowDraws: stat.shadowDraws, tune: Object.assign({}, T, TQ) }; },
       bench(n = 60) { // n frames spread along the flight in progress or, at rest, a small orbit; each forced to finish on the GPU
-        const gl = renderer.getContext(), px = new Uint8Array(4), keep = Object.assign({}, cur), times = [];
+        const gl = renderer.getContext(), px = new Uint8Array(4), keep = Object.assign({}, cur), times = [], mv0 = moving; moving = true; // (drawn as moving frames: the shadow rule and the rest as under a finger)
         for (let i = 0; i < n; i++) { cur.th = keep.th + Math.sin(i / n * Math.PI * 2) * 0.12; cur.w = keep.w * (1 + 0.25 * Math.sin(i / n * Math.PI)); cur.cx = keep.cx + Math.sin(i * 0.2) * keep.w * 0.05; const t0 = now(); C = camOf(cur); const vx = C.vex; C.vex = vex; prepare(16); updateScene(t0, vx, 16); renderer.render(scene, camera); drawOverlay(t0, 16); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); times.push(now() - t0); }
-        Object.assign(cur, keep); needs = true; kick(); times.sort((a, b) => a - b);
-        return { n, avg: +(times.reduce((s, x) => s + x, 0) / n).toFixed(2), p50: +times[n >> 1].toFixed(2), p95: +times[Math.floor(n * .95)].toFixed(2), max: +times[n - 1].toFixed(2) }; },
+        Object.assign(cur, keep); moving = mv0; needs = true; kick(); const list = times.map(x => +x.toFixed(2)); times.sort((a, b) => a - b);
+        return { n, avg: +(times.reduce((s, x) => s + x, 0) / n).toFixed(2), p50: +times[n >> 1].toFixed(2), p95: +times[Math.floor(n * .95)].toFixed(2), max: +times[n - 1].toFixed(2), times: list }; },
+      // the speed test's settings, until set again: pr (0 or null: the normal rule), shadows, fabShadow, fab, life (as in Q; null: the level's own),
+      // shadowHold (false: the shadow rule before the speed fixes), plain (one plain material for everything: the cost without the lighting)
+      tune(o) { o = o || {}; if ('pr' in o) T.pr = +o.pr > 0 ? clamp(+o.pr, 1, 3) : 0; for (const k of ['shadowHold', 'plain']) if (k in o) { if (o[k] == null) delete T[k]; else T[k] = !!o[k]; }
+        for (const k of ['shadows', 'fabShadow', 'fab', 'life']) if (k in o) { if (o[k] == null) delete TQ[k]; else TQ[k] = k === 'fab' ? clamp(+o[k], 0, 1) : !!o[k]; }
+        qSet(Q.level); key.castShadow = Q.shadows; scene.overrideMaterial = T.plain ? plainMat || (plainMat = new THREE.MeshBasicMaterial({ color: 0x9a9a9a })) : null; setPR(prOf()); shadowDirty = true; needs = true; kick(); return Object.assign({}, T, TQ); },
+      get onDraw() { return onDraw; }, set onDraw(f) { onDraw = typeof f === 'function' ? f : null; }, // (t, moving or animating, a frame of ambient motion alone) after every frame drawn
     };
     } catch (e) { // the 3D map cannot be made here: the flat canvas back, the 3D canvases, the north button, listeners and renderer gone
       console.error('3D map: ' + (e && e.stack || e)); dead = true; ac.abort(); if (ro) ro.disconnect();

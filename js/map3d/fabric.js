@@ -36,7 +36,8 @@
   // where the buildings stand tall: [lon, lat, radius in map units, strength]; and along the Strip (given by the caller)
   const CORES = [[-122.3995, 37.7915, 9, 1], [-122.2712, 37.805, 6.5, 0.7], [-121.889, 37.3335, 6.5, 0.65], [-122.268, 37.8703, 3.2, 0.35], [-122.1617, 37.4447, 2.6, 0.3], [-122.0308, 37.9063, 2.6, 0.3]];
 
-  // env: { HOODS, BB, HT, hAt(i, x, z): the ground of place i at a point (without it: HT[i], a flat top), INFO, SUBD, REGS, proj, inTop(i, x, z), avoid: [[x, z, r], ...], strip: [[x, z], ...] }
+  // env: { HOODS, BB, HT, hAt(i, x, z): the ground of place i at a point (without it: HT[i], a flat top), INFO, SUBD, REGS, proj, inTop(i, x, z), avoid: [[x, z, r], ...], strip: [[x, z], ...],
+//   solid(x, z, r), dense(x, z): where the real buildings stand, and the part of town where every building is real (js/map3d/real.js; both or neither) }
   function make(env) {
     const { HOODS, BB, HT, proj } = env, INFO = env.INFO || {}, SUBD = env.SUBD || {}, REGS = env.REGS || {};
     const hAt = env.hAt || (i => HT[i]);
@@ -78,7 +79,7 @@
     function chunk(ix, iz) {
       const x0 = ix * CS, z0 = iz * CS, x1 = x0 + CS, z1 = z0 + CS, B = [], T = [];
       const own = (x, z) => x >= x0 && x < x1 && z >= z0 && z < z1;
-      const tree = (P, x, z, r, tint) => { if (!env.inTop(P.i, x, z) || !env.inTop(P.i, x + r, z + r * 0.5) || !env.inTop(P.i, x - r, z - r * 0.5) || blocked(x, z, r * 0.6)) return; T.push(x, hAt(P.i, x, z), z, r, P.i, tint, 0); };
+      const tree = (P, x, z, r, tint, yard) => { if (env.solid && ((yard && env.dense(x, z)) || env.solid(x, z, r * 0.7))) return; if (!env.inTop(P.i, x, z) || !env.inTop(P.i, x + r, z + r * 0.5) || !env.inTop(P.i, x - r, z - r * 0.5) || blocked(x, z, r * 0.6)) return; T.push(x, hAt(P.i, x, z), z, r, P.i, tint, 0); };
       for (let i = 0; i < HOODS.length; i++) {
         const bb = BB[i]; if (bb[2] < x0 - 3 || bb[0] > x1 + 3 || bb[3] < z0 - 3 || bb[1] > z1 + 3) continue;
         const P = plan(i), c = P.c, s = P.s;
@@ -106,6 +107,7 @@
             const lu = rows ? b : a, lv = rows ? a : b, x = P.ox + (uc + lu) * c + (vc + lv) * s, z = P.oz - (uc + lu) * s + (vc + lv) * c;
             const sx = rows ? w : dp, sz = rows ? dp : w, hx = sx / 2, hz = sz / 2;   // sx along the grid's u, sz along its v
             if (inPark(x, z) || blocked(x, z, Math.max(hx, hz)) || !env.inTop(P.i, x, z)) return;
+            if (env.solid && (env.dense(x, z) || env.solid(x, z, Math.max(hx, hz) + 0.04))) return;   // real buildings stand here (js/map3d/real.js), or this is the part of town where every building is real
             // clear of the block's edge by a narrow street (CLEAR), and of the lines between the place's sections: the two nearest seeds, the distance to their bisector
             for (const [p, q] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) if (!env.inTop(P.i, x + (p * (hx + CLEAR) * c + q * (hz + CLEAR) * s), z + (-p * (hx + CLEAR) * s + q * (hz + CLEAR) * c))) return;
             if (P.seeds) { let a = -1, b = -1, da = Infinity, db = Infinity; for (let k = 0; k < P.seeds.length; k++) { const d = (x - P.seeds[k][0]) ** 2 + (z - P.seeds[k][1]) ** 2; if (d < da) { b = a; db = da; a = k; da = d; } else if (d < db) { b = k; db = d; } }
@@ -132,7 +134,7 @@
               }
             }
             // the yards down the middle of the block: a few trees
-            if (!tall) for (let b = -ih / 2 + 0.2; b < ih / 2 - 0.2; b += 0.42) { const r1 = R(), r2 = R(), r3 = R(); if (r1 > P.green) continue; const lu = rows ? b : (r2 - 0.5) * 0.08, lv = rows ? (r2 - 0.5) * 0.08 : b; tree(P, P.ox + (uc + lu) * c + (vc + lv) * s, P.oz - (uc + lu) * s + (vc + lv) * c, 0.1 + r3 * 0.07, r3); }
+            if (!tall) for (let b = -ih / 2 + 0.2; b < ih / 2 - 0.2; b += 0.42) { const r1 = R(), r2 = R(), r3 = R(); if (r1 > P.green) continue; const lu = rows ? b : (r2 - 0.5) * 0.08, lv = rows ? (r2 - 0.5) * 0.08 : b; tree(P, P.ox + (uc + lu) * c + (vc + lv) * s, P.oz - (uc + lu) * s + (vc + lv) * c, 0.1 + r3 * 0.07, r3, true); }
           }
         }
         // its parks: trees round a clearing, thicker towards the rim

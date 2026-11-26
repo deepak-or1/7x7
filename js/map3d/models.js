@@ -454,19 +454,21 @@
   // placeAt(x, z): the name of the place there, or null; vegas: the Strip's sections by place (data/subareas.js), or null; lms: the
   // landmarks as icons() made them, or none. Returns one mesh per place that carries anything ({ place, geometry, ... }), so each
   // can rise with its block.
-  function city(placeAt, ground, vegas, lms) {
+  // real: the real buildings are drawn (js/map3d/real.js): no filler towers in San Francisco or Oakland, no made-up resorts on the Strip
+  function city(placeAt, ground, vegas, lms, real) {
     adopt();
     const parts = {}, of = place => parts[place] || (parts[place] = new Builder()), stand = (place, g) => { const b = of(place); b.gs = (b.gs || 0) + g; b.gn = (b.gn || 0) + 1; return b; }, placed = PLACED.map(p => proj([p[1], p[2]])), K25 = 2.5 * K, foot = []; // foot: [x, z, radius] of everything stood here, for the city fabric to keep clear of
     // a filler (a circle of radius r at x, z) stands clear of what each landmark has built: its plan box, at its own size, grown by 1.3
     const built = (lms || []).map(l => { const b = l.geometry.boundingBox; return [l.x + b.min.x * 1.3, l.z + b.min.z * 1.3, l.x + b.max.x * 1.3, l.z + b.max.z * 1.3]; });
     const onLm = (x, z, r) => built.some(b => Math.hypot(x - Math.min(b[2], Math.max(b[0], x)), z - Math.min(b[3], Math.max(b[1], z))) < r);
     const clusters = [
-      { c: [-122.3990, 37.7918], r: 6.4, n: 40, hi: 205, lo: 42, ok: ['Financial District', 'South of Market', 'Downtown/Civic Center', 'Chinatown'], seed: 7, grid: 9, soma: 45 },
-      { c: [-122.2712, 37.8050], r: 4.4, n: 10, hi: 95, lo: 32, ok: ['Oakland'], seed: 11, grid: 26 },
+      { c: [-122.3990, 37.7918], r: 6.4, n: 40, hi: 205, lo: 42, ok: ['Financial District', 'South of Market', 'Downtown/Civic Center', 'Chinatown'], seed: 7, grid: 9, soma: 45, real: true },
+      { c: [-122.2712, 37.8050], r: 4.4, n: 10, hi: 95, lo: 32, ok: ['Oakland'], seed: 11, grid: 26, real: true },
       { c: [-121.8890, 37.3335], r: 4.4, n: 9, hi: 80, lo: 30, ok: ['San Jose'], seed: 19, grid: 30 },
     ];
     const mats = ['bldg0', 'bldg0', 'bldg1', 'bldg2', 'bldg3'];
     for (const cl of clusters) {
+      if (real && cl.real) continue;
       const R = rng(cl.seed), c = proj(cl.c), got = []; let tries = 0;
       while (got.length < cl.n && tries++ < 5000) {
         const a = R() * Math.PI * 2, d = Math.pow(R(), 0.9) * cl.r, x = c[0] + Math.cos(a) * d, z = c[1] + Math.sin(a) * d * 0.85;
@@ -483,7 +485,7 @@
     }
     // the Strip: one tower on a podium for each resort (data/subareas_vegas.json): slabs, curved pairs and stepped tops in
     // white, cream and champagne glass
-    if (vegas) {
+    if (vegas && !real) {
       const skip = ['The STRAT', 'Luxor', 'Sphere', 'Paris', 'The LINQ', 'LINQ'];
       Object.keys(vegas).forEach(place => vegas[place].forEach(s => {
         const p = proj([s.lon, s.lat]), R = rng(hash(s.name)), w = 0.95 + R() * 0.6; // the podium is w * 1.1 by w * 0.8: a circle of 0.68 w round it

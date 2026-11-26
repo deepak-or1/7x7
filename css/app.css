@@ -366,6 +366,7 @@ textarea.note { min-height: 64px; resize: vertical; margin-top: 10px; }
 .switch input::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--paper); transition: transform .15s; }
 .switch input:checked { background: var(--accent); } .switch input:checked::after { transform: translateX(16px); }
 .switch small { display: block; font-size: 12px; font-weight: 400; color: var(--muted); } .switch input:disabled { opacity: .5; cursor: default; } /* the 3D map's switch where it cannot run */
+.fine.m3d-credit { margin-top: 8px; padding-top: 0; border-top: 0; } .fine.m3d-credit a { color: inherit; } /* the 3D map's sources, under the other small print */
 details.more { border-top: 1px solid var(--line); margin-top: 22px; }
 details.more summary { list-style: none; cursor: pointer; font-size: 11.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 12px 0 8px; display: flex; justify-content: space-between; }
 details.more summary::-webkit-details-marker { display: none; }

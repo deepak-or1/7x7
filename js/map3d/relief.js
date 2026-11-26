@@ -3,7 +3,7 @@
 // the top of the piece is the real ground instead of one flat height.
 //
 // One height function is the source of everything: heightAt(x, z), in world units, from the two grids of js/map3d/terrain.js (the
-// 40 m grid of San Francisco where it covers, the 250 m grid of the bay elsewhere, the first faded into the second over MARGIN
+// fine grid of San Francisco where it covers, about 56 m; the 250 m grid of the bay elsewhere; the first faded into the second over MARGIN
 // units at its edge, so there is no step), read bilinearly in metres and mapped through curve(): the old TOP0 + KH * metres^KP,
 // moved along by M0 metres so that it starts with a finite slope (a flat shore stays flat, and the grid's one-metre steps do not
 // show), and retuned so the hills stand about where the plateaus did. Las Vegas has no grid: its places stay plateaus.

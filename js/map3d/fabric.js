@@ -36,9 +36,10 @@
   // where the buildings stand tall: [lon, lat, radius in map units, strength]; and along the Strip (given by the caller)
   const CORES = [[-122.3995, 37.7915, 9, 1], [-122.2712, 37.805, 6.5, 0.7], [-121.889, 37.3335, 6.5, 0.65], [-122.268, 37.8703, 3.2, 0.35], [-122.1617, 37.4447, 2.6, 0.3], [-122.0308, 37.9063, 2.6, 0.3]];
 
-  // env: { HOODS, BB, HT, INFO, SUBD, REGS, proj, inTop(i, x, z), avoid: [[x, z, r], ...], strip: [[x, z], ...] }
+  // env: { HOODS, BB, HT, hAt(i, x, z): the ground of place i at a point (without it: HT[i], a flat top), INFO, SUBD, REGS, proj, inTop(i, x, z), avoid: [[x, z, r], ...], strip: [[x, z], ...] }
   function make(env) {
     const { HOODS, BB, HT, proj } = env, INFO = env.INFO || {}, SUBD = env.SUBD || {}, REGS = env.REGS || {};
+    const hAt = env.hAt || (i => HT[i]);
     const cores = CORES.map(c => { const p = proj([c[0], c[1]]); return [p[0], p[1], c[2], c[3]]; }), strip = env.strip || [];
     // how tall things stand at a point: 0 at the edge of town, 1 in the middle of downtown
     function core(x, z) {
@@ -77,7 +78,7 @@
     function chunk(ix, iz) {
       const x0 = ix * CS, z0 = iz * CS, x1 = x0 + CS, z1 = z0 + CS, B = [], T = [];
       const own = (x, z) => x >= x0 && x < x1 && z >= z0 && z < z1;
-      const tree = (P, x, z, r, tint) => { if (!env.inTop(P.i, x, z) || !env.inTop(P.i, x + r, z + r * 0.5) || !env.inTop(P.i, x - r, z - r * 0.5) || blocked(x, z, r * 0.6)) return; T.push(x, P.y, z, r, P.i, tint, 0); };
+      const tree = (P, x, z, r, tint) => { if (!env.inTop(P.i, x, z) || !env.inTop(P.i, x + r, z + r * 0.5) || !env.inTop(P.i, x - r, z - r * 0.5) || blocked(x, z, r * 0.6)) return; T.push(x, hAt(P.i, x, z), z, r, P.i, tint, 0); };
       for (let i = 0; i < HOODS.length; i++) {
         const bb = BB[i]; if (bb[2] < x0 - 3 || bb[0] > x1 + 3 || bb[3] < z0 - 3 || bb[1] > z1 + 3) continue;
         const P = plan(i), c = P.c, s = P.s;
@@ -110,7 +111,9 @@
             if (P.seeds) { let a = -1, b = -1, da = Infinity, db = Infinity; for (let k = 0; k < P.seeds.length; k++) { const d = (x - P.seeds[k][0]) ** 2 + (z - P.seeds[k][1]) ** 2; if (d < da) { b = a; db = da; a = k; da = d; } else if (d < db) { b = k; db = d; } }
               if ((db - da) / (2 * Math.hypot(P.seeds[a][0] - P.seeds[b][0], P.seeds[a][1] - P.seeds[b][1]) || 1) < CLEAR + Math.min(hx, hz)) return; }
             // the ridge of a pitched roof runs along the row: the box's long side is turned to lie along local x
-            if (sx >= sz) B.push(x, P.y, z, P.a, sx, hh, sz, roof, P.i, R(), 0); else B.push(x, P.y, z, P.a + Math.PI / 2, sz, hh, sx, roof, P.i, R(), 0);
+            // on a slope it stands on the lowest ground under its corners, and is as tall above the ground at its middle as on the flat
+            const gy = hAt(P.i, x, z); let y = gy; for (const [p, q] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { const g = hAt(P.i, x + (p * hx * c + q * hz * s), z + (-p * hx * s + q * hz * c)); if (g < y) y = g; } hh += gy - y;
+            if (sx >= sz) B.push(x, y, z, P.a, sx, hh, sz, roof, P.i, R(), 0); else B.push(x, y, z, P.a + Math.PI / 2, sz, hh, sx, roof, P.i, R(), 0);
           };
           if (!tall && R() < P.big) { // one big building on the block: a school, a market, a depot
             put(0, 0, ih * (0.5 + R() * 0.3), iw * (0.6 + R() * 0.25), P.h0 * (1.1 + R() * 0.7), 0);
@@ -207,17 +210,18 @@ if (uWin.r + uWin.g + uWin.b > 0.0) { vec2 wc = vWin.xy / vec2(0.075, 0.06), wi 
       const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(P), 3)); g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(N), 3)); g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(V), 2)); return g;
     })();
     const tg = new THREE.IcosahedronGeometry(1, 0);
-    function inst(base, data, n, per, cx, cy, cz, sizes, mat, depth) {
+    function inst(base, data, n, per, cx, cy, cz, up, sizes, mat, depth) {
       const g = new THREE.InstancedBufferGeometry(); for (const k of ['position', 'normal', 'uv']) if (base.attributes[k]) g.setAttribute(k, base.attributes[k]); if (base.index) g.setIndex(base.index);
       const ib = new THREE.InstancedInterleavedBuffer(data, per); let o = 0; for (const [name, sz] of sizes) { g.setAttribute(name, new THREE.InterleavedBufferAttribute(ib, sz, o)); o += sz; }
-      g.instanceCount = n; g.boundingSphere = new THREE.Sphere(new THREE.Vector3(cx, cy, cz), CS * 0.75 + 3);
+      g.instanceCount = n; g.boundingSphere = new THREE.Sphere(new THREE.Vector3(cx, cy, cz), CS * 0.75 + 3 + up);
       const m = new THREE.Mesh(g, mat); m.customDepthMaterial = depth; m.castShadow = m.receiveShadow = true; m.matrixAutoUpdate = false; m.userData.n = n; return m;
     }
     // the two meshes of a chunk (null where it has nothing), growing with the chunk's slot in the texture
     function mesh(c, slot) {
       for (let i = 0; i < c.nb; i++) c.b[i * NB + 10] = slot; for (let i = 0; i < c.nt; i++) c.t[i * NT + 6] = slot;
-      const cx = (c.ix + 0.5) * CS, cz = (c.iz + 0.5) * CS, y = c.nb ? c.b[1] : c.nt ? c.t[1] : 0;
-      return { b: c.nb ? inst(bg, c.b, c.nb, NB, cx, y, cz, [['aPos', 4], ['aSize', 4], ['aInfo', 3]], bld, bldDepth) : null, t: c.nt ? inst(tg, c.t, c.nt, NT, cx, y, cz, [['aPos', 4], ['aInfo', 3]], tree, treeDepth) : null };
+      let y0 = Infinity, y1 = -Infinity; for (let i = 0; i < c.nb; i++) { const y = c.b[i * NB + 1]; if (y < y0) y0 = y; if (y > y1) y1 = y; } for (let i = 0; i < c.nt; i++) { const y = c.t[i * NT + 1]; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+      const cx = (c.ix + 0.5) * CS, cz = (c.iz + 0.5) * CS, y = y0 < Infinity ? (y0 + y1) / 2 : 0, up = y0 < Infinity ? (y1 - y0) / 2 : 0;   // (the ground under a chunk is not level)
+      return { b: c.nb ? inst(bg, c.b, c.nb, NB, cx, y, cz, up, [['aPos', 4], ['aSize', 4], ['aInfo', 3]], bld, bldDepth) : null, t: c.nt ? inst(tg, c.t, c.nt, NT, cx, y, cz, up, [['aPos', 4], ['aInfo', 3]], tree, treeDepth) : null };
     }
     return { mesh, mats: { bld, tree, bldDepth, treeDepth }, tris: { b: 14, t: 20 } };
   }

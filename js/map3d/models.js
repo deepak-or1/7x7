@@ -415,13 +415,19 @@
   // mats: { name: [paper colour, night colour] } } onto window.M3D.extra; taken up once, before the icons or the skylines are made
   let adopted = false;
   function adopt() { if (adopted) return; adopted = true; (window.M3D.extra || []).forEach(e => { if (!e || ICONS[e.id] || typeof e.build !== 'function') return; ICONS[e.id] = e.build; PLACED.push([e.id, e.lon, e.lat, e.ex, e.ry || 0, e.label]); }); }
-  function icons(ground) {
+  // ground(x, z): the ground there. near(x, z, x0, z0): the ground at (x, z) where it is the same place's top as at (x0, z0), else
+  // null. A model stands on the ground at its own point; on a slope the uphill side of its base is in the hill, as a real
+  // building's is, and where the ground under its plan falls away further than its base reaches down (what it has built below
+  // its own ground level), it is set down until the base still meets the lowest of it
+  function icons(ground, near) {
     adopt();
     return PLACED.map(([id, lon, lat, ex, ry, label]) => {
       const b = new Builder(), p = proj([lon, lat]);
       b.place(0, 0, 0, ry, ex * K, () => ICONS[id](b));
-      const out = b.finish(); out.geometry.computeBoundingBox();
-      return Object.assign(out, { id, label, x: p[0], z: p[1], y: ground(p[0], p[1]), h: out.geometry.boundingBox.max.y, r: Math.max(out.geometry.boundingBox.max.x, out.geometry.boundingBox.max.z, -out.geometry.boundingBox.min.x, -out.geometry.boundingBox.min.z) });
+      const out = b.finish(); out.geometry.computeBoundingBox(); const bb = out.geometry.boundingBox;
+      let y = ground(p[0], p[1]);
+      if (near) { let low = y; for (const [fx, fz] of [[bb.min.x, bb.min.z], [bb.max.x, bb.min.z], [bb.max.x, bb.max.z], [bb.min.x, bb.max.z], [bb.min.x, 0], [bb.max.x, 0], [0, bb.min.z], [0, bb.max.z]]) { const g = near(p[0] + fx * 0.8, p[1] + fz * 0.8, p[0], p[1]); if (g != null && g < low) low = g; } y = Math.min(y, low + Math.max(0, -bb.min.y) * 0.85); }
+      return Object.assign(out, { id, label, x: p[0], z: p[1], y, h: bb.max.y, r: Math.max(bb.max.x, bb.max.z, -bb.min.x, -bb.min.z) });
     });
   }
 
@@ -450,7 +456,7 @@
   // can rise with its block.
   function city(placeAt, ground, vegas, lms) {
     adopt();
-    const parts = {}, of = place => parts[place] || (parts[place] = new Builder()), placed = PLACED.map(p => proj([p[1], p[2]])), K25 = 2.5 * K, foot = []; // foot: [x, z, radius] of everything stood here, for the city fabric to keep clear of
+    const parts = {}, of = place => parts[place] || (parts[place] = new Builder()), stand = (place, g) => { const b = of(place); b.gs = (b.gs || 0) + g; b.gn = (b.gn || 0) + 1; return b; }, placed = PLACED.map(p => proj([p[1], p[2]])), K25 = 2.5 * K, foot = []; // foot: [x, z, radius] of everything stood here, for the city fabric to keep clear of
     // a filler (a circle of radius r at x, z) stands clear of what each landmark has built: its plan box, at its own size, grown by 1.3
     const built = (lms || []).map(l => { const b = l.geometry.boundingBox; return [l.x + b.min.x * 1.3, l.z + b.min.z * 1.3, l.x + b.max.x * 1.3, l.z + b.max.z * 1.3]; });
     const onLm = (x, z, r) => built.some(b => Math.hypot(x - Math.min(b[2], Math.max(b[0], x)), z - Math.min(b[3], Math.max(b[1], z))) < r);
@@ -471,7 +477,8 @@
         if ([[0.45, 0], [-0.45, 0], [0, 0.45], [0, -0.45]].some(([dx, dz]) => placeAt(x + dx, z + dz) !== t)) continue; // clear of the block's edge
         got.push([x, z, r]); foot.push([x, z, r + 0.12]);
         const ry = (cl.soma && t === 'South of Market' ? cl.soma : cl.grid), kind = h > 2.2 && R() < 0.4 ? 'stepped' : h > 1.4 && R() < 0.35 ? 'podium' : 'prism';
-        tower(of(t), mats[Math.floor(R() * mats.length)], x, ground(x, z), z, w, dp, h, ry, R, kind);
+        let g = ground(x, z); for (const [p, q] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) if (placeAt(x + p * w * 0.45, z + q * dp * 0.45) === t) g = Math.min(g, ground(x + p * w * 0.45, z + q * dp * 0.45)); // on a slope it stands on the lowest ground under it (its base is half a unit deeper still)
+        tower(stand(t, g), mats[Math.floor(R() * mats.length)], x, g, z, w, dp, h, ry, R, kind);
       }
     }
     // the Strip: one tower on a podium for each resort (data/subareas_vegas.json): slabs, curved pairs and stepped tops in
@@ -482,7 +489,7 @@
         const p = proj([s.lon, s.lat]), R = rng(hash(s.name)), w = 0.95 + R() * 0.6; // the podium is w * 1.1 by w * 0.8: a circle of 0.68 w round it
         if (skip.some(k => s.name.indexOf(k) >= 0) || placed.some(g => Math.hypot(g[0] - p[0], g[1] - p[1]) < 1.5) || onLm(p[0], p[1], w * 0.68)) return;
         foot.push([p[0], p[1], 1.25]);
-        const b = of(place), g = ground(p[0], p[1]), dp = 0.26 + R() * 0.08, h = 1.3 + R() * 1.7, ry = [0, 90, 28, -28, 60][Math.floor(R() * 5)], m = 'resort' + Math.floor(R() * 5);
+        const g = ground(p[0], p[1]), b = stand(place, g), dp = 0.26 + R() * 0.08, h = 1.3 + R() * 1.7, ry = [0, 90, 28, -28, 60][Math.floor(R() * 5)], m = 'resort' + Math.floor(R() * 5);
         b.box('podium', p[0], g - 0.6, p[1], w * 1.1, w * 0.8, 0.6 + 0.16, { ry, ao: [0.7, 1] });
         const cs = Math.cos(ry * Math.PI / 180), sn = Math.sin(ry * Math.PI / 180), rows = k => Math.round(k / 0.1), win = (ww, hh) => [Math.round(ww / 0.12), rows(hh)];
         if (R() < 0.45) { for (const k of [-1, 1]) { const hh = h * (k > 0 ? 1 : 0.86); b.box(m, p[0] + cs * 0.22 * k, g + 0.16, p[1] - sn * 0.22 * k, w * 0.62, dp, hh, { ry: ry + k * 22, win: win(w * 0.62, hh), ao: [0.85, 1] }); b.box('roofTop', p[0] + cs * 0.22 * k, g + 0.16 + hh, p[1] - sn * 0.22 * k, w * 0.5, dp * 0.6, 0.05, { ry: ry + k * 22 }); } }
@@ -496,7 +503,7 @@
     for (let i = 1; i <= blvd.length; i++) if (i === blvd.length || on[i] !== on[i0]) { const run = strip.slice(i0, Math.min(blvd.length, i + 1)); if (run.length > 1) of(on[i0]).loft('boulevard', run, { flat: true, cap0: true }); i0 = i; }
     blvd.forEach((p, i) => of(on[i]).light([p[0], ground(p[0], p[1]) + 0.12, p[1]], 'gold', 1.1));
     blvd.forEach((p, i) => { if (i) for (let t = 0; t < 1; t += 0.2) foot.push([blvd[i - 1][0] + (p[0] - blvd[i - 1][0]) * t, blvd[i - 1][1] + (p[1] - blvd[i - 1][1]) * t, 0.3]); });
-    const out = Object.keys(parts).map(place => Object.assign(parts[place].finish(), { place })); out.foot = foot; out.strip = blvd; return out;
+    const out = Object.keys(parts).map(place => Object.assign(parts[place].finish(), { place, g0: parts[place].gn ? parts[place].gs / parts[place].gn : null })); out.foot = foot; out.strip = blvd; return out; // g0: the ground its towers stand on, about (its heights stretch from there)
   }
 
   // ---------- the flag and the bookmark (unit size: about one unit tall; scaled on the map to hold their size on screen) ----------

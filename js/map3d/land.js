@@ -1,4 +1,6 @@
 // Seven by Seven, the 3D map: the land. Loaded only when the 3D map is wanted (index.html), before js/map3d.js builds its scene.
+// (The outlines, the walls and the flat-topped block are made here; with js/map3d/relief.js and js/map3d/terrain.js loaded, the top
+// of each block is the real ground instead: that file. What follows describes the block without it.)
 // Each place is one plateau block, like a piece of a precision-cut wooden relief puzzle: a flat top at a height taken from its real
 // high point, an even rounded edge all the way round, a straight wall down to the ground, and a hairline gap to its neighbours.
 // The outline of a block comes from a signed distance field of the place's real boundary (data/geo.js): opened and closed with the
@@ -310,5 +312,5 @@
   }
 
   window.M3D = window.M3D || {};
-  window.M3D.land = { topOf, signature, covered, outlines, pack, unpack, blocks, buildTiles, buildLand, buildInland, extent, tri2, proj, KIND, LAND_TOP, TOP0, FLOOR, GAP, BEV, UNIT_M: Geom.UNIT_M };
+  window.M3D.land = { topOf, signature, covered, outlines, pack, unpack, blocks, buildTiles, buildLand, buildInland, extent, tri2, proj, sink, addBlock, KIND, LAND_TOP, TOP0, FLOOR, GAP, BEV, UNIT_M: Geom.UNIT_M };
 })();

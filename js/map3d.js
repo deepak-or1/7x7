@@ -1,6 +1,8 @@
 // The 3D map (beta): a second map engine beside js/map.js, with the same members and the same options, so js/app.js drives either.
 // It is inert unless index.html also loaded three.js and js/map3d/{land,models,blocks}.js (it does when the 3D map is asked for):
 // window.MapView3D returns null without them, or without WebGL, and the app makes the flat map instead.
+// With js/map3d/relief.js and terrain.js the top of every block is the real ground (hAt below), and everything that stands on a
+// place, is drawn on it or is tapped on it follows that ground; without them the blocks are the flat-topped plateaus they were.
 //
 // Everything that is data, not drawing (sections, bounding boxes, landmarks, areas, region boxes) comes from a real MapView made on
 // a detached canvas, so it is the flat map's own. The camera the app sees is still the flat rectangle { x, y, w } in map units: the
@@ -33,7 +35,7 @@
   const FOG_ON = true;                            // the fog bank over the foggy places: false takes it out
   const FK0 = 5.5, FK1 = 10, FAB_MAX = 420;       // the city fabric rises between these scales (pixels to a map unit at the middle of the view); the most chunks of it kept
   const MARK_MAX = 16;                            // a flag or a bookmark holds its size on screen until it would stand this tall on the map
-  const FOCUS_Y = 0.5, VEX_FAR = 1.55, LIFT = 0.85; // the height the camera looks at; how far heights stretch at the far zoom; how far the selected place rises
+  const FOCUS_Y = 0.5, VEX_FAR = 1.55, VEX_HILLS = 2.3, LIFT = 0.85, CAM_OVER = 1.1; // the height the camera looks at; how far heights stretch at the far zoom; how far the selected place rises
   const hex2rgb = h => { h = h.replace('#', ''); if (h.length === 3) h = h.split('').map(c => c + c).join(''); const n = parseInt(h, 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; };
   const cssColor = cs => { cs = String(cs).trim(); if (cs.startsWith('var(')) return getComputedStyle(document.documentElement).getPropertyValue(cs.slice(4, -1).trim()).trim(); return cs; };
   const LIN = new Float32Array(256); for (let i = 0; i < 256; i++) { const c = i / 255; LIN[i] = c < 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); } // sRGB to the renderer's linear colours
@@ -85,8 +87,14 @@
     const subsOf = i => base.subs(i);
     const PP = []; window.HP.forEach(h => { const i = IDX[h.name]; if (i != null) PP[i] = h.polys.map(poly => poly.map(ring => ring.map(proj))); }); // place polygons in map units, as js/map.js makes them
     const COV = land.covered(), PPD = PP.map((polys, i) => polys.filter((p, k) => !COV[i].has(k))); // the pieces that carry a block: not the ground a later place also claims (js/map3d/land.js)
-    const HT = HOODS.map((h, i) => land.topOf(i));                        // the top of each block
-    const HMAX = Math.max.apply(null, HT) + LIFT;
+    // The land's real shape (js/map3d/relief.js, from js/map3d/terrain.js): the ground of a place at a point. Without it (the
+    // files missing or cut short, ?m3d-land=flat, or its meshes failing as they are made: flatLand below) every place is the
+    // plateau it was, one height all over. HT: the top of each block (with the relief: its highest ground); AY: the ground at its anchor
+    let RL = null; const tRelief = now(); if (!/[?&]m3d-land=flat(?:&|$)/.test(location.search) && M3D.relief) { try { RL = M3D.relief.make(M3D.terrainData, BB); land.heightAt = RL.heightAt; } catch (e) { RL = null; console.warn('3D map, the land stays flat: ' + (e && e.message || e)); } }
+    const HT = HOODS.map(() => 0), AY = HOODS.map(() => 0); let HMAX = 0;
+    const hAt = (i, x, z) => RL && RL.has(i) ? RL.h(i, x, z) : HT[i];      // the ground of place i at a point (as it lies, not lifted)
+    const heights = () => { HOODS.forEach((h, i) => { HT[i] = RL && RL.has(i) ? RL.max[i] : land.topOf(i); }); HOODS.forEach((h, i) => { AY[i] = hAt(i, h.cx, h.cy); }); HMAX = Math.max.apply(null, HT) + LIFT; };
+    heights();
     const STAR = HOODS.map(h => (SUBD[h.name] || []).some(s => s && s.star));
     const SIZE = HOODS.map((h, i) => Math.sqrt(Math.abs((PP[i] || []).reduce((s, poly) => s + poly.reduce((a, r, k) => a + (k ? -1 : 1) * Math.abs(Geom.area(r)), 0), 0)))); // the side of a square of the place's area
     const SIDE_X = HOODS.map((h, i) => { if (DETAIL[i] <= 1 || !PP[i]) return 0; const band = (BB[i][3] - BB[i][1]) * .2; let x = -Infinity; PP[i].flat().forEach(r => r.forEach(q => { if (Math.abs(q[1] - h.cy) <= band && q[0] > x) x = q[0]; })); return x > -Infinity ? x : BB[i][2]; }); // js/map.js: a detailed place is named beside it
@@ -111,14 +119,14 @@
     const farA = [1], markAnim = {}; let me = null, meT0 = 0, drawnSpots = [], lmBox = [], farNames = false;
     const lblA = new Map(), lblLast = new Map(), lmA = LANDS.map(() => 0), measureCache = new Map(), hoodCache = new Map();
     const P = {}; let LK = null, dark = false;                             // the tokens, and the look made from them
-    const stat = { t0: now(), firstFrame: 0, build: {}, blocks: '', frames: 0, lastMs: 0, amb: 0 };
+    const stat = { t0: now(), firstFrame: 0, build: { relief: now() - tRelief }, blocks: '', frames: 0, lastMs: 0, amb: 0 };
     let ambUntil = 0, ambT = 0, ambLast = 0, ambTimer = 0, ambTick = false, olAnim = true, sunAt = 0, sunKey = '', fogLens = false; // ambient motion: until when it runs, its own seconds, the timer of its next frame
     const poke = () => { ambUntil = now() + AMB_MS; };                    // a touch (or a move the app asked for): the ambient motion runs on from here
     const ambOn = () => AMBIENT && ready && Q.life && !RM.matches && !document.hidden && now() < ambUntil; // the governor's first step gives it up
     const insets = () => o.insets ? o.insets() : { top: 0, right: 0, bottom: 0, left: 0 };
     const kNow = () => W / cur.w;
     const hoodPx = i => (BB[i][2] - BB[i][0]) * kNow() * DETAIL[i];
-    const topAt = i => HT[i] + liftV[i];
+    const topAt = i => HT[i] + liftV[i], anchY = i => AY[i] + liftV[i], gAt = (i, x, z) => hAt(i, x, z) + liftV[i]; // the highest point of a place as it stands (lifted when selected), the ground at its anchor, the ground at a point of it
 
     // ---- palette ----
     function refreshPalette() {
@@ -148,10 +156,14 @@
     const phAuto = d => lerp(PH_NEAR, PH_FAR, smooth(Math.log(d), Math.log(D_NEAR), Math.log(dFar)));
     const phTop = (d, a) => Math.min(PH_MAX, a + PH_ADD, Math.acos(Math.min(1, CAM_CLEAR / d)));
     const phOf = (w, off) => { const d = dOf(w), a = phAuto(d); return clamp(a + off, PH_MIN, phTop(d, a)); };
-    const vexOf = d => 1 + (VEX_FAR - 1) * smooth(Math.log(d), Math.log(240), Math.log(1700)); // heights stretch as the map zooms out, so the hills still stand up when they are a few pixels wide
+    const vexOf = d => RL ? 1 + (VEX_HILLS - 1) * smooth(Math.log(d), Math.log(220), Math.log(1400)) : 1 + (VEX_FAR - 1) * smooth(Math.log(d), Math.log(240), Math.log(1700)); // heights stretch as the map zooms out, so the hills still stand up when they are a few pixels wide (real ground, which no longer stands at each place's highest point all over, is stretched further)
     // position and axes for a state { cx, cz, w, th, off }
+    // (over real ground a low, close camera also keeps clear of the hill it stands over: the tilt comes up until it is CAM_OVER
+    // above the ground under it, so a view carried towards a mountain rides up its side instead of entering it)
     function camOf(s) {
-      const d = dOf(s.w), ph = phOf(s.w, s.off), sp = Math.sin(ph), cp = Math.cos(ph), st = Math.sin(s.th), ct = Math.cos(s.th);
+      const d = dOf(s.w), st = Math.sin(s.th), ct = Math.cos(s.th); let ph = phOf(s.w, s.off);
+      if (RL && ph > 0.8 && FOCUS_Y + d * Math.cos(ph) < HMAX * VEX_HILLS + CAM_OVER) { const vx = vexOf(d); for (let q = 0; q < 3; q++) { const r = d * Math.sin(ph), x = s.cx + r * st, z = s.cz + r * ct, g = Math.max(RL.heightAt(x, z), RL.heightAt(x + 1.2, z), RL.heightAt(x - 1.2, z), RL.heightAt(x, z + 1.2), RL.heightAt(x, z - 1.2)) * vx + CAM_OVER; if (FOCUS_Y + d * Math.cos(ph) >= g) break; ph = Math.max(PH_MIN, Math.acos(clamp((g - FOCUS_Y) / d, -1, 1))); } }
+      const sp = Math.sin(ph), cp = Math.cos(ph);
       const fx = -sp * st, fy = -cp, fz = -sp * ct, rl = Math.hypot(fz, fx) || 1, rx = -fz / rl, rz = fx / rl;
       return { d, ph, vex: vexOf(d), px: s.cx + d * sp * st, py: FOCUS_Y + d * cp, pz: s.cz + d * sp * ct, fx, fy, fz, rx, rz, ux: -rz * fy, uy: rz * fx - rx * fz, uz: rx * fy, g: F * H / 2 };
     }
@@ -181,7 +193,7 @@
     // boundary belongs to the block it edges), else the water
     function surfaceAt(x, y, near) {
       let h = -1;
-      for (let i = 0; i < HOODS.length; i++) { const bb = BB[i]; if (x < bb[0] - near || x > bb[2] + near || y < bb[1] - near || y > bb[3] + near || topAt(i) <= h) continue; if (Geom.inPolys(PPD[i], x, y) || (near > 0 && PPD[i].some(poly => ringNear(poly[0], x, y, near * near)))) h = topAt(i); }
+      for (let i = 0; i < HOODS.length; i++) { const bb = BB[i]; if (x < bb[0] - near || x > bb[2] + near || y < bb[1] - near || y > bb[3] + near || topAt(i) <= h) continue; if (Geom.inPolys(PPD[i], x, y) || (near > 0 && PPD[i].some(poly => ringNear(poly[0], x, y, near * near)))) h = Math.max(h, gAt(i, x, y)); }
       return h < 0 ? 0 : h;
     }
     // the first thing a ray from a screen point meets: the top of a block, or its wall, else the water. { i, x, y } in map units
@@ -190,10 +202,25 @@
       const t0 = Math.max(0, tOf(HMAX * c.vex)), tg = Math.min(Math.max(t0, tOf(0)), Math.max(far, t0));
       const ax = c.px + r[0] * t0, ay = c.pz + r[2] * t0, gx = c.px + r[0] * tg, gy = c.pz + r[2] * tg;
       const x0 = Math.min(ax, gx), x1 = Math.max(ax, gx), y0 = Math.min(ay, gy), y1 = Math.max(ay, gy);
-      let best = -1, bt = tg;
+      let best = -1, bt = tg; const hl = Math.hypot(r[0], r[2]) || 1e-9;
       for (let i = 0; i < HOODS.length; i++) {
         const bb = BB[i]; if (bb[2] < x0 || bb[0] > x1 || bb[3] < y0 || bb[1] > y1) continue;
         const ti = Math.max(0, tOf(topAt(i) * c.vex)); if (ti >= bt) continue;
+        if (RL && RL.has(i)) {
+          // real ground: the stretches of the ray over the place in plan (between its crossings of the outline); where one begins
+          // under the ground it is the wall there; else the ray is walked over the place's ground to where it first goes under
+          const ex = gx - ax, ey = gy - ay, us = []; let ins = Geom.inPolys(PPD[i], ax, ay);
+          for (const poly of PPD[i]) for (const ring of poly) for (let a = 0, b = ring.length - 1; a < ring.length; b = a++) { const px = ring[b][0], py = ring[b][1], fx = ring[a][0] - px, fy = ring[a][1] - py, den = ex * fy - ey * fx; if (Math.abs(den) < 1e-12) continue; const u = ((px - ax) * fy - (py - ay) * fx) / den, w = ((px - ax) * ey - (py - ay) * ex) / den; if (u > 0 && u <= 1 && w >= 0 && w < 1) us.push(u); }
+          us.sort((p, q) => p - q); us.push(1.000001);
+          let u0 = 0;
+          for (const u of us) {
+            if (ins) { let ta = Math.max(ti, t0 + (tg - t0) * u0); const tb = Math.min(bt, t0 + (tg - t0) * Math.min(1, u)); if (ta >= bt) break;
+              if (ta < tb) { let hit = RL.ray(i, c.px, c.py, c.pz, r[0], dy, r[2], ta, tb, liftV[i], c.vex); if (hit === ta && u0 > 0 && ta > ti) hit = ta + 1e-4 * (tg - t0);   // (under the ground where the stretch begins: the wall)
+                if (hit >= 0 && hit < bt) { best = i; bt = hit; break; } } }
+            ins = !ins; u0 = u;
+          }
+          continue;
+        }
         const qx = c.px + r[0] * ti, qy = c.pz + r[2] * ti;
         if (Geom.inPolys(PPD[i], qx, qy)) { best = i; bt = ti; continue; }
         // below its top: the ray may come in through the wall. The first crossing of the place's outline between there and the ground
@@ -201,10 +228,10 @@
         for (const poly of PPD[i]) { const ring = poly[0]; for (let a = 0, b = ring.length - 1; a < ring.length; b = a++) { const px = ring[b][0], py = ring[b][1], fx = ring[a][0] - px, fy = ring[a][1] - py, den = ex * fy - ey * fx; if (Math.abs(den) < 1e-12) continue; const u = ((px - qx) * fy - (py - qy) * fx) / den, w = ((px - qx) * ey - (py - qy) * ex) / den; if (u >= 0 && u <= 1 && w >= 0 && w <= 1 && u < s) s = u; } }
         if (s <= 1) { const t = ti + (tg - ti) * s + 1e-4 * (tg - ti); if (t < bt) { best = i; bt = t; } }
       }
-      let x = c.px + r[0] * bt, y = c.pz + r[2] * bt;
-      if (best >= 0 && !Geom.inPolys(PPD[best], x, y)) { const hl = Math.hypot(r[0], r[2]) || 1; x += r[0] / hl * .03; y += r[2] / hl * .03; } // a wall: a point just inside it
+      let x = c.px + r[0] * bt, y = c.pz + r[2] * bt; const h = best < 0 ? 0 : RL && RL.has(best) ? (c.py + dy * bt) / c.vex : topAt(best); // the height of what was met (a plateau: its top)
+      if (best >= 0 && !Geom.inPolys(PPD[best], x, y)) { x += r[0] / hl * .03; y += r[2] / hl * .03; } // a wall: a point just inside it
       if (best >= 0 && COV.some(c => c.size)) { const j = firstAt(x, y); if (j >= 0) best = j; } // ground two places claim: the flat map's answer, the first in the list
-      return { i: best, x, y };
+      return { i: best, x, y, h };
     }
 
     // ---- framing ----
@@ -255,7 +282,7 @@
     // brings it back under that point after the state changed: pans, zooms and pinches hold on to the map itself, not to a flat plane under it
     // (a finger in the sky holds the ground just under the horizon)
     const underSky = (c, sy) => Math.max(sy, H / 2 - c.g / Math.tan(c.ph) + H * 0.05);
-    function grabAt(s, sx, sy) { const c = camOf(s), p = pick(c, sx, underSky(c, sy)); return { x: p.x, z: p.y, h: p.i >= 0 ? topAt(p.i) : 0 }; }
+    function grabAt(s, sx, sy) { const c = camOf(s), p = pick(c, sx, underSky(c, sy)); return { x: p.x, z: p.y, h: p.h }; }
     function hold(s, g, sx, sy) { const c = camOf(s), p = planeAt(c, sx, underSky(c, sy), g.h * c.vex); s.cx += g.x - p[0]; s.cz += g.z - p[1]; }
     function zoomAt(sx, sy, factor, instant) { // keep what is under (sx, sy) where it is
       const b = instant ? cur : goal, a = grabAt(b, sx, sy); b.w = clamp(b.w * factor, minW(), maxW()); hold(b, a, sx, sy); limit(b);
@@ -277,6 +304,7 @@
     const C3 = new THREE.Color(), col = hex => { C3.set(hex); return [C3.r, C3.g, C3.b]; };
     let tiles = null, tileMesh = null, tilePos = null, tileCol = null, baseY = null, tileS = null, landMesh = null, landS = null, bridges = null, icons = [], cityParts = [];
     let blockRings = null, cityFoot = [], cityStrip = [];
+    let fineS = null, fineMesh = null, finePos = null, fineCol = null, fineBaseY = null, fineOn = false, fineBusy = false, tileSplit = 0, rimSplit = 0, rimF = null, rimBase = null, rimFBase = null, scatterY = null; // the full meshes of the places the fine grid covers (the relief), drawn close in instead of their far ones
     let rim = null, rimPos = null, flags = null, books = null, waterTex = null, wcv = null, wbox = null, wsc = 1, beam = null, nightBuilt = false, scatter = null, shadowDirty = true, vex = 1, lmScale = 1, sh = {}, lightBasis = null;
     const tileMat = new THREE.MeshStandardMaterial({ vertexColors: true, metalness: 0 }), landMat = new THREE.MeshStandardMaterial({ vertexColors: true, metalness: 0, roughness: 0.95 });
     const farMat = new THREE.MeshStandardMaterial({ metalness: 0, roughness: 0.95 }), waterMat = new THREE.MeshStandardMaterial({});
@@ -329,25 +357,29 @@
       g.setAttribute('position', new THREE.BufferAttribute(Pp, 3)); g.setAttribute('size', new THREE.BufferAttribute(S, 1)); g.setAttribute('tint', new THREE.BufferAttribute(Tt, 3)); g.computeBoundingSphere();
       const pts = new THREE.Points(g, lightMat); pts.visible = !!(LK && LK.lights); pts.renderOrder = 5; (parent || landG).add(pts); lightSets.push(pts); return pts;
     }
-    const ground = (x, z) => { const i = hoodAt(x, z); return i >= 0 ? HT[i] : land.LAND_TOP; };
+    const ground = (x, z) => { const i = hoodAt(x, z); return i >= 0 ? hAt(i, x, z) : land.LAND_TOP; };
 
     // The scene is built after the constructor has returned, in steps with a breath between them, so the app's first paint does not
     // wait for the map; until the first 3D frame the stage shows its water colour. The camera, the fits and the hit tests need none of it.
     function build() {
       const steps = [
         () => { // the blocks
-          const t0 = now(), ol = land.blocks(), tb = land.buildTiles(ol); stat.blocks = ol.from; tiles = tb.tiles; tileS = tb.mesh; blockRings = ol.blocks;
+          const t0 = now(), ol = land.blocks(); let tb = null; stat.blocks = ol.from; blockRings = ol.blocks;
+          if (RL) try { tb = RL.buildTiles(ol); } catch (e) { flatLand(e); }                                   // the relief fails as it is made: the plateaus
+          if (!tb) tb = land.buildTiles(ol); tiles = tb.tiles; tileS = tb.mesh; tileSplit = tb.split || 0; heights();
+          tiles.forEach(t => { if (!t.rim) t.rim = t.edge.map(r => r.map(q => [q[0], t.H, q[1]])); });
           tileMesh = meshOf(tileS, tileMat); tileMesh.castShadow = tileMesh.receiveShadow = true; landG.add(tileMesh);
           tilePos = tileMesh.geometry.attributes.position; tileCol = tileMesh.geometry.attributes.color; baseY = new Float32Array(tileS.n); for (let i = 0; i < tileS.n; i++) baseY[i] = tileS.pos[i * 3 + 1];
           tileMesh.geometry.boundingBox.max.y += LIFT; tileMesh.geometry.boundingSphere.radius += LIFT;
           // a hairline in the paper's colour round the top of every block (the flat map's line between places), from the region
           // scale inwards: it keeps the tops apart where the rounded edge is too fine to see
-          { const segs = []; tiles.forEach(t => { t.r0 = segs.length; segs.push(...ringSegs(t.edge)); t.r1 = segs.length; }); rim = new THREE.Mesh(ribbon(segs, 0, 1), lineMat(P.paper, .5)); rim.renderOrder = 1; rim.frustumCulled = false; rimPos = rim.geometry.attributes.position; tiles.forEach(t => rimY(t, 0)); secG.add(rim); }
+          { const segs = [], hs = []; tiles.filter(t => !t.far).concat(tiles.filter(t => t.far)).forEach(t => { if (t.far && !rimSplit) rimSplit = segs.length / 4 * 6; t.r0 = segs.length; rimSegs(t.rim, segs, hs); t.r1 = segs.length; }); // (in the order of the blocks' mesh: the places with a far mesh last)
+            rim = new THREE.Mesh(ribbon(segs, 0.006, 1, hs), lineMat(P.paper, .5)); rim.renderOrder = 1; rim.frustumCulled = false; rimPos = rim.geometry.attributes.position; rimBase = new Float32Array(rimPos.count); for (let k = 0; k < rimPos.count; k++) rimBase[k] = rimPos.array[k * 3 + 1]; secG.add(rim); }
           stat.build.blocks = now() - t0;
         },
         () => { // the bridges, the landmarks, the flag and the bookmark
           const t0 = now(); bridges = MD.bridges(ground); addBuilt(bridges);
-          icons = MD.icons(ground); icons.forEach(ic => { ic.mesh = addBuilt(ic); ic.hood = hoodAt(ic.x, ic.z); ic.lm = LM_ID[ic.id]; ic.mesh.position.set(ic.x, ic.y, ic.z); });
+          icons = MD.icons(ground, (x, z, x0, z0) => { const i = hoodAt(x0, z0); return i >= 0 && Geom.inPolys(tiles[i].tops, x, z) ? hAt(i, x, z) : null; }); icons.forEach(ic => { ic.mesh = addBuilt(ic); ic.hood = hoodAt(ic.x, ic.z); ic.lm = LM_ID[ic.id]; ic.mesh.position.set(ic.x, ic.y, ic.z); });
           const inst = model => { const m = new THREE.InstancedMesh(model.geometry, markMat, HOODS.length); m.count = 0; m.castShadow = true; m.frustumCulled = false; landG.add(m); built.push({ mesh: m, mat: model.mat, names: model.names, shade: model.shade }); return m; };
           flags = inst(MD.flag()); books = inst(MD.bookmark()); stat.build.models = now() - t0;
         },
@@ -386,10 +418,27 @@
         }),
         extra('fog', () => { buildFog(); applyAir(); }),
         extra('life', () => { buildLife(); paintBuilt(); applyAir(); }),
+        () => { // the relief's full meshes (js/map3d/relief.js): the places the fine grid covers, a place at a time, then one mesh of them all, drawn instead of their far ones when the map is close (setFine)
+          if (!RL || !RL.fineList.length) return; const S2 = land.sink(), list = RL.fineList.slice(), t0 = now(); let q = 0, spent = 0; fineBusy = true;
+          const go = () => {
+            if (dead) return; const t1 = now();
+            try {
+              if (!RL) throw new Error('no relief'); while (q < list.length && now() - t1 < (moving ? 3 : 7)) { const i = list[q++]; tiles[i].fine = RL.buildFine(S2, i, blockRings); }
+              spent += now() - t1; if (q < list.length) return void setTimeout(go, moving ? 24 : 8);
+              fineS = S2; fineMesh = meshOf(S2, tileMat); fineMesh.castShadow = fineMesh.receiveShadow = true; fineMesh.visible = false; fineMesh.geometry.boundingBox.max.y += LIFT; fineMesh.geometry.boundingSphere.radius += LIFT; landG.add(fineMesh);
+              finePos = fineMesh.geometry.attributes.position; fineCol = fineMesh.geometry.attributes.color; fineBaseY = new Float32Array(S2.n); for (let i = 0; i < S2.n; i++) fineBaseY[i] = S2.pos[i * 3 + 1];
+              const segs = [], hs = []; list.forEach(i => { const f = tiles[i].fine; f.r0 = segs.length; rimSegs(f.rim, segs, hs); f.r1 = segs.length; });
+              rimF = new THREE.Mesh(ribbon(segs, 0.006, 1, hs), rim.material); rimF.renderOrder = 1; rimF.frustumCulled = false; rimF.visible = false; rimFBase = new Float32Array(rimF.geometry.attributes.position.count); for (let k = 0; k < rimFBase.length; k++) rimFBase[k] = rimF.geometry.attributes.position.array[k * 3 + 1]; secG.add(rimF);
+              heights(); list.forEach(i => { tiles[i].H = HT[i]; if (liftV[i]) setLift(i, liftV[i]); }); paintAll = true;
+            } catch (e) { console.warn('3D map, the close relief left out: ' + (e && e.stack || e)); fineMesh = null; }
+            fineBusy = false; stat.build.fine = Math.round(spent); stat.build.fineDone = Math.round(now() - t0); needs = true; kick();
+          };
+          go();
+        },
         () => { // the city fabric (js/map3d/fabric.js): only its plan; its chunks are made as the camera comes near
           const t0 = now(); try { if (FB && FB.gl) {
             const avoid = []; for (const ic of icons) avoid.push([ic.x, ic.z, ic.r * 1.8 + 0.2]); for (const f of cityFoot) avoid.push(f); HOODS.forEach(h => avoid.push([h.cx, h.cy, 0.5])); // (landmarks are drawn up to about 1.8 times their size while the fabric shows)
-            fab.gen = FB.make({ HOODS, BB, HT, INFO: window.INFO, SUBD, REGS, proj, inTop: (i, x, z) => Geom.inPolys(tiles[i].tops, x, z), avoid, strip: cityStrip }); fab.gl = FB.gl(THREE, fabU);
+            fab.gen = FB.make({ HOODS, BB, HT, hAt, INFO: window.INFO, SUBD, REGS, proj, inTop: (i, x, z) => Geom.inPolys(tiles[i].tops, x, z), avoid, strip: cityStrip }); fab.gl = FB.gl(THREE, fabU);
             // its four shaders are made now, one a frame, on a building and a tree nobody sees: not in the middle of the first flight in
             const d = fab.gl.mesh({ ix: 0, iz: 0, nb: 1, nt: 1, b: new Float32Array([cur.cx, 0, cur.cz, 0, 1, 1, 1, 0, 0, 0, 0]), t: new Float32Array([cur.cx, 0, cur.cz, 1, 0, 0, 0]) }, fab.slots.shift());
             for (const m of [d.b, d.t]) { m.frustumCulled = false; m.castShadow = false; }
@@ -416,6 +465,15 @@
       try { sessionStorage.setItem('sbs-map3d-off', '1'); } catch (err) { try { const u = new URL(location.href); if (u.searchParams.get('map') !== '2d') { u.searchParams.set('map', '2d'); location.replace(u.href); } } catch (er) {} return; }
       try { location.reload(); } catch (err) {}
     }
+    // the relief cannot be made here: say so once, and every place is the plateau it was
+    function flatLand(e) { console.warn('3D map, the land stays flat: ' + (e && e.stack || e)); RL = null; land.heightAt = null; heights(); }
+    // the rim of a block as it lies, as segments for a ribbon and the height at each end
+    function rimSegs(rings, segs, hs) { for (const r of rings) for (let a = 0, b = r.length - 1; a < r.length; b = a++) { segs.push(r[b][0], r[b][2], r[a][0], r[a][2]); hs.push(r[b][1], r[a][1]); } }
+    // close in, the places the fine grid covers are drawn by their full meshes; from far off by the far ones (the end of the blocks' mesh)
+    function setFine(on) {
+      fineOn = on; fineMesh.visible = on; tileMesh.geometry.setDrawRange(0, on ? tileSplit : Infinity); rim.geometry.setDrawRange(0, on ? rimSplit : Infinity);
+      for (const [i, e] of edgeMeshes) { drop(e.mesh); edgeMeshes.delete(i); } shadowDirty = true; needs = true;
+    }
     function buildNight() {
       if (nightBuilt || !ready) return; nightBuilt = true;
       pointsOf(bridges.lights); icons.forEach(ic => pointsOf(ic.lights, ic.mesh)); cityParts.forEach(p => { if (!p.pts) p.pts = pointsOf(p.lights, p.mesh); }); lifeNight();
@@ -428,11 +486,11 @@
         for (let i = -n; i <= n; i++) for (let j = -n; j <= n; j++) {
           if (R() > keep) continue; const u = (i + (R() - 0.5) * 0.3) * pitch, v = (j + (R() - 0.5) * 0.3) * pitch, x = cx + u * ca - v * sa, z = cz + u * sa + v * ca;
           if (x < b[0] || x > b[2] || z < b[1] || z > b[3] || !Geom.inPolys(PPD[t], x, z)) continue;
-          const k = R(); list.push({ x, y: HT[t] + 0.06, z, kind: k > 0.93 ? '#cfe2ff' : k > 0.55 ? '#ffd39a' : '#ffb866', size: (city ? 0.24 : 0.8) * (0.7 + R() * 0.6) });
+          const k = R(); list.push({ x, y: hAt(t, x, z) + 0.06, z, kind: k > 0.93 ? '#cfe2ff' : k > 0.55 ? '#ffd39a' : '#ffb866', size: (city ? 0.24 : 0.8) * (0.7 + R() * 0.6) });
         }
         tiles[t].l0 = i0; tiles[t].l1 = list.length;
       });
-      scatter = pointsOf(list); if (scatter) HOODS.forEach((h, t) => { if (liftV[t]) liftLights(t); });
+      scatter = pointsOf(list); scatterY = Float32Array.from(list, l => l.y); if (scatter) HOODS.forEach((h, t) => { if (liftV[t]) liftLights(t); });
       const lux = icons.find(i => i.id === 'luxor'); // the Luxor's sky beam
       if (lux) { const g = new THREE.CylinderGeometry(0.28, 0.05, 30, 10, 1, true); g.translate(0, lux.h + 15, 0); beam = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0xbcd0ff, transparent: true, opacity: 0.09, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false })); lux.mesh.add(beam); }
     }
@@ -490,11 +548,12 @@
     // each frame: how far the fabric stands for the zoom, the circle of ground it stands in (a little ahead of the middle of a
     // tilted view), which chunks that asks for, and each chunk's own rise when it is new
     function fabStep(dt, c) {
-      if (!fab.gl) return false;
+      if (RL) lineUp.value = 0.04;                                      // a line laid on the relief is drawn as deep as a point a little above it: the ground's own triangles never cut it
+      if (!fab.gl || fineBusy) return false;                             // (the fabric waits for the ground it will stand on)
       const k = kNow(), tgt = quiz ? 0 : smooth(k, FK0, FK1) * (Q.fab > 0 ? 1 : 0), U = fabU; let anim = false;
       if (tgt !== U.uGrow.value) { U.uGrow.value = tgt; shadowDirty = true; }
       const R1 = clamp(c.d * (2 + 2.4 * smooth(c.ph, 0.9, 1.4)), 26, 84), fx = cur.cx, fz = cur.cz;
-      U.uFocus.value.set(fx, fz, R1 * 0.86, R1); lineUp.value = tgt * Math.min(1, 0.2 / Math.max(0.05, Math.sin(c.ph) * Math.cos(c.ph))); // a line shows over a house that stands 0.2 or more in front of it (the fabric keeps that street clear), and no further through a wall
+      U.uFocus.value.set(fx, fz, R1 * 0.86, R1); lineUp.value = Math.max(RL ? 0.04 : 0, tgt * Math.min(1, 0.2 / Math.max(0.05, Math.sin(c.ph) * Math.cos(c.ph)))); // a line shows over a house that stands 0.2 or more in front of it (the fabric keeps that street clear), and no further through a wall
       if (k > FK0 * 0.75 && !quiz && Q.fab > 0) {
         const i0 = Math.floor((fx - R1) / CS), i1 = Math.floor((fx + R1) / CS), j0 = Math.floor((fz - R1) / CS), j1 = Math.floor((fz + R1) / CS), key = [i0, i1, j0, j1].join(',');
         if (key !== fab.key) { fab.key = key; const q = []; for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) { const d = Math.hypot((i + 0.5) * CS - fx, (j + 0.5) * CS - fz), kk = i * 65536 + j; if (d > R1 + CS * 0.7 || fab.chunks.has(kk) || !fabLand(i, j)) continue; q.push({ k: kk, ix: i, iz: j, d }); } q.sort((a, b) => a.d - b.d); fab.queue = q; }
@@ -557,6 +616,7 @@
       placeData[i * 4] = top[0]; placeData[i * 4 + 1] = top[1]; placeData[i * 4 + 2] = top[2]; placeTex.needsUpdate = true;
       const K = tileS.kind, S = tileS.shade, A = tileCol.array;
       for (let v = t.v0; v < t.v1; v++) { const k = K[v], c = k === 0 ? top : k === 1 ? bev : wall, s = S[v]; A[v * 3] = c[0] * s; A[v * 3 + 1] = c[1] * s; A[v * 3 + 2] = c[2] * s; }
+      if (t.fine && fineMesh) { const f = t.fine, K2 = fineS.kind, S2 = fineS.shade, A2 = fineCol.array; for (let v = f.v0; v < f.v1; v++) { const k = K2[v], c = k === 0 ? top : k === 1 ? bev : wall, s2 = S2[v]; A2[v * 3] = c[0] * s2; A2[v * 3 + 1] = c[1] * s2; A2[v * 3 + 2] = c[2] * s2; } fineCol.needsUpdate = true; }
     }
     function paintBuilt() {
       for (const b of built) {
@@ -583,11 +643,13 @@
     }
 
     // ---- lifting the selected place ----
-    const rimY = (t, h) => { const a = rimPos.array; for (let k = t.r0 * 3 + 1; k < t.r1 * 3; k += 3) a[k] = t.H + 0.006 + h; rimPos.needsUpdate = true; }; // 4 vertices to a segment of 4 numbers: the same count
-    function liftLights(i) { const t = tiles[i]; if (!scatter || t.l0 == null) return; const a = scatter.geometry.attributes.position; for (let k = t.l0; k < t.l1; k++) a.array[k * 3 + 1] = HT[i] + 0.06 + liftV[i]; a.needsUpdate = true; }
+    const rimY = (t, h) => { const a = rimPos.array; for (let k = t.r0; k < t.r1; k++) a[k * 3 + 1] = rimBase[k] + h; rimPos.needsUpdate = true; // 4 vertices to a segment of 4 numbers: the same count
+      if (t.fine && rimF) { const f = t.fine, q = rimF.geometry.attributes.position; for (let k = f.r0; k < f.r1; k++) q.array[k * 3 + 1] = rimFBase[k] + h; q.needsUpdate = true; } };
+    function liftLights(i) { const t = tiles[i]; if (!scatter || t.l0 == null) return; const a = scatter.geometry.attributes.position; for (let k = t.l0; k < t.l1; k++) a.array[k * 3 + 1] = scatterY[k] + liftV[i]; a.needsUpdate = true; }
     function setLift(i, h) {
       liftV[i] = h; placeData[i * 4 + 3] = h; placeTex.needsUpdate = true; const t = tiles[i], K = tileS.kind, A = tilePos.array;
       for (let v = t.v0; v < t.v1; v++) if (K[v] !== 3 && K[v] !== 4) A[v * 3 + 1] = baseY[v] + h;
+      if (t.fine && fineMesh) { const f = t.fine, K2 = fineS.kind, A2 = finePos.array; for (let v = f.v0; v < f.v1; v++) if (K2[v] !== 3 && K2[v] !== 4) A2[v * 3 + 1] = fineBaseY[v] + h; finePos.needsUpdate = true; }
       tilePos.needsUpdate = true; rimY(t, h); liftLights(i); shadowDirty = true;
     }
     function stepLifts(t) { // the selected place rises with a small overshoot; the one it replaces settles back
@@ -607,17 +669,19 @@
         .replace('#include <project_vertex>', '#include <project_vertex>\n{ vec4 up = projectionMatrix * modelViewMatrix * vec4(transformed + vec3(0.0, uUp, 0.0), 1.0); gl_Position.z = up.z / up.w * gl_Position.w; }'); }; // drawn where it lies, but as deep as a point uUp above it: the low houses do not cut a line, a tower does
       return m;
     }
-    function ribbon(segs, y, px) { // segs: [ax, ay, bx, by, ...] in map units; px: the stroke's width
+    function ribbon(segs, y, px, hs) { // segs: [ax, ay, bx, by, ...] in map units; px: the stroke's width; hs: the ground at each end of each segment (y is then above it)
       const n = segs.length / 4, Pp = new Float32Array(n * 12), Of = new Float32Array(n * 12), I = new Uint32Array(n * 6);
       for (let s = 0; s < n; s++) {
         const ax = segs[s * 4], ay = segs[s * 4 + 1], bx = segs[s * 4 + 2], by = segs[s * 4 + 3], l = Math.hypot(bx - ax, by - ay) || 1, dx = (bx - ax) / l * px / 2, dy = (by - ay) / l * px / 2;
-        [[ax, ay, -dx + dy, -dy - dx], [ax, ay, -dx - dy, -dy + dx], [bx, by, dx + dy, dy - dx], [bx, by, dx - dy, dy + dx]].forEach((q, k) => { const p = (s * 4 + k) * 3; Pp[p] = q[0]; Pp[p + 1] = y; Pp[p + 2] = q[1]; Of[p] = q[2]; Of[p + 2] = q[3]; });
+        [[ax, ay, -dx + dy, -dy - dx], [ax, ay, -dx - dy, -dy + dx], [bx, by, dx + dy, dy - dx], [bx, by, dx - dy, dy + dx]].forEach((q, k) => { const p = (s * 4 + k) * 3; Pp[p] = q[0]; Pp[p + 1] = hs ? y + hs[s * 2 + (k >> 1)] : y; Pp[p + 2] = q[1]; Of[p] = q[2]; Of[p + 2] = q[3]; });
         I.set([s * 4, s * 4 + 1, s * 4 + 2, s * 4 + 1, s * 4 + 3, s * 4 + 2], s * 6);
       }
       const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(Pp, 3)); g.setAttribute('aOff', new THREE.BufferAttribute(Of, 3)); g.setIndex(new THREE.BufferAttribute(I, 1)); g.computeBoundingSphere(); return g;
     }
     const ringSegs = rings => { const s = []; for (const r of rings) for (let a = 0, b = r.length - 1; a < r.length; b = a++) s.push(r[b][0], r[b][1], r[a][0], r[a][1]); return s; };
     const drop = m => { secG.remove(m); m.geometry.dispose(); m.material.dispose(); };
+    // a ribbon on place i's ground, y above it: laid over the relief where the place has one, else on its flat top
+    const ribbonOn = (i, segs, y, px) => { if (RL && RL.has(i)) { const d = RL.drape(i, segs); return ribbon(d.segs, y, px, d.hs); } return ribbon(segs, HT[i] + y, px); };
     // A place's sections as they lie on its block: the flat map's own cut (Geom.clipHalf between the same seeds, as Geom.cells makes
     // it), made on the outline of the block's top instead of the place's boundary, so no line or tint hangs over the edge. Hits
     // still go through the flat map's subIndexAt: the same seeds, the same partition
@@ -647,7 +711,7 @@
       for (let i = 0; i < HOODS.length; i++) {
         if (!(subF[i] > 0.01)) continue;
         let m = secMeshes.get(i);
-        if (!m || m.dirty) { if (m) { drop(m.lines); if (m.gold) drop(m.gold); } const s = sectionLines(i); m = { lines: new THREE.Mesh(ribbon(s.segs, HT[i] + 0.012, 1.4), lineMat(P.subLine, 1)), gold: s.gold.length ? new THREE.Mesh(ribbon(s.gold, HT[i] + 0.014, 2.4), lineMat(P.star, 1)) : null }; m.lines.renderOrder = 2; secG.add(m.lines); if (m.gold) { m.gold.renderOrder = 3; secG.add(m.gold); } secMeshes.set(i, m); }
+        if (!m || m.dirty) { if (m) { drop(m.lines); if (m.gold) drop(m.gold); } const s = sectionLines(i); m = { lines: new THREE.Mesh(ribbonOn(i, s.segs, 0.012, 1.4), lineMat(P.subLine, 1)), gold: s.gold.length ? new THREE.Mesh(ribbonOn(i, s.gold, 0.014, 2.4), lineMat(P.star, 1)) : null }; m.lines.renderOrder = 2; secG.add(m.lines); if (m.gold) { m.gold.renderOrder = 3; secG.add(m.gold); } secMeshes.set(i, m); }
         m.lines.visible = true; m.lines.material.opacity = subF[i] * (dark ? .8 : .9); m.lines.position.y = liftV[i];
         if (m.gold) { m.gold.visible = true; m.gold.material.opacity = subF[i]; m.gold.position.y = liftV[i]; }
       }
@@ -659,11 +723,12 @@
         selKey = k; selMeshes.forEach(drop); selMeshes = [];
         const add = (geo, mat, order) => { const m = new THREE.Mesh(geo, mat); m.renderOrder = order; secG.add(m); selMeshes.push(m); };
         if (sp) {
-          add(ribbon(ringSegs(tc[selSub]), HT[sel] + 0.016, ph ? 2.8 : 1.8), lineMat(P.accent, 1), 4);
-          if (ph && !sp.star) { const Pp = [], I = []; for (const r of tc[selSub]) { const b = Pp.length / 3; let f = []; try { f = land.tri2(r, []); } catch (e) {} for (const p of r) Pp.push(p[0], HT[sel] + 0.008, p[1]); for (const t of f) I.push(b + t[0], b + t[1], b + t[2]); }
+          add(ribbonOn(sel, ringSegs(tc[selSub]), 0.016, ph ? 2.8 : 1.8), lineMat(P.accent, 1), 4);
+          if (ph && !sp.star) { const Pp = [], I = []; for (const r of tc[selSub]) { const b = Pp.length / 3; if (RL && RL.has(sel)) { let f = null; try { f = RL.fill(sel, r); } catch (e) {} if (f) { for (let q = 0; q < f.pos.length; q += 3) Pp.push(f.pos[q], f.pos[q + 1] + 0.008, f.pos[q + 2]); for (const t of f.idx) I.push(b + t); } continue; }
+              let f = []; try { f = land.tri2(r, []); } catch (e) {} for (const p of r) Pp.push(p[0], HT[sel] + 0.008, p[1]); for (const t of f) I.push(b + t[0], b + t[1], b + t[2]); }
             const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(Pp), 3)); g.setAttribute('aOff', new THREE.BufferAttribute(new Float32Array(Pp.length), 3)); g.setIndex(I); g.computeBoundingSphere(); add(g, lineMat(P.accent, .16), 1); }
         }
-        if (hv) add(ribbon(ringSegs(tc[hoverSub]), HT[sel] + 0.015, 1.2), lineMat(P.ink, 1), 4);
+        if (hv) add(ribbonOn(sel, ringSegs(tc[hoverSub]), 0.015, 1.2), lineMat(P.ink, 1), 4);
       }
       for (const m of selMeshes) m.position.y = sel >= 0 ? liftV[sel] : 0;
       // a place's own outline, round the edge of its top: the accent on the selected one (thinner on the phone once a section is
@@ -671,7 +736,7 @@
       for (let i = 0; i < HOODS.length; i++) {
         const f = flagNow[i], o2 = edgeMeshes.get(i), want = !f ? '' : f & 1 ? P.accent + '|' + (sp && ph ? 1.4 : 2.2) : f & 8 ? P.okInk + '|2.6' : f & 16 ? P.noInk + '|2.6' : f & 4 ? P.ink + '|2.6' : P.ink + '|1.4';
         if (o2 && o2.key !== want) { drop(o2.mesh); edgeMeshes.delete(i); }
-        if (want && !edgeMeshes.has(i)) { const [hex, px] = want.split('|'), m = new THREE.Mesh(ribbon(ringSegs(tiles[i].edge), HT[i] + 0.018, +px), lineMat(hex, 1)); m.renderOrder = 5; secG.add(m); edgeMeshes.set(i, { mesh: m, key: want }); }
+        if (want && !edgeMeshes.has(i)) { const [hex, px] = want.split('|'), sg = [], hs = []; rimSegs(fineOn && tiles[i].fine ? tiles[i].fine.rim : tiles[i].rim, sg, hs); const m = new THREE.Mesh(ribbon(sg, 0.018, +px, hs), lineMat(hex, 1)); m.renderOrder = 5; secG.add(m); edgeMeshes.set(i, { mesh: m, key: want }); } // (the rim of the mesh that is drawn)
         if (want) edgeMeshes.get(i).mesh.position.y = liftV[i];
       }
     }
@@ -697,15 +762,15 @@
       const k = clamp(Math.pow(c.d / 150, 0.7), 1, 2.6); if (Math.abs(k - lmScale) > 0.004) { lmScale = k; shadowDirty = true; }
       const show = !quiz; // the quiz hides the landmarks and the skylines, as the flat map hides its glyphs: they are hints
       for (const ic of icons) { // a model a few pixels tall is not drawn at all (nor its shadow): with some seventy of them that is most of them, most of the time
-        const y = ic.hood >= 0 ? topAt(ic.hood) : ic.y, zc = (ic.x - c.px) * c.fx + (y * vex - c.py) * c.fy + (ic.z - c.pz) * c.fz; ic.px = zc > 0 ? ic.h * lmScale * c.g / zc : 0;
+        const y = ic.y + (ic.hood >= 0 ? liftV[ic.hood] : 0), zc = (ic.x - c.px) * c.fx + (y * vex - c.py) * c.fy + (ic.z - c.pz) * c.fz; ic.px = zc > 0 ? ic.h * lmScale * c.g / zc : 0;
         const vis = show && ic.px >= (ic.mesh.visible ? 4 : 5.5); if (ic.mesh.visible !== vis) { ic.mesh.visible = vis; shadowDirty = true; }
         ic.mesh.scale.set(lmScale, lmScale / vex, lmScale); ic.mesh.position.y = y; }
-      for (const p of cityParts) { p.mesh.visible = show; const sy = (1 + (lmScale - 1) * 0.6) / vex; p.mesh.scale.y = sy; p.mesh.position.y = p.hood >= 0 ? HT[p.hood] * (1 - sy) + liftV[p.hood] : 0; } // stretched from the top of its block, not from the water
+      for (const p of cityParts) { p.mesh.visible = show; const sy = (1 + (lmScale - 1) * 0.6) / vex; p.mesh.scale.y = sy; p.mesh.position.y = p.hood >= 0 ? (p.g0 != null ? p.g0 : HT[p.hood]) * (1 - sy) + liftV[p.hood] : 0; } // stretched from the ground it stands on (its block's top), not from the water
       // flags and bookmarks hold their size on screen, within limits, and face the reader; seen from above (the far zoom) they lean
       // back, so a pole is never seen end on
       const marks = quiz || !o.marks ? [] : o.marks(); let nf = 0, nb = 0, pop = false; qt.setFromAxisAngle(yAxis, cur.th).multiply(q2.setFromAxisAngle(xAxis, -Math.max(0, Math.PI / 2 - c.ph - 0.6)));
       for (let i = 0; i < HOODS.length; i++) {
-        const m = marks[i]; if (!m) continue; const h = HOODS[i], y = topAt(i), zc = (h.cx - c.px) * c.fx + (y * vex - c.py) * c.fy + (h.cy - c.pz) * c.fz; if (zc <= 0) continue;
+        const m = marks[i]; if (!m) continue; const h = HOODS[i], y = anchY(i), zc = (h.cx - c.px) * c.fx + (y * vex - c.py) * c.fy + (h.cy - c.pz) * c.fz; if (zc <= 0) continue;
         let s = clamp((m === 'flag' ? 20 : 17) * zc / c.g, 0.5, MARK_MAX);
         if (markAnim[i]) { const p = (t - markAnim[i]) / 420; if (p < 1) { s *= 1 + Math.sin(p * Math.PI) * .6 * (1 - p); pop = true; } else delete markAnim[i]; }
         m4.compose(ps.set(h.cx, y, h.cy), qt, sc.set(s, s / vex, s)); if (m === 'flag') flags.setMatrixAt(nf++, m4); else books.setMatrixAt(nb++, m4);
@@ -713,7 +778,8 @@
       if (flags.count !== nf || books.count !== nb) shadowDirty = true;
       flags.count = nf; books.count = nb; flags.instanceMatrix.needsUpdate = books.instanceMatrix.needsUpdate = true;
       // sections
-      lineW.value = 1 / kNow(); updateSections(subF); rim.material.opacity = (dark ? .5 : .55) * smooth(kNow(), 1.5, 6); rim.visible = rim.material.opacity > .01;
+      if (fineMesh) { const kk = kNow(), want = fineOn ? kk > 2.2 : kk > 2.8; if (want !== fineOn) setFine(want); }   // the full relief from the scale of the city inwards (with some slack, so it does not flicker between the two)
+      lineW.value = 1 / kNow(); updateSections(subF); rim.material.opacity = (dark ? .5 : .55) * smooth(kNow(), 1.5, 6); rim.visible = rim.material.opacity > .01; if (rimF) rimF.visible = rim.visible && fineOn;
       if (ferries.length) stepLife();
       const fabAnim = fabStep(dt || 16, c);
       // the key light's shadow box is fitted to what the camera sees (the ground under the screen, out to a few view distances, and
@@ -726,7 +792,7 @@
           key.target.position.set(ax, 0, az2); key.position.set(ax + lightDir.x * 4000, lightDir.y * 4000, az2 + lightDir.z * 4000); key.target.updateMatrixWorld(); key.updateMatrixWorld();
           lightCam.position.copy(key.position); lightCam.up.set(0, 1, 0); lightCam.lookAt(key.target.position); lightCam.updateMatrixWorld(); lightBasis = { az, el, A, inv: lightCam.matrixWorldInverse.clone() }; shadowDirty = true;
         }
-        const reach = c.d * 2.4, hTop = 7 * vex, pts = [];
+        const reach = c.d * 2.4, hTop = Math.max(7, HMAX) * vex, pts = [];
         for (const [sx, sy] of [[0, 0], [W / 2, 0], [W, 0], [0, H / 2], [W, H / 2], [0, H], [W / 2, H], [W, H]]) {
           let g = planeAt(c, sx, sy, FOCUS_Y); const dx = g[0] - cur.cx, dz = g[1] - cur.cz, l = Math.hypot(dx, dz); if (l > reach) g = [cur.cx + dx / l * reach, cur.cz + dz / l * reach];
           pts.push(g);
@@ -796,14 +862,14 @@
           if (quiz) return; placed.push(box); if (lmF > .5 && hpx >= 12 && !far) lmBox[j] = box;
           return;
         }
-        const h = hi != null ? topAt(hi) : 0, p = at(l.x, l.y, h), on = p[2] > 0 && p[0] > -60 && p[0] < W + 60 && p[1] > -60 && p[1] < H + 60;
+        const h = hi != null ? gAt(hi, l.x, l.y) : 0, p = at(l.x, l.y, h), on = p[2] > 0 && p[0] > -60 && p[0] < W + 60 && p[1] > -60 && p[1] < H + 60;
         const tg = on && !far && ready ? lmF : 0; if (Math.abs(tg - lmA[j]) < .01) lmA[j] = tg; else { lmA[j] += (tg - lmA[j]) * (1 - Math.exp(-dt / 180)); anim = true; }
         if (!(lmA[j] > .01) || !on) return;
         const box = [p[0] - lmH * (l.w || 1) / 2, p[1] - lmH, p[0] + lmH * (l.w || 1) / 2, p[1]]; glyphs.push([l, j, p]);
         if (lmA[j] > .3) placed.push([box[0] - 2, box[1] - 2, box[2] + 2, box[3] + 2]); if (lmA[j] > .5) lmBox[j] = box;
       });
       // flags and bookmarks stand at the anchors: names keep clear of them
-      const anchor = HOODS.map((h, i) => { const b = BB[i]; return b[2] > viewBB[0] && b[0] < viewBB[2] && b[3] > viewBB[1] && b[1] < viewBB[3] ? at(h.cx, h.cy, topAt(i)) : null; });
+      const anchor = HOODS.map((h, i) => { const b = BB[i]; return b[2] > viewBB[0] && b[0] < viewBB[2] && b[3] > viewBB[1] && b[1] < viewBB[3] ? at(h.cx, h.cy, anchY(i)) : null; });
       for (let i = 0; i < HOODS.length; i++) if (marks[i] && anchor[i] && anchor[i][2] > 0) { const p = anchor[i], s = clamp((marks[i] === 'flag' ? 20 : 17) * p[2] / c.g, 0.5, MARK_MAX) * c.g / p[2]; placed.push(marks[i] === 'flag' ? [p[0] - 4, p[1] - s - 2, p[0] + s * .62, p[1] + 3] : [p[0] - s * .25, p[1] - s - 2, p[0] + s * .25, p[1] + 3]); }
 
       if (!quiz && ready) {
@@ -823,7 +889,7 @@
           const name = SHORT[h.name] || h.name, text = farNames ? name.toUpperCase() : name, size = hot ? lsz * 1.1 : lsz, st = STAR[i] ? size * 1.15 : 0;
           const tw = measure(text, 600, size) + text.length * size * ls + st, th = size * 1.2, p = anchor[i], kl = c.g / p[2], px = SIZE[i] * kl * Math.max(.6, cosT), id = 'h' + i + (farNames ? 'F' : ''), on = lblA.get(id) > .5;
           if (!hot && !side && px < ((marks[i] || STAR[i]) ? 22 : Math.max(farNames ? 40 : 30, tw * (on ? .7 : .82)))) continue;
-          const cx = side ? at(SIDE_X[i], h.cy, topAt(i))[0] + 12 + tw / 2 : p[0], cy = p[1] + (marks[i] && !side ? size * 1.25 : 0), gx = phone ? 4 : 2, gy = phone ? 1 : 0;
+          const cx = side ? at(SIDE_X[i], h.cy, anchY(i))[0] + 12 + tw / 2 : p[0], cy = p[1] + (marks[i] && !side ? size * 1.25 : 0), gx = phone ? 4 : 2, gy = phone ? 1 : 0;
           const boxAt = y => [cx - tw / 2 - gx, y - th / 2 - gy, cx + tw / 2 + gx, y + th / 2 + gy]; let box = boxAt(cy);
           if (clash(box, i)) for (const dy of [th * 1.15, -th * 1.15]) { const alt = boxAt(cy + dy); if (!clash(alt, i)) { box = alt; break; } }
           if (hot || (!clash(box, i) && inView(box))) { box.own = i; placed.push(box); put(id, { text, x: (box[0] + box[2]) / 2 - st / 2, y: (box[1] + box[3]) / 2, size, ls, color: hot ? P.accent : P.label, star: st ? [box[2] - gx - st * .45, size * .85] : null }); }
@@ -834,7 +900,7 @@
       // spots are fixed like flags: their dots and the open spot's name are reserved before section names
       const spots = drawnSpots = o.spots && !quiz && ready ? o.spots() : [], pinScale = clamp(k / 12, .75, 1.15), openSpot = o.selectedSpot ? o.selectedSpot() : null, spotBoxes = [];
       for (const sp of spots) {
-        const hi = hoodOf(sp.x, sp.y), p = at(sp.x, sp.y, hi >= 0 ? topAt(hi) : 0); if (p[2] <= 0 || p[0] < -20 || p[0] > W + 20 || p[1] < -20 || p[1] > H + 20) { sp._s = null; continue; }
+        const hi = hoodOf(sp.x, sp.y), p = at(sp.x, sp.y, hi >= 0 ? gAt(hi, sp.x, sp.y) : 0); if (p[2] <= 0 || p[0] < -20 || p[0] > W + 20 || p[1] < -20 || p[1] > H + 20) { sp._s = null; continue; }
         sp._s = [p[0], p[1]];
         const r = 6.5 * pinScale * (sp.status === 'pending' && phone ? 1.5 : 1) + 2, b = [p[0] - r, p[1] - r, p[0] + r, p[1] + r]; b.own = 'dot'; spotBoxes.push(b);
         if (sp.id === openSpot && k > 16 && sp.name) { const x0 = p[0] + 6.5 * pinScale + 3; spotBoxes.push([x0, p[1] - 7, x0 + measure(sp.name, 500, fsz) + 4, p[1] + 7]); }
@@ -846,7 +912,7 @@
         for (let i = 0; i < HOODS.length; i++) if (subF[i] > 0.2 || (i === sel && subF[i] > 0.01)) { const cells = subsOf(i); if (cells) cells.forEach((cell, j) => (i === sel && j === selSub ? hotL : cell.star ? secs : plain).push([i, j, cell])); }
         for (const [i, j, cell] of hotL.concat(secs, plain)) {
           const hot = i === sel && j === selSub, big = hot && phone, ss = big ? fsz * 1.25 : fsz, sw = cell.star ? ss * 1.05 + 3 : 0, wt = big ? 600 : 500;
-          const tw = measure(cell.name, wt, ss) + sw, th = ss * 1.2, p = at(cell.c[0], cell.c[1], topAt(i)); if (p[2] <= 0 || (!hot && p[2] > c.d * 1.9) || p[0] < -40 || p[0] > W + 40 || p[1] < -20 || p[1] > H + 20) continue;
+          const tw = measure(cell.name, wt, ss) + sw, th = ss * 1.2, p = at(cell.c[0], cell.c[1], gAt(i, cell.c[0], cell.c[1])); if (p[2] <= 0 || (!hot && p[2] > c.d * 1.9) || p[0] < -40 || p[0] > W + 40 || p[1] < -20 || p[1] > H + 20) continue;
           const kl = c.g / p[2], box = [p[0] - tw / 2 - 2, p[1] - th / 2, p[0] + tw / 2 + 2, p[1] + th / 2];
           const fits = (cell.bbox[2] - cell.bbox[0]) * kl >= tw * .8 && (cell.bbox[3] - cell.bbox[1]) * kl * cosT >= th * 1.1;
           if (!(cell.star || fits || hot) || clash(box) || !(hot || inView(box))) continue;
@@ -885,7 +951,7 @@
         if (k > 16 && sp.name) { const tw = measure(sp.name, 500, fsz), box = [sx + r + 3, sy - 7, sx + r + 3 + tw + 4, sy + 7]; if (!clash(box, 'dot') || hot) { placed.push(box); haloText(sp.name, sx + r + 5, sy, fsz, P.label); } }
       }
       if (quiz && ready) anim = quizBadges(I, t) || anim;
-      if (me) { const hi = hoodOf(me[0], me[1]), q = at(me[0], me[1], hi >= 0 ? topAt(hi) : 0); if (q[2] > 0) { const ph = ((t - meT0) % 1800) / 1800; ctx.globalAlpha = .4 * (1 - ph); ctx.fillStyle = P.want; ctx.beginPath(); ctx.arc(q[0], q[1], 6 + 12 * ph, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; ctx.beginPath(); ctx.arc(q[0], q[1], 5, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = P.paper; ctx.lineWidth = 2; ctx.stroke(); } }
+      if (me) { const hi = hoodOf(me[0], me[1]), q = at(me[0], me[1], hi >= 0 ? gAt(hi, me[0], me[1]) : 0); if (q[2] > 0) { const ph = ((t - meT0) % 1800) / 1800; ctx.globalAlpha = .4 * (1 - ph); ctx.fillStyle = P.want; ctx.beginPath(); ctx.arc(q[0], q[1], 6 + 12 * ph, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; ctx.beginPath(); ctx.arc(q[0], q[1], 5, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = P.paper; ctx.lineWidth = 2; ctx.stroke(); } }
       return anim;
     }
     // The quiz's answer badges, as js/map.js draws them: a named mark is a pill on its place (just below a place too thin or small
@@ -898,7 +964,7 @@
       const ms = quiz.marks().slice().sort((a, b) => (b.ok ? 1 : 0) - (a.ok ? 1 : 0));
       ctx.textBaseline = 'middle'; ctx.textAlign = 'left'; if (supportsLS) ctx.letterSpacing = '0px';
       for (const m of ms) {
-        const h = HOODS[m.i], colr = m.ok ? P.okInk : P.noInk, p = at(h.cx, h.cy, topAt(m.i)); if (p[2] <= 0) continue; let sx = p[0], sy = p[1];
+        const h = HOODS[m.i], colr = m.ok ? P.okInk : P.noInk, p = at(h.cx, h.cy, anchY(m.i)); if (p[2] <= 0) continue; let sx = p[0], sy = p[1];
         if (m.dot && !m.name) { if (sx < -10 || sx > W + 10 || sy < -10 || sy > H + 10) continue; ctx.beginPath(); ctx.arc(sx, sy, 10, 0, Math.PI * 2); ctx.fillStyle = colr; ctx.fill(); ctx.strokeStyle = P.labelHalo; ctx.lineWidth = 2; ctx.stroke(); quizIcon(m.ok, sx, sy, 4.6); continue; }
         const tw = measure(h.name, 700, fs), iw = fs * .95, bw = tw + iw + 30, bh = fs + 16, bb = bboxOn(m.i);
         if (bb[3] - bb[1] < bh * 2.2 || bb[2] - bb[0] < bw * .9) sy = bb[3] + bh / 2 + 6 + bh / 2 <= bot ? bb[3] + bh / 2 + 6 : bb[1] - bh / 2 - 6;
@@ -1110,8 +1176,8 @@
       subsShowing(i) { return subsOf(i) && (hoodPx(i) > 560 || i === sel); },
       hoodPx,
       // for tests and the console: what was built and how long it took, what a frame draws, and the cost of frames along a flight
-      stats() { const info = renderer.info; let tris = 0; const seen = q => { for (let p = q; p; p = p.parent) if (!p.visible) return false; return true; }; scene.traverse(q => { if ((q.isMesh || q.isPoints) && seen(q) && q.geometry) { const g = q.geometry, n = q.isPoints ? 0 : (g.index ? g.index.count : g.attributes.position.count) / 3; tris += n * (q.isInstancedMesh ? q.count : g.isInstancedBufferGeometry ? g.instanceCount : 1); } });
-        return { ready, blocks: stat.blocks, build: stat.build, firstFrame: stat.firstFrame ? Math.round(stat.firstFrame - stat.t0) : 0, sinceNav: stat.firstFrame ? Math.round(stat.firstFrame) : 0, frames: stat.frames, lastMs: +stat.lastMs.toFixed(2), sceneTriangles: Math.round(tris), calls: info.render.calls, triangles: info.render.triangles, pr, size: [W, H], dark, area: area.id, quality: Q.level, gov: { last: gov.last || 0, good: gov.good, fails: gov.fails.slice() }, fog: fogBank ? +fogBank.U.uK.value.toFixed(3) : 0, fabric: { chunks: fab.live, buildings: fab.nb, trees: fab.nt, grow: +fabU.uGrow.value.toFixed(2), queue: fab.queue.length }, why: stat.why, ambient: { on: ambOn(), t: +ambT.toFixed(2), frames: stat.amb, left: Math.max(0, Math.round(ambUntil - now())), ferry: ferries[0] ? [+ferries[0].mesh.position.x.toFixed(3), +ferries[0].mesh.position.z.toFixed(3)] : null }, view: Object.assign({ ph: +phOf(cur.w, cur.off).toFixed(3) }, cur) }; },
+      stats() { const info = renderer.info; let tris = 0; const seen = q => { for (let p = q; p; p = p.parent) if (!p.visible) return false; return true; }; scene.traverse(q => { if ((q.isMesh || q.isPoints) && seen(q) && q.geometry) { const g = q.geometry, n = q.isPoints ? 0 : Math.min(g.drawRange.count, g.index ? g.index.count : g.attributes.position.count) / 3; tris += n * (q.isInstancedMesh ? q.count : g.isInstancedBufferGeometry ? g.instanceCount : 1); } });
+        return { ready, blocks: stat.blocks, build: stat.build, firstFrame: stat.firstFrame ? Math.round(stat.firstFrame - stat.t0) : 0, sinceNav: stat.firstFrame ? Math.round(stat.firstFrame) : 0, frames: stat.frames, lastMs: +stat.lastMs.toFixed(2), sceneTriangles: Math.round(tris), calls: info.render.calls, triangles: info.render.triangles, pr, size: [W, H], dark, area: area.id, quality: Q.level, gov: { last: gov.last || 0, good: gov.good, fails: gov.fails.slice() }, fog: fogBank ? +fogBank.U.uK.value.toFixed(3) : 0, land: { relief: !!RL, close: fineOn, closeReady: !!fineMesh, places: RL ? RL.fineList.length : 0 }, fabric: { chunks: fab.live, buildings: fab.nb, trees: fab.nt, grow: +fabU.uGrow.value.toFixed(2), queue: fab.queue.length }, why: stat.why, ambient: { on: ambOn(), t: +ambT.toFixed(2), frames: stat.amb, left: Math.max(0, Math.round(ambUntil - now())), ferry: ferries[0] ? [+ferries[0].mesh.position.x.toFixed(3), +ferries[0].mesh.position.z.toFixed(3)] : null }, view: Object.assign({ ph: +camOf(cur).ph.toFixed(3) }, cur) }; },
       bench(n = 60) { // n frames spread along the flight in progress or, at rest, a small orbit; each forced to finish on the GPU
         const gl = renderer.getContext(), px = new Uint8Array(4), keep = Object.assign({}, cur), times = [];
         for (let i = 0; i < n; i++) { cur.th = keep.th + Math.sin(i / n * Math.PI * 2) * 0.12; cur.w = keep.w * (1 + 0.25 * Math.sin(i / n * Math.PI)); cur.cx = keep.cx + Math.sin(i * 0.2) * keep.w * 0.05; const t0 = now(); C = camOf(cur); const vx = C.vex; C.vex = vex; prepare(16); updateScene(t0, vx, 16); renderer.render(scene, camera); drawOverlay(t0, 16); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); times.push(now() - t0); }

@@ -1250,12 +1250,22 @@
       if (g2.mode) { Object.assign(goal, cur); userMoved = true; mode = 'drag'; needs = true; }
       g2.cx = q.cx; g2.cy = q.cy; g2.s = q.s; g2.a = q.a;
     }
+    // fingers kept in ptrs that are no longer on the screen (the browser does not always send their pointerup or pointercancel: a system
+    // gesture, the app switched, a long press): forgotten, and with end the gesture ended as a release without a tap
+    // dropTouches(k): the k oldest of them (all without k); what is left is taken up afresh: one finger a drag, two a pinch, none the gesture's end without a tap
+    function dropTouches(k) {
+      let n = 0; for (const [id, p] of ptrs) if (p.touch && (k == null || n < k)) { ptrs.delete(id); n++; } if (!n) return;
+      g2 = null; drag = null; press = -1;
+      if (ptrs.size === 1) { const [q] = [...ptrs.values()], r = stage.getBoundingClientRect(); drag = { x: q.x, y: q.y, t: now(), moved: 0, pinched: false, orbit: false, grab: grabAt(cur, q.x - r.left, q.y - r.top) }; }
+      else if (ptrs.size === 2) { g2 = Object.assign({ mode: null, turn: false }, two()); g2.s0 = g2.s; g2.a0 = g2.a; g2.cx0 = g2.cx; g2.cy0 = g2.cy; }
+      else if (!ptrs.size) { stage.classList.remove('dragging'); if (mode === 'drag') mode = 'still'; needs = true; poke(); kick(); o.onGestureEnd && o.onGestureEnd(); }
+    }
     stage.addEventListener('pointerdown', e => {
       if (e.target !== glc && e.target !== stage) return;
       const orbit = e.pointerType === 'mouse' && (e.button === 2 || (e.button === 0 && e.ctrlKey));
       if (e.pointerType === 'mouse' && e.button !== 0 && !orbit) return;
       try { stage.setPointerCapture(e.pointerId); } catch (err) {}
-      const r = stage.getBoundingClientRect(); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); downAt = now();
+      const r = stage.getBoundingClientRect(); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY, touch: e.pointerType === 'touch' }); downAt = now();
       fly = null; if (mode === 'fly' || mode === 'smooth') Object.assign(goal, cur); mode = 'drag'; vel = { x: 0, z: 0 };
       if (ptrs.size === 1) drag = { x: e.clientX, y: e.clientY, t: now(), moved: orbit ? 99 : 0, pinched: false, orbit, grab: orbit ? null : grabAt(cur, e.clientX - r.left, e.clientY - r.top) };
       else if (ptrs.size === 2) { g2 = Object.assign({ mode: null, turn: false }, two()); g2.s0 = g2.s; g2.a0 = g2.a; g2.cx0 = g2.cx; g2.cy0 = g2.cy; if (drag) drag.pinched = true; }
@@ -1304,7 +1314,14 @@
         o.onGestureEnd && o.onGestureEnd();
       }
     };
-    stage.addEventListener('pointerup', release, { signal: sig }); stage.addEventListener('pointercancel', release, { signal: sig });
+    stage.addEventListener('pointerup', release, { signal: sig }); stage.addEventListener('pointercancel', release, { signal: sig }); stage.addEventListener('lostpointercapture', e => release(e), { signal: sig });
+    // the truth about the fingers is the browser's own list of touches: when a finger comes down (after its pointerdown) and more are kept here than
+    // are on the screen, the oldest extra ones were never let go for us (they would turn a one-finger drag into a two-finger turn); when none is left
+    // on the screen, none is kept (after the pointerup of that touch, if it comes, has been handled)
+    const kept = () => { let n = 0; for (const q of ptrs.values()) if (q.touch) n++; return n; };
+    window.addEventListener('touchstart', e => { const n = kept(); if (n > e.touches.length) dropTouches(n - e.touches.length); }, { signal: sig, passive: true, capture: true });
+    for (const k of ['touchend', 'touchcancel']) window.addEventListener(k, e => { if (!e.touches.length) setTimeout(() => { if (kept()) dropTouches(); }, 0); }, { signal: sig, passive: true, capture: true });
+    document.addEventListener('visibilitychange', () => { if (document.hidden) dropTouches(); }, { signal: sig }); window.addEventListener('blur', () => dropTouches(), { signal: sig });
     stage.addEventListener('pointerleave', () => { if (!ptrs.size && o.onHover) o.onHover(null); }, { signal: sig });
     stage.addEventListener('contextmenu', e => e.preventDefault(), { signal: sig });
     stage.addEventListener('wheel', e => {

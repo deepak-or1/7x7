@@ -834,3 +834,13 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
 .lenses .bmonly .bmi svg { width: 15px; height: 15px; fill: var(--want); stroke: none; display: block; }
 #lens-btn { position: relative; }
 #lens-btn.filtering::after { content: ""; position: absolute; top: 7px; right: 7px; width: 8px; height: 8px; border-radius: 50%; background: var(--want); box-shadow: 0 0 0 2px var(--glass-strong); }
+
+/* the first screen's actions: a row of pills at the top, scrolling sideways on a narrow phone */
+.pills { display: flex; gap: 8px; margin: 2px -16px 14px; padding: 2px 16px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.pills::-webkit-scrollbar { display: none; }
+.pills button { flex: none; height: 34px; padding: 0 14px; border: 1px solid var(--line-2); border-radius: 999px; background: var(--paper); color: var(--ink); font: 500 14px/1 var(--sans); white-space: nowrap; cursor: pointer; transition: border-color .15s, background .15s; }
+.pills button:hover { border-color: var(--ink-2); }
+.pills button:active { background: var(--paper-2); }
+@media (min-width: 881px) { .pills { margin: 2px 0 14px; padding: 2px 0; flex-wrap: wrap; } }
+.pills button[aria-expanded="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.pills + #moods { margin: -4px 0 16px; } .pills + #moods h3:first-child { margin-top: 0; }

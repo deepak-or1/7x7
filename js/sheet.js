@@ -74,7 +74,7 @@
     for (const t of ['pointerup', 'pointercancel']) document.addEventListener(t, () => { side = null; });
     // content: touch events, so native scrolling keeps working when the sheet is open and scrolled
     let touch = null;
-    panel.addEventListener('touchstart', e => { if (!isPhone() || e.touches.length !== 1) return; touch = { x: e.touches[0].clientX, y: e.touches[0].clientY, took: false, side: !!e.target.closest('.hero-track, .chips'), vs: e.target.closest('.news-log') }; }, { passive: true }); // side: the touch began on a sideways scroller (the photo carousel, a chip row); vs: on an up-and-down one (the news)
+    panel.addEventListener('touchstart', e => { if (!isPhone() || e.touches.length !== 1) return; touch = { x: e.touches[0].clientX, y: e.touches[0].clientY, took: false, side: !!e.target.closest('.hero-track, .chips, .pills'), vs: e.target.closest('.news-log') }; }, { passive: true }); // side: the touch began on a sideways scroller (the photo carousel, a chip row); vs: on an up-and-down one (the news)
     panel.addEventListener('touchmove', e => {
       if (!touch || e.touches.length !== 1) return; const y = e.touches[0].clientY, dy = y - touch.y;
       if (!touch.took) { const canScroll = detent === 'full' && !(panel.scrollTop <= 0 && dy > 0); if (canScroll) { touch = null; return; }

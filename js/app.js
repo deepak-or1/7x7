@@ -348,10 +348,11 @@
     o = Object.assign({}, o, { tools: (o.tools || []).concat(showX() ? [{ id: 'home', label: 'Back to the map', icon: ICON.x, run: toFirst }] : []) });
     // the counts are plain text, heard as one labelled group ("7 places walked, 3 want to go, 10 spots"), not three loose numbers
     const tally = o.tally ? `<div class="tally"><span class="sr">${esc(o.tally.map(t => t[2]).join(', '))}</span>${o.tally.map(t => `<span aria-hidden="true"><b>${t[0].toLocaleString('en-US')}</b><small>${t[1]}</small></span>`).join('')}</div>` : '';
-    head.innerHTML = `<button type="button" class="up" aria-label="Back" ${o.back === false ? 'hidden' : ''}>${ICON.back}</button><div class="ttl">${o.tally ? '' : `<p class="eyebrow">${o.path ? '' : (o.dot ? `<i style="--c:${o.dot}"></i>` : '') + (o.eyebrow || '')}</p>`}<h2${o.compact ? ' class="sr"' : ''}>${o.title}</h2>${o.badge ? `<span class="newsb"><span aria-hidden="true">${esc(o.badge)}</span><span class="sr">${esc(o.badge)} new</span></span>` : ''}</div>${tally}<div class="tools">${o.tools.map(t => `<button type="button" data-tool="${t.id}" title="${esc(t.label)}" aria-label="${esc(t.label)}">${t.icon}</button>`).join('')}</div>`;
+    head.innerHTML = `<button type="button" class="up" aria-label="Back" ${o.back === false ? 'hidden' : ''}>${ICON.back}</button><div class="ttl">${o.tally ? '' : `<p class="eyebrow">${o.path ? '' : (o.dot ? `<i style="--c:${o.dot}"></i>` : '') + (o.eyebrow || '')}</p>`}<h2${o.compact ? ' class="sr"' : ''}>${o.title}${o.act ? ` <button type="button" class="hact ${o.act.cls || ''}" data-hact aria-label="${esc(o.act.label)}" title="${esc(o.act.label)}"${o.act.pressed != null ? ` aria-pressed="${!!o.act.pressed}"` : ''}${o.act.off ? ' disabled' : ''}>${o.act.html}</button>` : ''}</h2>${o.badge ? `<span class="newsb"><span aria-hidden="true">${esc(o.badge)}</span><span class="sr">${esc(o.badge)} new</span></span>` : ''}</div>${tally}<div class="tools">${o.tools.map(t => `<button type="button" data-tool="${t.id}" title="${esc(t.label)}" aria-label="${esc(t.label)}">${t.icon}</button>`).join('')}</div>`;
     head.classList.toggle('compact', !!o.compact); head.classList.toggle('first', !!o.tally);
     head.querySelector('.up').addEventListener('click', o.onBack || up);
     o.tools.forEach(t => head.querySelector(`[data-tool="${t.id}"]`).addEventListener('click', t.run));
+    if (o.act) head.querySelector('[data-hact]').addEventListener('click', o.act.run); // o.act: one action beside the name (Add a spot on a place, the bookmark on a spot)
   }
   let headH = 0;
   // the map chip on the map: the area you are on. A tap opens a menu of every area (the Bay Area, then each away region) with how
@@ -545,15 +546,12 @@
     const i = IDX[name], info = INFO[name], h = HOODS[i], k = slug(name), done = state.done[k], secs = subs(name), mine = spotsIn(name), beenN = mine.filter(id => (state.spots[id].status || 'been') === 'been').length, bmN = mine.filter(id => isBm(state.spots[id])).length;
     const roof = h.max === Math.max(...HOODS.filter(x => x.region === h.region).map(x => x.max)), dis = state.canWrite ? '' : 'disabled';
     const keepNote = panel.dataset.name === name && panel.querySelector('#note') ? panel.querySelector('#note').value : null; panel.dataset.name = name;
-    setHead({ path: { crumbs: crumbsOf(state.loc) }, title: esc(name) }); // the vibe is the first of the facts
+    setHead({ path: { crumbs: crumbsOf(state.loc) }, title: esc(name), act: { cls: 'pill', label: 'Add a spot in ' + name, html: ICON.plus + '<span>Add a spot</span>', off: !state.canWrite, run: () => startLog({ hood: name }) } }); // the vibe is the first of the facts
     const extras = mine.map(spotSrc).concat(secs.slice().sort((a, b) => !!b.star - !!a.star).map(s => ({ owner: ownerKey.section(name, s.name), label: s.name }))); // spots first, newest first (photos mostly live there and the hero caps its sources), then sections in list order
     panel.innerHTML = `
+      <div class="pstats" role="group" aria-label="Spots in ${esc(name)}"><span><b>${beenN}</b><small>Been</small></span><span class="bm"><b>${bmN}</b><small>Bookmarked</small></span></div>
       ${hero(ownerKey.place(name), name, Object.assign(vibeLook(name), { extras }))}
       <p class="lead">${esc(info.line)}</p>
-      <div class="marks">
-        <button type="button" class="mark add" id="add-spot" ${dis}><span class="box">${ICON.plus}</span><span><b>Add a spot</b><small>${beenN ? 'Log another place here' : 'Your first one flags it'}</small></span></button>
-        <div class="mark count" role="group" aria-label="Spots in ${esc(name)}"><span><b>${beenN}</b><small>been</small></span><span class="bm"><b>${bmN}</b><small>bookmarked</small></span></div>
-      </div>
       ${done && !beenN ? `<p class="handflag">Flagged by hand${niceDate(done.at) ? ' · ' + niceDate(done.at) : ''}${state.canWrite ? ' · <button type="button" id="explore">Remove flag</button>' : ''}</p>` : ''}
       ${done ? `<textarea class="note" id="note" placeholder="What did you eat, see, or climb?" aria-label="Notes for ${esc(name)}">${esc(keepNote ?? done.note ?? '')}</textarea>` : ''}<div class="savestate" id="savestate">${state.canWrite ? '' : 'Sign in to keep a list'}</div>
       ${secs.length ? `<h3>Sections <span class="n">${secs.length}</span></h3><ul class="rows">${secs.map((s, j) => [s, j]).sort((a, b) => !!b[0].star - !!a[0].star).map(([s, j]) => rowSub(name, s, j)).join('')}</ul>` : ''}
@@ -565,7 +563,6 @@
       <h3>One thing to know</h3><p class="fact">${esc(info.fact)}</p>
       <h3>Next door</h3>${h.adj.length ? `<div class="textlinks">${h.adj.map(a => `<button type="button" class="${isDone(IDX[a]) ? 'done' : isWant(IDX[a]) ? 'want' : ''}" data-go='${attr({ hood: a })}'>${esc(a)}</button>`).join('')}</div>` : '<p class="empty">Nobody. It is an island.</p>'}`;
     { const b = panel.querySelector('#explore'); if (b) b.addEventListener('click', () => toggleDone(name)); }
-    panel.querySelector('#add-spot').addEventListener('click', () => startLog({ hood: name }));
     const n = panel.querySelector('#note'); if (n) n.addEventListener('input', e => noteInput(name, e.target.value));
   }
   // ---- a section of a neighborhood ----
@@ -589,7 +586,7 @@
   // ---- a spot ----
   function renderSpot(id) {
     const sp = state.spots[id], k = KINDS[sp.kind] || KINDS.other;
-    setHead({ path: { crumbs: crumbsOf(state.loc), tag: `<i style="--c:${k.c}"></i>${k.label}` }, title: esc(sp.name), tools: [{ id: 'bm', label: isBm(sp) ? 'Remove bookmark' : 'Bookmark', icon: ICON.bookmark.replace('<svg', `<svg class="${isBm(sp) ? 'on' : ''}"`), run: () => toggleBm(id) }, { id: 'edit', label: 'Edit', icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16v4z"/><path d="M13 7l4 4"/></svg>', run: () => { const s = state.spots[id]; if (s) startLog({ hood: s.hood, sub: s.sub, edit: id }); } }] });
+    setHead({ path: { crumbs: crumbsOf(state.loc), tag: `<i style="--c:${k.c}"></i>${k.label}` }, title: esc(sp.name), act: { cls: 'bmb', label: isBm(sp) ? 'Remove bookmark' : 'Bookmark', pressed: isBm(sp), html: ICON.bookmark, off: !state.canWrite, run: () => toggleBm(id) }, tools: [{ id: 'edit', label: 'Edit', icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16v4z"/><path d="M13 7l4 4"/></svg>', run: () => { const s = state.spots[id]; if (s) startLog({ hood: s.hood, sub: s.sub, edit: id }); } }] });
     const mq = spotQuery(sp), aq = spotApple(sp), want = sp.status === 'want', r = want ? 0 : Math.max(0, Math.min(5, sp.rating | 0)), by = cleanName(sp.by);
     const sv = { key: 'spot:' + id + '@' + ll(sp.lat, sp.lon), name: sp.name, href: tapLink(mq, aq), q: mq, z: 17, lat: sp.lat, lon: sp.lon, zoom: 16, pin: { c: k.c, e: k.e } };
     if (!paint(`

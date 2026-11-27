@@ -813,21 +813,26 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
   .lk-yr { min-height: 56px; }
 }
 
-/* the place panel: Add a spot beside the counts of its spots (been, bookmarked); a place's flag comes from its first been spot */
-.mark.add { cursor: pointer; }
-.mark.add .box { background: var(--accent); box-shadow: none; color: var(--accent-ink); }
-.mark.add .box svg { opacity: 1; width: 11px; height: 11px; }
-.mark.add:not([disabled]):hover { border-color: var(--accent); }
-.mark.count { justify-content: space-around; gap: 6px; padding: 7px 8px; background: transparent; }
-.mark.count > span { display: grid; justify-items: center; line-height: 1.1; }
-.mark.count b { font: 600 19px/1.1 var(--display); font-variant-numeric: tabular-nums; color: var(--accent-deep, var(--accent)); }
-.mark.count .bm b { color: var(--want); }
-.mark.count small { font-size: 11.5px; }
+/* the place panel: its spots counted (been, bookmarked) first thing under the title; a place's flag comes from its first been spot */
+.pstats { display: flex; gap: 28px; margin: 2px 0 16px; }
+.pstats > span { display: grid; justify-items: start; }
+.pstats b { font: 700 30px/1 var(--display); letter-spacing: -.02em; font-variant-numeric: tabular-nums; color: var(--accent-deep, var(--accent)); }
+.pstats .bm b { color: var(--want); }
+.pstats small { margin-top: 5px; font: 600 10.5px/1 var(--sans); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
 .handflag { margin: 8px 0 0; font-size: 12.5px; color: var(--muted); }
 .handflag button { border: 0; background: none; padding: 0; font: inherit; font-weight: 600; color: var(--accent-deep, var(--accent)); cursor: pointer; }
+/* the one action beside the name in the header: a pill (Add a spot) or a bookmark */
+.head h2 .hact { display: inline-flex; align-items: center; gap: 5px; vertical-align: .18em; margin-left: 8px; border: 0; cursor: pointer; font: 600 13.5px/1 var(--sans); letter-spacing: 0; white-space: nowrap; }
+.head h2 .hact.pill { height: 30px; padding: 0 13px 0 10px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); }
+.head h2 .hact.pill svg { width: 12px; height: 12px; }
+@media (hover: hover) { .head h2 .hact.pill:hover { filter: brightness(1.06); } }
+.head h2 .hact.bmb { width: 32px; height: 32px; justify-content: center; padding: 0; margin-left: 4px; border-radius: 8px; background: transparent; color: var(--muted); vertical-align: .05em; }
+.head h2 .hact.bmb svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linejoin: round; }
+.head h2 .hact.bmb[aria-pressed="true"] { color: var(--want); } .head h2 .hact.bmb[aria-pressed="true"] svg { fill: var(--want); }
+@media (hover: hover) { .head h2 .hact.bmb:hover { background: var(--paper-2); } }
+.head h2 .hact[disabled] { opacity: .5; cursor: default; }
 /* a bookmarked spot: a small blue bookmark after its name, and the header's bookmark filled */
 .row .nm .bmk { display: inline-block; width: .62em; height: .8em; margin-left: 6px; vertical-align: -.02em; background: var(--want); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 72%, 0 100%); }
-.head .tools button svg.on { fill: var(--want); stroke: var(--want); }
 /* the map filter in the layers menu, and a dot on the layers button while it is on */
 .lenses .bmonly { margin: 4px 4px 0; padding: 9px 6px 5px; border-top: 1px solid var(--glass-edge); border-bottom: 0; display: grid; grid-template-columns: auto 1fr auto; gap: 10px; font-size: 13.5px; }
 .lenses .bmonly b { font-weight: 600; display: block; }

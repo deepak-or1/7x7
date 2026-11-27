@@ -94,11 +94,11 @@
     function chunk(ix, iz) {
       const x0 = ix * CS, z0 = iz * CS, x1 = x0 + CS, z1 = z0 + CS, B = [], T = [], styled = env.look === 'b' || env.look === 'c', hs = HOUSE && env.look === 'a' ? HSTEPS : ''; let bays = 0;
       const own = (x, z) => x >= x0 && x < x1 && z >= z0 && z < z1;
-      const tree = (P, x, z, r, tint, yard) => { if (env.solid && ((yard && env.dense(x, z)) || env.solid(x, z, r * 0.7))) return; if (!env.inTop(P.i, x, z) || !env.inTop(P.i, x + r, z + r * 0.5) || !env.inTop(P.i, x - r, z - r * 0.5) || blocked(x, z, r * 0.6) || (env.road && env.road(x, z, r + 0.12))) return; T.push(x, hAt(P.i, x, z), z, r, P.i, tint, 0); };
+      const tree = (P, x, z, r, tint, yard) => { if (env.solid && ((yard && env.dense(x, z)) || env.solid(x, z, r * 0.7))) return; if (!env.inTop(P.i, x, z) || !env.inTop(P.i, x + r, z + r * 0.5) || !env.inTop(P.i, x - r, z - r * 0.5) || blocked(x, z, r * 0.6) || (env.road && env.road(x, z, r + 0.12)) || (env.park && env.park(x, z, 0))) return; T.push(x, hAt(P.i, x, z), z, r, P.i, tint, 0); };
       for (let i = 0; i < HOODS.length; i++) {
         const bb = BB[i]; if (bb[2] < x0 - 3 || bb[0] > x1 + 3 || bb[3] < z0 - 3 || bb[1] > z1 + 3) continue;
         const P = plan(i, hs), c = P.c, s = P.s;
-        const inPark = (x, z) => { for (const p of P.parks) if ((x - p[0]) * (x - p[0]) + (z - p[1]) * (z - p[1]) < p[2] * p[2]) return true; return false; };
+        const inPark = (x, z) => { if (env.park) return env.park(x, z, 0); for (const p of P.parks) if ((x - p[0]) * (x - p[0]) + (z - p[1]) * (z - p[1]) < p[2] * p[2]) return true; return false; };   // (env.park: the real parks, js/map3d/parks.js, once they are known; until then the clearings named after a park)
         if (P.kind !== 'built') {
           // trees on a loose grid: groves where the noise is high, lawn or open hill between them
           const sp = P.kind === 'park' ? 0.56 : 1.05, f = P.kind === 'park' ? 0.21 : 0.1, cut = P.kind === 'park' ? 0.42 : 0.5;
@@ -157,7 +157,7 @@
           }
         }
         // its parks: trees round a clearing, thicker towards the rim
-        for (const p of P.parks) {
+        for (const p of env.park ? [] : P.parks) {
           if (p[0] + p[2] < x0 || p[0] - p[2] > x1 || p[1] + p[2] < z0 || p[1] - p[2] > z1) continue; const sp = 0.42;
           for (let gi = Math.floor((p[0] - p[2]) / sp); gi * sp < p[0] + p[2]; gi++) for (let gj = Math.floor((p[1] - p[2]) / sp); gj * sp < p[1] + p[2]; gj++) {
             const R = rng(mix32(P.seed ^ 0x51ed, gi, gj)), x = (gi + 0.2 + R() * 0.6) * sp, z = (gj + 0.2 + R() * 0.6) * sp, q = Math.hypot(x - p[0], z - p[1]) / p[2]; if (!own(x, z) || q > 1) continue;

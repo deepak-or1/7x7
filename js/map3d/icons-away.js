@@ -1,6 +1,16 @@
 // More 3D landmarks for the 3D map (beta): the rest of the Bay and Las Vegas. Each entry is pushed onto window.M3D.extra and taken up by js/map3d/models.js.
 (() => {
   const X = window.M3D.extra = window.M3D.extra || [];
+  // the true sizes (js/map3d.js lmTrue; the list and its rule are in icons-sf.js): js/map3d/models.js's own Strip models, and where a model here is not its real size times ex
+  const RD = Math.sqrt(2.5);   // (a round or steep one keeps its shape: drawn as a whole RD times its true size)
+  window.M3D.lmTrue = Object.assign(window.M3D.lmTrue || {}, {
+    sphere: [RD / 2.6, RD / 2.6], // Sphere: 112 m tall, 157 m across, round
+    eiffel: [RD / 4.2, RD / 4.2], // the Eiffel Tower at Paris Las Vegas: 165 m, half the real one; its shape kept
+    highroller: [RD / 3.8, RD / 3.8], // High Roller: 168 m, a wheel
+    strat: 1 / 2.6,         // The STRAT: 350 m
+    luxor: [RD / 3, RD / 3], // Luxor: 107 m on a 183 m base, a pyramid: its slope kept
+    muirwoods: [1, 1],      // Muir Woods: a few redwoods stand for a forest 2 km long: it keeps its size
+  });
   const D = Math.PI / 180, CELL = 1 / 8;
   const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
   const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];

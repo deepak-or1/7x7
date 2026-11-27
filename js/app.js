@@ -346,12 +346,12 @@
   function setHead(o) {
     head._path = o.path || null;
     o = Object.assign({}, o, { tools: (o.tools || []).concat(showX() ? [{ id: 'home', label: 'Back to the map', icon: ICON.x, run: toFirst }] : []) });
-    // the counts are plain text, heard as one labelled group ("7 places walked, 3 want to go, 10 spots"), not three loose numbers
-    const tally = o.tally ? `<div class="tally"><span class="sr">${esc(o.tally.map(t => t[2]).join(', '))}</span>${o.tally.map(t => `<span aria-hidden="true"><b>${t[0].toLocaleString('en-US')}</b><small>${t[1]}</small></span>`).join('')}</div>` : '';
+    const tally = o.tally ? `<div class="tally">${o.tally.map((t, i) => `<button type="button" data-tally="${i}" aria-label="${esc(t[2])}"><b>${t[0].toLocaleString('en-US')}</b><small>${t[1]}</small></button>`).join('')}</div>` : ''; // each count opens its list (t[3])
     head.innerHTML = `<button type="button" class="up" aria-label="Back" ${o.back === false ? 'hidden' : ''}>${ICON.back}</button><div class="ttl">${o.tally ? '' : `<p class="eyebrow">${o.path ? '' : (o.dot ? `<i style="--c:${o.dot}"></i>` : '') + (o.eyebrow || '')}</p>`}<h2${o.compact ? ' class="sr"' : ''}>${o.title}${o.act ? ` <button type="button" class="hact ${o.act.cls || ''}" data-hact aria-label="${esc(o.act.label)}" title="${esc(o.act.label)}"${o.act.pressed != null ? ` aria-pressed="${!!o.act.pressed}"` : ''}${o.act.off ? ' disabled' : ''}>${o.act.html}</button>` : ''}</h2>${o.badge ? `<span class="newsb"><span aria-hidden="true">${esc(o.badge)}</span><span class="sr">${esc(o.badge)} new</span></span>` : ''}</div>${tally}<div class="tools">${o.tools.map(t => `<button type="button" data-tool="${t.id}" title="${esc(t.label)}" aria-label="${esc(t.label)}">${t.icon}</button>`).join('')}</div>`;
     head.classList.toggle('compact', !!o.compact); head.classList.toggle('first', !!o.tally);
     head.querySelector('.up').addEventListener('click', o.onBack || up);
     o.tools.forEach(t => head.querySelector(`[data-tool="${t.id}"]`).addEventListener('click', t.run));
+    if (o.tally) head.querySelectorAll('[data-tally]').forEach(b => b.addEventListener('click', o.tally[+b.dataset.tally][3]));
     if (o.act) head.querySelector('[data-hact]').addEventListener('click', o.act.run); // o.act: one action beside the name (Add a spot on a place, the bookmark on a spot)
   }
   let headH = 0;
@@ -386,7 +386,7 @@
     else {
       const l = state.loc, v = state.view; let fresh = true;
       if (!l.spot) stamped = null; // back on this spot later, the stamp lands again
-      if (v === 'log') renderLogForm(); else if (v === 'spots') renderSpots(); else if (window.Lookback && Lookback.view(v)) {} else if (l.spot) fresh = renderSpot(l.spot); else if (l.sub) fresh = renderSub(l.hood, l.sub); else if (l.hood) renderHood(l.hood); else renderHome();
+      if (v === 'log') renderLogForm(); else if (v === 'spots') renderSpots(); else if (v === 'hoods') renderHoods(); else if (window.Lookback && Lookback.view(v)) {} else if (l.spot) fresh = renderSpot(l.spot); else if (l.sub) fresh = renderSub(l.hood, l.sub); else if (l.hood) renderHood(l.hood); else renderHome();
       if (fresh !== false) { wire(panel); if (window.Photos) Photos.mount(panel); } // fresh false: the panel was left as it was, listeners and all
       if (!v && level(l) >= 2) streetSoon();
     }
@@ -491,25 +491,28 @@
     // neighborhoods explored (the progress below), spots (the Spots list below) and bookmarked (the Bookmarked spots below)
     if (r === 'all' || AWAY.includes(r)) {
       const w = bmList.length, sp = recent.length;
-      setHead({ back: r !== 'all', title: r === 'all' ? 'Seven by Seven<em>.</em>' : esc(REGIONS[r].label), badge: news ? String(news) : '', tally: [[n, 'Neighborhoods', `${n} ${n === 1 ? 'neighborhood' : 'neighborhoods'} explored`], [sp, 'Spots', `${sp} ${sp === 1 ? 'spot' : 'spots'}`], [w, 'Bookmarked', `${w} bookmarked`]] });
+      setHead({ back: r !== 'all', title: r === 'all' ? 'Seven by Seven<em>.</em>' : esc(REGIONS[r].label), badge: news ? String(news) : '', tally: [[n, 'Neighborhoods', `${n} ${n === 1 ? 'neighborhood' : 'neighborhoods'} explored: see them`, () => openList('hoods')], [sp, 'Spots', `${sp} ${sp === 1 ? 'spot' : 'spots'}: see them`, () => openList('spots', {})], [w, 'Bookmarked', `${w} bookmarked: see them`, () => openList('spots', { status: 'bm' })]] });
     } else setHead({ path: { crumbs: crumbsOf(state.loc) }, title: REGIONS[r].label });
     const active = state.filters.size > 0, hits = active ? NAMES.filter(x => matches(IDX[x])) : [];
+    const first = r === 'all' || AWAY.includes(r); // the first screen of a map: its counts open the lists (Neighborhoods, Spots, Bookmarked), so it carries none of its own
     const places = r === 'all'
       ? Object.keys(REGIONS).filter(k => k !== 'all').map(k => `<li><button type="button" class="row" data-go='${attr({ region: k })}'><span class="ic ${doneCount(k) === REGION_N[k] ? 'flag' : doneCount(k) ? 'sq' : 'none'}" style="--c:var(--accent)"></span><span class="nm">${REGIONS[k].label}</span><span class="rt">${doneCount(k)} of ${REGION_N[k]}<span class="chev"></span></span></button></li>`).join('')
       : (REGIONS[r].ordered ? HOODS.filter(h => h.region === r).map(h => h.name) : NAMES.filter(x => inRegion(IDX[x]))).map(x => `<li><button type="button" class="row" data-go='${attr({ hood: x })}'><span class="ic ${isDone(IDX[x]) ? 'flag' : isWant(IDX[x]) ? 'star' : 'none'}"></span><span class="nm">${esc(x)}${starOf(x) ? '<span class="st" role="img" aria-label="Starred"></span>' : ''}</span><span class="rt">${ft(HOODS[IDX[x]].max).toLocaleString()} ft</span></button></li>`).join('');
     // the phone puts the tappable list right under the progress bar, so the half sheet shows rows, not instructions
     const progress = `<div class="progress"><div class="bar"><i style="width:${(n / total * 100).toFixed(1)}%"></i></div><small>${n === 0 ? (state.store === 'sync' && !Object.keys(state.spots).length ? 'Nothing walked yet · <button type="button" class="act" id="join-log-hint">Already have a log? Join it</button>' : 'Nothing walked yet') : `<b>${n}</b> of ${total} walked · ${Math.round(areaPct() * 100)}% by area · ${climbedFt().toLocaleString()} ft climbed`}</small></div>`;
-    const lead = `<p class="lead">${n === 0 ? `Tap a place on the map, or pick one ${isPhone() ? 'above' : 'below'}. When you have set foot in it, log it and it gets a flag.` : n === total ? `All ${total}. You have been all over ${REGIONS[r].the}.` : `${total - n} to go.${next ? ' Next stamp: ' + next.label + '.' : ''}`}</p>`;
+    const lead = `<p class="lead">${n === 0 ? `Tap a place on the map${r === 'all' ? '' : `, or pick one ${isPhone() ? 'above' : 'below'}`}. Log a spot there and it gets a flag.` : n === total ? `All ${total}. You have been all over ${REGIONS[r].the}.` : `${total - n} to go.${next ? ' Next stamp: ' + next.label + '.' : ''}`}</p>`;
     const links = `<div class="pills">${r === 'all' && window.Lookback ? '<button type="button" data-view="timeline">Timeline</button>' : ''}<button type="button" id="surprise">Suggest a place</button><button type="button" id="quiz">Quiz me</button><button type="button" data-mood-toggle aria-expanded="${active}">Find by mood${active ? ' (' + state.filters.size + ')' : ''}</button></div>
       <div id="moods" ${active ? '' : 'hidden'}><h3>Mood</h3><div class="textlinks">${MOODS.map(t => `<button type="button" data-mood="${t}" aria-pressed="${state.filters.has(t)}">${t}</button>`).join('')}</div>
         ${active ? `<h3>${hits.length ? hits.length + ' match' + (hits.length === 1 ? '' : 'es') : 'No matches'}</h3><div class="textlinks">${hits.map(a => `<button type="button" class="${isDone(IDX[a]) ? 'done' : isWant(IDX[a]) ? 'want' : ''}" data-go='${attr({ hood: a })}'>${esc(a)}</button>`).join('')}</div>` : ''}</div>`;
-    const list = `<h3>${r === 'all' ? 'Regions' : 'Places'} <span class="n">${r === 'all' ? '' : total}</span></h3><ul class="rows ${r === 'all' || REGIONS[r].ordered ? '' : 'cols2'}">${places}</ul>`; // an ordered region (the Strip, north to south) reads down one column
+    const list = r === 'all' ? '' : `<h3>${r === 'all' ? 'Regions' : 'Places'} <span class="n">${r === 'all' ? '' : total}</span></h3><ul class="rows ${r === 'all' || REGIONS[r].ordered ? '' : 'cols2'}">${places}</ul>`; // an ordered region (the Strip, north to south) reads down one column
     // the actions first, as a row of pills (Find by mood opens its tags just under them)
     panel.innerHTML = links + (news ? newsBlock() : '') + (r === 'all' && window.Lookback ? Lookback.card() : '') + progress + (isPhone() ? list + lead : lead + list) + `
+      ${first ? '' : `
       ${entries.length ? `<h3>Explored <span class="n">${entries.length}</span></h3><ul class="rows">${entries.map(x => `<li><button type="button" class="row" data-go='${attr({ hood: x })}'><span class="ic flag"></span><span class="nm">${esc(x)}${flagOf(x).note ? `<small>${esc(flagOf(x).note)}</small>` : ''}</span><span class="rt">${niceDate(flagOf(x).at)}</span></button></li>`).join('')}</ul>` : ''}
       ${bmList.length ? `<h3>Bookmarked <span class="n">${bmList.length}</span>${bmList.length > 6 ? `<button type="button" class="act" data-view="spots" data-bm>All ${bmList.length}</button>` : ''}</h3><ul class="rows">${bmList.slice(0, 6).map(id => rowSpot(id, true)).join('')}</ul>` : ''}
       <h3>Spots <span class="n">${recent.length || ''}</span>${recent.length > 6 ? `<button type="button" class="act" data-view="spots">All ${recent.length}</button>` : ''}</h3>
       ${recent.length ? `<ul class="rows">${recent.slice(0, 6).map(id => rowSpot(id, true)).join('')}</ul>` : `<p class="empty">Restaurants, bars, views, shops: search a name or drop a pin, then rate it.</p>`}
+      `}
       <h3>Stamps <span class="n">${earned.length} of ${STAMPS.length}</span></h3><div class="stamps">${STAMPS.map(st => `<div class="stamp ${st.test(s) ? 'got' : ''}"><b>${st.icon}</b>${st.label}</div>`).join('')}</div>
       <details class="more"><summary>Settings</summary>
         <label class="switch"><span>Color every place, been or not</span><input type="checkbox" id="show-all" ${state.showAll ? 'checked' : ''}></label>
@@ -606,13 +609,26 @@
     panel.querySelector('#del-yes').addEventListener('click', () => removeSpot(id));
     const bn = panel.querySelector('#been-now'); if (bn) bn.addEventListener('click', async () => { if (!state.spots[id]) return; await beforeWrite(); const s = state.spots[id]; if (!s || s.status === 'been') return; const hi = IDX[s.hood], fresh = hi != null && !isDone(hi); s.status = 'been'; delete s.bm; if (window.Lookback) Lookback.markBeen(s, today()); else s.at = today(); const ok = await persist(); render(); if (fresh && isDone(hi)) { map.pop(hi); if (state.lens === 'done') recolor(true); } map.redraw(); toast(fresh && isDone(hi) ? `${s.name}: been there. ${s.hood} explored.` : `${s.name}: been there.`); if (ok !== false) logEvent('been', { id, name: s.name, hood: s.hood }); });
   }
+  // a count on the first screen opens its list: the neighborhoods explored (hoods), or the spots (all, or the bookmarked: f)
+  function openList(view, f) { if (f) state.spotFilter = f; go(state.loc, { view, fly: false, replace: true, sheet: isPhone() ? 'full' : undefined }); }
+  // ---- neighborhoods explored, region by region (the first screen no longer lists the regions: their counts lead here) ----
+  function renderHoods() {
+    const r = state.loc.region, regs = r === 'all' ? Object.keys(REGIONS).filter(k => k !== 'all') : [r];
+    setHead({ eyebrow: 'Logbook', title: 'Neighborhoods', onBack: () => go(state.loc, { replace: true, fly: false }) });
+    panel.innerHTML = regs.map(k => {
+      const got = NAMES.filter(x => HOODS[IDX[x]].region === k && isDone(IDX[x])).sort((a, b) => String(flagOf(b).at ?? '').localeCompare(String(flagOf(a).at ?? '')) || a.localeCompare(b));
+      return `<h3>${esc(REGIONS[k].label)} <span class="n">${got.length} of ${REGION_N[k]}</span>${r === 'all' ? `<button type="button" class="act" data-go='${attr({ region: k })}'>Open</button>` : ''}</h3>
+        <div class="progress mini"><div class="bar"><i style="width:${(got.length / REGION_N[k] * 100).toFixed(1)}%"></i></div></div>
+        ${got.length ? `<ul class="rows">${got.map(x => `<li><button type="button" class="row" data-go='${attr({ hood: x })}'><span class="ic flag"></span><span class="nm">${esc(x)}${flagOf(x).note ? `<small>${esc(flagOf(x).note)}</small>` : ''}</span><span class="rt">${niceDate(flagOf(x).at)}</span></button></li>`).join('')}</ul>` : '<p class="empty">None explored yet.</p>'}`;
+    }).join('');
+  }
   // ---- all spots ----
   function renderSpots() {
     const r = state.loc.region; const f = state.spotFilter || {};
     let ids = Object.keys(state.spots).filter(id => IDX[state.spots[id].hood] != null && inRegion(IDX[state.spots[id].hood], r));
     if (f.kind) ids = ids.filter(id => state.spots[id].kind === f.kind); if (f.status) ids = ids.filter(id => f.status === 'bm' ? isBm(state.spots[id]) : (state.spots[id].status || 'been') === f.status);
     ids.sort((a, b) => (state.spots[a].at < state.spots[b].at ? 1 : -1));
-    setHead({ eyebrow: 'Logbook', title: 'Spots', onBack: () => go(state.loc, { replace: true, fly: false }) });
+    setHead({ eyebrow: 'Logbook', title: f.status === 'bm' ? 'Bookmarked' : 'Spots', onBack: () => go(state.loc, { replace: true, fly: false }) });
     panel.innerHTML = `<div class="textlinks chips"><button type="button" data-sf="status:" aria-pressed="${!f.status}">All</button><button type="button" data-sf="status:been" aria-pressed="${f.status === 'been'}">Been</button><button type="button" data-sf="status:bm" aria-pressed="${f.status === 'bm'}">Bookmarked</button></div>
       <div class="textlinks chips"><button type="button" data-sf="kind:" aria-pressed="${!f.kind}">Any kind</button>${Object.entries(KINDS).map(([k, v]) => `<button type="button" data-sf="kind:${k}" aria-pressed="${f.kind === k}">${v.label}</button>`).join('')}</div>
       <h3>${ids.length} ${ids.length === 1 ? 'spot' : 'spots'}</h3>${ids.length ? `<ul class="rows">${ids.map(id => rowSpot(id, true)).join('')}</ul>` : '<p class="empty">Nothing matches.</p>'}`;

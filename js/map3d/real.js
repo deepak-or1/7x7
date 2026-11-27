@@ -99,6 +99,7 @@
       tallOf.sort((u, v) => u.key - v.key); for (let k = 0; k < tallOf.length; k += 50) groups.push(tallOf.slice(k, k + 50));
     }
     if (!areas) throw new Error('no area of the building data could be read');
+    if (M3D.heroes) M3D.heroes.match(grid, ck);   // the named buildings (js/map3d/heroes.js): each outline of its table is given its shape (b.hero)
     // is the circle r round a point built on (by any outline, kept or not: nothing made up stands there either)
     function solid(x, z, r) {
       for (let i = Math.floor((x - r) / CELL); i <= Math.floor((x + r) / CELL); i++) for (let j = Math.floor((z - r) / CELL); j <= Math.floor((z + r) / CELL); j++) {
@@ -218,7 +219,7 @@
           }
         };
         if (env.look && env.look !== '0') { const m = [pos.length, nor.length, aB.length, aW.length, idx.length, nv, y0, y1];
-          try { styled(); } catch (e) { pos.length = m[0]; nor.length = m[1]; aB.length = m[2]; aW.length = m[3]; idx.length = m[4]; nv = m[5]; y0 = m[6]; y1 = m[7]; plain(); } } // (a building the new roof fails on stands as the plain one)
+          try { if (!(b.hero && M3D.heroes.put(b, vert, idx, ears, g, gc, K * V))) styled(); } catch (e) { pos.length = m[0]; nor.length = m[1]; aB.length = m[2]; aW.length = m[3]; idx.length = m[4]; nv = m[5]; y0 = m[6]; y1 = m[7]; plain(); } } // (a building the new roof fails on stands as the plain one)
         else plain();
         if (bi + 1 === Math.ceil(keep.length * 0.25)) cuts[0] = idx.length; if (bi + 1 === Math.ceil(keep.length * 0.5)) cuts[1] = idx.length;
       });
@@ -298,7 +299,7 @@ if (uWin.r + uWin.g + uWin.b > 0.0 && m3dKd > 0.5 && m3dKd < 1.5) { float st = $
   float sb = vWin.x / 0.22, sf = fract(sb); totalEmissiveRadiance += uWin * 0.5 * step(0.2, hh) * step(0.012, y) * step(y, 0.05) * step(0.12, sf) * step(sf, 0.88) * step(0.45, fract(sin(floor(sb) * 91.7 + m3dFt * 40.0) * 4375.85)) * (1.0 - clamp(fwidth(sb) * 3.0 - 0.3, 0.0, 1.0)); }`);
     };
     mat.onBeforeCompile = s => { uni(s);
-      if (NEW) { styled(s); s.fragmentShader += '\n// m3d-look\n'; return; }   // (the look's mark: js/map3d.js onShaderError)
+      if (NEW) { styled(s); if (M3D.heroes) M3D.heroes.shade(s); s.fragmentShader += '\n// m3d-look\n'; return; }   // (the look's mark: js/map3d.js onShaderError)
       s.vertexShader = s.vertexShader.replace('#include <common>', '#include <common>' + HEAD + '\nuniform vec3 uPale; uniform float uRoofK; uniform float uWallK;\nvarying vec3 vFab; varying vec4 vWin;')
         .replace('#include <begin_vertex>', POS + `
 bool top = aW.z < 0.5; float ft = aB.z, tall = smoothstep(0.3, 1.7, aW.w);

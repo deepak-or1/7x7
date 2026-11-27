@@ -87,7 +87,7 @@
     insets() { const c = document.querySelector('#ctl .stack').getBoundingClientRect(), right = Math.max(0, window.innerWidth - c.left) + 8; if (isPhone()) return { top: sheet && sheet.detent === 'full' ? 0 : Math.max(c.top + 4, insetPill ? $('areas').getBoundingClientRect().bottom + 8 : 0), right: insetClear ? right : 0, bottom: (sheet ? sheet.visible : 0) + 12, left: 0 }; return { top: document.querySelector('.top .search').getBoundingClientRect().bottom + 10, right, bottom: 12, left: 0 }; },
     spots: spotList, marks: marksFor, selectedSpot: () => state.loc.spot,
     alphaFor(i) { if (state.quiz) return 1; const filtered = state.filters.size > 0 && !matches(i) ? .25 : 1; const veil = !state.showAll && state.lens !== 'done' && !isDone(i) ? .35 : 1; return filtered * veil; },
-    onTap, onHover, onGestureStart() { closeLenses(); openAreas(false); },
+    onTap, onHover, onGestureStart() { fingerOn = true; mapBusyT = fingerT = performance.now(); closeLenses(); openAreas(false); }, onGestureEnd() { fingerOn = false; mapBusyT = performance.now(); }, onMove() { mapBusyT = fingerT = performance.now(); }, // (the map in use: the street map waits, streetGate)
     // the floating chrome (the control capsule; the search field, which on the phone sits in the capsule's top slot) reserves its footprint so map labels avoid it
     occluders() { if (isPhone() && document.documentElement.classList.contains('sheet-full')) return []; return ['.top .search', '#ctl .stack', '#areas'].map(s => document.querySelector(s)).filter(el => el && el.offsetParent !== null && getComputedStyle(el).opacity !== '0').map(el => el.getBoundingClientRect()).filter(b => b.height > 0).map(b => [b.left - 4, b.top - 4, b.right + 4, b.bottom + 4]); },
   });
@@ -375,7 +375,7 @@
       if (fresh !== false) { wire(panel); if (window.Photos) Photos.mount(panel); } // fresh false: the panel was left as it was, listeners and all
       if (!v && level(l) >= 2) streetSoon();
     }
-    fitHead();
+    streetOff(); fitHead();
     // the peek is the header's height: when that changes (the first screen's one-row header, a two-line title) the peek follows
     const hh = head.offsetHeight; if (hh !== headH) { headH = hh; if (isPhone() && sheet.detent === 'peek') sheet.set('peek', { quiet: true }); }
   }
@@ -416,9 +416,24 @@
   // the street-map preview (js/streetmap.js). Not inside the Claude artifact, whose host blocks third-party content
   const streetOK = () => (state.store === 'sync' || state.store === 'local') && !(window.claude && window.claude.use);
   const streetMap = v => streetOK() && window.StreetMap ? `<h3>Street map</h3>${StreetMap.box(v)}` : '';
-  // the street map mounts once the camera has landed (mounting during the fly cost a 60-365 ms hitch); a re-render with no fly
-  // (a sync echo, a save) mounts at once, so the same view stays drawn without a blink
-  const mountStreet = v => { const now = () => { const el = panel.querySelector('.mapprev'); if (el && el.dataset.key === v.key && window.StreetMap) StreetMap.mount(el, v); }; if (goFly || flyQ.length) afterFly(now); else now(); };
+  // the street map is made only when its box is on screen (a third of it at least: on the phone the sheet at its low stops does not show
+  // it) and the map has rested 500 ms (no finger, no flight, nothing animating: mapBusyT, and the 3D map's own restMs); until then the box
+  // shows its land-coloured placeholder with the pin. A gesture or flight meanwhile starts the wait again; leaving the place first never
+  // makes it. A re-render with no fly (a sync echo, a save) of the view already drawn mounts at once, so it stays drawn without a blink
+  // (fingerOn counts as off once the map itself says it rests, or 5 s after the last move or touch: a finger the map kept by mistake never blocks it for ever)
+  let mapBusyT = 0, fingerOn = false, fingerT = 0, streetW = null; const streetOff = () => { if (streetW && !panel.querySelector('.mapprev')) streetW.stop(); }; // (a panel painted without a box: its watcher goes)
+  function streetGate(v) {
+    if (streetW) streetW.stop(); const el = panel.querySelector('.mapprev'); if (!el || el.dataset.key !== v.key || !window.StreetMap) return;
+    if (!goFly && !flyQ.length && StreetMap.shown === v.key) { StreetMap.mount(el, v); return; }
+    const t0 = performance.now(); let seen = false, tm = 0, io = null;
+    const w = streetW = { stop() { clearTimeout(tm); if (io) io.disconnect(); if (streetW === w) streetW = null; } };
+    const check = () => { clearTimeout(tm); if (streetW !== w) return; if (!el.isConnected) return w.stop(); if (!seen) return;
+      const fOn = fingerOn && !(map.restMs && map.restMs() >= 500) && performance.now() - fingerT < 5000, rest = fOn ? 0 : Math.min(performance.now() - Math.max(mapBusyT, t0), map.restMs ? map.restMs() : Infinity); if (rest < 500) { tm = setTimeout(check, 520 - rest); return; }
+      w.stop(); StreetMap.mount(el, v); };
+    if (!window.IntersectionObserver) { seen = true; check(); return; } // (no IntersectionObserver: as if the box were on screen)
+    io = new IntersectionObserver(es => { seen = es[es.length - 1].intersectionRatio >= 0.33; check(); }, { threshold: [0, 0.33, 0.66, 1] }); io.observe(el);
+  }
+  const mountStreet = v => streetGate(v);
   // the camera has been still for three frames (or 2.5 s passed): the fly is over
   const flyQ = [];
   function afterFly(fn) {
@@ -427,10 +442,10 @@
     const tick = () => { const c = map.cam, k = c.x + ',' + c.y + ',' + c.w, t = performance.now(); still = k === last ? still + 1 : 0; last = k; if ((still >= 3 && t - t0 > 90) || t - t0 > 2500) flyQ.splice(0).forEach(f => f()); else requestAnimationFrame(tick); };
     requestAnimationFrame(tick);
   }
-  // the street-map library (about 376 KB) is not loaded at boot: the first place, section or spot asks for it, once its fly is over,
-  // so the download and its parse never share the main thread with the camera or a first photo
+  // the street-map library (about 376 KB) is not loaded at boot: the first place, section or spot asks for its download (not its parse: that
+  // waits for the street map itself, streetGate), once its fly is over, so neither shares the main thread with the camera or a first photo
   let streetAsked = false;
-  function streetSoon() { if (streetAsked || !window.StreetMap || !streetOK()) return; streetAsked = true; afterFly(() => StreetMap.preload()); }
+  function streetSoon() { if (streetAsked || !window.StreetMap || !streetOK()) return; streetAsked = true; afterFly(() => StreetMap.preload(true)); }
   const okLL = (lat, lon) => typeof lat === 'number' && typeof lon === 'number' && isFinite(lat) && isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180; // a log is anyone's to write: a spot without real coordinates gets no map and no dot
   const spotDots = skip => Object.keys(state.spots).filter(id => id !== skip && okLL(state.spots[id].lat, state.spots[id].lon)).map(id => { const s = state.spots[id]; return [s.lon, s.lat, KINDS[s.kind] ? s.kind : 'other']; });
   // a re-render (sync echo, a save) that would write the same HTML leaves the panel alone, so the street map stays as drawn
@@ -702,6 +717,7 @@
     const p = panel.querySelector('[data-pin]'); if (p) p.addEventListener('click', () => pinFor(lk.name, here));
   }
   function renderSearch() {
+    if (streetW) streetW.stop(); // (no street map in search: its watcher goes)
     const pasted = q.value.trim(), lk = window.Link ? Link.parse(pasted) : { t: 'other' };
     if (lk.t === 'short') readLink(lk.url); else if (lnk.url) dropLink();
     const got = lk.t === 'short' ? (lnk.st === 'done' ? lnk.got : null) : lk;
@@ -1207,7 +1223,7 @@
   }
   function endQuiz(silent) { if (state.quiz) clearTimeout(state.quiz.timer); if (window.Confetti) Confetti.stop(); state.quiz = null; quizPrompt(); map.setState({ quiz: false }); map.setHover(-1, -1, null); recolor(true); if (!silent) go({ region: state.loc.region }, { replace: true }); }
   function renderQuiz(answered) {
-    const qz = state.quiz; if (!qz) return;
+    const qz = state.quiz; if (!qz) return; if (streetW) streetW.stop(); // (nor in the quiz)
     quizPrompt(answered); if (state.query) return; // search open: the card keeps up, the panel and header stay the search's (render() rebuilds them when it closes)
     if (qz.round >= qz.rounds) {
       const s = qz.score, away = AWAY.includes(qz.region), rank = s >= 10 ? (away ? 'Pit boss' : 'Muni operator') : s >= 8 ? 'Certified local' : s >= 5 ? 'Transplant, two years in' : s >= 2 ? 'Tourist with a good map' : away ? 'Just landed at Harry Reid' : 'Just landed at SFO';

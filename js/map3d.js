@@ -70,9 +70,9 @@
     if (!THREE || !land || !MD || !window.MapView) return null;          // three.js or the 3D files did not load: the flat map
     o = o || {};
     // the speed test's switches (js/map3d/bench.js), read once: ?m3d-pr=<1..3> one pixel ratio always, m3d-aa=off, m3d-shadows=off, m3d-q=<0..6> one quality
-    // level (the governor and the session's level left out), m3d-shadowhold=off and m3d-pump=old (the rules before the speed fixes), m3d-cap=old (a touch screen's pixel ratio lighter while the map moves, as before). None in the address: none changes anything
+    // level (the governor and the session's level left out), m3d-shadowhold=off and m3d-pump=old (the rules before the speed fixes), m3d-cap=old (a touch screen's pixel ratio lighter while the map moves, as before), m3d-warm=off (step 3's warm-ups and its cap on what first appears in a frame left out). None in the address: none changes anything
     const qsv = k => { const m = new RegExp('[?&]m3d-' + k + '=([^&]*)').exec(location.search); return m ? m[1] : null; };
-    const SW = { pr: +qsv('pr') > 0 ? clamp(+qsv('pr'), 1, 3) : 0, aa: qsv('aa') !== 'off', shadows: qsv('shadows') !== 'off', q: /^[0-6]$/.test(qsv('q') || '') ? +qsv('q') : -1, hold: qsv('shadowhold') !== 'off', pumpOld: qsv('pump') === 'old', capOld: qsv('cap') === 'old' };
+    const SW = { pr: +qsv('pr') > 0 ? clamp(+qsv('pr'), 1, 3) : 0, aa: qsv('aa') !== 'off', shadows: qsv('shadows') !== 'off', q: /^[0-6]$/.test(qsv('q') || '') ? +qsv('q') : -1, hold: qsv('shadowhold') !== 'off', pumpOld: qsv('pump') === 'old', capOld: qsv('cap') === 'old', warmOff: qsv('warm') === 'off' };
     const glc = document.createElement('canvas'), lbl = document.createElement('canvas');
     let renderer; try { renderer = new THREE.WebGLRenderer({ canvas: glc, antialias: SW.aa, alpha: false, powerPreference: 'high-performance' }); } catch (e) { return null; } // no WebGL here: the flat map
     // the canvas is opaque: until the scene is ready it shows the theme's water, never black
@@ -124,7 +124,7 @@
     const farA = [1], markAnim = {}; let me = null, meT0 = 0, meTimer = 0, drawnSpots = [], lmBox = [], farNames = false;
     const lblA = new Map(), lblLast = new Map(), lmA = LANDS.map(() => 0), measureCache = new Map(), hoodCache = new Map();
     const P = {}; let LK = null, dark = false;                             // the tokens, and the look made from them
-    const stat = { t0: now(), firstFrame: 0, build: { relief: now() - tRelief }, blocks: '', frames: 0, lastMs: 0, amb: 0, shadowDraws: 0 };
+    const stat = { t0: now(), firstFrame: 0, build: { relief: now() - tRelief }, blocks: '', frames: 0, lastMs: 0, amb: 0, shadowDraws: 0, shadowAt: 0, busyAt: 0 };
     let ambUntil = 0, ambT = 0, ambLast = 0, ambTimer = 0, ambTick = false, olAnim = true, sunAt = 0, sunKey = '', fogLens = false; // ambient motion: until when it runs, its own seconds, the timer of its next frame
     const poke = () => { ambUntil = now() + AMB_MS; };                    // a touch (or a move the app asked for): the ambient motion runs on from here
     const ambOn = () => AMBIENT && ready && Q.life && !RM.matches && !document.hidden && now() < ambUntil; // the governor's first step gives it up
@@ -371,7 +371,7 @@
       vertexShader: 'attribute float size; attribute vec3 tint; varying vec3 vTint; varying float vFade; uniform float uScale; uniform float uMin;\nvoid main(){ vTint = tint; vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mv; float px = size * uScale / max(0.001, -mv.z); vFade = clamp(px / uMin, 0.25, 1.0); gl_PointSize = max(px, uMin); }',
       fragmentShader: 'varying vec3 vTint; varying float vFade; uniform float uGain;\nvoid main(){ float r = length(gl_PointCoord - 0.5) * 2.0; float a = smoothstep(1.0, 0.0, r); a = a * a * (0.35 + 0.65 * smoothstep(0.55, 0.0, r)); gl_FragColor = vec4(vTint * a * vFade * uGain, 1.0); }',
     });
-    const lightSets = [];
+    const lightSets = [], beamMat = new THREE.MeshBasicMaterial({ color: 0xbcd0ff, transparent: true, opacity: 0.09, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }); // (the Luxor's beam: made once, so the warm-up can compile it before the first night in Las Vegas)
     function pointsOf(list, parent) {
       if (!list || !list.length) return null; const g = new THREE.BufferGeometry(), Pp = new Float32Array(list.length * 3), S = new Float32Array(list.length), Tt = new Float32Array(list.length * 3);
       list.forEach((l, i) => { Pp[i * 3] = l.x; Pp[i * 3 + 1] = l.y; Pp[i * 3 + 2] = l.z; S[i] = l.size * 0.34; const c = col(LIGHTS[l.kind] || l.kind); Tt[i * 3] = c[0]; Tt[i * 3 + 1] = c[1]; Tt[i * 3 + 2] = c[2]; });
@@ -436,7 +436,7 @@
             const slot = rb.slots.pop(), d = rb.gl.mesh({ ix: 0, iz: 0, n: 3, pos: new Float32Array([cur.cx, 0, cur.cz, cur.cx + 0.01, 0, cur.cz, cur.cx, 0.01, cur.cz]), nor: new Float32Array([0, 1, 0, 0, 1, 0, 0, 1, 0]), aB: new Float32Array(12), aW: new Float32Array(12), idx: new Uint16Array([0, 1, 2]), y0: 0, y1: 0.01 }, slot);
             placeData[(TW + slot) * 4] = 0; d.frustumCulled = false; d.castShadow = false;
             const seq = [() => landG.add(d), () => { d.castShadow = true; shadowDirty = true; }, () => { landG.remove(d); d.geometry.dispose(); rb.slots.push(slot); }];
-            let q = 0; const go = () => { if (dead) return; const t1 = now(); seq[q++](); needs = true; if (raf) { cancelAnimationFrame(raf); raf = 0; } lastT = now(); frame(lastT, true); stat.build['realWarm' + q] = now() - t1; if (q < seq.length) setTimeout(go, 120); }; setTimeout(go, 120);
+            let q = 0; const go = () => { if (dead) return; if (!SW.warmOff && (ptrs.size || fly)) return void setTimeout(go, 120); const t1 = now(); seq[q++](); needs = true; if (raf) { cancelAnimationFrame(raf); raf = 0; } lastT = now(); frame(lastT, true); stat.build['realWarm' + q] = now() - t1; if (q < seq.length) setTimeout(go, 120); }; setTimeout(go, 120);
           } catch (e) { rb.gen = rb.gl = null; console.warn('3D map, the real buildings left out: ' + (e && e.message || e)); }
           stat.build.real = now() - t0;
         },
@@ -462,7 +462,7 @@
               fineS = S2; fineMesh = meshOf(S2, tileMat); fineMesh.castShadow = fineMesh.receiveShadow = true; fineMesh.visible = false; fineMesh.geometry.boundingBox.max.y += LIFT; fineMesh.geometry.boundingSphere.radius += LIFT; landG.add(fineMesh);
               finePos = fineMesh.geometry.attributes.position; fineCol = fineMesh.geometry.attributes.color; fineBaseY = new Float32Array(S2.n); for (let i = 0; i < S2.n; i++) fineBaseY[i] = S2.pos[i * 3 + 1];
               const segs = [], hs = []; list.forEach(i => { const f = tiles[i].fine; f.r0 = segs.length; rimSegs(f.rim, segs, hs); f.r1 = segs.length; });
-              rimF = new THREE.Mesh(ribbon(segs, 0.006, 1, hs), rim.material); rimF.renderOrder = 1; rimF.frustumCulled = false; rimF.visible = false; rimFBase = new Float32Array(rimF.geometry.attributes.position.count); for (let k = 0; k < rimFBase.length; k++) rimFBase[k] = rimF.geometry.attributes.position.array[k * 3 + 1]; secG.add(rimF);
+              rimF = new THREE.Mesh(ribbon(segs, 0.006, 1, hs), rim.material); rimF.renderOrder = 1; rimF.frustumCulled = false; rimF.visible = false; rimFBase = new Float32Array(rimF.geometry.attributes.position.count); for (let k = 0; k < rimFBase.length; k++) rimFBase[k] = rimF.geometry.attributes.position.array[k * 3 + 1]; secG.add(rimF); if (!SW.warmOff) upQ.push(fineMesh, rimF); // (their buffers sent at the next frame at rest, not when they first show: upOne)
               heights(); list.forEach(i => { tiles[i].H = HT[i]; if (liftV[i]) setLift(i, liftV[i]); }); paintAll = true;
             } catch (e) { console.warn('3D map, the close relief left out: ' + (e && e.stack || e)); fineMesh = null;
               // the far meshes stay what is drawn: from here on taps, spots, lines, names and what stands on those places read their ground
@@ -479,10 +479,11 @@
             const d = fab.gl.mesh({ ix: 0, iz: 0, nb: 1, nt: 1, b: new Float32Array([cur.cx, 0, cur.cz, 0, 1, 1, 1, 0, 0, 0, 0]), t: new Float32Array([cur.cx, 0, cur.cz, 1, 0, 0, 0]) }, fab.slots.shift());
             for (const m of [d.b, d.t]) { m.frustumCulled = false; m.castShadow = false; }
             const seq = [() => landG.add(d.b), () => landG.add(d.t), () => { d.b.castShadow = d.t.castShadow = true; shadowDirty = true; }, () => { for (const m of [d.b, d.t]) { landG.remove(m); fabFree(m); } }];
-            let q = 0; const go = () => { if (dead) return; const t1 = now(); seq[q++](); needs = true; if (raf) { cancelAnimationFrame(raf); raf = 0; } lastT = now(); frame(lastT, true); stat.build['warm' + q] = now() - t1; if (q < seq.length) setTimeout(go, 120); }; setTimeout(go, 120);
+            let q = 0; const go = () => { if (dead) return; if (!SW.warmOff && (ptrs.size || fly)) return void setTimeout(go, 120); const t1 = now(); seq[q++](); needs = true; if (raf) { cancelAnimationFrame(raf); raf = 0; } lastT = now(); frame(lastT, true); stat.build['warm' + q] = now() - t1; if (q < seq.length) setTimeout(go, 120); }; setTimeout(go, 120);
           } } catch (e) { fab.gl = null; console.warn('3D map, the city fabric left out: ' + (e && e.stack || e)); }
           stat.build.fabric = now() - t0; needs = true; kick();
         },
+        () => { if (!SW.warmOff) warmUp(); }, // step 3: the programs of what can first appear later, compiled now (warmUp)
       ];
       let k = 0;
       function extra(name, fn) { return () => { const t0 = now(); if (AIR) try { fn(); } catch (e) { console.warn('3D map, ' + name + ' left out: ' + (e && e.stack || e)); } stat.build[name] = now() - t0; needs = true; kick(); }; }
@@ -508,7 +509,7 @@
     // close in, the places the fine grid covers are drawn by their full meshes; from far off by the far ones (the end of the blocks' mesh)
     function setFine(on) {
       fineOn = on; fineMesh.visible = on; if (EVa) EVa.fine = on ? 'on' : 'off'; tileMesh.geometry.setDrawRange(0, on ? tileSplit : Infinity); rim.geometry.setDrawRange(0, on ? rimSplit : Infinity);
-      for (const [i, e] of edgeMeshes) { drop(e.mesh); edgeMeshes.delete(i); } shadowDirty = true; needs = true;
+      for (const e of edgeMeshes.values()) e.key = '~'; shadowDirty = true; needs = true; // (stale: each kept until its new one is made, updateSections)
     }
     function buildNight() {
       if (nightBuilt || !ready) return; nightBuilt = true;
@@ -528,7 +529,7 @@
       });
       scatter = pointsOf(list); scatterY = Float32Array.from(list, l => l.y); if (scatter) HOODS.forEach((h, t) => { if (liftV[t]) liftLights(t); });
       const lux = icons.find(i => i.id === 'luxor'); // the Luxor's sky beam
-      if (lux) { const g = new THREE.CylinderGeometry(0.28, 0.05, 30, 10, 1, true); g.translate(0, lux.h + 15, 0); beam = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0xbcd0ff, transparent: true, opacity: 0.09, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false })); lux.mesh.add(beam); }
+      if (lux) { const g = new THREE.CylinderGeometry(0.28, 0.05, 30, 10, 1, true); g.translate(0, lux.h + 15, 0); beam = new THREE.Mesh(g, beamMat); lux.mesh.add(beam); }
     }
     // the fog bank: over the places the app calls foggy (data/info.js fog 4 and 5) and the Golden Gate, draped over their tops
     function buildFog() {
@@ -569,23 +570,25 @@
     const fabDist = (ch, f) => Math.hypot((ch.ix + 0.5) * CS - f.x, (ch.iz + 0.5) * CS - f.y);
     function fabLand(ix, iz) { const k = ix * 65536 + iz; let v = fab.land.get(k); if (v === undefined) { const x0 = ix * CS, z0 = iz * CS; v = false; for (let i = 0; i < HOODS.length && !v; i++) { const b = BB[i]; v = b[2] > x0 && b[0] < x0 + CS && b[3] > z0 && b[1] < z0 + CS; } fab.land.set(k, v); } return v; }
     function fabDrop(k, ch) { for (const m of [ch.b, ch.t]) if (m) { landG.remove(m); fabFree(m); } if (ch.slot != null) { placeData[(TW + ch.slot) * 4] = 0; fab.slots.push(ch.slot); fab.live--; fab.nb -= ch.nb; fab.nt -= ch.nt; } fab.chunks.delete(k); }
-    // While the map moves the three pumps below are not run from their timers (a timer turn then returns at once): draw gives them one turn
-    // a frame between them, after the render, until end (pumpTurn); at rest they run from their timers as before (m3d-pump=old: always the timers)
-    const byFrame = () => moving && !SW.pumpOld;
+    // While frames are drawn, for any reason (the map moves, something animates or grows in, the ambient motion), the three pumps below are not run
+    // from timers: draw gives them one turn a frame between them, after the render, until end (pumpTurn: 2.5 ms while the map moves or a finger is down, else 4). Only when no frame has been drawn for
+    // 100 ms does a timer run them, one pump a turn, at most 4 ms, turns at least 16 ms apart (idleTurn) (m3d-pump=old: always their own timers, as before)
+    let lastDraw = 0, idleT = 0; const byFrame = () => !SW.pumpOld && (moving || now() - lastDraw < 100), pumpT = f => SW.pumpOld ? setTimeout(f, 0) : (armIdle(), 0);
     // the speed test's log (EVa, only with onDraw): a chunk made, and the bytes of its own buffers (a fabric chunk shares the unit building's and tree's); pumpTimers: the ms of the timer turns (at rest)
-    const evMade = (k, ms, shared) => { EVa[k] = (EVa[k] || 0) + 1; for (const m of ms) if (m) { const g = m.geometry, seen = new Set(); for (const n in g.attributes) { if (shared && (n === 'position' || n === 'normal' || n === 'uv')) continue; const a = g.attributes[n], b = a.isInterleavedBufferAttribute ? a.data.array : a.array; if (!seen.has(b)) { seen.add(b); EVa.bytes = (EVa.bytes || 0) + b.byteLength; } } if (!shared && g.index) EVa.bytes = (EVa.bytes || 0) + g.index.array.byteLength; } };
+    const bytesOf = (ms, shared) => { let n = 0; for (const m of ms) if (m) { const g = m.geometry, seen = new Set(); for (const k in g.attributes) { if (shared && (k === 'position' || k === 'normal' || k === 'uv')) continue; const a = g.attributes[k], b = a.isInterleavedBufferAttribute ? a.data.array : a.array; if (!seen.has(b)) { seen.add(b); n += b.byteLength; } } if (!shared && g.index) n += g.index.array.byteLength; } return n; };
+    const evMade = (k, ms, shared, n) => { EVa[k] = (EVa[k] || 0) + 1; EVa.bytes = (EVa.bytes || 0) + (n != null ? n : bytesOf(ms, shared)); };
     function fabPump(end) {
       if (!end) fab.timer = 0; if (dead || !fab.gen || (!end && byFrame())) return; const t0 = now(), budget = moving ? 2.5 : 7, f = fabU.uFocus.value; let made = false;
       while (fab.queue.length && (end ? now() < end : now() - t0 < budget)) {
         const q = fab.queue.shift(); if (fab.chunks.has(q.k) || fabDist(q, f) > f.w + CS * 2) continue;     // made already, or the view has moved on
         const c = fab.gen.chunk(q.ix, q.iz); if (!c.nb && !c.nt) { fab.chunks.set(q.k, { ix: q.ix, iz: q.iz }); continue; }
         if (!fab.slots.length) { fab.queue.length = 0; break; }
-        const slot = fab.slots.pop(), m = fab.gl.mesh(c, slot); placeData[(TW + slot) * 4] = 0; for (const mm of [m.b, m.t]) if (mm) landG.add(mm);
-        fab.chunks.set(q.k, { ix: q.ix, iz: q.iz, slot, b: m.b, t: m.t, g: 0, nb: c.nb, nt: c.nt }); fab.live++; fab.nb += c.nb; fab.nt += c.nt; made = true; if (EVa) evMade('fabric', [m.b, m.t], true);
+        const slot = fab.slots.pop(), m = fab.gl.mesh(c, slot), ch = { ix: q.ix, iz: q.iz, slot, b: m.b, t: m.t, g: 0, nb: c.nb, nt: c.nt, wait: CAP }, k = q.k; placeData[(TW + slot) * 4] = 0; const nB = CAP || EVa ? bytesOf([m.b, m.t], true) : 0; addLater([m.b, m.t], () => fab.chunks.get(k) === ch && !(ch.wait = false), nB);
+        fab.chunks.set(q.k, ch); fab.live++; fab.nb += c.nb; fab.nt += c.nt; made = true; if (EVa) evMade('fabric', [m.b, m.t], true, nB);
       }
       if (made) { needs = true; kick(); } if (EVa && !end) EVa.pumpTimers = (EVa.pumpTimers || 0) + now() - t0;
       if (fab.live > FAB_MAX) { const far = [...fab.chunks].filter(e => e[1].slot != null).map(e => [fabDist(e[1], f), e]).sort((a, b) => b[0] - a[0]); for (let i = 0; i < far.length && fab.live > FAB_MAX * 0.8; i++) fabDrop(far[i][1][0], far[i][1][1]); }
-      if (fab.queue.length && !fab.timer && !byFrame()) fab.timer = setTimeout(fabPump, 0);
+      if (fab.queue.length && !fab.timer && !byFrame()) fab.timer = pumpT(fabPump);
     }
     // the real buildings' chunks: made the same way, a few milliseconds at a time; the furthest dropped when there are many
     const RCS = RB ? RB.CS : 6, RB_MAX = 56, TALL_D = [650, 900]; // RB_MAX: under the 60 slots the tall groups leave the chunks (72 less 12), so the furthest are dropped before the slots run out; TALL_D: the camera's distances at which the tall real buildings have risen, and from which they start to rise (the first screen is further off)
@@ -598,32 +601,60 @@
           const q = rb.queue.shift(); if (rb.chunks.has(q.k) || rbDist(q, f) > f.w + RCS * 2) continue;
           const c = rb.gen.chunk(q.ix, q.iz); if (!c) { rb.chunks.set(q.k, { ix: q.ix, iz: q.iz }); continue; }
           if (!rb.slots.length) { rb.queue.length = 0; break; }
-          const slot = rb.slots.pop(), m = rb.gl.mesh(c, slot); placeData[(TW + slot) * 4] = 0; placeTex.needsUpdate = true; landG.add(m);
-          rb.chunks.set(q.k, { ix: q.ix, iz: q.iz, slot, m, g: 0, n: c.count, tris: c.idx.length / 3, half: c.half, quarter: c.quarter }); rb.live++; rb.n += c.count; rb.tris += c.idx.length / 3; made = true; if (EVa) evMade('real', [m]);
+          const slot = rb.slots.pop(), m = rb.gl.mesh(c, slot), ch = { ix: q.ix, iz: q.iz, slot, m, g: 0, n: c.count, tris: c.idx.length / 3, half: c.half, quarter: c.quarter, wait: CAP }, k = q.k; placeData[(TW + slot) * 4] = 0; placeTex.needsUpdate = true; const nB = CAP || EVa ? bytesOf([m]) : 0; addLater([m], () => rb.chunks.get(k) === ch && !(ch.wait = false), nB);
+          rb.chunks.set(q.k, ch); rb.live++; rb.n += c.count; rb.tris += c.idx.length / 3; made = true; if (EVa) evMade('real', [m], false, nB);
         }
       } catch (e) { rbGiveUp(e); made = true; }
       if (made) { needs = true; kick(); } if (EVa && !end) EVa.pumpTimers = (EVa.pumpTimers || 0) + now() - t0;
       if (rb.live > RB_MAX) { const far = [...rb.chunks].filter(e => e[1].m).map(e => [rbDist(e[1], f), e]).sort((a, b) => b[0] - a[0]); for (let i = 0; i < far.length && rb.live > RB_MAX * 0.8; i++) rbDrop(far[i][1][0], far[i][1][1]); }
-      if (rb.queue.length && !rb.timer && !byFrame()) rb.timer = setTimeout(rbPump, 0);
+      if (rb.queue.length && !rb.timer && !byFrame()) rb.timer = pumpT(rbPump);
     }
     // the tall real buildings (real.js tall): made once, a group at a time, a few milliseconds a turn, when the map first comes to the city-wide view; then kept
     function tallPump(end) {
       if (!end) rb.tallTimer = 0; if (dead || !rb.gen || !rb.tallGl || (!end && byFrame()) || (end && !rb.tallGo)) return; const t0 = now(), budget = moving ? 2.5 : 6; let made = false;
       try {
-        while (rb.tallNext < rb.gen.tallCount && (end ? now() < end : now() - t0 < budget) && rb.slots.length) {
+        while (rb.tallNext < rb.gen.tallCount && (end ? now() < end : now() - t0 < budget) && rb.slots.length && !(CAP && made)) { // (with the cap: one group a turn)
           const c = rb.gen.tall(rb.tallNext++); if (!c) continue;
           const slot = rb.slots.pop(), m = rb.tallGl.mesh(c, slot), g = m.geometry; placeData[(TW + slot) * 4] = 0; placeTex.needsUpdate = true;
-          g.computeBoundingSphere(); g.boundingSphere.radius += (c.y1 - c.y0) * 1.7 + LIFT + 1; m.visible = false; landG.add(m); // (it grows from its ground as far as the landmarks do: uRise)
-          rb.tall.push({ m, slot, g: 0, n: c.count, tris: c.idx.length / 3 }); made = true; if (EVa) evMade('tall', [m]);
+          g.computeBoundingSphere(); g.boundingSphere.radius += (c.y1 - c.y0) * 1.7 + LIFT + 1; m.visible = false; // (it grows from its ground as far as the landmarks do: uRise)
+          const tg = { m, slot, g: 0, n: c.count, tris: c.idx.length / 3, wait: CAP }, nB = CAP || EVa ? bytesOf([m]) : 0; addLater([m], () => rb.tall.includes(tg) && !(tg.wait = false), nB); rb.tall.push(tg); made = true; if (EVa) evMade('tall', [m], false, nB);
         }
       } catch (e) { rbGiveUp(e); return; }
       if (made) { needs = true; kick(); } if (EVa && !end) EVa.pumpTimers = (EVa.pumpTimers || 0) + now() - t0;
-      if (rb.gen && rb.tallNext < rb.gen.tallCount && rb.slots.length && !rb.tallTimer && !byFrame()) rb.tallTimer = setTimeout(tallPump, 0);
+      if (rb.gen && rb.tallNext < rb.gen.tallCount && rb.slots.length && !rb.tallTimer && !byFrame()) rb.tallTimer = pumpT(tallPump);
     }
     let pumpI = 0; // the pump that goes first in the next frame's turn
-    function pumpTurn() { const end = now() + 2.5, P3 = [fabPump, rbPump, tallPump], r0 = raf, l0 = lastT; for (let q = 0; q < 3; q++) P3[(pumpI + q) % 3](end); pumpI = (pumpI + 1) % 3; if (raf !== r0) { cancelAnimationFrame(raf); raf = r0; lastT = l0; } } // (a chunk made asks for a frame: draw asks for it itself, once)
+    function pumpTurn() { const end = now() + (moving ? 2.5 : 4), P3 = [fabPump, rbPump, tallPump], r0 = raf, l0 = lastT; for (let q = 0; q < 3; q++) P3[(pumpI + q) % 3](end); pumpI = (pumpI + 1) % 3; if (raf !== r0) { cancelAnimationFrame(raf); raf = r0; lastT = l0; } } // (a chunk made asks for a frame: draw asks for it itself, once)
     const pumpWork = () => !!((fab.gen && fab.queue.length) || (rb.gen && (rb.queue.length || (rb.tallGo && rb.tallGl && rb.tallNext < rb.gen.tallCount && rb.slots.length)))); // a queue the pumps can still work on
-    function pumpsGo() { if (fab.queue.length && !fab.timer) fab.timer = setTimeout(fabPump, 0); if (rb.queue.length && !rb.timer) rb.timer = setTimeout(rbPump, 0); if (rb.tallGo && rb.gen && rb.tallNext < rb.gen.tallCount && rb.slots.length && !rb.tallTimer) rb.tallTimer = setTimeout(tallPump, 0); } // at rest again: the timers of the queues with work
+    function pumpsGo() { if (fab.queue.length && !fab.timer) fab.timer = pumpT(fabPump); if (rb.queue.length && !rb.timer) rb.timer = pumpT(rbPump); if (rb.tallGo && rb.gen && rb.tallNext < rb.gen.tallCount && rb.slots.length && !rb.tallTimer) rb.tallTimer = pumpT(tallPump); } // at rest again: the timers of the queues with work
+    function armIdle(ms) { if (!idleT && !dead) idleT = setTimeout(idleTurn, ms == null ? 100 : ms); }
+    function idleTurn() { // no frame for 100 ms: one pump's turn, the next in line with work, until 4 ms have passed (a chunk made asks for a frame: from then on draw gives the turns)
+      idleT = 0; if (dead || !pumpWork()) return; const since = now() - lastDraw; if (since < 100) return armIdle(101 - since);
+      const t0 = now(), P3 = [[fabPump, () => fab.gen && fab.queue.length], [rbPump, () => rb.gen && rb.queue.length], [tallPump, () => rb.tallGo && rb.gen && rb.tallGl && rb.tallNext < rb.gen.tallCount && rb.slots.length]];
+      for (let q = 0; q < 3; q++) { const e = P3[(pumpI + q) % 3]; if (e[1]()) { pumpI = (pumpI + q + 1) % 3; e[0](t0 + 4); break; } }
+      if (EVa) EVa.pumpTimers = (EVa.pumpTimers || 0) + now() - t0; clearTimeout(idleT); idleT = 0; if (pumpWork()) armIdle(16); // (the pump's own re-arm asked for the usual 100 ms: the next turn is 16 ms away)
+    }
+    // Step 3: what first appears, spread out. With the cap a frame adds to the scene one newly made mesh (a chunk of either kind, a tall group), then more
+    // while their bytes stay under 512 kB; the rest wait in addQ (made already: this only spreads their uploads), and one added is drawn wherever it stands in its first frame
+    // (fresh: not culled, and one not shown yet drawn far below the view), so its buffers go to the GPU then, not when the view first turns to it or it first shows. upQ: big buffers made hidden (the fine ground and
+    // its rim, the blocks' rim, the wash), drawn once far below the view at the next frame at rest (upOne; one shown by then is drawn where it stands, untouched). m3d-warm=off: none of this
+    const CAP = !SW.warmOff, addQ = [], fresh = [], upQ = [];
+    const addLater = (ms, ok, n) => { if (!CAP) { for (const m of ms) if (m) landG.add(m); return; } addQ.push({ ms, ok, n }); };
+    function addOne() { let by = 0, k = 0; while (addQ.length && (!k || by + addQ[0].n < 512000)) { const a = addQ.shift(); if (!a.ok()) continue; for (const m of a.ms) if (m) { landG.add(m); fresh.push(m); } by += a.n; k++; needs = true; } } // (at least one a frame, then more while the frame's new bytes stay under 512 kB)
+    const offView = m => { const k = [m, m.visible, m.frustumCulled, m.castShadow, m.position.y]; if (!m.visible) { m.visible = true; m.castShadow = false; m.position.y = -1e6; } m.frustumCulled = false; return k; }, backView = k => { const m = k[0]; m.visible = k[1]; m.frustumCulled = k[2]; m.castShadow = k[3]; m.position.y = k[4]; }; // drawn this frame wherever it is (one not shown yet: far below the view, where nothing of it reaches the screen)
+    let parked = 0; // (how many were drawn far below the view: stats land.parked)
+    function upOne() { if (moving || !upQ.length) return null; const m = upQ.shift(); if (!m || !m.parent) return null; const k = offView(m), t0 = now(); if (k[4] !== m.position.y) parked++; // (one shown this frame is drawn where it stands, as it is: offView)
+      return () => { backView(k); stat.build.upFrames = (stat.build.upFrames || 0) + 1; stat.build.upMs = (stat.build.upMs || 0) + now() - t0; }; }
+    // the programs of what can first appear while the map is in use (every line and ribbon: one material's two sides; the wash, which shows from
+    // close in; the fog; the ferries and their wakes; the night's lights and traffic; the Luxor's beam), compiled after the first frame, one a
+    // slice, at rest (a finger down, a flight or a moving map: later); the fabric's and the real buildings' own were warmed by their steps
+    function warmUp() {
+      const list = [() => rim, () => wash && wash.mesh, () => fogBank && fogBank.group, () => ferries[0] && ferries[0].mesh, () => traffic && traffic.pts, () => { const g = new THREE.CylinderGeometry(0.2, 0.05, 1, 6, 1, true); return Object.assign(new THREE.Mesh(g, beamMat), { done: () => g.dispose() }); }];
+      let q = 0; stat.build.warmPlan = list.length; stat.build.warmAll = 0; upQ.push(rim); if (wash) upQ.push(wash.mesh); needs = true; kick(); // (the blocks' rim and the wash show only from close in: their buffers now, a frame at rest each)
+      const go = () => { if (dead) return; if (ptrs.size || fly || moving) return void setTimeout(go, 150); const t1 = now(), o = list[q++](); if (o) { try { renderer.compile(o, camera, scene); } catch (e) {} if (o.done) o.done(); }
+        const ms = now() - t1; stat.build['warmC' + q] = ms; stat.build.warmAll += ms; if (q < list.length) setTimeout(go, 40); else stat.build.warmEnd = Math.round(now() - stat.firstFrame); };
+      setTimeout(go, 40);
+    }
     // the real buildings fail while they are made: they are all taken away, and the fabric made so far with them (it kept clear of
     // them) is made again, now in their place (its wrappers of solid and dense answer "nothing real here" from now on)
     function rbGiveUp(e) {
@@ -643,29 +674,29 @@
       if (k > FK0 * 0.75 && !quiz && Q.fab > 0) {
         const i0 = Math.floor((fx - R1) / CS), i1 = Math.floor((fx + R1) / CS), j0 = Math.floor((fz - R1) / CS), j1 = Math.floor((fz + R1) / CS), key = [i0, i1, j0, j1].join(',');
         if (fab.gl && key !== fab.key) { fab.key = key; const q = []; for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) { const d = Math.hypot((i + 0.5) * CS - fx, (j + 0.5) * CS - fz), kk = i * 65536 + j; if (d > R1 + CS * 0.7 || fab.chunks.has(kk) || !fabLand(i, j)) continue; q.push({ k: kk, ix: i, iz: j, d }); } q.sort((a, b) => a.d - b.d); fab.queue = q; }
-        if (fab.queue.length && !fab.timer && !byFrame()) fab.timer = setTimeout(fabPump, 0);
+        if (fab.queue.length && !fab.timer && !byFrame()) fab.timer = pumpT(fabPump);
         if (rb.gen) { const a0 = Math.floor((fx - R1) / RCS), a1 = Math.floor((fx + R1) / RCS), b0 = Math.floor((fz - R1) / RCS), b1 = Math.floor((fz + R1) / RCS), rk = [a0, a1, b0, b1].join(',');
           if (rk !== rb.key) { rb.key = rk; const q = []; for (let i = a0; i <= a1; i++) for (let j = b0; j <= b1; j++) { const d = Math.hypot((i + 0.5) * RCS - fx, (j + 0.5) * RCS - fz), kk = i * 65536 + j; if (d > R1 + RCS * 0.7 || rb.chunks.has(kk) || !rb.gen.has(i, j)) continue; q.push({ k: kk, ix: i, iz: j, d }); } q.sort((a, b) => a.d - b.d); rb.queue = q; }
-          if (rb.queue.length && !rb.timer && !byFrame()) rb.timer = setTimeout(rbPump, 0); }
+          if (rb.queue.length && !rb.timer && !byFrame()) rb.timer = pumpT(rbPump); }
       }
       const f = U.uFocus.value;
       for (const ch of fab.chunks.values()) {
         if (ch.slot == null) continue;
-        if (ch.g < 1 && tgt > 0) { ch.g = RM.matches ? 1 : Math.min(1, ch.g + dt / 450); placeData[(TW + ch.slot) * 4] = 1 - Math.pow(1 - ch.g, 3); placeTex.needsUpdate = true; anim = true; shadowDirty = true; }
+        if (ch.g < 1 && tgt > 0 && !ch.wait) { ch.g = RM.matches ? 1 : Math.min(1, ch.g + dt / 450); placeData[(TW + ch.slot) * 4] = 1 - Math.pow(1 - ch.g, 3); placeTex.needsUpdate = true; anim = true; shadowDirty = true; }
         const vis = tgt > 0 && fabDist(ch, f) < R1 + CS;
         if (ch.b) { ch.b.visible = vis; ch.b.geometry.instanceCount = Math.ceil(ch.nb * Q.fab); ch.b.castShadow = Q.fabShadow; }
         if (ch.t) { ch.t.visible = vis; ch.t.geometry.instanceCount = Math.ceil(ch.nt * Q.fab); ch.t.castShadow = Q.fabShadow; }
       }
       for (const ch of rb.chunks.values()) { // the real buildings: the same rise; a lighter picture keeps the tallest half, then quarter, of each chunk
         if (!ch.m) continue;
-        if (ch.g < 1 && tgt > 0) { ch.g = RM.matches ? 1 : Math.min(1, ch.g + dt / 450); placeData[(TW + ch.slot) * 4] = 1 - Math.pow(1 - ch.g, 3); placeTex.needsUpdate = true; anim = true; shadowDirty = true; }
+        if (ch.g < 1 && tgt > 0 && !ch.wait) { ch.g = RM.matches ? 1 : Math.min(1, ch.g + dt / 450); placeData[(TW + ch.slot) * 4] = 1 - Math.pow(1 - ch.g, 3); placeTex.needsUpdate = true; anim = true; shadowDirty = true; }
         ch.m.visible = tgt > 0 && rbDist(ch, f) < R1 + RCS; ch.m.castShadow = Q.fabShadow; ch.m.geometry.setDrawRange(0, Q.fab >= 1 ? Infinity : Q.fab >= 0.5 ? ch.half : ch.quarter);
       }
       // the tall real buildings: from the city-wide view inwards (they rise between these distances), everywhere they are, each group grown in when it is new
       if (rb.tallGl) { const tt = quiz ? 0 : 1 - smooth(Math.log(c.d), Math.log(TALL_D[0]), Math.log(TALL_D[1]));
         if (tt !== rb.tallU.uGrow.value) { rb.tallU.uGrow.value = tt; shadowDirty = true; }
-        if (tt > 0 && rb.gen && rb.tallNext < rb.gen.tallCount) { rb.tallGo = true; if (!rb.tallTimer && !byFrame()) rb.tallTimer = setTimeout(tallPump, 0); }
-        for (const t of rb.tall) { if (t.g < 1 && tt > 0) { t.g = RM.matches ? 1 : Math.min(1, t.g + dt / 450); placeData[(TW + t.slot) * 4] = 1 - Math.pow(1 - t.g, 3); placeTex.needsUpdate = true; anim = true; shadowDirty = true; }
+        if (tt > 0 && rb.gen && rb.tallNext < rb.gen.tallCount) { rb.tallGo = true; if (!rb.tallTimer && !byFrame()) rb.tallTimer = pumpT(tallPump); }
+        for (const t of rb.tall) { if (t.g < 1 && tt > 0 && !t.wait) { t.g = RM.matches ? 1 : Math.min(1, t.g + dt / 450); placeData[(TW + t.slot) * 4] = 1 - Math.pow(1 - t.g, 3); placeTex.needsUpdate = true; anim = true; shadowDirty = true; }
           t.m.visible = tt > 0.02; t.m.castShadow = Q.fabShadow; } }
       return anim;
     }
@@ -737,7 +768,7 @@
       const wk = [L.water, L.deep, L.shallow, L.rim, L.shore, L.sand, Math.round(L.key.az / 6), Math.round(L.key.el / 5)].join('|'); if (wk !== waterKey) { waterKey = wk; paintWater(); }
       tileMat.roughness = L.tileRough; builtMat.roughness = L.builtRough; waterMat.roughness = L.waterRough; waterMat.metalness = L.waterMetal; builtMat.emissiveIntensity = L.glow; paneU.uPaneK.value = L.pane; paneU.uAmb.value = L.amb;
       hemi.color.set(L.hemi.sky); hemi.groundColor.set(L.hemi.ground); hemi.intensity = L.hemi.i; key.color.set(L.key.c); key.intensity = L.key.i; key.shadow.radius = L.shadowR;
-      paintBuilt(); for (const m of secMeshes.values()) m.dirty = true; selKey = ''; for (const [i, e] of edgeMeshes) { drop(e.mesh); edgeMeshes.delete(i); }
+      paintBuilt(); for (const m of secMeshes.values()) m.dirty = true; selKey = ''; for (const e of edgeMeshes.values()) e.key = '~'; // (stale: kept until replaced, updateSections)
       if (L.lights) buildNight(); lightSets.forEach(p => { p.visible = L.lights; }); if (beam) beam.visible = L.lights;
       shadowDirty = true; needs = true;
     }
@@ -762,7 +793,7 @@
     // ---- sections: lines on the flat top of a place, the selected one outlined ----
     // A line is a ribbon lying on the top, as wide on screen as a stroke: each vertex is moved sideways in the shader by a width in
     // pixels times the ground a pixel covers at the centre.
-    const lineW = { value: 1 }, lineUp = { value: 0 }, secMeshes = new Map(), edgeMeshes = new Map(); let selKey = '', selMeshes = [];
+    const lineW = { value: 1 }, lineUp = { value: 0 }, secMeshes = new Map(), edgeMeshes = new Map(); let selKey = '', selMeshes = [], ribN = 0, ribMore = false; // ribN: the places whose ribbons were made this frame (with the cap one; the rest next frame: ribMore)
     function lineMat(hex, opacity) {
       const m = new THREE.MeshBasicMaterial({ color: hex, transparent: true, opacity, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, side: THREE.DoubleSide });
       m.onBeforeCompile = s => { s.uniforms.uW = lineW; s.uniforms.uUp = lineUp; s.vertexShader = s.vertexShader.replace('#include <common>', '#include <common>\nattribute vec3 aOff;\nuniform float uW;\nuniform float uUp;').replace('#include <begin_vertex>', '#include <begin_vertex>\ntransformed += aOff * uW;')
@@ -807,16 +838,9 @@
       return { segs, gold };
     }
     function updateSections(subF) {
-      for (const [i, m] of secMeshes) if (!(subF[i] > 0.01)) { m.lines.visible = false; if (m.gold) m.gold.visible = false; }
-      for (let i = 0; i < HOODS.length; i++) {
-        if (!(subF[i] > 0.01)) continue;
-        let m = secMeshes.get(i);
-        if (!m || m.dirty) { if (m) { drop(m.lines); if (m.gold) drop(m.gold); } const s = sectionLines(i); m = { lines: new THREE.Mesh(ribbonOn(i, s.segs, 0.012, 1.4), lineMat(P.subLine, 1)), gold: s.gold.length ? new THREE.Mesh(ribbonOn(i, s.gold, 0.014, 2.4), lineMat(P.star, 1)) : null }; m.lines.renderOrder = 2; secG.add(m.lines); if (m.gold) { m.gold.renderOrder = 3; secG.add(m.gold); } secMeshes.set(i, m); if (EVa) EVa.ribbons = (EVa.ribbons || 0) + 1; }
-        m.lines.visible = true; m.lines.material.opacity = subF[i] * (dark ? .8 : .9); m.lines.position.y = liftV[i];
-        if (m.gold) { m.gold.visible = true; m.gold.material.opacity = subF[i]; m.gold.position.y = liftV[i]; }
-      }
-      if (secMeshes.size > 40) for (const [i, m] of secMeshes) if (!m.lines.visible) { drop(m.lines); if (m.gold) drop(m.gold); secMeshes.delete(i); }
-      // the selected section: outlined in the accent (harder on the phone, and tinted there unless it is starred); the section under the pointer in ink
+      ribN = 0; ribMore = false; const can = () => !CAP || ribN < 1;
+      // the selected section: outlined in the accent (harder on the phone, and tinted there unless it is starred); the section under the pointer in ink.
+      // The selection comes first and outside the cap (its outline, then its place's edge: edge(sel, true)), so it never waits behind the other places' lines
       const ph = isPhone(), cells = sel >= 0 ? subsOf(sel) : null, sp = cells && selSub >= 0 ? cells[selSub] : null, hv = cells && hover === sel && hoverSub >= 0 && hoverSub !== selSub ? cells[hoverSub] : null, tc = sp || hv ? topCells(sel) : null;
       const k = [sel, sp ? selSub : -1, hv ? hoverSub : -1, ph, dark].join('|');
       if (k !== selKey) {
@@ -829,16 +853,27 @@
             const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(Pp), 3)); g.setAttribute('aOff', new THREE.BufferAttribute(new Float32Array(Pp.length), 3)); g.setIndex(I); g.computeBoundingSphere(); add(g, lineMat(P.accent, .16), 1); }
         }
         if (hv) add(ribbonOn(sel, ringSegs(tc[hoverSub]), 0.015, 1.2), lineMat(P.ink, 1), 4);
+        if (selMeshes.length) ribN++;
       }
       for (const m of selMeshes) m.position.y = sel >= 0 ? liftV[sel] : 0;
       // a place's own outline, round the edge of its top: the accent on the selected one (thinner on the phone once a section is
-      // picked, as in the flat map), the quiz's green or red, the ink under the pointer or a finger about to pick
+      // picked, as in the flat map), the quiz's green or red, the ink under the pointer or a finger about to pick. One whose look changed (or marked
+      // stale, '~': setFine, applyLook) stays drawn until its new one is made; free: the selected place's, made at once
+      const edge = (i, free) => { const f = flagNow[i], o2 = edgeMeshes.get(i), want = !f ? '' : f & 1 ? P.accent + '|' + (sp && ph ? 1.4 : 2.2) : f & 8 ? P.okInk + '|2.6' : f & 16 ? P.noInk + '|2.6' : f & 4 ? P.ink + '|2.6' : P.ink + '|1.4';
+        if (o2 && o2.key !== want && (!want || free || can())) { drop(o2.mesh); edgeMeshes.delete(i); } else if (o2 && o2.key !== want) ribMore = true;
+        if (want && !edgeMeshes.has(i) && !free && !can()) ribMore = true; else if (want && !edgeMeshes.has(i)) { ribN++; const [hex, px] = want.split('|'), sg = [], hs = []; rimSegs(fineOn && tiles[i].fine ? tiles[i].fine.rim : tiles[i].rim, sg, hs); const m = new THREE.Mesh(ribbon(sg, 0.018, +px, hs), lineMat(hex, 1)); m.renderOrder = 5; secG.add(m); edgeMeshes.set(i, { mesh: m, key: want }); if (EVa) EVa.ribbons = (EVa.ribbons || 0) + 1; } // (the rim of the mesh that is drawn)
+        if (want && edgeMeshes.has(i)) edgeMeshes.get(i).mesh.position.y = liftV[i]; };
+      if (sel >= 0) edge(sel, true);
+      for (const [i, m] of secMeshes) if (!(subF[i] > 0.01)) { m.lines.visible = false; if (m.gold) m.gold.visible = false; }
       for (let i = 0; i < HOODS.length; i++) {
-        const f = flagNow[i], o2 = edgeMeshes.get(i), want = !f ? '' : f & 1 ? P.accent + '|' + (sp && ph ? 1.4 : 2.2) : f & 8 ? P.okInk + '|2.6' : f & 16 ? P.noInk + '|2.6' : f & 4 ? P.ink + '|2.6' : P.ink + '|1.4';
-        if (o2 && o2.key !== want) { drop(o2.mesh); edgeMeshes.delete(i); }
-        if (want && !edgeMeshes.has(i)) { const [hex, px] = want.split('|'), sg = [], hs = []; rimSegs(fineOn && tiles[i].fine ? tiles[i].fine.rim : tiles[i].rim, sg, hs); const m = new THREE.Mesh(ribbon(sg, 0.018, +px, hs), lineMat(hex, 1)); m.renderOrder = 5; secG.add(m); edgeMeshes.set(i, { mesh: m, key: want }); if (EVa) EVa.ribbons = (EVa.ribbons || 0) + 1; } // (the rim of the mesh that is drawn)
-        if (want) edgeMeshes.get(i).mesh.position.y = liftV[i];
+        if (!(subF[i] > 0.01)) continue;
+        let m = secMeshes.get(i);
+        if ((!m || m.dirty) && !can()) { ribMore = true; if (!m) continue; } else if (!m || m.dirty) { ribN++; if (m) { drop(m.lines); if (m.gold) drop(m.gold); } const s = sectionLines(i); m = { lines: new THREE.Mesh(ribbonOn(i, s.segs, 0.012, 1.4), lineMat(P.subLine, 1)), gold: s.gold.length ? new THREE.Mesh(ribbonOn(i, s.gold, 0.014, 2.4), lineMat(P.star, 1)) : null }; m.lines.renderOrder = 2; secG.add(m.lines); if (m.gold) { m.gold.renderOrder = 3; secG.add(m.gold); } secMeshes.set(i, m); if (EVa) EVa.ribbons = (EVa.ribbons || 0) + 1; }
+        m.lines.visible = true; m.lines.material.opacity = subF[i] * (dark ? .8 : .9); m.lines.position.y = liftV[i];
+        if (m.gold) { m.gold.visible = true; m.gold.material.opacity = subF[i]; m.gold.position.y = liftV[i]; }
       }
+      if (secMeshes.size > 40) for (const [i, m] of secMeshes) if (!m.lines.visible) { drop(m.lines); if (m.gold) drop(m.gold); secMeshes.delete(i); }
+      for (let i = 0; i < HOODS.length; i++) if (i !== sel) edge(i, false);
     }
     // how strongly a place's sections show, as in the flat map: from 300 px across, or as soon as it is selected and big enough
     function subFactor(i) { if (quiz) return 0; const px = hoodPx(i); let f = smooth(px, 300, 560); if (i === sel) f = Math.max(f, px > (isPhone() ? 110 : 150) ? 1 : 0); return f > 0 && subsOf(i) ? f : 0; }
@@ -880,7 +915,7 @@
       if (flags.count !== nf || books.count !== nb) { shadowDirty = true; flags.instanceMatrix.needsUpdate = books.instanceMatrix.needsUpdate = true; }
       flags.count = nf; books.count = nb;
       // sections
-      if (fineMesh) { const kk = kNow(), want = fineOn ? kk > 2.2 : kk > 2.8; if (want !== fineOn) setFine(want); }   // the full relief from the scale of the city inwards (with some slack, so it does not flicker between the two)
+      if (fineMesh) { const kk = kNow(), want = fineOn ? kk > 2.2 : kk > 2.8; if (want !== fineOn && !(want && moving && upQ.includes(fineMesh))) setFine(want); }   // (not yet sent to the GPU: first shown once the map rests, upOne) the full relief from the scale of the city inwards (with some slack, so it does not flicker between the two)
       lineW.value = 1 / kNow(); updateSections(subF); rim.material.opacity = (dark ? .5 : .55) * smooth(kNow(), 1.5, 6); rim.visible = rim.material.opacity > .01; if (rimF) rimF.visible = rim.visible && fineOn;
       if (ferries.length) stepLife();
       const fabAnim = fabStep(dt || 16, c);
@@ -905,17 +940,17 @@
         const L0 = Math.floor((x0 + x1 - Wb) / 2 / tx) * tx, B0 = Math.floor((y0 + y1 - Wb) / 2 / tx) * tx, N0 = Math.max(1, Math.floor((-z1 - 40) / 50) * 50), F0 = Math.ceil((-z0 + 40) / 50) * 50;
         const box = (l, b, w, n, f, t, loose) => { sh = { l, b, w, n, f, loose }; const sc2 = key.shadow.camera;
           sc2.left = l; sc2.right = l + w; sc2.bottom = b; sc2.top = b + w; sc2.near = n; sc2.far = f; sc2.updateProjectionMatrix();
-          key.shadow.normalBias = t * 2.2; key.shadow.bias = -0.0006; renderer.shadowMap.needsUpdate = true; shadowDirty = false; shT = now(); stat.shadowDraws++; };
+          key.shadow.normalBias = t * 2.2; key.shadow.bias = -0.0006; renderer.shadowMap.needsUpdate = true; shadowDirty = false; shT = stat.shadowAt = now(); stat.shadowDraws++; };
         // while the map moves the box is kept, and the shadows not drawn again, as long as what is needed lies inside it and it is not much too
         // big; else a box 1.3 times as wide (quantised and snapped as above, a step of 50 more each side in depth). What stands in it changing
         // draws them again at most every 100 ms; the first frame at rest fits tightly again (m3d-shadowhold=off, tune shadowHold false: every frame as at rest)
         if (moving && SW.hold && T.shadowHold !== false) {
           if (!(sh.w && x0 >= sh.l && x1 <= sh.l + sh.w && y0 >= sh.b && y1 <= sh.b + sh.w && N0 >= sh.n && F0 <= sh.f && sh.w <= Wb * 1.6)) { const w2 = Math.pow(1.12, Math.ceil(Math.log(Wb * 1.3) / Math.log(1.12))), t2 = w2 / key.shadow.mapSize.x; box(Math.floor((x0 + x1 - w2) / 2 / t2) * t2, Math.floor((y0 + y1 - w2) / 2 / t2) * t2, w2, Math.max(1, N0 - 50), F0 + 50, t2, true); }
-          else if (shadowDirty && now() - shT >= 100) { renderer.shadowMap.needsUpdate = true; shadowDirty = false; shT = now(); stat.shadowDraws++; }
+          else if (shadowDirty && now() - shT >= 100) { renderer.shadowMap.needsUpdate = true; shadowDirty = false; shT = stat.shadowAt = now(); stat.shadowDraws++; }
         } else if (L0 !== sh.l || B0 !== sh.b || Wb !== sh.w || N0 !== sh.n || F0 !== sh.f || shadowDirty) box(L0, B0, Wb, N0, F0, tx, false);
       }
       lightMat.uniforms.uScale.value = H * pr / (2 * Math.tan(FOV * Math.PI / 360)); lightMat.uniforms.uMin.value = 1.4 * pr;
-      return pop || fabAnim;
+      return pop || fabAnim || ribMore;
     }
     // which places are in sight (their boxes against the ground the screen covers), how strongly their sections show, and what has
     // to be painted again: a place whose opacity, state or colour changed
@@ -1147,7 +1182,7 @@
     let rafOwn = 0, fAcc = null, fSnap = null;
     function frameRec(gap, direct) {
       if (!EVa) EVa = {}; if (direct) return null; const a = fAcc, e = EVa, s = fSnap; EVa = {}; fAcc = null; fSnap = { sd: stat.shadowDraws, pr, q: Q.level };
-      if (!a || !s) return null; if (stat.shadowDraws !== s.sd) e.shadow = stat.shadowDraws - s.sd; if (pr !== s.pr) e.pr = [s.pr, pr]; if (Q.level !== s.q) e.quality = [s.q, Q.level];
+      if (!a || !s) return null; if (stat.shadowDraws !== s.sd) e.shadow = stat.shadowDraws - s.sd; if (pr !== s.pr) e.pr = [s.pr, pr]; if (Q.level !== s.q) e.quality = [s.q, Q.level]; if (!e.shadow && a.sh && Math.round(a.t0 - a.sh) < 50) e.shadowBefore = Math.round(a.t0 - a.sh); // (the shadows drawn in an earlier frame, this long before this one's draw began)
       return { gap, mode: a.mode, asked: a.asked, ms: { prep: a.ms[0], scene: a.ms[1], render: a.ms[2], over: a.ms[3], pump: a.ms[4] }, ev: e };
     }
 
@@ -1158,7 +1193,7 @@
     // until a frame has drawn, an error in one is a 3D map that cannot run here: the flat map instead (giveUp); after that, as any error
     function frame(t, direct) { if (dead) { raf = 0; return; } if (stat.firstFrame) return draw(t, direct); try { draw(t, direct); } catch (e) { giveUp(e); } } // direct: drawn in this task (resize, warm-up), not at a screen refresh
     function draw(t, direct) {
-      const asked = !direct && !!raf && raf === rafOwn, sawMv = ptrMv, m0 = mode, tm = onDraw ? [now()] : null, rec = tm ? frameRec(t - govT, direct) : null; ptrMv = false; // asked: this frame was asked for by the one before (as govern); tm, rec: the speed test's log (frameRec)
+      const asked = !direct && !!raf && raf === rafOwn, sawMv = ptrMv, m0 = mode, tm = onDraw ? [now()] : null, rec = tm ? frameRec(t - govT, direct) : null; ptrMv = false; if (tm) tm.sh = stat.shadowAt; // asked: this frame was asked for by the one before (as govern); tm, rec: the speed test's log (frameRec)
       raf = 0; const gap = t - lastT, dt = Math.min(50, gap || 16), fgap = direct ? Infinity : t - govT; lastT = t; if (!direct) govT = t; let busy = false; // fgap: the time between two screen refreshes that drew, for the governor (kick resets lastT on every touch)
       if (g2 && g2.dirty && ptrs.size >= 2) twoFingers();
       if (mode === 'fly' && fly) { stepFly(t); busy = true; }
@@ -1173,14 +1208,16 @@
       const amb = ambOn(), tick = ambTick; ambTick = false; if (amb) { if (ambLast) ambT += Math.min(0.1, (t - ambLast) / 1000); ambLast = t; } else ambLast = 0;
       if (!dark && !busy && !ptrs.size && t - sunAt > 240000) { sunAt = t; const k0 = sunKey; refreshPalette(); if (sunKey !== k0) applyLook(); }
       if (tm && paintAll && tiles) EVa.paint = 1; let anim = prepare(dt), why = (busy ? 1 : 0) | (anim ? 2 : 0) | (needs ? 4 : 0); if (stepLifts(t)) { anim = true; needs = true; why |= 8; if (EVa) EVa.lift = 1; }
-      const mv = busy || ptrs.size > 0; govern(fgap, mv, asked); if (mv !== moving) { moving = mv; setPR(prOf()); if (!mv && (sh.loose || shadowDirty || (SW.hold && T.shadowHold !== false))) needs = true; if (!mv && !SW.pumpOld) pumpsGo(); } // a lighter frame while the map moves, the full one when it rests
+      const mv = busy || ptrs.size > 0; govern(fgap, mv, asked); if (mv !== moving) { moving = mv; setPR(prOf()); if (!mv && (sh.loose || shadowDirty || upQ.length || (SW.hold && T.shadowHold !== false))) needs = true; if (!mv && !SW.pumpOld) pumpsGo(); } // a lighter frame while the map moves, the full one when it rests
+      if (addQ.length) addOne(); if (upQ.length && !moving) needs = true; // one newly made mesh joins the scene this frame (CAP); a big buffer made hidden goes to the GPU (upOne)
       const only = tick && amb && !needs && !busy && !anim && !olAnim;      // a frame of ambient motion alone: the scene is drawn, the names stand as they are
-      if (tm) tm[1] = tm[2] = tm[3] = now(); if (needs || (tick && amb)) { needs = false; if (updateScene(t, vx, dt)) { anim = true; needs = true; why |= 16; } if (tm) tm[2] = now(); renderer.render(scene, camera); if (tm) tm[3] = now(); stat.frames++; stat.drawn = now(); if (only) stat.amb++; if (!stat.firstFrame) stat.firstFrame = now(); }
-      if (!only) { olAnim = drawOverlay(t, dt); anim = olAnim || anim; if (tm) EVa.names = lblA.size; } if (tm) tm[4] = now(); if (byFrame()) pumpTurn(); if (tm) tm[5] = now(); stat.lastMs = now() - t0; stat.why = why | (olAnim ? 32 : 0) | (me ? 64 : 0) | (tick ? 128 : 0);
-      if (busy || anim || needs || (byFrame() && pumpWork()) || (coarse && ptrs.size && sawMv)) raf = requestAnimationFrame(frame); // (a finger at rest on the map: the pumps' turns go on while there is work; on a touch screen a finger that moved: the next frame, so the governor judges frames, not the finger's pauses)
+      if (tm) tm[1] = tm[2] = tm[3] = now(); if (needs || (tick && amb)) { needs = false; if (updateScene(t, vx, dt)) { anim = true; needs = true; why |= 16; } if (tm) tm[2] = now(); const up = upOne(), fr = fresh.length ? fresh.splice(0).map(offView) : null; renderer.render(scene, camera); if (up) up(); if (fr) fr.forEach(backView); if (tm) tm[3] = now(); stat.frames++; stat.drawn = now(); if (only) stat.amb++; if (!stat.firstFrame) stat.firstFrame = now(); }
+      if (!only) { olAnim = drawOverlay(t, dt); anim = olAnim || anim; if (tm) EVa.names = lblA.size; } if (tm) tm[4] = now(); lastDraw = now(); if (byFrame()) pumpTurn(); if (tm) tm[5] = now(); stat.lastMs = now() - t0; stat.why = why | (olAnim ? 32 : 0) | (me ? 64 : 0) | (tick ? 128 : 0);
+      if ((mv || anim) && !only) stat.busyAt = now(); // (restMs)
+      if (busy || anim || needs || addQ.length || (upQ.length && !moving) || (byFrame() && pumpWork()) || (coarse && ptrs.size && sawMv)) raf = requestAnimationFrame(frame); // (a finger at rest on the map: the pumps' turns go on while there is work; on a touch screen a finger that moved: the next frame, so the governor judges frames, not the finger's pauses)
       else { if (me && !meTimer) meTimer = setTimeout(() => { meTimer = 0; if (!dead) kick(); }, 33); if (amb && !ambTimer) ambArm(AMB_GAP - 5); } // the location dot's pulse alone: a frame every 33 ms at most, and the ambient motion goes on
       rafOwn = raf; // (the frame the next one is asked for by)
-      if (tm) { const ms = [1, 2, 3, 4, 5].map(k => tm[k] - tm[k - 1]); if (direct && fAcc) { fAcc.ms = fAcc.ms.map((v, k) => v + ms[k]); fAcc.asked = !!raf || !coarse; EVa.direct = (EVa.direct || 0) + 1; } else fAcc = { mode: ptrs.size > 1 ? 'pinch' : ptrs.size ? 'drag' : busy && (m0 === 'fly' || m0 === 'smooth' || m0 === 'inertia') ? m0 : only ? 'ambient' : anim || busy ? 'anim' : 'still', asked: !!raf || !coarse, ms }; onDraw(t, mv || !!anim, only, rec); }
+      if (tm) { const ms = [1, 2, 3, 4, 5].map(k => tm[k] - tm[k - 1]); if (direct && fAcc) { fAcc.ms = fAcc.ms.map((v, k) => v + ms[k]); fAcc.asked = !!raf || !coarse; EVa.direct = (EVa.direct || 0) + 1; } else fAcc = { t0: tm[0], sh: tm.sh, mode: ptrs.size > 1 ? 'pinch' : ptrs.size ? 'drag' : busy && (m0 === 'fly' || m0 === 'smooth' || m0 === 'inertia') ? m0 : only ? 'ambient' : anim || busy ? 'anim' : 'still', asked: !!raf || !coarse, ms }; onDraw(t, mv || !!anim, only, rec); }
       if (busy && o.onMove) o.onMove();
     }
 
@@ -1340,9 +1377,10 @@
       setMe(xy) { me = xy; meT0 = now(); kick(); },
       subsShowing(i) { return subsOf(i) && (hoodPx(i) > 560 || i === sel); },
       hoodPx,
+      restMs() { return ptrs.size || fly ? 0 : now() - stat.busyAt; }, // how long the map has rested: no finger, no flight, no frame that moved or animated (ambient motion alone aside); the app waits on it before making the street map
       // for tests and the console: what was built and how long it took, what a frame draws, and the cost of frames along a flight
       stats(lite) { const info = renderer.info; let tris = 0; const seen = q => { for (let p = q; p; p = p.parent) if (!p.visible) return false; return true; }; if (!lite) scene.traverse(q => { if ((q.isMesh || q.isPoints) && seen(q) && q.geometry) { const g = q.geometry, n = q.isPoints ? 0 : Math.min(g.drawRange.count, g.index ? g.index.count : g.attributes.position.count) / 3; tris += n * (q.isInstancedMesh ? q.count : g.isInstancedBufferGeometry ? g.instanceCount : 1); } });
-        return { ready, blocks: stat.blocks, build: stat.build, firstFrame: stat.firstFrame ? Math.round(stat.firstFrame - stat.t0) : 0, sinceNav: stat.firstFrame ? Math.round(stat.firstFrame) : 0, frames: stat.frames, lastMs: +stat.lastMs.toFixed(2), sceneTriangles: Math.round(tris), calls: info.render.calls, triangles: info.render.triangles, pr, size: [W, H], dark, area: area.id, quality: Q.level, gov: { last: gov.last || 0, good: gov.good, fails: gov.fails.slice() }, fog: fogBank ? +fogBank.U.uK.value.toFixed(3) : 0, land: { relief: !!RL, close: fineOn, closeReady: !!fineMesh, places: RL ? RL.fineList.length : 0 }, real: { on: !!rb.gen, chunks: rb.live, buildings: rb.n, triangles: rb.tris, queue: rb.queue.length, tall: { groups: rb.tall.length, of: rb.gen ? rb.gen.tallCount : 0, buildings: rb.tall.reduce((s, t) => s + t.n, 0), triangles: rb.tall.reduce((s, t) => s + t.tris, 0), rise: rb.tallU ? +rb.tallU.uGrow.value.toFixed(2) : 0 } }, fabric: { chunks: fab.live, buildings: fab.nb, trees: fab.nt, grow: +fabU.uGrow.value.toFixed(2), queue: fab.queue.length }, why: stat.why, ambient: { on: ambOn(), t: +ambT.toFixed(2), frames: stat.amb, left: Math.max(0, Math.round(ambUntil - now())), ferry: ferries[0] ? [+ferries[0].mesh.position.x.toFixed(3), +ferries[0].mesh.position.z.toFixed(3)] : null }, view: Object.assign({ ph: +camOf(cur).ph.toFixed(3) }, cur),
+        return { ready, blocks: stat.blocks, build: stat.build, firstFrame: stat.firstFrame ? Math.round(stat.firstFrame - stat.t0) : 0, sinceNav: stat.firstFrame ? Math.round(stat.firstFrame) : 0, frames: stat.frames, lastMs: +stat.lastMs.toFixed(2), sceneTriangles: Math.round(tris), calls: info.render.calls, triangles: info.render.triangles, pr, size: [W, H], dark, area: area.id, quality: Q.level, gov: { last: gov.last || 0, good: gov.good, fails: gov.fails.slice() }, fog: fogBank ? +fogBank.U.uK.value.toFixed(3) : 0, land: { relief: !!RL, close: fineOn, closeReady: !!fineMesh, closeWaits: !!fineMesh && upQ.includes(fineMesh), fineY: fineMesh ? fineMesh.position.y : null, parked, places: RL ? RL.fineList.length : 0 }, outline: { sel, sub: selSub, edge: sel >= 0 && edgeMeshes.has(sel) ? edgeMeshes.get(sel).key.split('|')[0] === P.accent : null, line: selKey.split('|').slice(0, 2).join('|'), lines: selMeshes.length }, real: { on: !!rb.gen, chunks: rb.live, buildings: rb.n, triangles: rb.tris, queue: rb.queue.length, tall: { groups: rb.tall.length, of: rb.gen ? rb.gen.tallCount : 0, buildings: rb.tall.reduce((s, t) => s + t.n, 0), triangles: rb.tall.reduce((s, t) => s + t.tris, 0), rise: rb.tallU ? +rb.tallU.uGrow.value.toFixed(2) : 0 } }, fabric: { chunks: fab.live, buildings: fab.nb, trees: fab.nt, grow: +fabU.uGrow.value.toFixed(2), queue: fab.queue.length + addQ.length, waiting: addQ.length }, why: stat.why, ambient: { on: ambOn(), t: +ambT.toFixed(2), frames: stat.amb, left: Math.max(0, Math.round(ambUntil - now())), ferry: ferries[0] ? [+ferries[0].mesh.position.x.toFixed(3), +ferries[0].mesh.position.z.toFixed(3)] : null }, view: Object.assign({ ph: +camOf(cur).ph.toFixed(3) }, cur),
           shadows: Q.shadows, fab: Q.fab, dpr, gpu: gpuName(), moving, shadowDraws: stat.shadowDraws, tune: Object.assign({}, T, TQ) }; },
       bench(n = 60) { // n frames spread along the flight in progress or, at rest, a small orbit; each forced to finish on the GPU
         const gl = renderer.getContext(), px = new Uint8Array(4), keep = Object.assign({}, cur), times = [], mv0 = moving; moving = true; // (drawn as moving frames: the shadow rule and the rest as under a finger)

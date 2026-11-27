@@ -12,7 +12,7 @@
   const TILEJSON = 'https://tiles.openfreemap.org/planet', GLYPHS = 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf';
   const FONT = ['Noto Sans Regular'], FONT_I = ['Noto Sans Italic'], WAIT = 6000, LIB_WAIT = 15000;
   const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-  let lib = null, src = null, dead = !('WebGLRenderingContext' in window), drawn = false;
+  let pre = false, lib = null, src = null, dead = !('WebGLRenderingContext' in window), drawn = false;
   let map = null, host = null, pending = null, shown = null, cur = null, omt = null, data = { sec: fc([]), dots: fc([]), me: fc([]), edge: fc([]) }, dataKey = '', errs = 0;
   function fc(features) { return { type: 'FeatureCollection', features }; }
 
@@ -33,10 +33,12 @@
   }
   // preload: the library, the TileJSON and the Latin glyphs (cached a week by the tile host), so a first panel only waits for tiles.
   // Place names bring two more ranges for the regular face: Latin Extended (256-511) and typographic punctuation (8192-8447:
-  // curly apostrophes, dashes), so those come now too rather than after the tiles
-  function preload() {
+  // curly apostrophes, dashes), so those come now too rather than after the tiles. net: the library only downloaded (a fetch), not
+  // run: its parse and its workers wait for the first mount, which app.js makes only with the map at rest
+  function preload(net) {
     if (dead) return;
-    loadLib(); source();
+    if (!net) loadLib(); else if (!lib && !window.maplibregl && !pre) { pre = true; fetch(LIB).then(r => r.arrayBuffer()).catch(() => {}); } // (a plain fetch, read to the end and dropped: it only warms the HTTP cache, in Safari too, which ignores a prefetch link)
+    source();
     const g = (f, r) => fetch(GLYPHS.replace('{fontstack}', encodeURIComponent(f.join(','))).replace('{range}', r)).catch(() => {});
     g(FONT, '0-255'); g(FONT_I, '0-255'); g(FONT, '256-511'); g(FONT, '8192-8447');
   }
@@ -310,5 +312,5 @@
   // the theme changed: the same map, new colours (a diff of the style, so no tile reloads)
   function restyle() { if (map && omt) { map.setStyle(style(), { diff: true }); images(); } }
 
-  const api = window.StreetMap = { box, mount, restyle, preload, idle, last: null, get map() { return map; } };
+  const api = window.StreetMap = { box, mount, restyle, preload, idle, last: null, get map() { return map; }, get shown() { return shown; } }; // shown: the key of the view drawn
 })();

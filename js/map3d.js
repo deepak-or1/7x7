@@ -374,11 +374,11 @@ window.SBS_COMMIT = window.SBS_COMMIT || '3d 2026-11-27 looks';   // the build t
     const pkU = { uPkCam: { value: camera.matrixWorld }, uPkVex: { value: 1 }, uPkK: { value: 0 }, uPkKeep: { value: 0.28 }, uPkF: { value: new THREE.Vector4(1, 1, 1, 1) }, uPkLawn: { value: new THREE.Color() }, uPkDeep: { value: new THREE.Color() }, uPkPale: { value: new THREE.Color() }, uPkWater: { value: new THREE.Color() } };
     for (let q = 0; q < 4; q++) { pkU['uPk' + q] = { value: pkBlank }; pkU['uPkB' + q] = { value: new THREE.Vector4(0, 0, -1, -1) }; }
     // (each of the three its own strength, uPkK, and the far land its own flags of which textures hold a park on it, uPkF: the quiet land and the far
-    // land skip the work where they hold none; the blocks' tops carry their place's opacity in their colour's alpha, below 0 where the place holds no park: paintTile)
+    // land skip the work where they hold none; the blocks carry their place's opacity in their colour's alpha, and whether it holds a park: paintTile)
     const pkUL = Object.assign({}, pkU, { uPkK: { value: 0 } }), pkUF = Object.assign({}, pkU, { uPkK: { value: 0 }, uPkF: { value: new THREE.Vector4(0, 0, 0, 0) } }); let pkGOff = false, pkHas = null, pkLens = false, pkMood = false;
     if (PARKS) for (const [m, UU] of [[tileMat, pkU], [landMat, pkUL], [farMat, pkUF]]) {
       m.customProgramCacheKey = () => 'm3d-pk-g'; m.onBeforeCompile = s => { Object.assign(s.uniforms, UU);   // (no varying of its own: the point and the slope from the view's own, vViewPosition and vNormal, and the camera; as made: the ground's height stretched by vex)
-        let f = 'uniform float uPkK; uniform float uPkKeep; uniform vec4 uPkF; uniform vec3 uPkLawn; uniform vec3 uPkDeep; uniform vec3 uPkPale; uniform vec3 uPkWater; uniform mat4 uPkCam; uniform float uPkVex;\n', g = 'if (uPkK > 0.0) { vec3 pkN = (uPkCam * vec4(vNormal, 0.0)).xyz; pkN.y *= uPkVex; vec3 vPkP = vec3((uPkCam * vec4(-vViewPosition, 1.0)).xz, pkN.y / max(length(pkN), 1e-6));\nvec2 q = vPkP.xy, qx = dFdx(q), qy = dFdy(q); vec3 w = vec3(0.0); float pkA = 1.0;\n#ifdef USE_COLOR_ALPHA\npkA = vColor.a > 0.0 ? smoothstep(0.4, 0.95, vColor.a) : 0.0;   // (a place faded by a filter or its region shows no park; one that holds none skips the work)\n#endif\nif (pkA > 0.0) {\n';
+        let f = 'uniform float uPkK; uniform float uPkKeep; uniform vec4 uPkF; uniform vec3 uPkLawn; uniform vec3 uPkDeep; uniform vec3 uPkPale; uniform vec3 uPkWater; uniform mat4 uPkCam; uniform float uPkVex;\n', g = 'if (uPkK > 0.0) { vec3 pkN = (uPkCam * vec4(vNormal, 0.0)).xyz; pkN.y *= uPkVex; vec3 vPkP = vec3((uPkCam * vec4(-vViewPosition, 1.0)).xz, pkN.y / max(length(pkN), 1e-6));\nvec2 q = vPkP.xy, qx = dFdx(q), qy = dFdy(q); vec3 w = vec3(0.0); float pkA = 1.0;\n#ifdef USE_COLOR_ALPHA\npkA = vColor.a >= 0.499 ? smoothstep(0.4, 0.95, vColor.a * 2.0 - 1.0) : 0.0;   // (a place faded by a filter or its region shows no park; one that holds none skips the work: paintTile)\n#endif\nif (pkA > 0.0) {\n';
         for (let k = 0; k < 4; k++) { f += `uniform sampler2D uPk${k}; uniform vec4 uPkB${k};\n`; g += `${k ? 'else ' : ''}if (q.x > uPkB${k}.x && q.y > uPkB${k}.y && q.x < uPkB${k}.z && q.y < uPkB${k}.w) { if (uPkF[${k}] > 0.5) { vec2 e = 1.0 / (uPkB${k}.zw - uPkB${k}.xy); w = textureGrad(uPk${k}, (q - uPkB${k}.xy) * e, qx * e, qy * e).rgb; } }\n`; }
         g += `float a = min(w.r, min(w.g, w.b)); w -= a; float s = w.r + w.g + w.b, c = min(1.0, s + a) * uPkK * pkA * smoothstep(0.35, 0.75, vPkP.z);   // (all three alike: a park's water)
 if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + uPkPale * k.b; p = mix(p, vec3(dot(p, vec3(0.3, 0.55, 0.15))), min(k.g, k.b) * 0.9);
@@ -395,10 +395,10 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
     const rb = { gen: null, gl: null, chunks: new Map(), queue: [], slots: fab.slots.splice(0, 72), timer: 0, live: 0, key: '', n: 0, tris: 0, tall: [], tallNext: 0, tallTimer: 0, tallGl: null, tallU: null }; // the real buildings (js/map3d/real.js): their chunks, as the fabric's, with slots of their own in the same texture; and the tall ones, in a few shapes of their own made once (tallPump)
     const sky = AIR ? AIR.sky(THREE) : null; if (sky) scene.add(sky.mesh);
     const waterU = AIR ? AIR.water(THREE, waterMat) : null; let noise = null, wash = null, fogBank = null, ferries = [], traffic = null;
-    function meshOf(S, mat, ca) { // ca: the colour with an alpha (the blocks' tops, with the parks: paintTile)
+    function meshOf(S, mat, ca) { // ca: the colour with an alpha, in 16-bit steps (the blocks, with the parks: paintTile)
       const g = new THREE.BufferGeometry();
       g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(S.pos), 3)); g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(S.nor), 3));
-      g.setAttribute('color', ca ? new THREE.BufferAttribute(new Float32Array(S.pos.length / 3 * 4).fill(1), 4) : new THREE.BufferAttribute(new Float32Array(S.pos.length), 3)); g.setIndex(new THREE.BufferAttribute(new Uint32Array(S.idx), 1));
+      g.setAttribute('color', ca ? new THREE.BufferAttribute(new Uint16Array(S.pos.length / 3 * 4).fill(65535), 4, true) : new THREE.BufferAttribute(new Float32Array(S.pos.length), 3)); g.setIndex(new THREE.BufferAttribute(new Uint32Array(S.idx), 1));
       g.computeBoundingSphere(); g.computeBoundingBox(); return new THREE.Mesh(g, mat);
     }
     // everything built: one material, vertex colours, windows that glow at night
@@ -1046,9 +1046,9 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
       else if (f & 4) { top = mix3(top, L.ink, 0.2); bev = mix3(L.ink, top, 0.1); }
       else if (f & 2) { top = mix3(top, L.liftC, 0.1); bev = mix3(L.ink, top, 0.3); }
       placeData[i * 4] = top[0]; placeData[i * 4 + 1] = top[1]; placeData[i * 4 + 2] = top[2]; placeTex.needsUpdate = true;
-      const K = tileS.kind, S = tileS.shade, A = tileCol.array, N = tileCol.itemSize, al = pkHas && !pkHas[i] ? -a : a;   // (the alpha: the place's opacity, for the parks' ground; below 0, no park on it)
-      for (let v = t.v0; v < t.v1; v++) { const k = K[v], c = k === 0 ? top : k === 1 ? bev : wall, s = S[v]; A[v * N] = c[0] * s; A[v * N + 1] = c[1] * s; A[v * N + 2] = c[2] * s; if (N === 4) A[v * 4 + 3] = al; }
-      if (t.fine && fineMesh) { const f = t.fine, K2 = fineS.kind, S2 = fineS.shade, A2 = fineCol.array; for (let v = f.v0; v < f.v1; v++) { const k = K2[v], c = k === 0 ? top : k === 1 ? bev : wall, s2 = S2[v]; A2[v * N] = c[0] * s2; A2[v * N + 1] = c[1] * s2; A2[v * N + 2] = c[2] * s2; if (N === 4) A2[v * 4 + 3] = al; } fineCol.needsUpdate = true; }
+      const K = tileS.kind, S = tileS.shade, A = tileCol.array, N = tileCol.itemSize, Q = N === 4 ? 65535 : 1, al = Math.round((pkHas && !pkHas[i] ? a * 0.5 : 0.5 + a * 0.5) * 65535);   // (with the parks, 16-bit steps and an alpha: half the place's opacity, a half more where it holds a park: the parks' ground)
+      for (let v = t.v0; v < t.v1; v++) { const k = K[v], c = k === 0 ? top : k === 1 ? bev : wall, s = S[v]; A[v * N] = Math.min(Q, c[0] * s * Q); A[v * N + 1] = Math.min(Q, c[1] * s * Q); A[v * N + 2] = Math.min(Q, c[2] * s * Q); if (N === 4) A[v * 4 + 3] = al; }
+      if (t.fine && fineMesh) { const f = t.fine, K2 = fineS.kind, S2 = fineS.shade, A2 = fineCol.array; for (let v = f.v0; v < f.v1; v++) { const k = K2[v], c = k === 0 ? top : k === 1 ? bev : wall, s2 = S2[v]; A2[v * N] = Math.min(Q, c[0] * s2 * Q); A2[v * N + 1] = Math.min(Q, c[1] * s2 * Q); A2[v * N + 2] = Math.min(Q, c[2] * s2 * Q); if (N === 4) A2[v * 4 + 3] = al; } fineCol.needsUpdate = true; }
     }
     function paintBuilt() {
       for (const b of built) {

@@ -74,12 +74,10 @@
     for (const t of ['pointerup', 'pointercancel']) document.addEventListener(t, () => { side = null; });
     // content: touch events, so native scrolling keeps working when the sheet is open and scrolled
     let touch = null;
-    panel.addEventListener('touchstart', e => { if (!isPhone() || e.touches.length !== 1) return; touch = { x: e.touches[0].clientX, y: e.touches[0].clientY, took: false, side: !!e.target.closest('.hero-track, .chips, .pills'), vs: e.target.closest('.news-log') }; }, { passive: true }); // side: the touch began on a sideways scroller (the photo carousel, a chip row); vs: on an up-and-down one (the news)
+    panel.addEventListener('touchstart', e => { if (!isPhone() || e.touches.length !== 1) return; touch = { x: e.touches[0].clientX, y: e.touches[0].clientY, took: false, side: !!e.target.closest('.hero-track, .chips') }; }, { passive: true }); // side: the touch began on a sideways scroller (the photo carousel, a chip row)
     panel.addEventListener('touchmove', e => {
       if (!touch || e.touches.length !== 1) return; const y = e.touches[0].clientY, dy = y - touch.y;
-      if (!touch.took) { const canScroll = detent === 'full' && !(panel.scrollTop <= 0 && dy > 0); if (canScroll) { touch = null; return; }
-        { const v = touch.vs; if (v && detent !== 'peek' && Math.abs(dy) >= 3 && (dy < 0 ? v.scrollTop + v.clientHeight < v.scrollHeight - 1 : v.scrollTop > 0)) { touch = null; return; } } // the news list scrolls itself while it can; at its end the sheet moves
-        if (touch.side) { const dx = e.touches[0].clientX - touch.x; if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return; if (Math.abs(dx) > Math.abs(dy)) { touch = null; return; } } if (Math.abs(dy) < 3) return; touch.took = true; startDrag(touch.y); } // a sideways swipe there scrolls it, not the sheet
+      if (!touch.took) { const canScroll = detent === 'full' && !(panel.scrollTop <= 0 && dy > 0); if (canScroll) { touch = null; return; } if (touch.side) { const dx = e.touches[0].clientX - touch.x; if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return; if (Math.abs(dx) > Math.abs(dy)) { touch = null; return; } } if (Math.abs(dy) < 3) return; touch.took = true; startDrag(touch.y); } // a sideways swipe there scrolls it, not the sheet
       e.preventDefault(); moveDrag(y);
     }, { passive: false });
     const endTouch = () => { if (touch && touch.took) endDrag(false); touch = null; };

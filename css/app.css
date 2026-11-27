@@ -315,18 +315,13 @@ a.btn { text-decoration: none; }
 .cols2 { columns: 2; column-gap: 18px; } .cols2 li { break-inside: avoid; }
 
 /* what's new since this device last looked: a soft card at the top of the root panel, gone once Seen */
-/* news by others: a margin note, an accent rule down the left, times in their own column like a written log; past about four rows it scrolls */
-.news { margin: 2px 0 16px; padding: 0 0 0 12px; border-left: 2px solid var(--accent); }
-.news-hd { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 2px; font: 600 13.5px/1.3 var(--display); color: var(--ink); }
-.news-hd button { border: 0; background: none; padding: 4px 0 4px 12px; margin: -4px 0; font: 600 13px var(--sans); color: var(--muted); cursor: pointer; }
-.news-hd button:hover { color: var(--ink); }
-.news-log { list-style: none; margin: 4px 0 0; padding: 2px 0 8px; max-height: 124px; mask-image: linear-gradient(transparent, #000 6px, #000 calc(100% - 10px), transparent); -webkit-mask-image: linear-gradient(transparent, #000 6px, #000 calc(100% - 10px), transparent); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; -webkit-overflow-scrolling: touch; }
-.news-log li { margin: 0; }
-.news-log button { display: grid; grid-template-columns: 52px 1fr; align-items: baseline; width: 100%; padding: 4px 0; border: 0; background: none; color: inherit; text-align: left; font: 400 13.5px/1.3 var(--sans); cursor: pointer; }
-.news-log button > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.news-log button:hover > span { color: var(--accent-deep, var(--accent)); }
-.news-log time { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
-.news-log b { font-weight: 600; }
+/* news by others: rows like the panel's other lists (an accent dot for unseen, who in bold, how long ago at the right), three at a time */
+.news { margin: 0 0 16px; }
+.news .row .ic { width: 7px; height: 7px; margin: 0 1.5px; background: var(--accent); }
+.news .row .nm { font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.news .row .nm b { font-weight: 600; }
+.news .more { display: block; border: 0; background: none; padding: 8px 0 2px 20px; font: 500 13px/1.3 var(--sans); color: var(--muted); cursor: pointer; }
+.news .more:hover { color: var(--ink); }
 /* the name prompt (a dialog, asked once per device) */
 dialog.who { width: min(360px, calc(100% - 32px)); padding: 18px 18px 16px; border: 0; border-radius: 18px; background: var(--sheet-bg, var(--paper)); color: var(--ink); box-shadow: var(--panel-shadow); }
 dialog.who::backdrop { background: rgba(10, 12, 16, .4); }
@@ -814,18 +809,17 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
 }
 
 /* the place panel: its spots counted (been, bookmarked) first thing under the title; a place's flag comes from its first been spot */
-.pstats { display: flex; gap: 28px; margin: 2px 0 16px; }
+.pstats { display: flex; align-items: center; gap: 28px; margin: 2px 0 16px; }
+.pstats .btn { margin-left: auto; } .pstats .btn svg { width: 13px; height: 13px; }
+@media (max-width: 880px) { .pstats .btn { height: 40px; padding: 0 14px; font-size: 14px; } }
 .pstats > span { display: grid; justify-items: start; }
 .pstats b { font: 700 30px/1 var(--display); letter-spacing: -.02em; font-variant-numeric: tabular-nums; color: var(--accent-deep, var(--accent)); }
 .pstats .bm b { color: var(--want); }
 .pstats small { margin-top: 5px; font: 600 10.5px/1 var(--sans); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
 .handflag { margin: 8px 0 0; font-size: 12.5px; color: var(--muted); }
 .handflag button { border: 0; background: none; padding: 0; font: inherit; font-weight: 600; color: var(--accent-deep, var(--accent)); cursor: pointer; }
-/* the one action beside the name in the header: a pill (Add a spot) or a bookmark */
+/* the one action beside the name in the header: the bookmark on a spot */
 .head h2 .hact { display: inline-flex; align-items: center; gap: 5px; vertical-align: .18em; margin-left: 8px; border: 0; cursor: pointer; font: 600 13.5px/1 var(--sans); letter-spacing: 0; white-space: nowrap; }
-.head h2 .hact.pill { height: 30px; padding: 0 13px 0 10px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); }
-.head h2 .hact.pill svg { width: 12px; height: 12px; }
-@media (hover: hover) { .head h2 .hact.pill:hover { filter: brightness(1.06); } }
 .head h2 .hact.bmb { width: 32px; height: 32px; justify-content: center; padding: 0; margin-left: 4px; border-radius: 8px; background: transparent; color: var(--muted); vertical-align: .05em; }
 .head h2 .hact.bmb svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linejoin: round; }
 .head h2 .hact.bmb[aria-pressed="true"] { color: var(--want); } .head h2 .hact.bmb[aria-pressed="true"] svg { fill: var(--want); }
@@ -840,15 +834,11 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
 #lens-btn { position: relative; }
 #lens-btn.filtering::after { content: ""; position: absolute; top: 7px; right: 7px; width: 8px; height: 8px; border-radius: 50%; background: var(--want); box-shadow: 0 0 0 2px var(--glass-strong); }
 
-/* the first screen's actions: a row of pills at the top, scrolling sideways on a narrow phone */
-.pills { display: flex; gap: 8px; margin: 2px -16px 14px; padding: 2px 16px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
-.pills::-webkit-scrollbar { display: none; }
-.pills button { flex: none; height: 34px; padding: 0 14px; border: 1px solid var(--line-2); border-radius: 999px; background: var(--paper); color: var(--ink); font: 500 14px/1 var(--sans); white-space: nowrap; cursor: pointer; transition: border-color .15s, background .15s; }
-.pills button:hover { border-color: var(--ink-2); }
-.pills button:active { background: var(--paper-2); }
-@media (min-width: 881px) { .pills { margin: 2px 0 14px; padding: 2px 0; flex-wrap: wrap; } }
-.pills button[aria-expanded="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
-.pills + #moods { margin: -4px 0 16px; } .pills + #moods h3:first-child { margin-top: 0; }
+/* the first screen's actions: a row of text links at the top */
+.textlinks.acts { margin: 2px 0 16px; }
+.textlinks button[aria-expanded="true"] { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+.acts + #moods { margin: -4px 0 16px; } .acts + #moods h3:first-child { margin-top: 0; }
+@media (max-width: 880px) { .textlinks.acts { justify-content: space-between; gap: 0 10px; margin: -12px 0 2px; } .news h3 { margin-top: 10px; } } /* the four fit one line of a 390px phone */
 /* the first screen's three counts: a row of their own under the title, large and centred, each a button that opens its list */
 .head.first { flex-wrap: wrap; row-gap: 14px; }
 .head.first .tally { order: 9; flex: 1 0 100%; margin: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }

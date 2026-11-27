@@ -501,11 +501,11 @@
     // the phone puts the tappable list right under the progress bar, so the half sheet shows rows, not instructions
     const progress = `<div class="progress"><div class="bar"><i style="width:${(n / total * 100).toFixed(1)}%"></i></div><small>${n === 0 ? (state.store === 'sync' && !Object.keys(state.spots).length ? 'Nothing walked yet · <button type="button" class="act" id="join-log-hint">Already have a log? Join it</button>' : 'Nothing walked yet') : `<b>${n}</b> of ${total} walked · ${Math.round(areaPct() * 100)}% by area · ${climbedFt().toLocaleString()} ft climbed`}</small></div>`;
     const lead = `<p class="lead">${n === 0 ? `Tap a place on the map${r === 'all' ? '' : `, or pick one ${isPhone() ? 'above' : 'below'}`}. Log a spot there and it gets a flag.` : n === total ? `All ${total}. You have been all over ${REGIONS[r].the}.` : `${total - n} to go.${next ? ' Next stamp: ' + next.label + '.' : ''}`}</p>`;
-    const links = `<div class="pills">${r === 'all' && window.Lookback ? '<button type="button" data-view="timeline">Timeline</button>' : ''}<button type="button" id="surprise">Suggest a place</button><button type="button" id="quiz">Quiz me</button><button type="button" data-mood-toggle aria-expanded="${active}">Find by mood${active ? ' (' + state.filters.size + ')' : ''}</button></div>
+    const links = `<div class="textlinks acts">${r === 'all' && window.Lookback ? '<button type="button" data-view="timeline">Timeline</button>' : ''}<button type="button" id="surprise">Suggest a place</button><button type="button" id="quiz">Quiz me</button><button type="button" data-mood-toggle aria-expanded="${active}">Find by mood${active ? ' (' + state.filters.size + ')' : ''}</button></div>
       <div id="moods" ${active ? '' : 'hidden'}><h3>Mood</h3><div class="textlinks">${MOODS.map(t => `<button type="button" data-mood="${t}" aria-pressed="${state.filters.has(t)}">${t}</button>`).join('')}</div>
         ${active ? `<h3>${hits.length ? hits.length + ' match' + (hits.length === 1 ? '' : 'es') : 'No matches'}</h3><div class="textlinks">${hits.map(a => `<button type="button" class="${isDone(IDX[a]) ? 'done' : isWant(IDX[a]) ? 'want' : ''}" data-go='${attr({ hood: a })}'>${esc(a)}</button>`).join('')}</div>` : ''}</div>`;
     const list = r === 'all' ? '' : `<h3>${r === 'all' ? 'Regions' : 'Places'} <span class="n">${r === 'all' ? '' : total}</span></h3><ul class="rows ${r === 'all' || REGIONS[r].ordered ? '' : 'cols2'}">${places}</ul>`; // an ordered region (the Strip, north to south) reads down one column
-    // the actions first, as a row of pills (Find by mood opens its tags just under them)
+    // the actions first, as a row of text links (Find by mood opens its tags just under them)
     panel.innerHTML = links + (news ? newsBlock() : '') + (r === 'all' && window.Lookback ? Lookback.card() : '') + progress + (isPhone() ? list + lead : lead + list) + `
       ${first ? '' : `
       ${entries.length ? `<h3>Explored <span class="n">${entries.length}</span></h3><ul class="rows">${entries.map(x => `<li><button type="button" class="row" data-go='${attr({ hood: x })}'><span class="ic flag"></span><span class="nm">${esc(x)}${flagOf(x).note ? `<small>${esc(flagOf(x).note)}</small>` : ''}</span><span class="rt">${niceDate(flagOf(x).at)}</span></button></li>`).join('')}</ul>` : ''}
@@ -520,6 +520,7 @@
     panel.querySelectorAll('[data-mood]').forEach(b => b.addEventListener('click', () => { const t = b.dataset.mood; state.filters.has(t) ? state.filters.delete(t) : state.filters.add(t); map.invalidate(); render(); panel.querySelector('#moods').hidden = false; }));
     { const j = panel.querySelector('#join-log-hint'); if (j) j.addEventListener('click', joinLog); }
     const ns = panel.querySelector('#news-seen'); if (ns) ns.addEventListener('click', markSeen);
+    { const m = panel.querySelector('#news-more'); if (m) m.addEventListener('click', () => { newsOpen = true; render(); }); }
     panel.querySelectorAll('[data-news]').forEach(b => b.addEventListener('click', () => { const e = newsShown.find(x => x.key === b.dataset.news); if (e) openEv(e); }));
   }
 
@@ -528,10 +529,10 @@
     const i = IDX[name], info = INFO[name], h = HOODS[i], k = slug(name), done = state.done[k], secs = subs(name), mine = spotsIn(name), beenN = mine.filter(id => (state.spots[id].status || 'been') === 'been').length, bmN = mine.filter(id => isBm(state.spots[id])).length;
     const roof = h.max === Math.max(...HOODS.filter(x => x.region === h.region).map(x => x.max)), dis = state.canWrite ? '' : 'disabled';
     const keepNote = panel.dataset.name === name && panel.querySelector('#note') ? panel.querySelector('#note').value : null; panel.dataset.name = name;
-    setHead({ path: { crumbs: crumbsOf(state.loc) }, title: esc(name), act: { cls: 'pill', label: 'Add a spot in ' + name, html: ICON.plus + '<span>Add a spot</span>', off: !state.canWrite, run: () => startLog({ hood: name }) } }); // the vibe is the first of the facts
+    setHead({ path: { crumbs: crumbsOf(state.loc) }, title: esc(name) }); // the vibe is the first of the facts
     const extras = mine.map(spotSrc).concat(secs.slice().sort((a, b) => !!b.star - !!a.star).map(s => ({ owner: ownerKey.section(name, s.name), label: s.name }))); // spots first, newest first (photos mostly live there and the hero caps its sources), then sections in list order
     panel.innerHTML = `
-      <div class="pstats" role="group" aria-label="Spots in ${esc(name)}"><span><b>${beenN}</b><small>Been</small></span><span class="bm"><b>${bmN}</b><small>Bookmarked</small></span></div>
+      <div class="pstats" role="group" aria-label="Spots in ${esc(name)}"><span><b>${beenN}</b><small>Been</small></span><span class="bm"><b>${bmN}</b><small>Bookmarked</small></span><button type="button" class="btn" id="add-spot" aria-label="Add a spot in ${esc(name)}" ${dis}>${ICON.plus}Add a spot</button></div>
       ${hero(ownerKey.place(name), name, Object.assign(vibeLook(name), { extras }))}
       <p class="lead">${esc(info.line)}</p>
       ${done && !beenN ? `<p class="handflag">Flagged by hand${niceDate(done.at) ? ' · ' + niceDate(done.at) : ''}${state.canWrite ? ' · <button type="button" id="explore">Remove flag</button>' : ''}</p>` : ''}
@@ -545,6 +546,7 @@
       <h3>One thing to know</h3><p class="fact">${esc(info.fact)}</p>
       <h3>Next door</h3>${h.adj.length ? `<div class="textlinks">${h.adj.map(a => `<button type="button" class="${isDone(IDX[a]) ? 'done' : isWant(IDX[a]) ? 'want' : ''}" data-go='${attr({ hood: a })}'>${esc(a)}</button>`).join('')}</div>` : '<p class="empty">Nobody. It is an island.</p>'}`;
     { const b = panel.querySelector('#explore'); if (b) b.addEventListener('click', () => toggleDone(name)); }
+    panel.querySelector('#add-spot').addEventListener('click', () => startLog({ hood: name }));
     const n = panel.querySelector('#note'); if (n) n.addEventListener('input', e => noteInput(name, e.target.value));
   }
   // ---- a section of a neighborhood ----
@@ -991,16 +993,18 @@
   }
   const feedSoon = () => { clearTimeout(feedTimer); feedTimer = setTimeout(() => readFeed(true), 250); }; // one read for a burst of stream messages
   // Seen and the lines act on what the block last drew (newsShown), never on a list read since while it could not redraw
-  function markSeen() { const top = newsShown[0]; if (top && top.key > (seenId() || '')) setSeen(top.key); state.news = top ? state.news.filter(e => e.key > top.key) : []; render(); }
+  function markSeen() { newsOpen = false; const top = newsShown[0]; if (top && top.key > (seenId() || '')) setSeen(top.key); state.news = top ? state.news.filter(e => e.key > top.key) : []; render(); }
+  let newsOpen = false; // the rest of a long list, opened by its "more" line
   function newsBlock() {
-    const n = newsShown = state.news; if (!n.length) return '';
-    // a written log: the time in a margin column, who in bold, what they did. Every unseen event is here; past about four rows the list scrolls
-    return `<section class="news" aria-label="Since you were last here"><div class="news-hd">Since you were here<button type="button" id="news-seen">Seen</button></div>
-      <ol class="news-log">${n.map(e => `<li><button type="button" data-news="${esc(e.key)}" title="${esc(evLine(e) + (ago(e.t) ? ', ' + ago(e.t) : ''))}"><time datetime="${esc(e.t)}">${esc(agoShort(e.t))}</time><span><b>${esc(e.by || 'Someone')}</b> ${esc(evWhat(e))}</span></button></li>`).join('')}</ol></section>`;
+    const n = newsShown = state.news; if (!n.length) { newsOpen = false; return ''; }
+    // rows like every other list in the panel: who in bold and what they did, how long ago at the right. Past four, three show and one line opens the rest (no list scrolling inside the panel)
+    const cut = newsOpen || n.length <= 4 ? n.length : 3;
+    return `<section class="news" aria-label="Since you were last here"><h3>Since you were here<button type="button" class="act" id="news-seen">Mark seen</button></h3>
+      <ul class="rows">${n.slice(0, cut).map(e => `<li><button type="button" class="row" data-news="${esc(e.key)}" title="${esc(evLine(e) + (ago(e.t) ? ', ' + ago(e.t) : ''))}"><span class="ic"></span><span class="nm"><b>${esc(e.by || 'Someone')}</b> ${esc(evWhat(e))}</span><time class="rt" datetime="${esc(e.t)}">${esc(agoShort(e.t))}</time></button></li>`).join('')}</ul>${cut < n.length ? `<button type="button" class="more" id="news-more">Show ${n.length - cut} more</button>` : ''}</section>`;
   }
-  // the margin's short time: 12m, 2h, 3d, then the date
+  // "12m", "3h", "2d", then the date: the row's short time
   function agoShort(t) { const d = Date.parse(t), m = (Date.now() - d) / 60000; if (!isFinite(m) || m < -5) return ''; return m < 1 ? 'now' : m < 60 ? Math.round(m) + 'm' : m < 1440 ? Math.round(m / 60) + 'h' : m < 10080 ? Math.round(m / 1440) + 'd' : niceDate(new Date(d).toISOString().slice(0, 10)); }
-  function evWhat(e) { const nm = e.name || 'a spot'; return e.k === 'photo' ? `+${e.n === 1 ? '1 photo' : e.n + ' photos'}, ${nm}` : e.k === 'place' ? `explored ${nm}` : e.k === 'been' ? `went to ${nm}` : `logged ${nm}`; }
+  function evWhat(e) { const nm = e.name || 'a spot'; return e.k === 'photo' ? `added ${e.n === 1 ? 'a photo' : e.n + ' photos'} to ${nm}` : e.k === 'place' ? `explored ${nm}` : e.k === 'been' ? `went to ${nm}` : `logged ${nm}`; }
   // photos.js: who adds a photo, what was added (an event), and the capture date of a photo on a been spot (offered, never applied unasked)
   function photoAdded(owner, ids, label) {
     const n = Array.isArray(ids) ? ids.length : ids && typeof ids === 'object' ? Object.keys(ids).length : 0; if (!n) return;

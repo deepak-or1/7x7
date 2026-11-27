@@ -1,4 +1,4 @@
-window.SBS_COMMIT = window.SBS_COMMIT || '3d 2026-11-27 b';   // the build the speed tools print (js/map3d/bench.js): change it with every change to the 3D map
+window.SBS_COMMIT = window.SBS_COMMIT || '3d 2026-11-27 looks2-trim';   // the build the speed tools print (js/map3d/bench.js): change it with every change to the 3D map
 // The 3D map (beta): a second map engine beside js/map.js, with the same members and the same options, so js/app.js drives either.
 // It is inert unless index.html also loaded three.js and js/map3d/{land,models,blocks}.js (it does when the 3D map is asked for):
 // window.MapView3D returns null without them, or without WebGL, and the app makes the flat map instead.
@@ -216,7 +216,13 @@ window.SBS_COMMIT = window.SBS_COMMIT || '3d 2026-11-27 b';   // the build the s
     function sync() { cam.x = cur.cx - cur.w / 2; cam.y = cur.cz - cur.w * H / W / 2; cam.w = cur.w; }
 
     // ---- what stands where ----
-    const placeAt = (L, x, y) => { for (let i = 0; i < HOODS.length; i++) { const bb = BB[i]; if (x < bb[0] || x > bb[2] || y < bb[1] || y > bb[3]) continue; if (Geom.inPolys(L[i], x, y)) return i; } return -1; };
+    // Geom.inPolys (pieces: an outer ring, then its holes) with the same answer, faster: each set of pieces read once into flat arrays with
+    // the box of each piece, kept while the set is the same array of the same length (the places' plans and tops are made once)
+    const polysF = new WeakMap(), ringIn = (r, x, y) => { let c = false; for (let i = 0, j = r.length - 2; i < r.length; j = i, i += 2) { const xi = r[i], yi = r[i + 1], xj = r[j], yj = r[j + 1]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c; } return c; };
+    const inPolys = (polys, x, y) => { let F = polysF.get(polys);
+      if (!F || F.n !== polys.length) { F = { n: polys.length, p: polys.map(poly => { const b = [Infinity, Infinity, -Infinity, -Infinity], rs = poly.map((r, k) => { const a = new Float64Array(r.length * 2); r.forEach((q, m) => { a[m * 2] = q[0]; a[m * 2 + 1] = q[1]; if (!k) { if (q[0] < b[0]) b[0] = q[0]; if (q[0] > b[2]) b[2] = q[0]; if (q[1] < b[1]) b[1] = q[1]; if (q[1] > b[3]) b[3] = q[1]; } }); return a; }); return { b, rs }; }) }; polysF.set(polys, F); }
+      for (const P of F.p) { const b = P.b; if (x < b[0] || x > b[2] || y < b[1] || y > b[3] || !ringIn(P.rs[0], x, y)) continue; let hole = false; for (let k = 1; k < P.rs.length && !hole; k++) hole = ringIn(P.rs[k], x, y); if (!hole) return true; } return false; };
+    const placeAt = (L, x, y) => { for (let i = 0; i < HOODS.length; i++) { const bb = BB[i]; if (x < bb[0] || x > bb[2] || y < bb[1] || y > bb[3]) continue; if (inPolys(L[i], x, y)) return i; } return -1; };
     const hoodAt = (x, y) => placeAt(PPD, x, y);                          // the place whose block stands at a point
     const firstAt = (x, y) => placeAt(PP, x, y);                          // the place the flat map's hit test gives there: the first in the list
     const hoodOf = (x, y) => { const k = x + ',' + y; let i = hoodCache.get(k); if (i === undefined) { if (hoodCache.size > 4000) hoodCache.clear(); i = hoodAt(x, y); hoodCache.set(k, i); } return i; };
@@ -225,7 +231,7 @@ window.SBS_COMMIT = window.SBS_COMMIT || '3d 2026-11-27 b';   // the build the s
     // boundary belongs to the block it edges), else the water
     function surfaceAt(x, y, near) {
       let h = -1;
-      for (let i = 0; i < HOODS.length; i++) { const bb = BB[i]; if (x < bb[0] - near || x > bb[2] + near || y < bb[1] - near || y > bb[3] + near || topAt(i) <= h) continue; if (Geom.inPolys(PPD[i], x, y) || (near > 0 && PPD[i].some(poly => ringNear(poly[0], x, y, near * near)))) h = Math.max(h, gAt(i, x, y)); }
+      for (let i = 0; i < HOODS.length; i++) { const bb = BB[i]; if (x < bb[0] - near || x > bb[2] + near || y < bb[1] - near || y > bb[3] + near || topAt(i) <= h) continue; if (inPolys(PPD[i], x, y) || (near > 0 && PPD[i].some(poly => ringNear(poly[0], x, y, near * near)))) h = Math.max(h, gAt(i, x, y)); }
       return h < 0 ? 0 : h;
     }
     // the first thing a ray from a screen point meets: the top of a block, or its wall, else the water. { i, x, y } in map units
@@ -241,7 +247,7 @@ window.SBS_COMMIT = window.SBS_COMMIT || '3d 2026-11-27 b';   // the build the s
         if (RL && RL.has(i)) {
           // real ground: the stretches of the ray over the place in plan (between its crossings of the outline); where one begins
           // under the ground it is the wall there; else the ray is walked over the place's ground to where it first goes under
-          const ex = gx - ax, ey = gy - ay, us = []; let ins = Geom.inPolys(PPD[i], ax, ay);
+          const ex = gx - ax, ey = gy - ay, us = []; let ins = inPolys(PPD[i], ax, ay);
           for (const poly of PPD[i]) for (const ring of poly) for (let a = 0, b = ring.length - 1; a < ring.length; b = a++) { const px = ring[b][0], py = ring[b][1], fx = ring[a][0] - px, fy = ring[a][1] - py, den = ex * fy - ey * fx; if (Math.abs(den) < 1e-12) continue; const u = ((px - ax) * fy - (py - ay) * fx) / den, w = ((px - ax) * ey - (py - ay) * ex) / den; if (u > 0 && u <= 1 && w >= 0 && w < 1) us.push(u); }
           us.sort((p, q) => p - q); us.push(1.000001);
           let u0 = 0;
@@ -254,14 +260,14 @@ window.SBS_COMMIT = window.SBS_COMMIT || '3d 2026-11-27 b';   // the build the s
           continue;
         }
         const qx = c.px + r[0] * ti, qy = c.pz + r[2] * ti;
-        if (Geom.inPolys(PPD[i], qx, qy)) { best = i; bt = ti; continue; }
+        if (inPolys(PPD[i], qx, qy)) { best = i; bt = ti; continue; }
         // below its top: the ray may come in through the wall. The first crossing of the place's outline between there and the ground
         const ex = gx - qx, ey = gy - qy; let s = Infinity;
         for (const poly of PPD[i]) { const ring = poly[0]; for (let a = 0, b = ring.length - 1; a < ring.length; b = a++) { const px = ring[b][0], py = ring[b][1], fx = ring[a][0] - px, fy = ring[a][1] - py, den = ex * fy - ey * fx; if (Math.abs(den) < 1e-12) continue; const u = ((px - qx) * fy - (py - qy) * fx) / den, w = ((px - qx) * ey - (py - qy) * ex) / den; if (u >= 0 && u <= 1 && w >= 0 && w <= 1 && u < s) s = u; } }
         if (s <= 1) { const t = ti + (tg - ti) * s + 1e-4 * (tg - ti); if (t < bt) { best = i; bt = t; } }
       }
       let x = c.px + r[0] * bt, y = c.pz + r[2] * bt; const h = best < 0 ? 0 : RL && RL.has(best) ? (c.py + dy * bt) / c.vex : topAt(best); // the height of what was met (a plateau: its top)
-      if (best >= 0 && !Geom.inPolys(PPD[best], x, y)) { x += r[0] / hl * .03; y += r[2] / hl * .03; } // a wall: a point just inside it
+      if (best >= 0 && !inPolys(PPD[best], x, y)) { x += r[0] / hl * .03; y += r[2] / hl * .03; } // a wall: a point just inside it
       if (best >= 0 && COV.some(c => c.size)) { const j = firstAt(x, y); if (j >= 0) best = j; } // ground two places claim: the flat map's answer, the first in the list
       return { i: best, x, y, h };
     }
@@ -362,12 +368,11 @@ window.SBS_COMMIT = window.SBS_COMMIT || '3d 2026-11-27 b';   // the build the s
     // greens, blue the paler ones, mixed into the ground's own colour on its tops (not its walls). Made now, with an empty texture and uPkK 0
     // (nothing shows), so that nothing is compiled again when the parks arrive. ?m3d-parks=off: not at all
     const pkBlank = new THREE.DataTexture(new Uint8Array(4), 1, 1); pkBlank.needsUpdate = true;
-    const pkU = { uPkK: { value: 0 }, uPkLawn: { value: new THREE.Color() }, uPkDeep: { value: new THREE.Color() }, uPkPale: { value: new THREE.Color() }, uPkWater: { value: new THREE.Color() } };
+    const pkU = { uPkCam: { value: camera.matrixWorld }, uPkVex: { value: 1 }, uPkK: { value: 0 }, uPkLawn: { value: new THREE.Color() }, uPkDeep: { value: new THREE.Color() }, uPkPale: { value: new THREE.Color() }, uPkWater: { value: new THREE.Color() } };
     for (let q = 0; q < 4; q++) { pkU['uPk' + q] = { value: pkBlank }; pkU['uPkB' + q] = { value: new THREE.Vector4(0, 0, -1, -1) }; }
     if (PARKS) for (const m of [tileMat, landMat, farMat]) {
-      m.customProgramCacheKey = () => 'm3d-pk-g'; m.onBeforeCompile = s => { Object.assign(s.uniforms, pkU);
-        s.vertexShader = s.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vPkP;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvPkP = vec3((modelMatrix * vec4(transformed, 1.0)).xz, normal.y);');
-        let f = 'uniform float uPkK; uniform vec3 uPkLawn; uniform vec3 uPkDeep; uniform vec3 uPkPale; uniform vec3 uPkWater; varying vec3 vPkP;\n', g = '{ vec2 q = vPkP.xy, qx = dFdx(q), qy = dFdy(q); vec3 w = vec3(0.0); vec4 b;\n';
+      m.customProgramCacheKey = () => 'm3d-pk-g'; m.onBeforeCompile = s => { Object.assign(s.uniforms, pkU);   // (no varying of its own: the point and the slope from the view's own, vViewPosition and vNormal, and the camera; as made: the ground's height stretched by vex)
+        let f = 'uniform float uPkK; uniform vec3 uPkLawn; uniform vec3 uPkDeep; uniform vec3 uPkPale; uniform vec3 uPkWater; uniform mat4 uPkCam; uniform float uPkVex;\n', g = 'vec3 pkN = (uPkCam * vec4(vNormal, 0.0)).xyz; pkN.y *= uPkVex; vec3 vPkP = vec3((uPkCam * vec4(-vViewPosition, 1.0)).xz, pkN.y / max(length(pkN), 1e-6));\n{ vec2 q = vPkP.xy, qx = dFdx(q), qy = dFdy(q); vec3 w = vec3(0.0); vec4 b;\n';
         for (let k = 0; k < 4; k++) { f += `uniform sampler2D uPk${k}; uniform vec4 uPkB${k};\n`; g += `${k ? 'else ' : ''}if (q.x > uPkB${k}.x && q.y > uPkB${k}.y && q.x < uPkB${k}.z && q.y < uPkB${k}.w) { vec2 e = 1.0 / (uPkB${k}.zw - uPkB${k}.xy); w = textureGrad(uPk${k}, (q - uPkB${k}.xy) * e, qx * e, qy * e).rgb; }\n`; }
         g += `float a = min(w.r, min(w.g, w.b)); w -= a; float s = w.r + w.g + w.b, c = min(1.0, s + a) * uPkK * smoothstep(0.35, 0.75, vPkP.z);   // (all three alike: a park's water)
 if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + uPkPale * k.b; p = mix(p, vec3(dot(p, vec3(0.3, 0.55, 0.15))), min(k.g, k.b) * 0.9);
@@ -429,7 +434,7 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
     // and tv its heights to the real buildings' scale (RB_V times the real heights: js/map3d/real.js V), so close in everything stands to one
     // scale (M3D.lmTrue from icons-sf.js and icons-away.js: tk, or [tk, tv] where the model is not its real size times ex; else tk = 1 / ex,
     // tv = tk * RB_V). ?m3d-scale=big: as from afar at every distance (the rule before)
-    const LM_D = [50, 210], RB_V = 2.5;   // (the city-wide view stands about 440 off on a phone, 220 on a desktop; the fabric is all up from about 160)
+    const LM_D = [50, 210], RB_V = 2.5, LM_MIN = 44, LM_NEAR = 5;   // LM_MIN: close in, the least size on screen of a landmark's largest side, in pixels (eased in as it comes to true size), for the landmarks within LM_NEAR map units (about 700 m) of the view's middle (eased out by twice that)   // (the city-wide view stands about 440 off on a phone, 220 on a desktop; the fabric is all up from about 160)
     const lmTrue = ic => { let t = (M3D.lmTrue || {})[ic.id]; if (!(t > 0) && !Array.isArray(t)) { const e = (M3D.extra || []).find(x => x && x.id === ic.id); t = e && e.ex > 0 ? 1 / e.ex : 1; } return Array.isArray(t) ? t : [t, t * RB_V]; };
     const lmClear = (ic, k) => SCALE === 'big' || (ic.hood >= 0 && REGS[HOODS[ic.hood].region] && REGS[HOODS[ic.hood].region].away) ? k : k * (ic.tk + (1 - ic.tk) * 0.15);   // how far round a model what else is built keeps clear (its plan grown by k): close in, its true plan and a little more; on the Strip its plan as built (a resort's model stands for the whole resort, whose wings and garages the real outlines would draw again)
 
@@ -453,7 +458,7 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
         },
         () => { // the bridges, the landmarks, the flag and the bookmark
           const t0 = now(); bridges = MD.bridges(ground); addBuilt(bridges);
-          icons = MD.icons(ground, (x, z, x0, z0) => { const i = hoodAt(x0, z0); return i >= 0 && Geom.inPolys(tiles[i].tops, x, z) ? hAt(i, x, z) : null; }); icons.forEach(ic => { ic.mesh = addBuilt(ic); ic.hood = hoodAt(ic.x, ic.z); ic.lm = LM_ID[ic.id]; [ic.tk, ic.tv] = lmTrue(ic); ic.mesh.position.set(ic.x, ic.y, ic.z); });
+          icons = MD.icons(ground, (x, z, x0, z0) => { const i = hoodAt(x0, z0); return i >= 0 && inPolys(tiles[i].tops, x, z) ? hAt(i, x, z) : null; }); icons.forEach(ic => { ic.mesh = addBuilt(ic); ic.hood = hoodAt(ic.x, ic.z); ic.lm = LM_ID[ic.id]; [ic.tk, ic.tv] = lmTrue(ic); const at = SCALE === 'true' && (M3D.lmAt || {})[ic.id]; if (at) { const p = proj(at); ic.x = p[0]; ic.z = p[1]; ic.y = ground(ic.x, ic.z); ic.hood = hoodAt(ic.x, ic.z); } ic.mesh.position.set(ic.x, ic.y, ic.z); });   // (M3D.lmAt: a model whose true size would leave the real place it stands for stands on that place: icons-sf.js)
           const inst = model => { const m = new THREE.InstancedMesh(model.geometry, markMat, HOODS.length); m.count = 0; m.castShadow = true; m.frustumCulled = false; landG.add(m); built.push({ mesh: m, mat: model.mat, names: model.names, shade: model.shade }); return m; };
           flags = inst(MD.flag()); books = inst(MD.bookmark()); stat.build.models = now() - t0;
         },
@@ -485,10 +490,10 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
         () => { // after the first frame: the real buildings' outlines (js/map3d/real.js, from js/map3d/buildings.js), unpacked and sorted by chunk; their shapes are made as the camera comes near. Without them (the file missing or cut short, ?m3d-real=off) the town is the made-up one it was
           const t0 = now(); if (RB && !/[?&]m3d-real=off(?:&|$)/.test(location.search)) try {
             const boxes = icons.map(ic => { const b = ic.geometry.boundingBox, k = lmClear(ic, 1.12); return [ic.x + b.min.x * k, ic.z + b.min.z * k, ic.x + b.max.x * k, ic.z + b.max.z * k]; }); // a landmark's plan, a little grown: no real outline stands in it
-            rb.gen = RB.make(M3D.buildingData, { inTop: (x, z) => { const i = hoodAt(x, z); return i >= 0 && Geom.inPolys(tiles[i].tops, x, z) ? i : -1; }, inTopOf: (i, x, z) => Geom.inPolys(tiles[i].tops, x, z), hAt, boxes, get look() { return LOOK.v; }, road: (x, z, r) => !!roads && roads.near(x, z, r) }); rb.gl = RB.gl(THREE, fabU, LOOK.v);
+            rb.gen = RB.make(M3D.buildingData, { inTop: (x, z) => { const i = hoodAt(x, z); return i >= 0 && inPolys(tiles[i].tops, x, z) ? i : -1; }, inTopOf: (i, x, z) => inPolys(tiles[i].tops, x, z), hAt, boxes, get look() { return LOOK.v; }, road: (x, z, r) => !!roads && roads.near(x, z, r) }); rb.gl = RB.gl(THREE, fabU, LOOK.v);
             rb.tallU = Object.assign({}, fabU, { uGrow: { value: 0 }, uFocus: { value: new THREE.Vector4(0, 0, 1e6, 2e6) } }); rb.tallGl = RB.gl(THREE, rb.tallU, LOOK.v); // the tall ones: their own rise (from the city-wide view), everywhere in sight
             // its two shaders are made now, one a frame, on a building nobody sees (as the fabric's below): not in the first flight in
-            const slot = rb.slots.pop(), d = rb.gl.mesh({ ix: 0, iz: 0, n: 3, pos: new Float32Array([cur.cx, 0, cur.cz, cur.cx + 0.01, 0, cur.cz, cur.cx, 0.01, cur.cz]), nor: new Float32Array([0, 1, 0, 0, 1, 0, 0, 1, 0]), aB: new Float32Array(12), aW: new Float32Array(12), idx: new Uint16Array([0, 1, 2]), y0: 0, y1: 0.01 }, slot);
+            const slot = rb.slots.pop(), d = rb.gl.mesh({ ix: 0, iz: 0, n: 3, ...RB.pack([cur.cx, 0, cur.cz, cur.cx + 0.01, 0, cur.cz, cur.cx, 0.01, cur.cz], [0, 1, 0, 0, 1, 0, 0, 1, 0], new Float32Array(12), new Float32Array(12), 3), idx: new Uint16Array([0, 1, 2]), y0: 0, y1: 0.01 }, slot);
             placeData[(TW + slot) * 4] = 0; d.frustumCulled = false; d.castShadow = false;
             const seq = [() => landG.add(d), () => { d.castShadow = true; shadowDirty = true; }, () => { landG.remove(d); d.geometry.dispose(); rb.slots.push(slot); }];
             let q = 0; const go = () => { if (dead) return; if (!SW.warmOff && (ptrs.size || fly)) return void setTimeout(go, 120); const t1 = now(); seq[q++](); needs = true; if (raf) { cancelAnimationFrame(raf); raf = 0; } lastT = now(); frame(lastT, true); stat.build['realWarm' + q] = now() - t1; if (q < seq.length) setTimeout(go, 120); }; setTimeout(go, 120);
@@ -529,7 +534,7 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
         () => { // the city fabric (js/map3d/fabric.js): only its plan; its chunks are made as the camera comes near
           const t0 = now(); try { if (FB && FB.gl) {
             const avoid = []; for (const ic of icons) avoid.push([ic.x, ic.z, ic.flat ? ic.r * 0.95 : SCALE === 'big' ? ic.r * 1.8 + 0.2 : ic.r * lmClear(ic, 1.3) + 0.06]); for (const f of cityFoot) avoid.push(f); HOODS.forEach(h => avoid.push([h.cx, h.cy, 0.5])); // (landmarks are drawn up to about 1.8 times their size while the fabric shows)
-            fab.gen = FB.make({ HOODS, BB, HT, hAt, INFO: window.INFO, SUBD, REGS, proj, inTop: (i, x, z) => Geom.inPolys(tiles[i].tops, x, z), avoid, strip: cityStrip, solid: rb.gen ? (x, z, r) => !!rb.gen && rb.gen.solid(x, z, r) : null, dense: rb.gen ? (x, z) => !!rb.gen && rb.gen.dense(x, z) : null, get look() { return LOOK.v; }, road: (x, z, r) => !!roads && roads.near(x, z, r), get park() { return pk && pk.ready ? pk.P.inPark : null; } }); fab.gl = FB.gl(THREE, fabU, LOOK.v); // (solid, dense: once the real buildings have given up, rbGiveUp, nothing real stands anywhere)
+            fab.gen = FB.make({ HOODS, BB, HT, hAt, INFO: window.INFO, SUBD, REGS, proj, inTop: (i, x, z) => inPolys(tiles[i].tops, x, z), avoid, strip: cityStrip, solid: rb.gen ? (x, z, r) => !!rb.gen && rb.gen.solid(x, z, r) : null, dense: rb.gen ? (x, z) => !!rb.gen && rb.gen.dense(x, z) : null, get look() { return LOOK.v; }, road: (x, z, r) => !!roads && roads.near(x, z, r), get park() { return pk && pk.ready ? pk.P.inPark : null; } }); fab.gl = FB.gl(THREE, fabU, LOOK.v); // (solid, dense: once the real buildings have given up, rbGiveUp, nothing real stands anywhere)
             // its four shaders are made now, one a frame, on a building and a tree nobody sees: not in the middle of the first flight in
             const d = fab.gl.mesh({ ix: 0, iz: 0, nb: 1, nt: 1, b: new Float32Array([cur.cx, 0, cur.cz, 0, 1, 1, 1, 0, 0, 0, 0]), t: new Float32Array([cur.cx, 0, cur.cz, 1, 0, 0, 0]) }, fab.slots.shift());
             for (const m of [d.b, d.t]) { m.frustumCulled = false; m.castShadow = false; }
@@ -577,7 +582,7 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
         const cx = (b[0] + b[2]) / 2, cz = (b[1] + b[3]) / 2, rad = Math.hypot(b[2] - b[0], b[3] - b[1]) / 2, n = Math.ceil(rad / pitch), i0 = list.length;
         for (let i = -n; i <= n; i++) for (let j = -n; j <= n; j++) {
           if (R() > keep) continue; const u = (i + (R() - 0.5) * 0.3) * pitch, v = (j + (R() - 0.5) * 0.3) * pitch, x = cx + u * ca - v * sa, z = cz + u * sa + v * ca;
-          if (x < b[0] || x > b[2] || z < b[1] || z > b[3] || !Geom.inPolys(PPD[t], x, z)) continue;
+          if (x < b[0] || x > b[2] || z < b[1] || z > b[3] || !inPolys(PPD[t], x, z)) continue;
           const k = R(); list.push({ x, y: hAt(t, x, z) + 0.06, z, kind: k > 0.93 ? '#cfe2ff' : k > 0.55 ? '#ffd39a' : '#ffb866', size: (city ? 0.24 : 0.8) * (0.7 + R() * 0.6) });
         }
         tiles[t].l0 = i0; tiles[t].l1 = list.length;
@@ -723,8 +728,8 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
     // slices: the data unpacked, each texture of the ground painted and sent to the GPU one a turn, then the trees by chunk near the
     // camera (pkPump, the same turns as the fabric's), all in one instanced mesh filled again when the chunks near the camera change.
     // A failure anywhere leaves the parks out (parksGiveUp) and the map as it was ----
-    const PK_R = 24, PK_CAP = 3200, PK_COL = { paper: ['#b6cf8f', '#8fb071', '#cddca2', '#6f9658', '#55804a', '#4d7743'], night: ['#304b3a', '#253d30', '#3a5443', '#2f4c3c', '#243b2f', '#1f3529'] }; // the trees within PK_R map units of the view's middle, at most PK_CAP; the colours [lawn, deep, pale ground; trees light, dark; woods]
-    let pkDark = null;
+    const PK_R = 24, PK_CAP = 3200, PK_COL = { paper: ['#b6cf8f', '#8fb071', '#cddca2', '#6f9658', '#55804a', '#4d7743'], night: ['#4f8460', '#41704f', '#5e8a68', '#2f4c3c', '#243b2f', '#1f3529'] }; // the trees within PK_R map units of the view's middle, at most PK_CAP; the colours [lawn, deep, pale ground; trees light, dark; woods]
+    const PK_D = [700, 1700], PK_FAR = 0.3; let pkDark = null;   // PK_D: the camera's distances between which the parks' ground goes from its full green (the city-wide view, about 440 off on a phone) to PK_FAR of it (the whole bay)
     function parksLoad() {
       if (window.M3D.parks && window.M3D.parkData) return void setTimeout(parksMake, 0);
       const add = (src, last) => { const s = document.createElement('script'); s.src = src; s.async = false; s.onerror = () => console.warn('3D map, the parks left out: ' + src + ' did not load'); if (last) s.onload = () => { if (!dead) setTimeout(parksMake, 0); }; document.head.appendChild(s); };
@@ -740,7 +745,7 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
       try {
         const OTHER = (G.other || []).map(p => { const r = p[0].map(proj), b = [Infinity, Infinity, -Infinity, -Infinity]; for (const q of r) { b[0] = Math.min(b[0], q[0]); b[1] = Math.min(b[1], q[1]); b[2] = Math.max(b[2], q[0]); b[3] = Math.max(b[3], q[1]); } return { r, b }; }), FARX = proj([-121.3, 42.5])[0];
         const landAt = (x, z) => x > FARX || OTHER.some(o => x >= o.b[0] && x <= o.b[2] && z >= o.b[1] && z <= o.b[3] && Geom.pip(o.r, x, z));   // the quiet land between the places, or the far land beyond the counties (the Strip's desert)
-        const P = MP.make(window.M3D.parkData, { HOODS, hoodAt, inTop: (i, x, z) => Geom.inPolys(tiles[i].tops, x, z), hAt, landAt, landY: x => x > FARX ? land.LAND_TOP - 0.03 : land.LAND_TOP, solid: (x, z, r) => !!rb.gen && rb.gen.solid(x, z, r), road: (x, z, r) => !!roads && roads.near(x, z, r), avoid: icons.map(ic => [ic.x, ic.z, ic.flat ? ic.r * 0.95 : ic.r * ic.tk * 1.1 + 0.03]) });
+        const P = MP.make(window.M3D.parkData, { HOODS, hoodAt, inTop: (i, x, z) => inPolys(tiles[i].tops, x, z), hAt, landAt, landY: x => x > FARX ? land.LAND_TOP - 0.03 : land.LAND_TOP, solid: (x, z, r) => !!rb.gen && rb.gen.solid(x, z, r), road: (x, z, r) => !!roads && roads.near(x, z, r), avoid: icons.map(ic => [ic.x, ic.z, ic.flat ? ic.r * 0.95 : ic.r * ic.tk * 1.1 + 0.03]) });
         pk = { P, gl: null, U: null, chunks: new Map(), queue: [], want: [], r: PK_R, key: '', timer: 0, n: 0, made: 0, worst: 0, ready: false, tex: [], t0: now(), bornLast: -1e9, dirty: false, slices: 0, slowest: 0 };
       } catch (e) { pk = null; return void parksGiveUp(e); }
       let bs = null, q = 0, job = null, cv = null;
@@ -785,7 +790,8 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
     function pkStep(dt) {
       if (!pk || !pk.ready) return false; let anim = false; const U = pk.U, m = pk.gl.mesh;
       if (pkDark !== dark) { pkDark = dark; const C2 = PK_COL[dark ? 'night' : 'paper'].map(h => RK ? '#' + richRGB(hex2rgb(h), RK.sat, RK.val, RK.green).map(v => Math.round(v).toString(16).padStart(2, '0')).join('') : h); pkU.uPkWater.value.set(LK.water); pkU.uPkLawn.value.set(C2[0]); pkU.uPkDeep.value.set(C2[1]); pkU.uPkPale.value.set(C2[2]); U.uTreeA.value.set(C2[3]); U.uTreeB.value.set(C2[4]); U.uPkWood.value.set(C2[5]); }   // (in the light theme the richer colour of ?m3d-rich, as the places take theirs: placeCol)
-      const tg = quiz ? 0 : 1, k0 = pkU.uPkK.value; if (k0 !== tg) { pkU.uPkK.value = RM.matches ? tg : k0 < tg ? Math.min(tg, k0 + dt / 600) : Math.max(tg, k0 - dt / 300); anim = true; }
+      const tg = quiz ? 0 : 1, k0 = pk.k0 || 0; if (k0 !== tg) { pk.k0 = RM.matches ? tg : k0 < tg ? Math.min(tg, k0 + dt / 600) : Math.max(tg, k0 - dt / 300); anim = true; }
+      pkU.uPkK.value = pk.k0 * lerp(1, PK_FAR, smooth(Math.log(C.d), Math.log(PK_D[0]), Math.log(PK_D[1])));   // (from the whole bay the parks are faint and the places' own colours lead; full from the city-wide view in)
       U.uPkNow.value = now() - pk.t0; if (U.uPkNow.value - pk.bornLast < 480) { anim = true; pk.late = true; }
       if (pk.late && !moving) { pk.late = false; shadowDirty = true; }   // (new trees: their shadows drawn at rest, not while the map moves)
       if (pk.warming) return anim; const grow = fabU.uGrow.value; m.visible = grow > 0 && pk.n > 0; m.castShadow = Q.fabShadow;
@@ -831,7 +837,7 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
     // after the first frame: the list is added to the page (it is not in index.html's chain); the buildings wait for the plan, 4 s at most
     function rdLoad() {
       rd.busy = true; const s = document.createElement('script'), t0 = now(); s.src = 'js/map3d/roaddata.js'; s.async = true;
-      s.onload = () => { if (dead) return; rd.t.load = Math.round(now() - t0); try { rd.net = M3D.roads.make(M3D.roadData, { hood: hoodAt, hAt, bridges: bridges.list, clips: M3D.roadData.areas.map(a => { const A = AREAS.find(q => q.id === a.name); if (!A || A === AREAS[0]) return null; const b = base.regionBBox(A.id); return [b[0] - 9, b[1] - 9, b[2] + 9, b[3] + 9]; }), lids: icons.filter(ic => ic.flat).map(ic => [ic.x, ic.z, ic.r * 1.15]), flat: RFLAT, streets: STREETS }); rd.plan = rd.net.plan; rd.t.t0 = now(); if (!rd.timer) rd.timer = pumpT(rdPump); } catch (e) { rdFail(e); } };
+      s.onload = () => { if (dead) return; rd.t.load = Math.round(now() - t0); try { rd.net = M3D.roads.make(M3D.roadData, { hood: hoodAt, hAt, bridges: bridges.list, clips: M3D.roadData.areas.map(a => { const A = AREAS.find(q => q.id === a.name); if (!A || A === AREAS[0]) return null; const b = base.regionBBox(A.id); return [b[0] - 9, b[1] - 9, b[2] + 9, b[3] + 9]; }), lids: [].concat(...icons.filter(ic => ic.flat).map(ic => { const e = (M3D.extra || []).find(q => q && q.id === ic.id); return e && e.lids ? e.lids : [[ic.x, ic.z, ic.r * 1.15]]; })), flat: RFLAT, streets: STREETS }); rd.plan = rd.net.plan; rd.t.t0 = now(); if (!rd.timer) rd.timer = pumpT(rdPump); } catch (e) { rdFail(e); } };
       s.onerror = () => rdFail(new Error('js/map3d/roaddata.js did not load'));
       document.head.appendChild(s); setTimeout(() => { if (rd.busy) { rd.busy = false; rd.late = true; needs = true; kick(); } }, 4000);
     }
@@ -1077,7 +1083,7 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
           if (!r[a].cut || !r[b].cut) continue;
           const ax = r[b][0], ay = r[b][1], bx = r[a][0], by = r[a][1], dx = bx - ax, dy = by - ay, l = Math.hypot(dx, dy); if (l < 1e-4) continue;
           const mx = (ax + bx) / 2, my = (ay + by) / 2, e = Math.min(.05, l / 4), nx = -dy / l * e, ny = dx / l * e;
-          if (!Geom.inPolys(tops, mx + nx, my + ny) || !Geom.inPolys(tops, mx - nx, my - ny)) continue;
+          if (!inPolys(tops, mx + nx, my + ny) || !inPolys(tops, mx - nx, my - ny)) continue;
           const k = Math.round(mx * 50) + ',' + Math.round(my * 50); if (seen.has(k)) continue; seen.add(k); segs.push(ax, ay, bx, by);
         }
       });
@@ -1137,7 +1143,7 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
       if (waterU) { waterU.uT.value = ambT; waterU.uD.value = c.d; waterU.uWave.value = L.wave * lerp(1, 0.4, smooth(Math.log(c.d), Math.log(150), Math.log(900))); }
       if (wash) { wash.U.uT.value = ambT; wash.U.uK.value = L.washK * smooth(kNow(), 1.2, 5); wash.mesh.visible = wash.U.uK.value > 0.01; }
       if (fogBank) { const U = fogBank.U; U.uT.value = ambT; U.uK.value = quiz ? 0 : L.fogK * (fogLens ? 1.7 : 1) * lerp(0.5, 1, smooth(kNow(), 0.8, 3.5)); U.uHaze.value.set(c.d * 2.4, c.d * 7); fogBank.group.visible = U.uK.value > 0; }
-      if (Math.abs(vx - vex) > 0.003) { vex = vx; landG.scale.y = vex; shadowDirty = true; }
+      if (Math.abs(vx - vex) > 0.003) { vex = vx; landG.scale.y = vex; pkU.uPkVex.value = vex; shadowDirty = true; }
       c.vex = vex;
       // the landmarks grow a little as the map zooms out, so the skyline reads from across the bay; each stands on its block
       const k = clamp(Math.pow(c.d / 150, 0.7), 1, 2.6); if (Math.abs(k - lmScale) > 0.004) { lmScale = k; shadowDirty = true; }
@@ -1146,6 +1152,7 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
       const show = !quiz; // the quiz hides the landmarks and the skylines, as the flat map hides its glyphs: they are hints
       for (const ic of icons) { // a model a few pixels tall is not drawn at all (nor its shadow): with some seventy of them that is most of them, most of the time
         const y = ic.y + (ic.hood >= 0 ? liftV[ic.hood] : 0), zc = (ic.x - c.px) * c.fx + (y * vex - c.py) * c.fy + (ic.z - c.pz) * c.fz; if (!ic.flat) { ic.sh = lerp(ic.tk, lmScale, lmB); ic.sv = lmScale * lerp(ic.tv, 1, lmB); } ic.px = zc > 0 ? (ic.flat ? Math.max(ic.h, ic.r) : ic.h * ic.sv) * c.g / zc : 0;   // (a flat one, a park: by its width; it keeps its size and its heights stretch as the land's do, so the road that runs in under it still meets it)
+        ic.side = ic.px; if (!ic.flat && lmB < 1 && zc > 0) { const sd = Math.max(ic.h * ic.sv, 2 * ic.r * ic.sh) * c.g / zc, F = LM_MIN * (1 - lmB) * (1 - smooth(Math.hypot(ic.x - cur.cx, ic.z - cur.cz), LM_NEAR, LM_NEAR * 2)); ic.side = sd; if (sd < F && sd > 0) { const f = Math.min(F / sd, lmScale / Math.max(ic.sh, ic.sv)); if (f > 1) { ic.sh *= f; ic.sv *= f; ic.px *= f; ic.side = sd * f; } } }   // (close in, never smaller on screen than LM_MIN pixels on its largest side, nor larger than from afar: true size is the rule, the floor keeps a small one findable)
         const vis = show && ic.px >= (ic.mesh.visible ? 4 : 5.5); if (ic.mesh.visible !== vis) { ic.mesh.visible = vis; shadowDirty = true; }
         if (!ic.flat) ic.mesh.scale.set(ic.sh, ic.sv / vex, ic.sh); ic.mesh.position.y = y; }
       for (const p of cityParts) { p.mesh.visible = show; const sy = (1 + (lmScale - 1) * 0.6) / vex; p.mesh.scale.y = sy; p.mesh.position.y = p.hood >= 0 ? (p.g0 != null ? p.g0 : HT[p.hood]) * (1 - sy) + liftV[p.hood] : 0; } // stretched from the ground it stands on (its block's top), not from the water
@@ -1334,9 +1341,9 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
       // to Fabulous Las Vegas sign). The names placed are read once a landmark is big enough to be named
       let said = null; const near = Math.max(160, 10 * kNow()), words = t => (String(t || '').toLowerCase().match(/[a-z]{4,}/g) || []).filter(w => !LM_STOP.has(w));
       if (!quiz && ready) for (const ic of icons) {
-        if (!ic.label || !(ic.px >= 40) || !ic.mesh.visible) continue; const a = at(ic.x, ic.z, ic.mesh.position.y); if (a[2] <= 0 || a[2] > c.d * 2.3) continue;
+        if (!ic.label || !(ic.px >= 40 || (lmB < 1 && ic.side >= LM_MIN * 0.9 * (1 - lmB))) || !ic.mesh.visible) continue; const a = at(ic.x, ic.z, ic.mesh.position.y); if (a[2] <= 0 || a[2] > c.d * 2.3) continue;   // (close in, every landmark held at its least size is named)
         if (!said) said = [...want.values()].filter(r => r.text).map(r => ({ x: r.x, y: r.y, t: r.text.toLowerCase(), w: new Set(words(r.text)) }));
-        const lt = ic.label.toLowerCase(); if (said.some(r => r.t === lt) || words(ic.label).some(w => said.some(r => r.w.has(w) && Math.hypot(r.x - a[0], r.y - a[1]) <= near))) continue;
+        const lt = ic.label.toLowerCase(); if (said.some(r => r.t === lt) || said.some(r => Math.hypot(r.x - a[0], r.y - a[1]) <= near && words(ic.label).filter(w => r.w.has(w)).length >= (lmB < 1 ? 2 : 1))) continue;   // (close in, a name sharing one word with a place's is still a name of its own: the Castro Theatre in the Castro)
         const size = fsz - 0.5, tw = measure(ic.label, 500, size), bx = [a[0] - tw / 2 - 3, a[1] + 3, a[0] + tw / 2 + 3, a[1] + 4 + size * 1.25];
         if (bx[2] < 0 || bx[0] > W || bx[3] < 0 || bx[1] > H || !inView(bx) || clash(bx)) continue;
         placed.push(bx); put('L' + ic.id, { text: ic.label, x: a[0], y: (bx[1] + bx[3]) / 2, size, ls: 0, weight: 500, color: P.ink2 });
@@ -1639,6 +1646,7 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
       restMs() { return ptrs.size || fly ? 0 : now() - stat.busyAt; }, // how long the map has rested: no finger, no flight, no frame that moved or animated (ambient motion alone aside); the app waits on it before making the street map
       // for tests and the console: the look of the buildings in use ('0': the plain ones), and what the roads are (null: none)
       get parks() { return pk ? { ready: pk.ready, shapes: pk.P.parks.length, textures: pk.tex.length, chunks: pk.chunks.size, made: pk.made, worstMs: +pk.worst.toFixed(2), trees: pk.n, queue: pk.queue.length, busy: !pk.ready || pk.queue.length > 0, ground: +pkU.uPkK.value.toFixed(2) } : null; }, get scale() { return SCALE; }, get sizeBlend() { return +lmB.toFixed(3); },   // (the landmarks' size: 1 as from afar, 0 true)
+      get landmarks() { return icons ? icons.filter(ic => ic.mesh.visible).map(ic => ({ id: ic.id, px: Math.round(ic.px), side: Math.round(ic.side || 0), plan: +(ic.sh || 1).toFixed(3), height: +(ic.sv || 0).toFixed(3), named: lblA.has('L' + ic.id) })) : []; },   // (for tests: the landmarks drawn, their size on screen and scale, and whether named)
       get look() { return LOOK.v; }, get roads() { const N = rd.net; return roads && N ? { lines: N.lines, metres: Math.round(N.metres), flat: RFLAT, streets: STREETS, structure: !RFLAT && !rd.off, chunks: [...rd.chunks.values()].filter(c => c.mesh).length, triangles: rd.tris, ribbons: rd.far.reduce((s, f) => s + f.tris, 0), ribbonMeshes: rd.far.length, lamps: rd.lamps.map(l => l ? l.n : 0), piers: N.piers, portals: N.portals, frames: N.frames.length, busy: rdWork(), slow: +N.slow.toFixed(2), times: rd.t } : null; },
       // for tests and the console: what was built and how long it took, what a frame draws, and the cost of frames along a flight
       stats(lite) { const info = renderer.info; let tris = 0; const seen = q => { for (let p = q; p; p = p.parent) if (!p.visible) return false; return true; }; if (!lite) scene.traverse(q => { if ((q.isMesh || q.isPoints) && seen(q) && q.geometry) { const g = q.geometry, n = q.isPoints ? 0 : Math.min(g.drawRange.count, g.index ? g.index.count : g.attributes.position.count) / 3; tris += n * (q.isInstancedMesh ? q.count : g.isInstancedBufferGeometry ? g.instanceCount : 1); } });

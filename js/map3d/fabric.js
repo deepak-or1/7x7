@@ -248,8 +248,9 @@ vFab = top ? roofc : wall; vH = aSize.y;`;
 if (vWin.z > 0.5) { float y = vWin.y, fy = fwidth(y) + 0.00001, see = 1.0 - clamp(fy / 0.01 - 0.4, 0.0, 1.0);
   diffuseColor.rgb *= 1.0 - 0.12 * see * (1.0 - smoothstep(0.03 - fy, 0.03 + fy, y));
   vec2 wc = vWin.xy / vec2(0.075, 0.06), wf = fract(wc), fw = vec2(fwidth(wc.x), fwidth(wc.y)), e = min(fw, vec2(0.3)) + 0.0001;
-  float pane = smoothstep(0.22 - e.x, 0.22 + e.x, wf.x) * (1.0 - smoothstep(0.78 - e.x, 0.78 + e.x, wf.x)) * smoothstep(0.3 - e.y, 0.3 + e.y, wf.y) * (1.0 - smoothstep(0.74 - e.y, 0.74 + e.y, wf.y));
-  diffuseColor.rgb *= 1.0 - 0.13 * mix(0.25, pane, 1.0 - clamp(max(fw.x, fw.y) * 1.6 - 0.4, 0.0, 1.0)) * step(0.045, y) * step(y, vH - 0.012); }`;
+  float fa = 1.0 - clamp(max(fw.x, fw.y) * 1.6 - 0.4, 0.0, 1.0), pane = 0.0;   // (a pane a pixel or less: its mean alone, nothing worked out)
+  if (fa > 0.0) pane = smoothstep(0.22 - e.x, 0.22 + e.x, wf.x) * (1.0 - smoothstep(0.78 - e.x, 0.78 + e.x, wf.x)) * smoothstep(0.3 - e.y, 0.3 + e.y, wf.y) * (1.0 - smoothstep(0.74 - e.y, 0.74 + e.y, wf.y));
+  diffuseColor.rgb *= 1.0 - 0.13 * mix(0.25, pane, fa) * step(0.045, y) * step(y, vH - 0.012); }`;
     bld.onBeforeCompile = s => { uni(s);
       if (NEW) return styled(s);
       s.vertexShader = s.vertexShader.replace('#include <common>', '#include <common>' + HEAD + '\nuniform vec3 uPale; uniform float uRoofK; uniform float uWallK;\nvarying vec3 vFab; varying vec3 vWin;' + (HS ? '\nvarying float vH;' : ''))

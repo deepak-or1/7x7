@@ -24,7 +24,15 @@
   const CELL = 1.5;                               // the grid that answers "is this point built on"
   const FAR = 300;                                // an outline further than this from its area's origin, in map units (about 43 km), is not a building of that area
   let RX = new Float64Array(66), RZ = new Float64Array(66);   // a ring's points, for the roofs of the looks (shape below)
-  const NV = 3, NB = 4, NW = 4;                   // numbers per vertex: position; aB [the ground it grows from, place, tint, the chunk's slot]; aW [along the wall, above the ground, 1 wall / 0 roof, the building's height]
+  const NV = 3, NB = 4, NW = 4;                   // numbers per vertex as made: position; aB [the ground it grows from, place, tint, the chunk's slot]; aW [along the wall, above the ground, 1 wall / 0 roof, the building's height]
+  // as sent to the GPU (pack: 44 bytes a vertex, not 56): position (3 floats); normal (4 signed bytes, the last unused); aG [ground, tint] and aV [along, above,
+  // height] (floats, as made: a building's tint picks its walls, so it stays exact); aI [place, slot, 1 wall / 0 roof / 2 bare, 0] (16-bit whole numbers)
+  function pack(pos, nor, aB, aW, nv) {
+    const N = new Int8Array(nv * 4), G = new Float32Array(nv * 2), Vv = new Float32Array(nv * 3), I = new Uint16Array(nv * 4);
+    for (let i = 0; i < nv; i++) { N[i * 4] = Math.round(nor[i * 3] * 127); N[i * 4 + 1] = Math.round(nor[i * 3 + 1] * 127); N[i * 4 + 2] = Math.round(nor[i * 3 + 2] * 127);
+      G[i * 2] = aB[i * 4]; G[i * 2 + 1] = aB[i * 4 + 2]; Vv[i * 3] = aW[i * 4]; Vv[i * 3 + 1] = aW[i * 4 + 1]; Vv[i * 3 + 2] = aW[i * 4 + 3]; I[i * 4] = aB[i * 4 + 1]; I[i * 4 + 1] = aB[i * 4 + 3]; I[i * 4 + 2] = aW[i * 4 + 2]; }
+    return { pos: pos instanceof Float32Array ? pos : new Float32Array(pos), nor: N, aG: G, aV: Vv, aI: I };
+  }
 
   // one area of js/map3d/buildings.js (its header gives the format): [{ h, base, roof, pts: [x, y, ...] metres east and north }];
   // an outline of fewer than 3 or more than 4000 points is read past and left out (out.read counts every outline read)
@@ -214,7 +222,7 @@
         else plain();
         if (bi + 1 === Math.ceil(keep.length * 0.25)) cuts[0] = idx.length; if (bi + 1 === Math.ceil(keep.length * 0.5)) cuts[1] = idx.length;
       });
-      return { ix, iz, count: keep.length, n: nv, pos: new Float32Array(pos), nor: new Float32Array(nor), aB: new Float32Array(aB), aW: new Float32Array(aW), idx: nv > 65535 ? new Uint32Array(idx) : new Uint16Array(idx), quarter: cuts[0] || idx.length, half: cuts[1] || idx.length, y0, y1 };
+      return Object.assign(pack(pos, nor, aB, aW, nv), { ix, iz, count: keep.length, n: nv, idx: nv > 65535 ? new Uint32Array(idx) : new Uint16Array(idx), quarter: cuts[0] || idx.length, half: cuts[1] || idx.length, y0, y1 });
     }
     return { chunk, has, solid, dense, total, CS, tall, tallCount: groups.length, TALL };
   }
@@ -225,9 +233,10 @@
   // how much further than the ground's own stretch heights are drawn (the landmark models' growth from afar)
   function gl(THREE, U, look) {
     const HEAD = `
-attribute vec4 aB; attribute vec4 aW;
+attribute vec2 aG; attribute vec3 aV; attribute vec4 aI;
 uniform sampler2D uPlace; uniform float uTexW; uniform float uGrow; uniform vec4 uFocus; uniform float uRise;`;
     const POS = `
+vec4 aB = vec4(aG.x, aI.x, aG.y, aI.y), aW = vec4(aV.x, aV.y, aI.z, aV.z);   // (as made: see pack)
 vec4 fpl = texture2D(uPlace, vec2((aB.y + 0.5) / uTexW, 0.25));
 float fg = uGrow * texture2D(uPlace, vec2((aB.w + 0.5) / uTexW, 0.75)).r * (1.0 - smoothstep(uFocus.z, uFocus.w, distance(position.xz, uFocus.xy)));
 vec3 transformed = step(0.02, fg) * vec3(position.x, aB.x + (position.y - aB.x) * fg * uRise + fpl.a, position.z);`;
@@ -238,7 +247,7 @@ vec3 transformed = step(0.02, fg) * vec3(position.x, aB.x + (position.y - aB.x) 
     // inside a roof's coping; c keeps the plain walls' faint floors and takes the roofs only
     const LK = { a: { K: 1, G: 0.5, R: 0.13 }, b: { K: 1.7, G: 0.8, R: 0.2 }, c: { K: 0, G: 0, R: 0.13 } }[look] || {}, fl = v => v.toFixed(3);
     const styled = s => {
-      s.vertexShader = s.vertexShader.replace('#include <common>', '#include <common>' + HEAD + '\nuniform vec3 uPale; uniform float uRoofK; uniform float uWallK; uniform vec3 uGlass;\nvarying vec3 vFab; varying vec4 vWin; varying vec4 vBld;')
+      s.vertexShader = s.vertexShader.replace('#include <common>', '#include <common>' + HEAD + '\nuniform vec3 uPale; uniform float uRoofK; uniform float uWallK; uniform vec3 uGlass;\nvarying vec4 vFab; varying vec4 vWin;')
         .replace('#include <begin_vertex>', POS + `
 bool top = aW.z < 0.5; float ft = aB.z, tall = smoothstep(0.3, 1.7, aW.w), r1 = fract(ft * 13.37);
 // the kind of wall, by building: 3 a glass face (the taller the likelier), 1 vertical ribs, 2 horizontal bands, 0 punched windows
@@ -247,40 +256,44 @@ vec3 fc = mix(fpl.rgb, uPale, top ? uRoofK + (0.82 - uRoofK) * 0.7 * tall : uWal
 if (st > 2.5 && !top) fc = mix(fc, uGlass * (0.92 + 0.16 * fract(ft * 7.31)), ${fl(LK.G)});
 if (top && fract(ft * 3.17) > 0.8) fc = mix(fc, fpl.rgb * 0.8, 0.55 * (1.0 - tall));
 if (!top) fc *= 0.84 + 0.16 * smoothstep(0.0, 0.26, aW.y);
-vFab = fc; vWin = vec4(aW.x, aW.y, aW.z, tall); vBld = vec4(ft, aW.w, st, 0.0);`);
+vFab = vec4(fc, ft); vWin = vec4(aW.x, aW.y, aW.z + 4.0 * st, aW.w);   // (two varyings, not three: the face's kind and the walls' kind in z, the height in w, the tint with the colour; read back as m3dKd, m3dSt, m3dHh, m3dFt)`);
       s.fragmentShader = s.fragmentShader.replace('#include <common>', `#include <common>
-varying vec3 vFab; varying vec4 vWin; varying vec4 vBld; uniform vec3 uWin;
+varying vec4 vFab; varying vec4 vWin; uniform vec3 uWin;
 // how much of a cell's stretch a to b a pixel covers (f: where in the cell, w: the cell's share of a pixel): soft at its ends, and its plain average once the cell is too small to draw
 float m3dBox(float f, float a, float b, float w) { float e = min(w, 0.3) + 0.0001; return mix(b - a, smoothstep(a - e, a + e, f) * (1.0 - smoothstep(b - e, b + e, f)), 1.0 - clamp(w * 1.7 - 0.2, 0.0, 1.0)); }`)
-        .replace('#include <color_fragment>', `diffuseColor.rgb = vFab;
-{ float st = vBld.z, hh = vBld.y, y = vWin.y, fy = fwidth(y) + 0.00001;
-  if (vWin.z < 0.5) { // a roof: the coping round its edge, a line of shade inside it, the top itself a little inset
+        .replace('#include <color_fragment>', `float m3dSt = floor((vWin.z + 0.5) / 4.0), m3dKd = vWin.z - 4.0 * m3dSt, m3dHh = vWin.w, m3dTall = smoothstep(0.3, 1.7, m3dHh), m3dFt = vFab.w;
+diffuseColor.rgb = vFab.rgb;
+{ float st = m3dSt, hh = m3dHh, y = vWin.y, fy = fwidth(y) + 0.00001;
+  if (m3dKd < 0.5) { // a roof: the coping round its edge, a line of shade inside it, the top itself a little inset
     float d = vWin.x, e = fwidth(d) + 0.00001, see = 1.0 - clamp(e / 0.011 - 0.5, 0.0, 1.0), cop = 1.0 - smoothstep(0.011 - e, 0.011 + e, d), ln = (1.0 - cop) * (1.0 - smoothstep(0.019 - e, 0.019 + e, d));
     diffuseColor.rgb *= 1.0 + see * (0.06 * cop - ${fl(LK.R)} * ln - 0.035 * (1.0 - cop) * (1.0 - ln));
-  } else if (vWin.z < 1.5) { // a wall: the street's band, the cornice, and between them the windows of its kind
+  } else if (m3dKd < 1.5) { // a wall: the street's band, the cornice, and between them the windows of its kind
     float big = step(0.2, hh), base = big * (1.0 - smoothstep(0.062 - fy, 0.062 + fy, y)), belt = big * (1.0 - base) * (1.0 - smoothstep(0.072 - fy, 0.072 + fy, y)), crown = smoothstep(hh - 0.022 - fy, hh - 0.022 + fy, y), mid = (1.0 - base) * (1.0 - belt) * (1.0 - crown);
     float seeY = 1.0 - clamp(fy / 0.012 - 0.6, 0.0, 1.0);
     diffuseColor.rgb *= 1.0 + seeY * (0.05 * belt - 0.1 * base + (st > 2.5 ? -0.06 : 0.045) * crown * step(0.12, hh));
-${LK.K > 0 ? `    float cw = st > 0.5 && st < 1.5 ? 0.05 : 0.075; vec2 wc = vec2(vWin.x / cw, y / 0.058), wf = fract(wc), fw = vec2(fwidth(wc.x), fwidth(wc.y)); float dk;
+${LK.K > 0 ? `    float cw = st > 0.5 && st < 1.5 ? 0.05 : 0.075; vec2 wc = vec2(vWin.x / cw, y / 0.058), fw = vec2(fwidth(wc.x), fwidth(wc.y)); float wv = mid * (1.0 - clamp(max(fw.x, fw.y) * 1.7 - 0.9, 0.0, 1.0));
+    if (st > 2.5) diffuseColor.rgb *= 0.93 + 0.14 * clamp(y / max(hh, 0.05), 0.0, 1.0);   // glass: the face lighter towards the sky
+    if (wv > 0.0) { vec2 wf = fract(wc); float dk;   // (the windows: none where a cell is under a pixel, or in the base, the belt and the cornice; nothing is worked out there)
     if (st < 0.5) dk = 0.17 * m3dBox(wf.x, 0.24, 0.76, fw.x) * m3dBox(wf.y, 0.3, 0.76, fw.y);
     else if (st < 1.5) dk = 0.2 * m3dBox(wf.x, 0.28, 0.72, fw.x) * (0.55 + 0.45 * m3dBox(wf.y, 0.12, 0.94, fw.y));
     else if (st < 2.5) dk = 0.2 * m3dBox(wf.y, 0.34, 0.78, fw.y) * (0.7 + 0.3 * m3dBox(wf.x, 0.04, 0.96, fw.x));
-    else { dk = 0.1 * m3dBox(wf.x, 0.06, 0.94, fw.x) * m3dBox(wf.y, 0.07, 0.93, fw.y) - 0.07; diffuseColor.rgb *= 0.93 + 0.14 * clamp(y / max(hh, 0.05), 0.0, 1.0); }   // glass: the frame lighter than the panes, the face lighter towards the sky
-    float wk = ${fl(LK.K)} * (st > 2.5 ? 1.0 : 0.45 + 0.55 * max(vWin.w, step(0.2, hh) * 0.6));   // (fainter on a small building)
-    diffuseColor.rgb *= 1.0 - wk * dk * mid * (1.0 - clamp(max(fw.x, fw.y) * 1.7 - 0.9, 0.0, 1.0));` : `    { float fl = y / 0.058, fw = fwidth(fl); diffuseColor.rgb *= 1.0 - 0.085 * smoothstep(0.36, 0.5, abs(fract(fl) - 0.5)) * (1.0 - clamp(fw * 1.7 - 0.2, 0.0, 1.0)) * (0.3 + 0.7 * vWin.w) * mid; }`}
+    else dk = 0.1 * m3dBox(wf.x, 0.06, 0.94, fw.x) * m3dBox(wf.y, 0.07, 0.93, fw.y) - 0.07;   // glass: the frame lighter than the panes
+    float wk = ${fl(LK.K)} * (st > 2.5 ? 1.0 : 0.45 + 0.55 * max(m3dTall, step(0.2, hh) * 0.6));   // (fainter on a small building)
+    diffuseColor.rgb *= 1.0 - wk * dk * wv; }` : `    { float fl = y / 0.058, fw = fwidth(fl); diffuseColor.rgb *= 1.0 - 0.085 * smoothstep(0.36, 0.5, abs(fract(fl) - 0.5)) * (1.0 - clamp(fw * 1.7 - 0.2, 0.0, 1.0)) * (0.3 + 0.7 * m3dTall) * mid; }`}
   } }`)
         .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
-if (uWin.r + uWin.g + uWin.b > 0.0 && vWin.z > 0.5 && vWin.z < 1.5) { float st = ${LK.K > 0 ? 'vBld.z' : '0.0'}, hh = vBld.y, y = vWin.y, cw = st > 0.5 && st < 1.5 ? 0.05 : 0.075;
-  vec2 wc = vec2(vWin.x / cw, y / 0.058), wi = floor(wc), wf = wc - wi, lo = vec2(0.22, 0.3), hi = vec2(0.78, 0.74), hk = wi; float thr = 0.6 - 0.12 * vWin.w; vec3 wcol = uWin;
+if (uWin.r + uWin.g + uWin.b > 0.0 && m3dKd > 0.5 && m3dKd < 1.5) { float st = ${LK.K > 0 ? 'm3dSt' : '0.0'}, hh = m3dHh, y = vWin.y, cw = st > 0.5 && st < 1.5 ? 0.05 : 0.075;
+  vec2 wc = vec2(vWin.x / cw, y / 0.058), wi = floor(wc), wf = wc - wi, lo = vec2(0.22, 0.3), hi = vec2(0.78, 0.74), hk = wi; float thr = 0.6 - 0.12 * m3dTall; vec3 wcol = uWin;
   // each kind lit in its own way: single windows; slim strips three floors high; runs of three bays along a floor; a glass face, a little more of it lit, cooler
   if (st > 2.5) { lo = vec2(0.14, 0.28); hi = vec2(0.86, 0.74); hk = vec2(floor(wi.x / 2.0), wi.y); thr -= 0.04; wcol = uWin * vec3(0.8, 0.94, 1.16); }
   else if (st > 1.5) { lo = vec2(0.1, 0.36); hi = vec2(0.9, 0.7); hk = vec2(floor(wi.x / 3.0), wi.y); thr += 0.1; }
   else if (st > 0.5) { lo = vec2(0.34, 0.1); hi = vec2(0.66, 0.9); hk = vec2(wi.x, floor(wi.y / 3.0)); thr += 0.08; }
   float mid = step(0.2, hh) > 0.5 ? step(0.074, y) * step(y, hh - 0.022) : 1.0;
-  float lit = step(thr, fract(sin(dot(hk + floor(vBld.x * 64.0), vec2(12.9898, 78.233))) * 43758.5453)) * step(lo.x, wf.x) * step(wf.x, hi.x) * step(lo.y, wf.y) * step(wf.y, hi.y) * mid;
-  float fw = max(fwidth(wc.x), fwidth(wc.y)); totalEmissiveRadiance += wcol * mix(lit, 0.11 + 0.05 * vWin.w, clamp(fw * 1.4 - 0.25, 0.0, 1.0));
+  float fw = max(fwidth(wc.x), fwidth(wc.y)), fa = clamp(fw * 1.4 - 0.25, 0.0, 1.0), lit = 0.0;
+  if (fa < 1.0) lit = step(thr, fract(sin(dot(hk + floor(m3dFt * 64.0), vec2(12.9898, 78.233))) * 43758.5453)) * step(lo.x, wf.x) * step(wf.x, hi.x) * step(lo.y, wf.y) * step(wf.y, hi.y) * mid;   // (a window a pixel or less: its average alone)
+  totalEmissiveRadiance += wcol * mix(lit, 0.11 + 0.05 * m3dTall, fa);
   // the street's band glows a little, in runs of shopfronts
-  float sb = vWin.x / 0.22, sf = fract(sb); totalEmissiveRadiance += uWin * 0.5 * step(0.2, hh) * step(0.012, y) * step(y, 0.05) * step(0.12, sf) * step(sf, 0.88) * step(0.45, fract(sin(floor(sb) * 91.7 + vBld.x * 40.0) * 4375.85)) * (1.0 - clamp(fwidth(sb) * 3.0 - 0.3, 0.0, 1.0)); }`);
+  float sb = vWin.x / 0.22, sf = fract(sb); totalEmissiveRadiance += uWin * 0.5 * step(0.2, hh) * step(0.012, y) * step(y, 0.05) * step(0.12, sf) * step(sf, 0.88) * step(0.45, fract(sin(floor(sb) * 91.7 + m3dFt * 40.0) * 4375.85)) * (1.0 - clamp(fwidth(sb) * 3.0 - 0.3, 0.0, 1.0)); }`);
     };
     mat.onBeforeCompile = s => { uni(s);
       if (NEW) return styled(s);
@@ -305,13 +318,13 @@ if (uWin.r + uWin.g + uWin.b > 0.0) { vec2 wc = vWin.xy / vec2(0.075, 0.058), wi
     depth.onBeforeCompile = s => { uni(s); s.vertexShader = s.vertexShader.replace('#include <common>', '#include <common>' + HEAD).replace('#include <begin_vertex>', POS); };
     // a chunk's mesh, growing with its slot in the texture
     function mesh(c, slot) {
-      for (let i = 0; i < c.n; i++) c.aB[i * NB + 3] = slot;
-      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(c.pos, NV)); g.setAttribute('normal', new THREE.BufferAttribute(c.nor, 3)); g.setAttribute('aB', new THREE.BufferAttribute(c.aB, NB)); g.setAttribute('aW', new THREE.BufferAttribute(c.aW, NW)); g.setIndex(new THREE.BufferAttribute(c.idx, 1));
+      for (let i = 0; i < c.n; i++) c.aI[i * 4 + 1] = slot;
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(c.pos, NV)); g.setAttribute('normal', new THREE.BufferAttribute(c.nor, 4, true)); g.setAttribute('aG', new THREE.BufferAttribute(c.aG, 2)); g.setAttribute('aV', new THREE.BufferAttribute(c.aV, 3)); g.setAttribute('aI', new THREE.BufferAttribute(c.aI, 4)); g.setIndex(new THREE.BufferAttribute(c.idx, 1));
       const up = isFinite(c.y0) ? (c.y1 - c.y0) / 2 : 0; g.boundingSphere = new THREE.Sphere(new THREE.Vector3((c.ix + 0.5) * CS, isFinite(c.y0) ? (c.y0 + c.y1) / 2 : 0, (c.iz + 0.5) * CS), CS * 0.75 + 2 + up + 1);
       const m = new THREE.Mesh(g, mat); m.customDepthMaterial = depth; m.castShadow = m.receiveShadow = true; m.matrixAutoUpdate = false; return m;
     }
     return { mesh, mats: { mat, depth } };
   }
 
-  M3D.real = { make, gl, CS, V };
+  M3D.real = { make, gl, pack, CS, V };
 })();

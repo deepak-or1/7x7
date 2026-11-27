@@ -30,6 +30,16 @@
   // the groves: where the woods of a park stand (two octaves of noise, 0 to 1), the same for the ground's deeper green and the trees
   const grove = (x, z, s) => noise(x * 0.42, z * 0.42, s) * 0.68 + noise(x * 1.3, z * 1.3, s + 11) * 0.32;
   const pip = (p, n, x, z) => { let c = false; for (let i = 0, j = n - 1; i < n; j = i++) { const xi = p[i * 2], zi = p[i * 2 + 1], xj = p[j * 2], zj = p[j * 2 + 1]; if ((zi > z) !== (zj > z) && x < (xj - xi) * (z - zi) / (zj - zi) + xi) c = !c; } return c; };
+  // the same two answers for a park (P: { p, n, z0, z1 }) from only the edges that can matter: its edges filed by bands of z once (bands, the first time it is asked, for one of 25 points or more), so a
+  // point's test reads the edges of its own band (inP) and a distance up to R those of the bands within R (nearD2: the least squared distance to
+  // those edges, or Infinity; compared with R * R it answers as edgeD2 does)
+  function bands(P) { const n = P.n, nb = Math.min(64, Math.ceil(n / 8)), h = (P.z1 - P.z0) / nb || 1, B = Array.from({ length: nb }, () => []), bk = z => Math.min(nb - 1, Math.max(0, Math.floor((z - P.z0) / h)));
+    for (let i = 0, j = n - 1; i < n; j = i++) { const a = P.p[i * 2 + 1], b = P.p[j * 2 + 1]; for (let k = bk(Math.min(a, b)); k <= bk(Math.max(a, b)); k++) B[k].push(i); }
+    P.bd = { B: B.map(l => Int32Array.from(l)), bk }; }
+  function inP(P, x, z) { if (!P.bd) { if (P.n < 25) return pip(P.p, P.n, x, z); bands(P); } const p = P.p, n = P.n, l = P.bd.B[P.bd.bk(z)]; let c = false;
+    for (let q = 0; q < l.length; q++) { const i = l[q], j = i ? i - 1 : n - 1, xi = p[i * 2], zi = p[i * 2 + 1], xj = p[j * 2], zj = p[j * 2 + 1]; if ((zi > z) !== (zj > z) && x < (xj - xi) * (z - zi) / (zj - zi) + xi) c = !c; } return c; }
+  function nearD2(P, x, z, R) { if (!P.bd) { if (P.n < 25) return edgeD2(P.p, P.n, x, z); bands(P); } const p = P.p, n = P.n, k0 = P.bd.bk(z - Math.abs(R)), k1 = P.bd.bk(z + Math.abs(R)); let m = Infinity;
+    for (let k = k0; k <= k1; k++) { const l = P.bd.B[k]; for (let q = 0; q < l.length; q++) { const i = l[q], j = i ? i - 1 : n - 1, ax = p[j * 2], az = p[j * 2 + 1], dx = p[i * 2] - ax, dz = p[i * 2 + 1] - az, l2 = dx * dx + dz * dz; let t = l2 ? ((x - ax) * dx + (z - az) * dz) / l2 : 0; t = t < 0 ? 0 : t > 1 ? 1 : t; const ex = ax + dx * t - x, ez = az + dz * t - z, d = ex * ex + ez * ez; if (d < m) m = d; } } return m; }
   const edgeD2 = (p, n, x, z) => { let m = Infinity; for (let i = 0, j = n - 1; i < n; j = i++) { const ax = p[j * 2], az = p[j * 2 + 1], dx = p[i * 2] - ax, dz = p[i * 2 + 1] - az, l2 = dx * dx + dz * dz; let t = l2 ? ((x - ax) * dx + (z - az) * dz) / l2 : 0; t = t < 0 ? 0 : t > 1 ? 1 : t; const ex = ax + dx * t - x, ez = az + dz * t - z, d = ex * ex + ez * ez; if (d < m) m = d; } return m; };
 
   // one area of js/map3d/parkdata.js (its header gives the format), read a few milliseconds at a time: read(ms) adds shapes
@@ -72,11 +82,11 @@
     for (const G of [grid, wide]) for (const l of G.values()) l.reverse();   // the smallest first
     const near = (x, z) => [grid.get(gk(Math.floor(x / CELL), Math.floor(z / CELL))), wide.get(gk(Math.floor(x / 16), Math.floor(z / 16)))];   // the parks that may hold a point (the smaller ones first)
     // the park at a point (the smallest that holds it), or null. all: also the huge reserves
-    function at(x, z, all) { for (const l of near(x, z)) if (l) for (const p of l) { if ((p.huge && !all) || x < p.x0 || x > p.x1 || z < p.z0 || z > p.z1) continue; if (pip(p.p, p.n, x, z)) return p; } return null; }
+    function at(x, z, all) { for (const l of near(x, z)) if (l) for (const p of l) { if ((p.huge && !all) || x < p.x0 || x > p.x1 || z < p.z0 || z > p.z1) continue; if (inP(p, x, z)) return p; } return null; }
     // the generators' question: is the circle r round (x, z) in a park (its middle inside, or within r of the inside)
     function inPark(x, z, r) {
       if (at(x, z)) return true; if (!(r > 0)) return false;
-      for (const l of near(x, z)) if (l) for (const p of l) { if (p.huge || x + r < p.x0 || x - r > p.x1 || z + r < p.z0 || z - r > p.z1) continue; if (edgeD2(p.p, p.n, x, z) < r * r) return true; } return false;
+      for (const l of near(x, z)) if (l) for (const p of l) { if (p.huge || x + r < p.x0 || x - r > p.x1 || z + r < p.z0 || z - r > p.z1) continue; if (nearD2(p, x, z, r) < r * r) return true; } return false;
     }
     const chunks = new Set(); for (const p of parks) { if (p.huge && !env.landAt) continue; for (let i = Math.floor(p.x0 / CS); i <= Math.floor(p.x1 / CS); i++) for (let j = Math.floor(p.z0 / CS); j <= Math.floor(p.z1 / CS); j++) chunks.add(i * 65536 + j); }
 
@@ -109,7 +119,7 @@
           for (let q = 0; q < p.n; q++) { if (q) c.lineTo(p.p[q * 2], p.p[q * 2 + 1]); else c.moveTo(p.p[0], p.p[1]); } c.closePath(); c.fill();
           if (p.lake) { c.save(); c.clip(); c.fillStyle = '#fff'; c.fill(); c.strokeStyle = c.fillStyle = `rgb(${k[0] * 255 | 0},${k[1] * 255 | 0},${k[2] * 255 | 0})`; c.lineWidth = p.lake * 2; c.lineJoin = 'round'; c.stroke(); c.restore(); }   // the lake: the shape in water, its rim in park
           else if (wd && (p.kind === 0 || p.kind === 2) && p.ha >= 3) { const cut = woodCut(p), i0 = Math.max(0, Math.floor((p.x0 - x0) * wk)), i1 = Math.min(ww - 1, Math.ceil((p.x1 - x0) * wk)), j0 = Math.max(0, Math.floor((p.z0 - z0) * wk)), j1 = Math.min(wh - 1, Math.ceil((p.z1 - z0) * wk));
-            for (let j = j0; j <= j1; j++) { const z = z0 + (j + 0.5) / wk; for (let i = i0; i <= i1; i++) { const x = x0 + (i + 0.5) / wk, g = grove(x, z, p.seed); if (g < cut || !pip(p.p, p.n, x, z) || at(x, z, true) !== p) continue; const q = (j * ww + i) * 4; wd[q + 1] = Math.max(wd[q + 1], clamp((g - cut) / 0.12, 0, 1) * 140); wd[q + 3] = 255; } yield; } }
+            for (let j = j0; j <= j1; j++) { const z = z0 + (j + 0.5) / wk; for (let i = i0; i <= i1; i++) { const x = x0 + (i + 0.5) / wk, g = grove(x, z, p.seed); if (g < cut || !inP(p, x, z) || at(x, z, true) !== p) continue; const q = (j * ww + i) * 4; wd[q + 1] = Math.max(wd[q + 1], clamp((g - cut) / 0.12, 0, 1) * 140); wd[q + 3] = 255; } yield; } }
           yield;
         }
         if (wd) { const wc = document.createElement('canvas'); wc.width = ww; wc.height = wh; wc.getContext('2d').putImageData(new ImageData(wd, ww, wh), 0, 0); yield;
@@ -131,12 +141,12 @@
       if (env.landAt && env.landAt(x, z)) return [env.landY(x, z), -1];
       return null;
     }
-    const clear = (x, z, r) => { if (env.solid && env.solid(x, z, r * 0.6)) return false; if (env.road && env.road(x, z, r * 0.8 + 0.03)) return false; for (const a of av) { const dx = x - a[0], dz = z - a[1], rr = a[2] + r * 0.5; if (dx * dx + dz * dz < rr * rr) return false; } return true; };
+    let avc = av; const clear = (x, z, r) => { if (env.solid && env.solid(x, z, r * 0.6)) return false; if (env.road && env.road(x, z, r * 0.8 + 0.03)) return false; for (const a of avc) { const dx = x - a[0], dz = z - a[1], rr = a[2] + r * 0.5; if (dx * dx + dz * dz < rr * rr) return false; } return true; };
     function chunk(ix, iz) {
       const x0 = ix * CS, z0 = iz * CS, x1 = x0 + CS, z1 = z0 + CS, T = []; let tested = 0;
-      const own = (x, z) => x >= x0 && x < x1 && z >= z0 && z < z1;
+      const own = (x, z) => x >= x0 && x < x1 && z >= z0 && z < z1; avc = av.filter(a => a[0] + a[2] + 1 > x0 && a[0] - a[2] - 1 < x1 && a[1] + a[2] + 1 > z0 && a[1] - a[2] - 1 < z1);   // (the landmarks that can reach into this chunk)
       const put = (p, x, z, rm, hk, tint) => { // a tree of crown radius rm metres in park p, if it may stand there: in p, on land, clear of what is built
-        const r = rm * M; tested++; if (!own(x, z) || !pip(p.p, p.n, x, z) || (p.lake && edgeD2(p.p, p.n, x, z) > (p.lake - r) * (p.lake - r))) return false; const inner = at(x, z, true); if (inner && inner !== p && inner.ha < p.ha) return false;   // (a smaller park inside this one plants its own)
+        const r = rm * M; tested++; if (!own(x, z) || !inP(p, x, z) || (p.lake && nearD2(p, x, z, p.lake - r) > (p.lake - r) * (p.lake - r))) return false; const inner = at(x, z, true); if (inner && inner !== p && inner.ha < p.ha) return false;   // (a smaller park inside this one plants its own)
         if (!clear(x, z, r)) return false; const g = stand(x, z); if (!g || (p.huge && g[1] >= 0)) return false;
         T.push(x, g[0], z, r, hk, g[1], tint, p.kind); return true;
       };

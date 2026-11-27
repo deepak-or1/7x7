@@ -21,6 +21,10 @@
     bison: [0.9, 0.62],     // Bison Paddock: about 300 m long in life, the model's 82 m paddock drawn four times
     windmill: [RD / 5.5, RD / 5.5], // Dutch Windmill: the tower 23 m, its sails a circle 31 m across: its shape kept
   });
+  // where a model stands when landmarks are at their true size (?m3d-scale=true, the default), where that is not where it stands as drawn
+  // large: the Palace of Fine Arts as built stands south of the rotunda, over its lagoon; at true size it would stand off its own place, beside
+  // the real rotunda's outline (js/map3d/real.js), so it stands on the rotunda (OpenStreetMap)
+  window.M3D.lmAt = Object.assign(window.M3D.lmAt || {}, { palace: [-122.44836, 37.80292] });
   const D2R = Math.PI / 180, lerp = (a, b, t) => a + (b - a) * t;
   // the colours this file adds: [paper, night]
   const M = {
@@ -677,13 +681,17 @@
   // and clear of the roadway; north of the tunnels the bluff steps down in three terraces to the Outpost at the foot. Heights follow the
   // real ground under it (M3D.land.heightAt; flat land: a low mound); what lies below the ground is hidden in it, so where the Main Post
   // rises above the lawn the two meet flush. Each bore's mouth is at its own portal.
-  {
+  if (!/[?&]m3d-parks=off(?:&|$)/.test(location.search)) {   // (it goes with the parks: ?m3d-parks=off leaves it out, as before the parks came)
     const land = window.M3D.land, S = 1 / land.UNIT_M, O0 = [-122.455857, 37.802935], RY = 11.64;
     // the outline, metres in the frame; the four portals [x, z] (bores A, the southern, eastbound, and B)
     const OL = [[-142.3, -24.5], [-129.9, -26], [-122.3, -4], [-160.7, 1.3], [-161.3, 23.6], [-229.2, 35.1], [-206.9, 59.1], [-169.8, 64.7], [-57.6, 131.7], [14.8, 49.7], [82.3, 89.1], [90.4, 88.7], [160.5, -80.4], [159.9, -96.8], [148.3, -104.3], [-134.8, -114.7]];
     const PORT = [[-164, 11.1, -1], [-128, -11.1, -1], [141.3, 13.8, 1], [150.6, -13.8, 1]];   // [x, z, which end]
     const O = land.proj(O0), cr = Math.cos(RY * D2R), sr = Math.sin(RY * D2R);
-    X.push({ id: 'tunneltops', lon: O0[0], lat: O0[1], ex: 1, ry: RY, label: 'Tunnel Tops', flat: true, mats: mats('ttLawn', 'ttMeadow', 'ttPath', 'ttTile', 'sfTree', 'sfWood', 'sfRock', 'sfStucco', 'sfTurf'),
+    // one set of mouths at each end: the west ones are the park's (the road meets them on the ground); at the east end the road arrives on its
+    // structure (js/map3d/roads.js), so with the roads' structure on the road's own portal stands there and the park draws no mouths of its
+    // own (lids: the part of the park that covers the road's mouths, map units, for js/map3d.js); with ?m3d-roads=off or flat, all four are the park's
+    const RS = !/[?&]m3d-roads=(off|flat)(?:&|$)/.test(location.search), SIDE = (x, z, r) => [O[0] + (x * cr + z * sr) * S, O[1] + (-x * sr + z * cr) * S, r * S];
+    X.push({ lids: RS ? [SIDE(-146, 0, 90)] : null, id: 'tunneltops', lon: O0[0], lat: O0[1], ex: 1, ry: RY, label: 'Tunnel Tops', flat: true, mats: mats('ttLawn', 'ttMeadow', 'ttPath', 'ttTile', 'sfTree', 'sfWood', 'sfRock', 'sfStucco', 'sfTurf'),
       build(b) {
         const hA = land.heightAt, g0 = hA ? hA(O[0], O[1]) : 0, G = (x, z) => hA ? (hA(O[0] + (x * cr + z * sr) * S, O[1] + (-x * sr + z * cr) * S) - g0) / S : (z > -20 ? 4 : 0);   // the real ground at a point, in metres above the ground at the middle
         const over = (x0, x1, z0, z1) => { let m = -Infinity; for (let i = 0; i <= 8; i++) for (let j = 0; j <= 6; j++) m = Math.max(m, G(lerp(x0, x1, i / 8), lerp(z0, z1, j / 6))); return m; };
@@ -737,7 +745,7 @@
           const fx = 2, fz = cz + 1; box('sfStucco', fx - 15, fx + 15, fz - 6, fz + 6, DEEP, y + 6, { win: [7, 1], glow: 0.7 }); gableX(b, 'ttTile', fx - 16, fx + 16, y + 6, fz, 7, 3.6); }
         // the four mouths, each at its own portal: the bore's dark inside, the headwall over it (to the lawn), wing walls along the roadway, the
         // lid carried out over the bore where the portal lies beyond the park's outline
-        for (const [px, pz, e] of PORT) {
+        for (const [px, pz, e] of PORT) { if (RS && e > 0) continue;   // (the east mouths: the road's, above)
           const ry2 = G(px, pz), yo = ry2 + 7.5, z0 = pz - BW, z1 = pz + BW, top = Math.max(Yt, yo + 3), xin = px - e * 18;
           box('dark', Math.min(px, xin), Math.max(px, xin), z0, z1, DEEP, yo);                                     // inside: dark
           box('concreteLight', Math.min(px, px + e * 1.4), Math.max(px, px + e * 1.4), z0 - 2.5, z0, DEEP, top + 1); box('concreteLight', Math.min(px, px + e * 1.4), Math.max(px, px + e * 1.4), z1, z1 + 2.5, DEEP, top + 1);

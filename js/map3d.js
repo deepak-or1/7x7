@@ -783,7 +783,7 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
     // theme, how far they stand (the fabric's rise), and when the view's middle has moved to other chunks, which are wanted
     function pkStep(dt) {
       if (!pk || !pk.ready) return false; let anim = false; const U = pk.U, m = pk.gl.mesh;
-      if (pkDark !== dark) { pkDark = dark; const C2 = PK_COL[dark ? 'night' : 'paper']; pkU.uPkWater.value.set(LK.water); pkU.uPkLawn.value.set(C2[0]); pkU.uPkDeep.value.set(C2[1]); pkU.uPkPale.value.set(C2[2]); U.uTreeA.value.set(C2[3]); U.uTreeB.value.set(C2[4]); U.uPkWood.value.set(C2[5]); }
+      if (pkDark !== dark) { pkDark = dark; const C2 = PK_COL[dark ? 'night' : 'paper'].map(h => RK ? '#' + richRGB(hex2rgb(h), RK.sat, RK.val, RK.green).map(v => Math.round(v).toString(16).padStart(2, '0')).join('') : h); pkU.uPkWater.value.set(LK.water); pkU.uPkLawn.value.set(C2[0]); pkU.uPkDeep.value.set(C2[1]); pkU.uPkPale.value.set(C2[2]); U.uTreeA.value.set(C2[3]); U.uTreeB.value.set(C2[4]); U.uPkWood.value.set(C2[5]); }   // (in the light theme the richer colour of ?m3d-rich, as the places take theirs: placeCol)
       const tg = quiz ? 0 : 1, k0 = pkU.uPkK.value; if (k0 !== tg) { pkU.uPkK.value = RM.matches ? tg : k0 < tg ? Math.min(tg, k0 + dt / 600) : Math.max(tg, k0 - dt / 300); anim = true; }
       U.uPkNow.value = now() - pk.t0; if (U.uPkNow.value - pk.bornLast < 480) { anim = true; pk.late = true; }
       if (pk.late && !moving) { pk.late = false; shadowDirty = true; }   // (new trees: their shadows drawn at rest, not while the map moves)

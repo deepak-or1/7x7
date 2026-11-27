@@ -57,35 +57,35 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --water: #0e151d; --paper: #151d25; --paper-2: #1d2730; --paper-3: #26313b; --ink: #eaeff3; --ink-2: #c3ccd4; --muted: #8e9ca8; --line: #273139; --line-2: #37434d;
+    --water: #0e151d; --paper: #0c0d10; --paper-2: #15161a; --paper-3: #1e2025; --ink: #eceef2; --ink-2: #c4c8cf; --muted: #8b909a; --line: #202227; --line-2: #2e3138;
     --accent: #ff7a3d; --accent-soft: #3a2316; --accent-ink: #1a110b; --want: #6ea0e0; --want-soft: #1b2a3f; --star: #f0c04a; --star-ink: #f0c04a; --star-soft: #33290f; --good: #6fae7f; --bad: #e0675a;
     --land: #2a333f; --land-other: #1f2733; --dot: #303b49; --coast: #4b6a8a; --wlbl: #5c7389; --steel: #a7a39b; --gg: #ff7a3d; --grey-fill: #343e4b;
-    --label: #eaeff3; --label-halo: #2a333f; --sub-line: #151d25;
+    --label: #eaeff3; --label-halo: #2a333f; --sub-line: #0c0d10;
     --v-fog: #6f88a6; --v-hills: #b8795a; --v-water: #5d9598; --v-sun: #c2a052; --v-buzz: #b0727d; --v-green: #86a075;
     --fog1:#28323c; --fog2:#334456; --fog3:#45607a; --fog4:#6f88a6; --fog5:#a6bdd3;
     --hill1:#2f2c2a; --hill2:#55432f; --hill3:#80603f; --hill4:#ad8458; --hill5:#d8ad7a;
     --k-food: #c98a66; --k-drink: #a483b4; --k-coffee: #a3826a; --k-view: #7f9ab3; --k-shop: #d6b25c; --k-park: #8fae7b; --k-other: #8e9ca8;
     --glyph-face: #2b3640; --glyph-shade: #1a232c; --glyph-roof: #35414c;
-    --sheet-bg: #1b242d; --seg-on: #3a4652; --seg-on-ink: #eaeff3; --primary: var(--accent); --primary-hover: color-mix(in srgb, var(--accent) 85%, #fff); --primary-ink: var(--accent-ink); --pill: var(--paper-3); --toast-bg: #2b3743; --toast-ink: #eaeff3;
-    --glass: rgba(22,30,40,.8); --glass-strong: rgba(27,36,45,.92); --glass-edge: rgba(255,255,255,.08); --glass-hi: rgba(255,255,255,.06); --glass-shadow: 0 10px 28px -12px rgba(0,0,0,.65), 0 1px 2px rgba(0,0,0,.3);
-    --glass-ring: inset 0 0 0 1px var(--glass-edge), inset 0 1px 0 var(--glass-hi), var(--glass-shadow); --glass-muted: #9ba8b3; --glass-hover: rgba(255,255,255,.08);
+    --sheet-bg: #111215; --seg-on: #2c2f37; --seg-on-ink: #eaeff3; --primary: var(--accent); --primary-hover: color-mix(in srgb, var(--accent) 85%, #fff); --primary-ink: var(--accent-ink); --pill: var(--paper-3); --toast-bg: #202227; --toast-ink: #eaeff3;
+    --glass: rgba(16,17,21,.9); --glass-strong: rgba(17,18,21,.95); --glass-blur: blur(20px) saturate(.7); --glass-edge: rgba(255,255,255,.08); --glass-hi: rgba(255,255,255,.06); --glass-shadow: 0 10px 28px -12px rgba(0,0,0,.65), 0 1px 2px rgba(0,0,0,.3);
+    --glass-ring: inset 0 0 0 1px var(--glass-edge), inset 0 1px 0 var(--glass-hi), var(--glass-shadow); --glass-muted: #979ca6; --glass-hover: rgba(255,255,255,.08);
     --sheet-shadow: 0 -8px 30px -12px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.08); --panel-shadow: 0 22px 48px -20px rgba(0,0,0,.7), 0 2px 8px -4px rgba(0,0,0,.35), inset 0 0 0 1px var(--glass-edge);
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --water: #0e151d; --paper: #151d25; --paper-2: #1d2730; --paper-3: #26313b; --ink: #eaeff3; --ink-2: #c3ccd4; --muted: #8e9ca8; --line: #273139; --line-2: #37434d;
+  --water: #0e151d; --paper: #0c0d10; --paper-2: #15161a; --paper-3: #1e2025; --ink: #eceef2; --ink-2: #c4c8cf; --muted: #8b909a; --line: #202227; --line-2: #2e3138;
   --accent: #ff7a3d; --accent-soft: #3a2316; --accent-ink: #1a110b; --want: #6ea0e0; --want-soft: #1b2a3f; --star: #f0c04a; --star-ink: #f0c04a; --star-soft: #33290f; --good: #6fae7f; --bad: #e0675a;
   --land: #2a333f; --land-other: #1f2733; --dot: #303b49; --coast: #4b6a8a; --wlbl: #5c7389; --steel: #a7a39b; --gg: #ff7a3d; --grey-fill: #343e4b;
-  --label: #eaeff3; --label-halo: #2a333f; --sub-line: #151d25;
+  --label: #eaeff3; --label-halo: #2a333f; --sub-line: #0c0d10;
   --v-fog: #6f88a6; --v-hills: #b8795a; --v-water: #5d9598; --v-sun: #c2a052; --v-buzz: #b0727d; --v-green: #86a075;
   --fog1:#28323c; --fog2:#334456; --fog3:#45607a; --fog4:#6f88a6; --fog5:#a6bdd3;
   --hill1:#2f2c2a; --hill2:#55432f; --hill3:#80603f; --hill4:#ad8458; --hill5:#d8ad7a;
   --k-food: #c98a66; --k-drink: #a483b4; --k-coffee: #a3826a; --k-view: #7f9ab3; --k-shop: #d6b25c; --k-park: #8fae7b; --k-other: #8e9ca8;
   --glyph-face: #2b3640; --glyph-shade: #1a232c; --glyph-roof: #35414c;
-  --sheet-bg: #1b242d; --seg-on: #3a4652; --seg-on-ink: #eaeff3; --primary: var(--accent); --primary-hover: color-mix(in srgb, var(--accent) 85%, #fff); --primary-ink: var(--accent-ink); --pill: var(--paper-3); --toast-bg: #2b3743; --toast-ink: #eaeff3;
-  --glass: rgba(22,30,40,.8); --glass-strong: rgba(27,36,45,.92); --glass-edge: rgba(255,255,255,.08); --glass-hi: rgba(255,255,255,.06); --glass-shadow: 0 10px 28px -12px rgba(0,0,0,.65), 0 1px 2px rgba(0,0,0,.3);
-  --glass-ring: inset 0 0 0 1px var(--glass-edge), inset 0 1px 0 var(--glass-hi), var(--glass-shadow); --glass-muted: #9ba8b3; --glass-hover: rgba(255,255,255,.08);
+  --sheet-bg: #111215; --seg-on: #2c2f37; --seg-on-ink: #eaeff3; --primary: var(--accent); --primary-hover: color-mix(in srgb, var(--accent) 85%, #fff); --primary-ink: var(--accent-ink); --pill: var(--paper-3); --toast-bg: #202227; --toast-ink: #eaeff3;
+  --glass: rgba(16,17,21,.9); --glass-strong: rgba(17,18,21,.95); --glass-blur: blur(20px) saturate(.7); --glass-edge: rgba(255,255,255,.08); --glass-hi: rgba(255,255,255,.06); --glass-shadow: 0 10px 28px -12px rgba(0,0,0,.65), 0 1px 2px rgba(0,0,0,.3);
+  --glass-ring: inset 0 0 0 1px var(--glass-edge), inset 0 1px 0 var(--glass-hi), var(--glass-shadow); --glass-muted: #979ca6; --glass-hover: rgba(255,255,255,.08);
   --sheet-shadow: 0 -8px 30px -12px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.08); --panel-shadow: 0 22px 48px -20px rgba(0,0,0,.7), 0 2px 8px -4px rgba(0,0,0,.35), inset 0 0 0 1px var(--glass-edge);
 }
 
@@ -315,11 +315,15 @@ a.btn { text-decoration: none; }
 .cols2 { columns: 2; column-gap: 18px; } .cols2 li { break-inside: avoid; }
 
 /* what's new since this device last looked: a soft card at the top of the root panel, gone once Seen */
-.news { margin: 0 0 14px; padding: 0 12px 2px; border-radius: var(--r); background: color-mix(in srgb, var(--accent) 7%, var(--sheet-bg, var(--paper))); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent); }
-.panel .news h3 { margin: 0; padding: 10px 0 2px; color: var(--ink-2); }
-.news .row .ic { background: var(--accent); width: 7px; height: 7px; margin: 0 1px; }
-.news .rows li { border-bottom-color: color-mix(in srgb, var(--accent) 12%, transparent); }
-.panel .news .more { margin: 0; padding: 0 0 10px 18px; font-size: 12.5px; color: var(--muted); }
+/* the log's news: rows like the panel's other lists (an accent dot for unseen, who in bold, how long ago at the right), three until opened */
+.news { margin: 0 0 16px; }
+.news .row .ic { width: 7px; height: 7px; margin: 0 1.5px; background: transparent; } .news .row .ic.new { background: var(--accent); } /* the dot: not seen yet */
+.news-scroll { max-height: min(330px, 44vh); margin-right: -12px; padding-right: 12px; overflow-y: auto; scrollbar-width: thin; -webkit-overflow-scrolling: touch; } /* open: it scrolls, and at either end the panel carries on (no overscroll-behavior) */
+.news .end { border: 0; padding: 12px 0 12px 20px; font-size: 12px; color: var(--muted); }
+.news .row .nm { font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.news .row .nm b { font-weight: 600; }
+.news .more { display: block; border: 0; background: none; padding: 8px 0 2px 20px; font: 500 13px/1.3 var(--sans); color: var(--muted); cursor: pointer; }
+.news .more:hover { color: var(--ink); }
 /* the name prompt (a dialog, asked once per device) */
 dialog.who { width: min(360px, calc(100% - 32px)); padding: 18px 18px 16px; border: 0; border-radius: 18px; background: var(--sheet-bg, var(--paper)); color: var(--ink); box-shadow: var(--panel-shadow); }
 dialog.who::backdrop { background: rgba(10, 12, 16, .4); }
@@ -805,3 +809,48 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
   .lk-ctl { align-items: center; gap: 14px; } .lk-ag, .lk-dsum { font-size: 14.5px; } .lk-od { font-size: 13.5px; }
   .lk-yr { min-height: 56px; }
 }
+
+/* the place panel: its spots counted (been, bookmarked) first thing under the title; a place's flag comes from its first been spot */
+.pstats { display: flex; align-items: center; gap: 28px; margin: 2px 0 16px; }
+.pstats .btn { margin-left: auto; } .pstats .btn svg { width: 13px; height: 13px; }
+@media (max-width: 880px) { .pstats .btn { height: 40px; padding: 0 14px; font-size: 14px; } }
+.pstats > span { display: grid; justify-items: start; }
+.pstats b { font: 700 30px/1 var(--display); letter-spacing: -.02em; font-variant-numeric: tabular-nums; color: var(--accent-deep, var(--accent)); }
+.pstats .bm b { color: var(--want); }
+.pstats small { margin-top: 5px; font: 600 10.5px/1 var(--sans); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+.handflag { margin: 8px 0 0; font-size: 12.5px; color: var(--muted); }
+.handflag button { border: 0; background: none; padding: 0; font: inherit; font-weight: 600; color: var(--accent-deep, var(--accent)); cursor: pointer; }
+/* the one action beside the name in the header: the bookmark on a spot */
+.head h2 .hact { display: inline-flex; align-items: center; gap: 5px; vertical-align: .18em; margin-left: 8px; border: 0; cursor: pointer; font: 600 13.5px/1 var(--sans); letter-spacing: 0; white-space: nowrap; }
+.head h2 .hact.bmb { width: 32px; height: 32px; justify-content: center; padding: 0; margin-left: 4px; border-radius: 8px; background: transparent; color: var(--muted); vertical-align: .05em; }
+.head h2 .hact.bmb svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linejoin: round; }
+.head h2 .hact.bmb[aria-pressed="true"] { color: var(--want); } .head h2 .hact.bmb[aria-pressed="true"] svg { fill: var(--want); }
+@media (hover: hover) { .head h2 .hact.bmb:hover { background: var(--paper-2); } }
+.head h2 .hact[disabled] { opacity: .5; cursor: default; }
+/* a bookmarked spot: a small blue bookmark after its name, and the header's bookmark filled */
+.row .nm .bmk { display: inline-block; width: .62em; height: .8em; margin-left: 6px; vertical-align: -.02em; background: var(--want); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 72%, 0 100%); }
+/* the map filter in the layers menu, and a dot on the layers button while it is on */
+.lenses .bmonly { margin: 4px 4px 0; padding: 9px 6px 5px; border-top: 1px solid var(--glass-edge); border-bottom: 0; display: grid; grid-template-columns: auto 1fr auto; gap: 10px; font-size: 13.5px; }
+.lenses .bmonly b { font-weight: 600; display: block; }
+.lenses .bmonly .bmi svg { width: 15px; height: 15px; fill: var(--want); stroke: none; display: block; }
+#lens-btn { position: relative; }
+#lens-btn.filtering::after { content: ""; position: absolute; top: 7px; right: 7px; width: 8px; height: 8px; border-radius: 50%; background: var(--want); box-shadow: 0 0 0 2px var(--glass-strong); }
+
+/* the first screen's actions: a row of text links at the top */
+.textlinks.acts { margin: 2px 0 16px; }
+.textlinks button[aria-expanded="true"] { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+.acts + #moods { margin: -4px 0 16px; } .acts + #moods h3:first-child { margin-top: 0; }
+@media (max-width: 880px) { .textlinks.acts { justify-content: space-between; gap: 0 10px; margin: -12px 0 2px; } .news h3 { margin-top: 10px; } } /* the four fit one line of a 390px phone */
+/* the first screen's three counts: a row of their own under the title, large and centred, each a button that opens its list */
+.head.first { flex-wrap: wrap; row-gap: 14px; }
+.head.first .tally { order: 9; flex: 1 0 100%; margin: 0; display: flex; gap: 28px; }
+.head.first .tally button { display: grid; justify-items: start; gap: 5px; padding: 0; border: 0; background: none; color: inherit; cursor: pointer; text-align: left; } /* plain counts, as on a place: no box */
+.head.first .tally button:active small { color: var(--ink); }
+@media (hover: hover) { .head.first .tally button:hover small { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; } }
+.head.first .tally b { font-size: 30px; }
+.head.first .tally small { margin-top: 0; font-size: 10.5px; }
+.head.first .tally button:nth-child(3) b { color: var(--want); }
+.progress.mini { margin: -2px 0 6px; } .progress.mini .bar { height: 4px; }
+/* while the layers menu is open the map controls rise above the area pill and the search pill, which the menu reaches over; closed,
+   they stay under the search (on the phone its button sits over the controls' top slot) */
+.ctl.lensing { z-index: 5; }

@@ -75,6 +75,7 @@ window.Sync = (() => {
     return {
       push: ev => req('', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(ev) }).then(r => (r && typeof r.name === 'string' ? r.name : null)), // the new id
       recent: (limit = 30) => req(last(Math.max(1, Math.min(100, limit | 0)))).then(d => (d && typeof d === 'object' ? d : {})), // { id: event }, unordered
+      before: (id, limit = 30) => req(last(Math.max(1, Math.min(100, limit | 0))) + '&endAt=' + encodeURIComponent(JSON.stringify(String(id)))).then(d => (d && typeof d === 'object' ? d : {})), // the page that ends at id (id itself included): older history
       watch,
     };
   }

@@ -315,9 +315,11 @@ a.btn { text-decoration: none; }
 .cols2 { columns: 2; column-gap: 18px; } .cols2 li { break-inside: avoid; }
 
 /* what's new since this device last looked: a soft card at the top of the root panel, gone once Seen */
-/* news by others: rows like the panel's other lists (an accent dot for unseen, who in bold, how long ago at the right), three at a time */
+/* the log's news: rows like the panel's other lists (an accent dot for unseen, who in bold, how long ago at the right), three until opened */
 .news { margin: 0 0 16px; }
-.news .row .ic { width: 7px; height: 7px; margin: 0 1.5px; background: var(--accent); }
+.news .row .ic { width: 7px; height: 7px; margin: 0 1.5px; background: transparent; } .news .row .ic.new { background: var(--accent); } /* the dot: not seen yet */
+.news-scroll { max-height: min(330px, 44vh); margin-right: -12px; padding-right: 12px; overflow-y: auto; scrollbar-width: thin; -webkit-overflow-scrolling: touch; } /* open: it scrolls, and at either end the panel carries on (no overscroll-behavior) */
+.news .end { border: 0; padding: 12px 0 12px 20px; font-size: 12px; color: var(--muted); }
 .news .row .nm { font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .news .row .nm b { font-weight: 600; }
 .news .more { display: block; border: 0; background: none; padding: 8px 0 2px 20px; font: 500 13px/1.3 var(--sans); color: var(--muted); cursor: pointer; }
@@ -841,10 +843,10 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
 @media (max-width: 880px) { .textlinks.acts { justify-content: space-between; gap: 0 10px; margin: -12px 0 2px; } .news h3 { margin-top: 10px; } } /* the four fit one line of a 390px phone */
 /* the first screen's three counts: a row of their own under the title, large and centred, each a button that opens its list */
 .head.first { flex-wrap: wrap; row-gap: 14px; }
-.head.first .tally { order: 9; flex: 1 0 100%; margin: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.head.first .tally button { display: grid; justify-items: center; gap: 6px; padding: 10px 4px 9px; border: 1px solid var(--line); border-radius: var(--r); background: var(--paper); color: inherit; cursor: pointer; transition: border-color .15s, background .15s; }
-.head.first .tally button:active { background: var(--paper-2); }
-@media (hover: hover) { .head.first .tally button:hover { border-color: var(--line-2); } }
+.head.first .tally { order: 9; flex: 1 0 100%; margin: 0; display: flex; gap: 28px; }
+.head.first .tally button { display: grid; justify-items: start; gap: 5px; padding: 0; border: 0; background: none; color: inherit; cursor: pointer; text-align: left; } /* plain counts, as on a place: no box */
+.head.first .tally button:active small { color: var(--ink); }
+@media (hover: hover) { .head.first .tally button:hover small { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; } }
 .head.first .tally b { font-size: 30px; }
 .head.first .tally small { margin-top: 0; font-size: 10.5px; }
 .head.first .tally button:nth-child(3) b { color: var(--want); }

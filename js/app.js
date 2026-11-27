@@ -506,7 +506,8 @@
         ${active ? `<h3>${hits.length ? hits.length + ' match' + (hits.length === 1 ? '' : 'es') : 'No matches'}</h3><div class="textlinks">${hits.map(a => `<button type="button" class="${isDone(IDX[a]) ? 'done' : isWant(IDX[a]) ? 'want' : ''}" data-go='${attr({ hood: a })}'>${esc(a)}</button>`).join('')}</div>` : ''}</div>`;
     const list = r === 'all' ? '' : `<h3>${r === 'all' ? 'Regions' : 'Places'} <span class="n">${r === 'all' ? '' : total}</span></h3><ul class="rows ${r === 'all' || REGIONS[r].ordered ? '' : 'cols2'}">${places}</ul>`; // an ordered region (the Strip, north to south) reads down one column
     // the actions first, as a row of text links (Find by mood opens its tags just under them)
-    panel.innerHTML = links + (news ? newsBlock() : '') + (r === 'all' && window.Lookback ? Lookback.card() : '') + progress + (isPhone() ? list + lead : lead + list) + `
+    const newsAt = (panel.querySelector('.news-scroll') || {}).scrollTop || 0; // the open news list keeps its place through a redraw
+    panel.innerHTML = links + (r === 'all' ? newsBlock() : '') + (r === 'all' && window.Lookback ? Lookback.card() : '') + progress + (isPhone() ? list + lead : lead + list) + `
       ${first ? '' : `
       ${entries.length ? `<h3>Explored <span class="n">${entries.length}</span></h3><ul class="rows">${entries.map(x => `<li><button type="button" class="row" data-go='${attr({ hood: x })}'><span class="ic flag"></span><span class="nm">${esc(x)}${flagOf(x).note ? `<small>${esc(flagOf(x).note)}</small>` : ''}</span><span class="rt">${niceDate(flagOf(x).at)}</span></button></li>`).join('')}</ul>` : ''}
       ${bmList.length ? `<h3>Bookmarked <span class="n">${bmList.length}</span>${bmList.length > 6 ? `<button type="button" class="act" data-view="spots" data-bm>All ${bmList.length}</button>` : ''}</h3><ul class="rows">${bmList.slice(0, 6).map(id => rowSpot(id, true)).join('')}</ul>` : ''}
@@ -519,9 +520,7 @@
     panel.querySelector('[data-mood-toggle]').addEventListener('click', e => { const m = panel.querySelector('#moods'); m.hidden = !m.hidden; e.currentTarget.setAttribute('aria-expanded', String(!m.hidden)); });
     panel.querySelectorAll('[data-mood]').forEach(b => b.addEventListener('click', () => { const t = b.dataset.mood; state.filters.has(t) ? state.filters.delete(t) : state.filters.add(t); map.invalidate(); render(); panel.querySelector('#moods').hidden = false; }));
     { const j = panel.querySelector('#join-log-hint'); if (j) j.addEventListener('click', joinLog); }
-    const ns = panel.querySelector('#news-seen'); if (ns) ns.addEventListener('click', markSeen);
-    { const m = panel.querySelector('#news-more'); if (m) m.addEventListener('click', () => { newsOpen = true; render(); }); }
-    panel.querySelectorAll('[data-news]').forEach(b => b.addEventListener('click', () => { const e = newsShown.find(x => x.key === b.dataset.news); if (e) openEv(e); }));
+    wireNews(newsAt);
   }
 
   // ---- a neighborhood ----
@@ -943,8 +942,9 @@
   // its clock (no skew between phones). While the app is open the feed's own stream fires on every new event and the feed is read
   // again, and what arrived is toasted.
   // Anyone with the link can write the feed: every field is checked and cut to length, and escaped where it reaches HTML.
-  let feed = null, feedKey = null, feedTimer = null, photoOpts = null, feedReq = 0, feedDone = false, newsShown = []; const told = new Set(); // told: events already shown this session (block or toast)
+  let feed = null, feedKey = null, feedTimer = null, photoOpts = null, feedReq = 0, feedDone = false; const told = new Set(); // told: events already shown this session (block or toast)
   state.news = []; // unseen events by others, newest first
+  state.hist = []; // every event read so far (anyone's), newest first: the history the block lists. One array for good: older pages are pushed onto it
   const EV_KINDS = bare({ spot: 1, been: 1, photo: 1, place: 1 });
   const EV_KEY = /^-[A-Za-z0-9_-]{19}$/; // a database push id only: a hand-written key ('zzzz') would sort after every real one and hide them
   const evStr = (v, n) => typeof v === 'string' ? v.replace(/[\x00-\x1f\x7f]/g, '').slice(0, n) : '';
@@ -981,31 +981,60 @@
     try { d = await feed.recent(30); } catch (e) { console.warn('feed unavailable', e); return; }
     if (my !== feedReq) return; // a later read was asked for: an older answer never replaces it
     if (!feedDone) { feedDone = true; live = false; } // the first answer is the backlog: the block shows it, no toast
-    const all = Object.keys(d && typeof d === 'object' ? d : {}).sort().map(k => cleanEv(k, d[k])).filter(Boolean);
+    const raw = Object.keys(d && typeof d === 'object' ? d : {}), all = raw.sort().map(k => cleanEv(k, d[k])).filter(Boolean);
+    if (!state.hist.length && raw.length < 30) histEnd = true; // a first page that is not full: nothing older
     let seen = seenId();
     if (seen === null) { seen = all.length ? all[all.length - 1].key : ''; setSeen(seen); } // first visit on this device: nothing counts as new
     const news = all.filter(e => e.key > seen && e.d !== deviceId).reverse(), arrived = news.filter(e => !told.has(e.key));
     news.forEach(e => told.add(e.key));
-    const changed = news.map(e => e.key).join() !== state.news.map(e => e.key).join(); state.news = news;
+    const topWas = state.hist.length ? state.hist[0].key : '', got = new Set(all.map(e => e.key)), older = state.hist.filter(e => !got.has(e.key));
+    state.hist.length = 0; state.hist.push(...all, ...older); state.hist.sort((a, b) => a.key < b.key ? 1 : a.key > b.key ? -1 : 0); // this page joined to the older ones already read
+    const changed = news.map(e => e.key).join() !== state.news.map(e => e.key).join() || (state.hist.length ? state.hist[0].key : '') !== topWas; state.news = news;
     const busy = state.view === 'log' || !!($('who') && $('who').open); // a form or the name prompt is open: View would leave it and lose the draft
     if (live && arrived.length) { const e = arrived[0]; toast(evLine(e) + (arrived.length > 1 ? ` and ${arrived.length - 1} more` : ''), 6000, busy ? null : { label: 'View', run: () => openEv(e) }); }
     if (changed && atRoot() && !(document.activeElement && panel.contains(document.activeElement) && document.activeElement.matches('input, textarea'))) render(); // never under someone typing
   }
   const feedSoon = () => { clearTimeout(feedTimer); feedTimer = setTimeout(() => readFeed(true), 250); }; // one read for a burst of stream messages
-  // Seen and the lines act on what the block last drew (newsShown), never on a list read since while it could not redraw
-  function markSeen() { newsOpen = false; const top = newsShown[0]; if (top && top.key > (seenId() || '')) setSeen(top.key); state.news = top ? state.news.filter(e => e.key > top.key) : []; render(); }
-  let newsOpen = false; // the rest of a long list, opened by its "more" line
+  // The block is the log's history, newest first: three lines, and "Show more" opens a list that scrolls and reads older pages as its
+  // end nears. A dot marks what this device has not seen (by others, after the last "Mark seen"). Seen acts on what the block last
+  // drew (newsTop), never on an event read since while it could not redraw
+  let newsOpen = false, newsTop = '', histEnd = false, histBusy = false, histCur = ''; // histCur: the oldest key the database has returned, valid event or not: the next older page ends there
+  const isNew = (e, seen) => e.key > seen && e.d !== deviceId;
+  const newsRow = (e, seen) => `<li><button type="button" class="row" data-news="${esc(e.key)}" title="${esc(evLine(e) + (ago(e.t) ? ', ' + ago(e.t) : ''))}"><span class="ic${isNew(e, seen) ? ' new' : ''}">${isNew(e, seen) ? '<span class="sr">New: </span>' : ''}</span><span class="nm"><b>${esc(e.by || 'Someone')}</b> ${esc(evWhat(e))}</span><time class="rt" datetime="${esc(e.t)}">${esc(agoShort(e.t))}</time></button></li>`;
+  const NEWS_END = '<li class="end">The start of the log</li>';
+  function markSeen() { if (newsTop && newsTop > (seenId() || '')) setSeen(newsTop); state.news = state.news.filter(e => e.key > newsTop); render(); }
   function newsBlock() {
-    const n = newsShown = state.news; if (!n.length) { newsOpen = false; return ''; }
-    // rows like every other list in the panel: who in bold and what they did, how long ago at the right. Past four, three show and one line opens the rest (no list scrolling inside the panel)
-    const cut = newsOpen || n.length <= 4 ? n.length : 3;
-    return `<section class="news" aria-label="Since you were last here"><h3>Since you were here<button type="button" class="act" id="news-seen">Mark seen</button></h3>
-      <ul class="rows">${n.slice(0, cut).map(e => `<li><button type="button" class="row" data-news="${esc(e.key)}" title="${esc(evLine(e) + (ago(e.t) ? ', ' + ago(e.t) : ''))}"><span class="ic"></span><span class="nm"><b>${esc(e.by || 'Someone')}</b> ${esc(evWhat(e))}</span><time class="rt" datetime="${esc(e.t)}">${esc(agoShort(e.t))}</time></button></li>`).join('')}</ul>${cut < n.length ? `<button type="button" class="more" id="news-more">Show ${n.length - cut} more</button>` : ''}</section>`;
+    const h = state.hist; if (!h.length) { newsOpen = false; return ''; }
+    newsTop = h[0].key; const seen = seenId() || '', cut = newsOpen ? h.length : Math.min(3, h.length), unshown = h.slice(cut).filter(e => isNew(e, seen)).length;
+    return `<section class="news" aria-label="Latest in the log"><h3>Latest${state.news.length ? '<button type="button" class="act" id="news-seen">Mark seen</button>' : ''}</h3>
+      <ul class="rows${newsOpen ? ' news-scroll" tabindex="0' : ''}">${h.slice(0, cut).map(e => newsRow(e, seen)).join('')}${newsOpen && histEnd ? NEWS_END : ''}</ul>${newsOpen ? '<button type="button" class="more" id="news-less">Show less</button>' : h.length > cut || !histEnd ? `<button type="button" class="more" id="news-more">Show more${unshown ? ` · ${unshown} new` : ''}</button>` : ''}</section>`;
+  }
+  function wireNews(top) {
+    const sec = panel.querySelector('.news'); if (!sec) return; const q = x => sec.querySelector(x);
+    sec.addEventListener('click', e => { const b = e.target.closest('[data-news]'), ev = b && state.hist.find(x => x.key === b.dataset.news); if (ev) openEv(ev); }); // one listener: rows of older pages are added later
+    if (q('#news-seen')) q('#news-seen').addEventListener('click', markSeen);
+    if (q('#news-more')) q('#news-more').addEventListener('click', e => { newsOpen = true; render(); const l = panel.querySelector('#news-less'); if (l && !e.detail) l.focus({ preventScroll: true }); }); // from the keyboard (no click count): the focus follows to the line that took its place
+    if (q('#news-less')) q('#news-less').addEventListener('click', e => { newsOpen = false; render(); const m = panel.querySelector('#news-more'); if (m && !e.detail) m.focus({ preventScroll: true }); });
+    const ul = q('.news-scroll'); if (!ul) return;
+    ul.scrollTop = top || 0; ul.addEventListener('scroll', () => { if (ul.scrollHeight - ul.scrollTop - ul.clientHeight < 160) olderNews(); }, { passive: true });
+    if (ul.scrollHeight - ul.clientHeight < 160) olderNews(); // a list too short to scroll yet: the next page now
+  }
+  async function olderNews() {
+    if (!feed || !feed.before || histBusy || histEnd || !state.hist.length) return; histBusy = true;
+    const last = histCur || state.hist[state.hist.length - 1].key; let d = null;
+    try { d = await feed.before(last, 31); } catch (e) { console.warn('older news unavailable', e); histBusy = false; return; }
+    const raw = Object.keys(d && typeof d === 'object' ? d : {}), have = new Set(state.hist.map(e => e.key));
+    const more = raw.sort().reverse().map(k => cleanEv(k, d[k])).filter(e => e && e.key < last && !have.has(e.key)), oldest = raw.length ? raw[raw.length - 1] : last;
+    if (raw.length < 31 || !(oldest < last)) histEnd = true; else histCur = oldest; // a page that is not full, or holds nothing older: the start of the log. Else the next page ends at the oldest key read, whatever it held: entries that are not events never stall it
+    state.hist.push(...more); histBusy = false;
+    const ul = panel.querySelector('.news-scroll'); if (!ul) return; // closed or left meanwhile: the rows are drawn when it opens again
+    const seen = seenId() || ''; ul.insertAdjacentHTML('beforeend', more.map(e => newsRow(e, seen)).join('') + (histEnd ? NEWS_END : ''));
+    if (!histEnd && ul.scrollHeight - ul.scrollTop - ul.clientHeight < 160) olderNews();
   }
   // "12m", "3h", "2d", then the date: the row's short time
   function agoShort(t) { const d = Date.parse(t), m = (Date.now() - d) / 60000; if (!isFinite(m) || m < -5) return ''; return m < 1 ? 'now' : m < 60 ? Math.round(m) + 'm' : m < 1440 ? Math.round(m / 60) + 'h' : m < 10080 ? Math.round(m / 1440) + 'd' : niceDate(new Date(d).toISOString().slice(0, 10)); }
   function evWhat(e) { const nm = e.name || 'a spot'; return e.k === 'photo' ? `added ${e.n === 1 ? 'a photo' : e.n + ' photos'} to ${nm}` : e.k === 'place' ? `explored ${nm}` : e.k === 'been' ? `went to ${nm}` : `logged ${nm}`; }
-  // photos.js: who adds a photo, what was added (an event), and the capture date of a photo on a been spot (offered, never applied unasked)
+  // photos.js: who adds a photo, what was added (an event), and the capture date of a photo on a been spot (applied at once; the toast offers Undo)
   function photoAdded(owner, ids, label) {
     const n = Array.isArray(ids) ? ids.length : ids && typeof ids === 'object' ? Object.keys(ids).length : 0; if (!n) return;
     const l = ownerLoc(owner), hood = l ? (l.spot ? state.spots[l.spot].hood : l.hood) : '';
@@ -1014,8 +1043,13 @@
   function photoTaken(owner, date, label) {
     if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) || isNaN(new Date(date + 'T12:00:00')) || date > today()) return;
     const l = ownerLoc(owner), id = l && l.spot, sp = id && state.spots[id]; if (!sp || sp.status !== 'been' || sp.at === date || !state.canWrite) return;
-    const was = sp.at, how = window.Lookback ? Lookback.photoOffer(sp, date) : 'set'; if (!how) return; // the offer is for the date shown now: an edit or a sync since, or a log gone read-only, voids it. how: js/lookback.js (none when it is already a visit; 'add' one more visit on a spot visited more than once)
-    toast(`Photo taken ${niceDate(date)}`, 8000, { label: how === 'add' ? `Add ${niceDate(date)} as a visit` : 'Use as the visit date', run: async () => { const s = state.spots[id]; if (!s || s.status !== 'been' || s.at !== was || !state.canWrite) return; const said = window.Lookback ? Lookback.photoDate(s, date, how) : (s.at = date, ''); if (said === null) return; stamped = null; render(); if (await persist() !== false) toast(said || `${s.name}: visited ${niceDate(date)}`); } });
+    const how = window.Lookback ? Lookback.photoOffer(sp, date) : 'set'; if (!how) return; // how: js/lookback.js (none when it is already a visit; 'add' one more visit on a spot visited more than once; 'set' the one visit moves)
+    const was = { at: sp.at, visits: Array.isArray(sp.visits) ? sp.visits.slice() : null }, snap = s => JSON.stringify([s.at, s.visits || null]);
+    const said = window.Lookback ? Lookback.photoDate(sp, date, how) : (sp.at = date, ''); if (said === null) return; // not kept (said there)
+    const now = snap(sp); stamped = null; render(); map.redraw();
+    // Undo puts back the dates as they were, unless they changed again since (an edit, a sync) or the log went read-only
+    toast(said || (how === 'add' ? `${sp.name}: ${niceDate(date)} added as a visit` : `${sp.name}: visit date set to ${niceDate(date)}, from the photo`), 9000, { label: 'Undo', run: async () => { const s = state.spots[id]; if (!s || !state.canWrite || snap(s) !== now) return; s.at = was.at; if (was.visits) s.visits = was.visits; else delete s.visits; stamped = null; render(); map.redraw(); if (await persist() !== false) toast(`${s.name}: back to ${niceDate(was.at)}`); } });
+    persist();
   }
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && feed) readFeed(true); }); // a home-screen app comes back without reloading
 
@@ -1340,7 +1374,7 @@
   let wasPhone = isPhone();
   window.addEventListener('resize', () => { map.resize(); map.redraw(); if (isPhone() !== wasPhone) { wasPhone = isPhone(); if (state.quiz) renderQuiz(); else if (state.placing) fitHead(); else render(); } else fitHead(); }); // across the breakpoint the first screen reorders its panel, and the quiz's header and card change layout (not mid pin-drop, whose header a render replaces) // resize() also catches a devicePixelRatio change (browser zoom)
   if (window.Lookback) Lookback.init({ state, panel, go, render, persist, beforeWrite, toast, setHead, esc, attr, KINDS, IDX, BY_SLUG, ownerKey, cleanName, niceDate, isPhone, look: vibeLook, VERDICT });
-  window.__sbs = { map, state, go, sheet, maps: { spotQuery, areaQuery, mapsLink, appleLink, spotApple, areaApple }, photos: window.Photos ? Object.assign(Object.create(window.Photos), { ownerKey }) : null, get photoOpts() { return photoOpts; }, feed: { read: readFeed, get news() { return state.news; } } }; // for tests and the console
+  window.__sbs = { map, state, go, sheet, maps: { spotQuery, areaQuery, mapsLink, appleLink, spotApple, areaApple }, photos: window.Photos ? Object.assign(Object.create(window.Photos), { ownerKey }) : null, get photoOpts() { return photoOpts; }, feed: { read: readFeed, get news() { return state.news; }, get hist() { return state.hist; } } }; // for tests and the console
   window.claude?.hot?.snapshot?.(() => ({ loc: state.loc }));
   window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
 })();

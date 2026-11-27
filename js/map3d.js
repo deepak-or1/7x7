@@ -1344,9 +1344,10 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
         if (!ic.label || !(ic.px >= 40 || (lmB < 1 && ic.side >= LM_MIN * 0.9 * (1 - lmB))) || !ic.mesh.visible) continue; const a = at(ic.x, ic.z, ic.mesh.position.y); if (a[2] <= 0 || a[2] > c.d * 2.3) continue;   // (close in, every landmark held at its least size is named)
         if (!said) said = [...want.values()].filter(r => r.text).map(r => ({ x: r.x, y: r.y, t: r.text.toLowerCase(), w: new Set(words(r.text)) }));
         const lt = ic.label.toLowerCase(); if (said.some(r => r.t === lt) || said.some(r => Math.hypot(r.x - a[0], r.y - a[1]) <= near && words(ic.label).filter(w => r.w.has(w)).length >= (lmB < 1 ? 2 : 1))) continue;   // (close in, a name sharing one word with a place's is still a name of its own: the Castro Theatre in the Castro)
-        const size = fsz - 0.5, tw = measure(ic.label, 500, size), bx = [a[0] - tw / 2 - 3, a[1] + 3, a[0] + tw / 2 + 3, a[1] + 4 + size * 1.25];
-        if (bx[2] < 0 || bx[0] > W || bx[3] < 0 || bx[1] > H || !inView(bx) || clash(bx)) continue;
-        placed.push(bx); put('L' + ic.id, { text: ic.label, x: a[0], y: (bx[1] + bx[3]) / 2, size, ls: 0, weight: 500, color: P.ink2 });
+        const size = fsz - 0.5, tw = measure(ic.label, 500, size), ok = b => !(b[2] < 0 || b[0] > W || b[3] < 0 || b[1] > H || !inView(b) || clash(b)); let bx = [a[0] - tw / 2 - 3, a[1] + 3, a[0] + tw / 2 + 3, a[1] + 4 + size * 1.25];
+        if (!ok(bx)) { if (!(lmB < 1 && ic.side >= LM_MIN * 0.9 * (1 - lmB))) continue; const t = at(ic.x, ic.z, ic.mesh.position.y + ic.h * ic.mesh.scale.y), lh = size * 1.25 + 1, my = (a[1] + t[1]) / 2; if (t[2] <= 0) continue;   // (close in, where its own place under it is taken: over its top, a line higher, or beside it)
+          bx = [[t[0] - tw / 2 - 3, t[1] - 3 - lh, t[0] + tw / 2 + 3, t[1] - 3], [t[0] - tw / 2 - 3, t[1] - 5 - 2 * lh, t[0] + tw / 2 + 3, t[1] - 5 - lh], [a[0] + 10, my - lh / 2, a[0] + 16 + tw, my + lh / 2], [a[0] - 16 - tw, my - lh / 2, a[0] - 10, my + lh / 2]].find(ok); if (!bx) continue; }
+        placed.push(bx); put('L' + ic.id, { text: ic.label, x: (bx[0] + bx[2]) / 2, y: (bx[1] + bx[3]) / 2, size, ls: 0, weight: 500, color: P.ink2 });
       }
       // fade names in and out, then draw: the ones leaving first
       for (const [id, rec] of want) { const a = lblA.get(id) || 0, n = RM.matches ? 1 : Math.min(1, a + dt / 160); lblA.set(id, n); rec.al = n * (rec.a != null ? rec.a : 1); if (n < 1) anim = true; }

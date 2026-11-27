@@ -45,6 +45,12 @@
   // the houses (look a): ?m3d-house=0 the plain houses as they were; 1 (the default) with the steps kept: a, each house its own tone; b, roofs a shade
   // apart from walls; c, windows and a door band by day; d, rows shoulder to shoulder in the city and detached houses with yards outside it; e, sizes nearer life
   const HOUSE = /[?&]m3d-house=0(?:&|$)/.test(location.search) ? 0 : 1, HSTEPS = (/[?&]m3d-hsteps=([a-e]*)(?:&|$)/.exec(location.search) || [0, 'abcde'])[1];
+  // heights against the real buildings' (js/map3d/land.js HX, ?m3d-tall; these were set beside buildings drawn 2.5 times life): the made-up towers of a
+  // downtown and the houses' walls come down with them (HS to the power HE, 1), so a raised road stands over the houses beside it as it does in
+  // life; a pitched roof keeps its height (it goes with the house's width), so a wide house still reads as a house. The flat-roofed blocks of the
+  // busy places, as wide and with no roof to carry them, come down half as far (the power HE / 2), or they lie as slabs. ?m3d-tall-house=<HE>:
+  // another power (0: as tall as they were)
+  const HS = ((window.M3D && window.M3D.land && window.M3D.land.HX) || 2.5) / 2.5, HE = (m => m && +m[1] >= 0 && +m[1] <= 2 ? +m[1] : 1)(/[?&]m3d-tall-house=([0-9.]+)(?:&|$)/.exec(location.search));
   const CORES = [[-122.3995, 37.7915, 9, 1], [-122.2712, 37.805, 6.5, 0.7], [-121.889, 37.3335, 6.5, 0.65], [-122.268, 37.8703, 3.2, 0.35], [-122.1617, 37.4447, 2.6, 0.3], [-122.0308, 37.9063, 2.6, 0.3]];
 
   // env: { HOODS, BB, HT, hAt(i, x, z): the ground of place i at a point (without it: HT[i], a flat top), INFO, SUBD, REGS, proj, inTop(i, x, z), avoid: [[x, z, r], ...], strip: [[x, z], ...],
@@ -78,6 +84,7 @@
       else if (city) Object.assign(P, { bw: 1.22, bh: 2.3, st: 0.3, dp: 0.36, lw0: 0.3, lw1: 0.52, h0: 0.11, h1: 0.18, roof: 0.4, keep: 0.93, gap: 0.03, green: leafy ? 0.5 : hilly ? 0.35 : 0.22, big: 0.04 });
       else if (dense) Object.assign(P, { bw: 1.9, bh: 3.0, st: 0.42, dp: 0.56, lw0: 0.5, lw1: 1.0, h0: 0.14, h1: 0.3, roof: 0, keep: 0.8, gap: 0.08, green: 0.3, big: 0.12 });
       else Object.assign(P, { bw: 2.0, bh: 3.2, st: 0.44, dp: 0.5, lw0: 0.46, lw1: 0.8, h0: 0.1, h1: 0.16, roof: 0.42, keep: leafy || hilly ? 0.6 : 0.74, gap: 0.12, green: leafy ? 0.8 : hilly ? 0.6 : 0.4, big: 0.04 });
+      { const hh = Math.pow(HS, P.roof > 0 ? HE : HE / 2); P.h0 *= hh; P.h1 *= hh; }
       if (R() < 0.5 && TURN[h.name] == null) { const t = P.bw; P.bw = P.bh; P.bh = t; P.flip = true; }   // some grids run the other way
       // the parks inside it: the sections named after one
       for (const s of SUBD[h.name] || []) { const r = sf ? POCKET[s.name] : POCKET_RE.test(s.name) ? 2.4 : 0; if (r) { const p = proj([s.lon, s.lat]); P.parks.push([p[0], p[1], r]); } }
@@ -146,7 +153,7 @@
                 let lw = lerp(P.lw0, P.lw1, R()) * k; if (t + lw > ih / 2 - P.lw0 * k * 0.5) lw = ih / 2 - t;
                 const r1 = R(), r2 = R(), r3 = R();
                 if (r1 < keep) {
-                  const hh = tall ? lerp(P.h0, P.h1, r2) + Math.pow(d, 1.5) * (0.35 + 0.95 * r2 * r2) : lerp(P.h0, P.h1, r2);
+                  const hh = tall ? lerp(P.h0, P.h1, r2) + Math.pow(d, 1.5) * (0.35 + 0.95 * r2 * r2) * HS : lerp(P.h0, P.h1, r2);
                   put(side * (iw / 2 - dp / 2), t + lw / 2, lw - P.gap, dp, hh, tall || r3 > 0.72 ? 0 : P.roof * (0.75 + r3 * 0.5), tall);
                 }
                 t += lw;

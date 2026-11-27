@@ -135,7 +135,7 @@
 
     // ---- the trees of a chunk: [x, y, z, r, h/r, place, tint, kind] each ----
     // sizes in metres, as the real trees: a city tree's crown 8 to 14 m across; a grove of them, one shape, 30 to 60 m; heights about
-    // twice the crown's radius (the buildings' heights are drawn 2.5 times: a tree is not, so it does not read as a pole)
+    // twice the crown's radius (the buildings' heights are drawn HX times, js/map3d/land.js: a tree is not, so it does not read as a pole)
     const M = K;   // metres to map units
     const av = env.avoid || [];
     function stand(x, z) { // the ground under a tree and the place it stands on (-1: the quiet land), or null where nothing may stand

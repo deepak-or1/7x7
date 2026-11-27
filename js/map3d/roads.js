@@ -23,7 +23,7 @@
 //   lamps(a), frames, near(x, z, r)   the night's lamps, the frames the night's traffic runs on, "is this circle on a road"
 //   runs, flattened   the runs drawn raised ({ refs, m: metres, x, z: the middle of the longest line, top: the highest layer, lines }) and how many raised stretches were laid on the ground
 // Widths are drawn WX times (each carriageway its own ribbon, as in the data), heights above the ground VEX times, as the real
-// buildings' are (js/map3d/real.js). World frame: x = map x, z = map y (south), y = up; a unit is about 143 m.
+// buildings' are (js/map3d/land.js HX, ?m3d-tall); a deck, its walls, piers, portals and clearances in proportion (SV). World frame: x = map x, z = map y (south), y = up; a unit is about 143 m.
 // Defines window.M3D.roads; and, until the data arrives, a stub of M3D.roadData that gives Presidio Tunnel Tops
 // (js/map3d/icons-sf.js) the two mouths of the real Main Post tunnels, so the park lies over the real line.
 (function () {
@@ -31,11 +31,11 @@
   const M3D = window.M3D, land = M3D && M3D.land; if (!land) return;
   const K = 1 / land.UNIT_M, proj = land.proj, LAND_TOP = land.LAND_TOP, now = () => performance.now();
   const lerp = (a, b, t) => a + (b - a) * t, clamp = (v, a, b) => Math.min(b, Math.max(a, v)), sstep = t => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); }, fall = t => 1 - sstep(t);
-  const WX = 1.45, VEX = 2.5, CS = 16, SEG = 0.5, SEGR = 1.2, FTOL = 0.12;          // widths and heights as drawn; a chunk's side; the most between two stations of a line (and of a raised one away from its ends, where it runs level); how far a ribbon may leave its line in plan
-  const LIFT = 0.022, DT = 0.05, PH = 0.03, PT = 0.014, CLW = 0.007, ELW = 0.011, SKIRT = 0.07; // the roadway above the ground; a deck's thickness, its wall's height and thickness; half the centre line, the edge line; how far a bed's side goes down
-  const SPAN = 0.5, TUN = 0.6, COVER = 0.11, WIDE = 0.062;  // between piers; the shortest tunnel that gets portals (shorter: drawn as road); headroom at a portal; the half width from which a deck stands on bents
+  const WX = 1.45, VEX = land.HX, SV = VEX / 2.5, CS = 16, SEG = 0.5, SEGR = 1.2, FTOL = 0.12;          // widths and heights as drawn; a chunk's side; the most between two stations of a line (and of a raised one away from its ends, where it runs level); how far a ribbon may leave its line in plan
+  const LIFT = 0.022, DT = 0.05 * SV, PH = 0.03 * SV, PT = 0.014, CLW = 0.007, ELW = 0.011, SKIRT = 0.07; // the roadway above the ground; a deck's thickness, its wall's height and thickness (SV: drawn for VEX 2.5); half the centre line, the edge line; how far a bed's side goes down
+  const SPAN = 0.5, TUN = 0.6, COVER = 0.11 * SV, WIDE = 0.062;  // between piers; the shortest tunnel that gets portals (shorter: drawn as road); headroom at a portal; the half width from which a deck stands on bents
   const LEVEL = l => (8 + 6.5 * (Math.max(1, l) - 1)) * VEX * K;   // the roadway of a raised stretch above the ground, by its layer, at the buildings' scale: 8 m over a road below, 6.5 m more a level
-  const RUN = 150 * K, GRADE = 0.065 * VEX, PMIN = DT + 0.07, EN = 0.06;   // the shortest run of raised stretches that stands raised without crossing a road; the steepest a roadway climbs (6.5 %), as drawn; the least height for a pier (lower: a bank); how near its ends a crossing does not count (a ramp that merges)
+  const RUN = 150 * K, GRADE = 0.065 * VEX, PMIN = DT + 0.07 * SV, EN = 0.06;   // the shortest run of raised stretches that stands raised without crossing a road; the steepest a roadway climbs (6.5 %), as drawn; the least height for a pier (lower: a bank); how near its ends a crossing does not count (a ramp that merges)
   const LANES = [3, 1, 2, 2], PX = [0.62, 0.3, 0.5, 0.55]; // by class (motorway, ramp, trunk, primary): lanes when the data has none; half the least width on screen, in pixels
   const NAMES = ['rdTop', 'rdLine', 'rdBed', 'rdPier', 'rdUnder', 'rdEdge', 'dark'], TOP = 0, LINE = 1, BED = 2, PIER = 3, UNDER = 4, EDGE = 5, DARK = 6;
   const ck = (ix, iz) => (ix + 2048) * 16384 + (iz + 2048), cellOf = v => Math.floor(v / CS);
@@ -103,8 +103,20 @@
     // big allocation, late in a turn: wait for the next, so that work does not run on past the turn's end)
     function* fresh() { if (now() - tT > 0.6) { yield 'turn'; tT = now(); } tY = now(); }   // ('turn': js/map3d.js rdPump ends the turn there, so the work goes on at the start of the next)
 
+    const hwOf = src => (clamp(src.lanes || LANES[src.cls], 1, 7) * 3.6 + 2.2) / 2 * K * (src.prim ? 1.15 : WX);   // half a roadway's width, as drawn
+    // a line's ends that meet a deck (pin) eased in plan onto the point of it they meet (pin.px, pz: the model is straight and the road's real line can run
+    // beside it), over a length that grows with the step and stays within the line (its other end stays where it joins the next): the points again
+    function ease(xs, zs, pin0, pin1) {
+      const dOf = (pin, e) => pin ? Math.hypot(pin.px - xs[e ? xs.length - 1 : 0], pin.pz - zs[e ? zs.length - 1 : 0]) : 0; if (!(dOf(pin0, 0) > 1e-4 || dOf(pin1, 1) > 1e-4)) return [xs, zs];
+      const X = [xs[0]], Z = [zs[0]]; for (let i = 1; i < xs.length; i++) { const m = Math.ceil(Math.hypot(xs[i] - xs[i - 1], zs[i] - zs[i - 1]) / 0.25); for (let q = 1; q <= m; q++) { X.push(lerp(xs[i - 1], xs[i], q / m)); Z.push(lerp(zs[i - 1], zs[i], q / m)); } }
+      let tot = 0; for (let i = 1; i < X.length; i++) tot += Math.hypot(X[i] - X[i - 1], Z[i] - Z[i - 1]);
+      for (const [pin, e] of [[pin0, 0], [pin1, 1]]) { const d = dOf(pin, e); if (!(d > 1e-4)) continue; const n = X.length, k = e ? n - 1 : 0, dx = pin.px - X[k], dz = pin.pz - Z[k], len = Math.min(tot * (pin0 && pin1 ? 0.5 : 1), Math.max(1.2, 5 * d)); let s = 0, px = X[k], pz = Z[k];
+        for (let i = 0; i < n; i++) { const q = e ? n - 1 - i : i; s += Math.hypot(X[q] - px, Z[q] - pz); px = X[q]; pz = Z[q]; if (s >= len) break; const w = fall(s / len); X[q] += dx * w; Z[q] += dz * w; } }
+      return [X, Z];
+    }
     // a line from its points: stations at every point, at every crossing of a chunk's edge, and no further apart than SEG
     function addLine(src, xs, zs, k0, k1, pin0, pin1) {
+      if (pin0 || pin1) [xs, zs] = ease(xs, zs, pin0, pin1);
       const X = [xs[0]], Z = [zs[0]], FL = [1], level = src.st === 1 && !src.prim && !flat; let total = 0, at = 0; if (level) for (let i = 1; i < xs.length; i++) total += Math.hypot(xs[i] - xs[i - 1], zs[i] - zs[i - 1]);
       for (let i = 1; i < xs.length; i++) {
         const ax = xs[i - 1], az = zs[i - 1], bx = xs[i], bz = zs[i], d0 = Math.hypot(bx - ax, bz - az); let ts = ONE;
@@ -112,7 +124,7 @@
         let t0 = 0; for (const t of ts) { const d = d0 * (t - t0), sm = at + d / 2, m = Math.max(1, Math.ceil(d / (level && Math.min(sm, total - sm) > 1.5 ? SEGR : SEG))); at += d; if (d < 1e-5 && t < 1) continue; for (let q = 1; q <= m; q++) { const u = t0 + (t - t0) * q / m; X.push(ax + (bx - ax) * u); Z.push(az + (bz - az) * u); FL.push(q < m ? 0 : t < 1 ? 17 : 1); } t0 = t; }   // (1: a point of the line; 17: where it crosses a chunk's edge)
       }
       const n = X.length; if (n < 2) return;
-      const lanes = clamp(src.lanes || LANES[src.cls], 1, 7), tunnel = src.st === 2, ln = { cls: src.cls, st: src.prim || flat ? (tunnel ? 2 : 0) : src.st, lanes, layer: src.layer, ref: src.ref, area: src.area, prim: !!src.prim, hw: (lanes * 3.6 + 2.2) / 2 * K * (src.prim ? 1.15 : WX), n, src, k0, k1,
+      const lanes = clamp(src.lanes || LANES[src.cls], 1, 7), tunnel = src.st === 2, ln = { cls: src.cls, st: src.prim || flat ? (tunnel ? 2 : 0) : src.st, lanes, layer: src.layer, ref: src.ref, area: src.area, prim: !!src.prim, hw: hwOf(src), n, src, k0, k1,
         X: f32(n), Z: f32(n), S: f32(n), NX: f32(n), NZ: f32(n), TX: f32(n), TZ: f32(n), C: f32(n), FL: u8(n), G: null, HD: null, Y: null, len: 0, own: NaN, yo: 0, pin0, pin1, d0: null, d1: null, np: 0, i: L.length };
       ln.X.set(X); ln.Z.set(Z); ln.FL.set(FL);
       for (let k = 1; k < n; k++) ln.S[k] = ln.S[k - 1] + Math.hypot(X[k] - X[k - 1], Z[k] - Z[k - 1]); ln.len = ln.S[n - 1]; if (!(ln.len > 1e-4)) return;
@@ -162,25 +174,35 @@
       const raw = []; for (let i = 0; i < data.areas.length; i++) { for (const l of yield* unpackG(data.areas[i], data.names, i, SL)) { l.area = i; raw.push(l); } yield* pause(); }
       if (env.streets && data.primary) { for (const l of yield* unpackG(data.primary, data.names, 'p', SL)) { l.area = 0; l.prim = true; raw.push(l); } yield; }
       const refs = F.map(() => new Set()); for (const l of raw) if (l.bridge && F[l.bridge - 1]) refs[l.bridge - 1].add(l.ref);
-      const onDeck = (l, x, z) => { for (let q = 0; q < F.length; q++) { const f = F[q], own = l.bridge === q + 1; if (!own && (l.prim || l.area !== 0 || l.st === 2 || !refs[q].has(l.ref))) continue; const dx = x - f.A[0], dz = z - f.A[1], xa = dx * f.u[0] + dz * f.u[1], la = Math.abs(dx * f.n[0] + dz * f.n[1]); if (xa > 0 && xa < f.L * K && la < (own ? 14 : q === 2 ? 0.45 : 0.26)) return q + 1; } return 0; };
+      // (where each deck is seen: from each end inwards, the first point clear of the ground (by a few metres: a deck that comes down to meet the land is under it at its very end). A model's end can lie in a hill, its deck run on into it
+      // (js/map3d/models.js): a road meets the deck where it comes out, as the real road does, and lies on the ground up to there, not down in the hill)
+      const VIS = F.map(f => { const v = [0, f.L]; for (const e of [0, 1]) for (let d = 0; d < f.L / 2; d += 10) { const x = e ? f.L - d : d, p = f.P(x, 0, 0), h = env.hood(p[0], p[2]); if (h < 0 || env.hAt(h, p[0], p[2]) <= f.deck(x) - 0.02) { v[e] = x; break; } } return v; }), PINNED = F.map(() => [0, 0]);
+      const onDeck = (l, x, z) => { for (let q = 0; q < F.length; q++) { const f = F[q], own = l.bridge === q + 1; if (!own && (l.prim || l.area !== 0 || l.st === 2 || !refs[q].has(l.ref))) continue; const dx = x - f.A[0], dz = z - f.A[1], xa = dx * f.u[0] + dz * f.u[1], la = Math.abs(dx * f.n[0] + dz * f.n[1]); if (xa > VIS[q][0] * K && xa < VIS[q][1] * K && la < (own ? 14 : q === 2 ? 0.45 : 0.26)) return q + 1; } return 0; };
       const clips = env.clips || [], out = (c, x, z) => x < c[0] || z < c[1] || x > c[2] || z > c[3];   // (an area's lines stop at its box: beyond it the map has nothing but the bare land)
-      const pinOf = (q, x, z) => { const f = F[q - 1], xa = ((x - f.A[0]) * f.u[0] + (z - f.A[1]) * f.u[1]) / K, e = xa < f.L / 2 ? 0 : f.L; return { y: f.deck(e) + 1.4 * f.vex * K + 0.003, f, e }; };
+      // (a line's end on a deck: the deck's height at the point of it the end is at, and that point across the deck as near the end as the deck's width
+      // lets the roadway lie (px, pz: the line is eased there, ease); PINNED: the deck's ends that hold a road, which get no portal unless the land is a wall above the deck there, below)
+      const pinOf = (q, x, z, l) => { const f = F[q - 1], v = VIS[q - 1], xa = ((x - f.A[0]) * f.u[0] + (z - f.A[1]) * f.u[1]) / K, e = clamp(xa, v[0], v[1]), la = (x - f.A[0]) * f.n[0] + (z - f.A[1]) * f.n[1], room = Math.max(0, (f.hw || 0) * f.wex * K - hwOf(l)), lt = clamp(la, -room, room);
+        PINNED[q - 1][e - v[0] < v[1] - e ? 0 : 1] = 1; return { y: f.deck(e) + 1.4 * f.vex * K + 0.003, f, e, px: f.A[0] + f.u[0] * e * K + f.n[0] * lt, pz: f.A[1] + f.u[1] * e * K + f.n[1] * lt }; };
+      // (a line that meets, at one of its ends, a stretch that is on a deck all along, as US 101 meets the Golden Gate's at its north end, beside the model:
+      // that end meets the deck too. touch: those ends, by their key, and the deck)
+      const touch = new Map(); for (const l of raw) { if (late()) yield* pause(); if (clips[l.area] || !F.length || l.area !== 0 || l.prim) continue; const m = l.x.length, a = onDeck(l, l.x[0], l.z[0]), b = onDeck(l, l.x[m - 1], l.z[m - 1]); if (a) touch.set(l.k0, a); if (b) touch.set(l.k1, b); }
+      const tp = (k, x, z, l) => touch.has(k) ? pinOf(touch.get(k), x, z, l) : null;
       for (const l of raw) {
         if (late()) yield* pause();
         if (!clips[l.area] && F.length && l.area === 0 && !l.prim && (l.bridge || refs.some(r => r.has(l.ref)))) { const xs = [l.x[0]], zs = [l.z[0]]; for (let i = 1; i < l.x.length; i++) { const d = Math.hypot(l.x[i] - l.x[i - 1], l.z[i] - l.z[i - 1]), m = Math.ceil(d); for (let q = 1; q < m; q++) { xs.push(lerp(l.x[i - 1], l.x[i], q / m)); zs.push(lerp(l.z[i - 1], l.z[i], q / m)); } xs.push(l.x[i]); zs.push(l.z[i]); } l.x = xs; l.z = zs; }   // (a point at least every unit, so a line that spans a whole deck in one step, as I-80 across the Bay Bridge's west span does, is cut too)
         const m = l.x.length, on = new Uint8Array(m), cl = clips[l.area]; let any = 0; if (cl) for (let i = 0; i < m; i++) any |= on[i] = out(cl, l.x[i], l.z[i]) ? 255 : 0; else if (F.length && l.area === 0 && !l.prim) for (let i = 0; i < m; i++) any |= on[i] = onDeck(l, l.x[i], l.z[i]);
-        if (!any) { addLine(l, l.x, l.z, l.k0, l.k1, null, null); continue; }
-        let xs = [], zs = [], k0 = l.k0, p0 = null;
+        if (!any) { addLine(l, l.x, l.z, l.k0, l.k1, cl ? null : tp(l.k0, l.x[0], l.z[0], l), cl ? null : tp(l.k1, l.x[m - 1], l.z[m - 1], l)); continue; }
+        let xs = [], zs = [], k0 = l.k0, p0 = cl || on[0] ? null : tp(l.k0, l.x[0], l.z[0], l);
         const flush = (k1, p1) => { if (xs.length >= 2) { let d = 0; for (let i = 1; i < xs.length; i++) d += Math.hypot(xs[i] - xs[i - 1], zs[i] - zs[i - 1]); if (d > 0.15 || !(p0 || p1 || cl)) addLine(l, xs, zs, k0, k1, p0, p1); } xs = []; zs = []; p0 = null; };
         for (let i = 0; i < m; i++) {
           if (i && !on[i] !== !on[i - 1]) { // the crossing of the deck's end, by halving
             let a = 0, b = 1; const q = on[i] || on[i - 1], x0 = l.x[i - 1], z0 = l.z[i - 1], x1 = l.x[i], z1 = l.z[i]; for (let it = 0; it < 14; it++) { const t = (a + b) / 2; if (!(cl ? out(cl, lerp(x0, x1, t), lerp(z0, z1, t)) : onDeck(l, lerp(x0, x1, t), lerp(z0, z1, t))) === !on[i - 1]) a = t; else b = t; }
             const t = (a + b) / 2, cx = lerp(x0, x1, t), cz = lerp(z0, z1, t), key = 'cut' + (cuts++);
-            if (on[i]) { xs.push(cx); zs.push(cz); flush(key, cl ? null : pinOf(q, cx, cz)); } else { xs = [cx]; zs = [cz]; k0 = key; p0 = cl ? null : pinOf(q, cx, cz); }
+            if (on[i]) { xs.push(cx); zs.push(cz); flush(key, cl ? null : pinOf(q, cx, cz, l)); } else { xs = [cx]; zs = [cz]; k0 = key; p0 = cl ? null : pinOf(q, cx, cz, l); }
           }
           if (!on[i]) { xs.push(l.x[i]); zs.push(l.z[i]); }
         }
-        flush(l.k1, null);
+        flush(l.k1, cl || on[m - 1] ? null : tp(l.k1, l.x[m - 1], l.z[m - 1], l));
       }
       yield;
       // (a line whose end lies part-way along another line, as a ramp's does at its junction with a freeway: the other line cut there, at a node the two
@@ -265,7 +287,7 @@
       yield* pause();
       // (where a raised line crosses over another, away from both ends: the upper one there at least the lower's roadway plus the deck, a pier's head and a
       // margin above it (equal layers: the later line is the upper), rising to it and back at a road's grade. Measured with the roadways' own heights, yAt)
-      { const XS = [], NEED = DT + 0.034 + 0.03, at = (ln, k, t) => lerp(yAt(ln, k), yAt(ln, k + 1), t);
+      { const XS = [], NEED = DT + 0.034 * SV + 0.03 * SV, at = (ln, k, t) => lerp(yAt(ln, k), yAt(ln, k + 1), t);
         for (const [key, rs] of cells) { if (late()) yield* pause();
           for (const ra of rs) { const U = ra.ln; if (U.st !== 1) continue; if (late()) yield* pause();
             for (const rb of rs) { if (late()) yield* pause(); const D = rb.ln, b = rb.b, a = ra.b; if (D === U || (D.st === 1 && (D.layer > U.layer || (D.layer === U.layer && D.i > U.i))) || b[0] > a[2] || b[2] < a[0] || b[1] > a[3] || b[3] < a[1]) continue;
@@ -273,7 +295,7 @@
                 const t = (cx * dz - cz * dx) / den, u = (cx * bz - cz * bx) / den; if (t < 0 || t > 1 || u < 0 || u > 1) continue; const s1 = lerp(U.S[k], U.S[k + 1], t), s2 = lerp(D.S[j], D.S[j + 1], u); if (s1 > EN && s1 < U.len - EN && s2 > EN && s2 < D.len - EN) XS.push(U, k, t, s1, D, j, u); } } } }
         let lo0 = Infinity, lo1 = Infinity, bumped = 0, deep = 0, s0n = 0, s1n = 0;
         for (let q = 0; q < XS.length; q += 7) { if (late()) yield* pause(); const U = XS[q], k = XS[q + 1], t = XS[q + 2], s0 = XS[q + 3], D = XS[q + 4], j = XS[q + 5], u = XS[q + 6]; let gap = at(U, k, t) - at(D, j, u); if (gap < NEED) s0n++;
-          if (gap < NEED - 0.15) { deep++; continue; } lo0 = Math.min(lo0, gap);   // (the lower one far above the upper: the ground under them read differently, a hillside; left as it is, not lifted a storey or more)
+          if (gap < NEED - 0.15 * SV) { deep++; continue; } lo0 = Math.min(lo0, gap);   // (the lower one far above the upper: the ground under them read differently, a hillside; left as it is, not lifted a storey or more)
           for (let it = 0; it < 6 && gap < NEED; it++) { const dl = NEED - gap + 0.002; for (let w = 1; w < U.n - 1; w++) { const b2 = dl - GRADE * Math.max(0, U.S[k] - U.S[w], U.S[w] - U.S[k + 1]); if (b2 > 0) U.C[w] += b2; } U.Y = null; gap = at(U, k, t) - at(D, j, u); if (!it) bumped++; }   // (its heights worked out again with the bump: yAt)   // (the step it crosses lifted whole, then down at a road's grade)
           lo1 = Math.min(lo1, gap); if (gap < NEED - 1e-3) s1n++; }
         net.crossings = { n: XS.length / 7, short: [s0n, s1n + deep], bumped, deep, least: [lo0, lo1].map(v => v === Infinity ? null : +(v / (VEX * K)).toFixed(2)) }; }   // (short: crossings with less than the clearance before and after; least: the smallest clearance of those lifted, before and after, in metres as built; deep: left)
@@ -298,6 +320,8 @@
         for (let q = 0; q < ln.np; q++) for (const sh of [0, 0.33, -0.33]) { const p = pierAt(ln, q, sh); if (p.c >= PMIN) disc(p.x, p.z, ln.hw >= WIDE ? ln.hw * 0.78 : 0.035); }   // (each of the three spots a pier may take: chunk)
         if (!flat) for (const [nd, k] of [[nodes[ln.n0], 0], [nodes[ln.n1], ln.n - 1]]) if (nd.tun && portalOf(nd) === ln.i && !lids.some(q => Math.hypot(ln.X[k] - q[0], ln.Z[k] - q[1]) < q[2])) { put(extras, ck(cellOf(ln.X[k]), cellOf(ln.Z[k])), { ln, k }); disc(ln.X[k], ln.Z[k], ln.hw + 0.08); net.portals++; }
       }
+      // (where a bridge model's deck runs low over the land, as at a shore it meets at the land's own height: nothing else stands under it either)
+      if (!flat) for (const f of F) { const hw = (f.hw || 0) * f.wex * K; if (!(hw > 0)) continue; for (let x = 0; x <= f.L; x += 25) { const p = f.P(x, 0, 0), h = env.hood(p[0], p[2]); if (h >= 0 && f.deck(x) - env.hAt(h, p[0], p[2]) < 0.5) disc(p[0], p[2], hw + 0.02); } yield* pause(); }
       for (let d = 0; d < D.length; d += 3) { box(D[d], D[d + 1], D[d], D[d + 1], D[d + 2], inc); if (late()) yield* pause(); }
       { let tot = 0; for (const c of SQ.values()) { c.s = new Int32Array(257); for (let q = 0; q < 256; q++) { c.s[q] = tot; tot += c.cnt[q]; c.cnt[q] = c.s[q]; } c.s[256] = tot; if (late()) yield* pause(); } yield* fresh(); buf = new Int32Array(tot); }
       yield* pause();
@@ -320,7 +344,7 @@
         for (const v of l) { const o = L[v >> 16], k = v & 65535, ax = o.X[k], az = o.Z[k], dx = o.X[k + 1] - ax, dz = o.Z[k + 1] - az, l2 = dx * dx + dz * dz || 1e-12, t = clamp(((x - ax) * dx + (z - az) * dz) / l2, 0, 1); if (Math.hypot(ax + dx * t - x, az + dz * t - z) < o.hw + PT + r) u = Math.min(u, lerp(yAt(o, k), yAt(o, k + 1), t) - DT); } return u; };
       net.lines = L.filter(l => !l.dead).length; net.ready = true; yield;
       // (where a bridge model's deck runs into a hillside, the Bay Bridge's two spans at Yerba Buena Island: a portal round the deck where it goes in)
-      if (!flat) F.forEach((f, q) => { for (const e of [0, 1]) { const at = x => { const p = f.P(x, 0, 0), h = env.hood(p[0], p[2]); return h < 0 ? null : { h, g: env.hAt(h, p[0], p[2]) }; }, end = at(e ? f.L : 0); if (!end || end.g < f.deck(e ? f.L : 0) + 0.12) continue;
+      if (!flat) F.forEach((f, q) => { for (const e of [0, 1]) { const at = x => { const p = f.P(x, 0, 0), h = env.hood(p[0], p[2]); return h < 0 ? null : { h, g: env.hAt(h, p[0], p[2]) }; }, end = at(e ? f.L : 0); if (!end || end.g < f.deck(e ? f.L : 0) + 0.12 * f.vex / 2.2) continue; { const v = VIS[q][e], w = at(e ? Math.min(f.L, v + 30) : Math.max(0, v - 30)); if (PINNED[q][e] && !(w && w.g > f.deck(v) + 0.12 * f.vex / 2.2)) continue; }   // (a road meets the deck where it comes out and the ground there is not a wall above it: no portal)
         for (let d = 10; d < 500; d += 10) { const x = e ? f.L - d : d, s = at(x); if (s && s.g >= f.deck(x) + 0.03) continue; const p = f.P(x, 0, 0); put(extras, ck(cellOf(p[0]), cellOf(p[2])), { f, x: x + (e ? 14 : -14), dir: e ? 1 : -1, hw: (q < 3 ? [13.7, 10.2, 36][q] : 12) * f.wex * K, hood: end.h }); net.portals++; break; } } });
       yield;
       // 5. the frames the night's traffic runs on (as a bridge's: x metres along; lat > 0 this carriageway, lat < 0 the one beside it, the other way; dm metres above the roadway)
@@ -389,7 +413,7 @@
     function* lamps(area) {
       const by = new Map(); tY = now();   // (by place, as they are made: a place's lamps one run of the list)
       for (const ln of L) { if (ln.dead || ln.st === 2 || ln.area !== area || ln.cls !== 0) continue; if (late()) yield* pause();
-        for (let d = 1 + (ln.i % 3) * 0.5, k = 0, q = 0; d < ln.len; d += 2, q++) { if ((q & 31) === 31 && late()) yield* pause(); while (k < ln.n - 1 && ln.S[k] < d) k++; const sg = (q + ln.i) & 1 ? 1 : -1, y = yAt(ln, k); if (ln.HD[k] >= 0) put(by, ln.HD[k], { x: ln.X[k] + ln.NX[k] * sg * (ln.hw + 0.012), y: y + 0.075, z: ln.Z[k] + ln.NZ[k] * sg * (ln.hw + 0.012), kind: 'warm', size: 0.42, hood: ln.HD[k] }); } }
+        for (let d = 1 + (ln.i % 3) * 0.5, k = 0, q = 0; d < ln.len; d += 2, q++) { if ((q & 31) === 31 && late()) yield* pause(); while (k < ln.n - 1 && ln.S[k] < d) k++; const sg = (q + ln.i) & 1 ? 1 : -1, y = yAt(ln, k); if (ln.HD[k] >= 0) put(by, ln.HD[k], { x: ln.X[k] + ln.NX[k] * sg * (ln.hw + 0.012), y: y + 0.075 * SV, z: ln.Z[k] + ln.NZ[k] * sg * (ln.hw + 0.012), kind: 'warm', size: 0.42, hood: ln.HD[k] }); } }
       const list = []; for (const l of by.values()) { for (const v of l) list.push(v); if (late()) yield* pause(); } yield* fresh(); return list;
     }
 
@@ -402,7 +426,7 @@
       for (const run of runs) {
         const { ln, k0, k1 } = run; for (let k = k0; k <= k1; k++) yAt(ln, k); tick(); yield; back();
         // beside: a side wall (and the edge line) is left out where another roadway lies against that side at the same height
-        if (!run.adj) { run.adj = true; for (let k = k0; k <= k1; k++) { const c = ln.C[k], hw = ln.hw; let fl = 0; around(ln.X[k], ln.Z[k], ln.TX[k], ln.TZ[k], ln, (o, j, d, side, t) => { if (d < (hw + o.hw) * 1.04 + 0.012 && Math.abs(side) > 0.6 * d && Math.abs(lerp(o.C[j], o.C[j + 1], t) - c) < 0.07) fl |= side > 0 ? 2 : 4; }); ln.FL[k] |= fl; } tick(); yield; back(); }
+        if (!run.adj) { run.adj = true; for (let k = k0; k <= k1; k++) { const c = ln.C[k], hw = ln.hw; let fl = 0; around(ln.X[k], ln.Z[k], ln.TX[k], ln.TZ[k], ln, (o, j, d, side, t) => { if (d < (hw + o.hw) * 1.04 + 0.012 && Math.abs(side) > 0.6 * d && Math.abs(lerp(o.C[j], o.C[j + 1], t) - c) < 0.07 * SV) fl |= side > 0 ? 2 : 4; }); ln.FL[k] |= fl; } tick(); yield; back(); }
         const raised = ln.st === 1, hw = ln.hw, line = ln.lanes >= 2 && hw > 0.03, n = ln.n;
         // the cross-section at a station, round the roadway from the foot of its left side: [to the left, above the roadway, material], a face between each two
         const prof = k => { const c = ln.C[k], aL = ln.FL[k] & 2, aR = ln.FL[k] & 4, out = [];
@@ -420,24 +444,24 @@
         }
         // an abutment under each end of a raised stretch that meets a bank
         if (raised) {
-          for (const [nd, k, sg] of [[nodes[ln.n0], 0, 1], [nodes[ln.n1], n - 1, -1]]) { if (k < k0 || k > k1 || nd.pin || ln.C[k] < DT + 0.05) continue; let more = 0; for (let q = 0; q < nd.ends.length; q += 2) if (L[nd.ends[q]] !== ln && L[nd.ends[q]].st === 1 && !L[nd.ends[q]].dead) more++; if (more) continue;
+          for (const [nd, k, sg] of [[nodes[ln.n0], 0, 1], [nodes[ln.n1], n - 1, -1]]) { if (k < k0 || k > k1 || nd.pin || ln.C[k] < DT + 0.05 * SV) continue; let more = 0; for (let q = 0; q < nd.ends.length; q += 2) if (L[nd.ends[q]] !== ln && L[nd.ends[q]].st === 1 && !L[nd.ends[q]].dead) more++; if (more) continue;
             M.place(ln.HD[k]); M.box(PIER, ln.X[k] + ln.TX[k] * sg * 0.04, ln.Z[k] + ln.TZ[k] * sg * 0.04, ln.G[k] - 0.05, ln.Y[k] - 0.006, 0.045, hw + PT + 0.014, ln.TX[k], ln.TZ[k], false, false); }
           // the piers: SPAN apart, never on a roadway that passes below (moved a third of a span, else left out)
           for (let q = 0; q < ln.np; q++) { let pr = pierAt(ln, q, 0); if (pr.k < k0 || pr.k >= k1 || pr.c < PMIN) continue;
-            for (const sh of [0, 0.33, -0.33]) { if (sh) pr = pierAt(ln, q, sh); let free = pr.c >= PMIN && pr.k >= k0 && pr.k < k1; if (free) around(pr.x, pr.z, ln.TX[pr.k], ln.TZ[pr.k], ln, (o, j, d, side, u) => { if (d < o.hw + (hw >= WIDE ? hw * 0.75 : 0.02) && lerp(o.C[j], o.C[j + 1], u) < pr.c - 0.09) free = false; }); if (free) break; pr = null; }
+            for (const sh of [0, 0.33, -0.33]) { if (sh) pr = pierAt(ln, q, sh); let free = pr.c >= PMIN && pr.k >= k0 && pr.k < k1; if (free) around(pr.x, pr.z, ln.TX[pr.k], ln.TZ[pr.k], ln, (o, j, d, side, u) => { if (d < o.hw + (hw >= WIDE ? hw * 0.75 : 0.02) && lerp(o.C[j], o.C[j + 1], u) < pr.c - 0.09 * SV) free = false; }); if (free) break; pr = null; }
             if (!pr) continue; net.piers++; const k = pr.k, t = pr.t, x = pr.x, z = pr.z, y = lerp(ln.Y[k], ln.Y[k + 1], t) - DT, tx = ln.TX[k], tz = ln.TZ[k]; const h = env.hood(x, z), g = (h >= 0 ? env.hAt(h, x, z) : ln.FL[k] & 8 || ln.HD[k] < 0 ? LAND_TOP : ln.G[k]) - 0.06;
             M.place(h);   // (a pier rises with the place of its own foot)
-            if (hw >= WIDE) { const cs = clamp(hw * 0.2, 0.017, 0.026), o = hw * 0.58; M.box(PIER, x, z, y - 0.034, y + 0.004, cs * 1.25, hw + PT * 0.5, tx, tz, false, true); for (const sd of [-1, 1]) M.box(PIER, x + tz * o * sd, z - tx * o * sd, g, y - 0.034, cs, cs, tx, tz, false, false); }
-            else { const cs = clamp(hw * 0.45, 0.016, 0.023); M.box(PIER, x, z, y - 0.03, y + 0.004, cs * 1.2, hw * 0.92, tx, tz, false, true); M.box(PIER, x, z, g, y - 0.03, cs, cs, tx, tz, false, false); } }
+            if (hw >= WIDE) { const cs = clamp(hw * 0.2, 0.017, 0.026), o = hw * 0.58; M.box(PIER, x, z, y - 0.034 * SV, y + 0.004, cs * 1.25, hw + PT * 0.5, tx, tz, false, true); for (const sd of [-1, 1]) M.box(PIER, x + tz * o * sd, z - tx * o * sd, g, y - 0.034 * SV, cs, cs, tx, tz, false, false); }
+            else { const cs = clamp(hw * 0.45, 0.016, 0.023); M.box(PIER, x, z, y - 0.03 * SV, y + 0.004, cs * 1.2, hw * 0.92, tx, tz, false, true); M.box(PIER, x, z, g, y - 0.03 * SV, cs, cs, tx, tz, false, false); } }
         }
         tick(); yield; back();
       }
       // the portals: a headwall across the roadway where it goes into the ground, with a dark mouth
       for (const ex of extras.get(ck(ix, iz)) || []) {
         if (ex.f) { const f = ex.f, p = f.P(ex.x, 0, 0), y = f.deck(ex.x), tx = f.u[0] * ex.dir, tz = f.u[1] * ex.dir, hw = ex.hw, bx = tz * (hw + 0.004), bz = -tx * (hw + 0.004), fx = p[0] + tx * 0.003, fz = p[2] + tz * 0.003; M.place(ex.hood);
-          M.box(BED, p[0] + tx * 0.095, p[2] + tz * 0.095, y - 0.3, y + 0.3, 0.09, hw + 0.07, tx, tz, true, false); M.quad(DARK, [fx - bx, y - 0.17, fz - bz, fx + bx, y - 0.17, fz + bz, fx + bx, y + 0.2, fz + bz, fx - bx, y + 0.2, fz - bz], -tx, 0, -tz); continue; }
+          const fv = f.vex / 2.2; M.box(BED, p[0] + tx * 0.095, p[2] + tz * 0.095, y - 0.3 * fv, y + 0.3 * fv, 0.09, hw + 0.07, tx, tz, true, false); M.quad(DARK, [fx - bx, y - 0.17 * fv, fz - bz, fx + bx, y - 0.17 * fv, fz + bz, fx + bx, y + 0.2 * fv, fz + bz, fx - bx, y + 0.2 * fv, fz - bz], -tx, 0, -tz); continue; }
         const ln = ex.ln, k = ex.k, y = yAt(ln, k), sg = k ? 1 : -1, tx = ln.TX[k] * sg, tz = ln.TZ[k] * sg, x = ln.X[k], z = ln.Z[k], hw = ln.hw; M.place(ln.HD[k]);
-        M.box(BED, x + tx * 0.085, z + tz * 0.085, y - 0.12, y + COVER + 0.07, 0.08, hw + 0.055, tx, tz, true, false);
+        M.box(BED, x + tx * 0.085, z + tz * 0.085, y - 0.12, y + COVER + 0.07 * SV, 0.08, hw + 0.055, tx, tz, true, false);
         const bx = tz * (hw - 0.004), bz = -tx * (hw - 0.004), fx = x + tx * 0.003, fz = z + tz * 0.003; M.quad(DARK, [fx - bx, y - 0.01, fz - bz, fx + bx, y - 0.01, fz + bz, fx + bx, y + COVER, fz + bz, fx - bx, y + COVER, fz - bz], -tx, 0, -tz);
         tick(); yield; back();
       }

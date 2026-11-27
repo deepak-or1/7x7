@@ -1,4 +1,4 @@
-window.SBS_COMMIT = window.SBS_COMMIT || '3d 2026-11-27 looks';   // the build the speed tools print (js/map3d/bench.js): change it with every change to the 3D map
+window.SBS_COMMIT = window.SBS_COMMIT || '3d 2026-11-27 tall';   // the build the speed tools print (js/map3d/bench.js): change it with every change to the 3D map
 // The 3D map (beta): a second map engine beside js/map.js, with the same members and the same options, so js/app.js drives either.
 // It is inert unless index.html also loaded three.js and js/map3d/{land,models,blocks}.js (it does when the 3D map is asked for):
 // window.MapView3D returns null without them, or without WebGL, and the app makes the flat map instead.
@@ -438,10 +438,10 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
     // How large a landmark is drawn (?m3d-scale). A model is built at its real size times its own enlargement (ex: js/map3d/models.js,
     // icons-*.js), so that it reads from afar. From the city-wide view (the camera LM_D[1] off or further) it is drawn so, and grows a little
     // more with the zoom as before (lmScale); coming in, it eases to its true size by LM_D[0]: tk takes the model as built to its real plan
-    // and tv its heights to the real buildings' scale (RB_V times the real heights: js/map3d/real.js V), so close in everything stands to one
+    // and tv its heights to the real buildings' scale (RB_V times the real heights: js/map3d/land.js HX, ?m3d-tall), so close in everything stands to one
     // scale (M3D.lmTrue from icons-sf.js and icons-away.js: tk, or [tk, tv] where the model is not its real size times ex; else tk = 1 / ex,
     // tv = tk * RB_V). ?m3d-scale=big: as from afar at every distance (the rule before)
-    const LM_D = [50, 210], RB_V = 2.5, LM_MIN = 44, LM_NEAR = 5;   // LM_MIN: close in, the least size on screen of a landmark's largest side, in pixels (eased in as it comes to true size), for the landmarks within LM_NEAR map units (about 700 m) of the view's middle (eased out by twice that)   // (the city-wide view stands about 440 off on a phone, 220 on a desktop; the fabric is all up from about 160)
+    const LM_D = [50, 210], RB_V = land.HX, LM_MIN = 44, LM_NEAR = 5;   // LM_MIN: close in, the least size on screen of a landmark's largest side, in pixels (eased in as it comes to true size), for the landmarks within LM_NEAR map units (about 700 m) of the view's middle (eased out by twice that)   // (the city-wide view stands about 440 off on a phone, 220 on a desktop; the fabric is all up from about 160)
     const lmTrue = ic => { let t = (M3D.lmTrue || {})[ic.id]; if (!(t > 0) && !Array.isArray(t)) { const e = (M3D.extra || []).find(x => x && x.id === ic.id); t = e && e.ex > 0 ? 1 / e.ex : 1; } return Array.isArray(t) ? t : [t, t * RB_V]; };
     const lmClear = (ic, k) => SCALE === 'big' || (ic.hood >= 0 && REGS[HOODS[ic.hood].region] && REGS[HOODS[ic.hood].region].away) ? k : k * (ic.tk + (1 - ic.tk) * 0.15);   // how far round a model what else is built keeps clear (its plan grown by k): close in, its true plan and a little more; on the Strip its plan as built (a resort's model stands for the whole resort, whose wings and garages the real outlines would draw again)
 

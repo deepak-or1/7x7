@@ -19,7 +19,8 @@
   const M3D = window.M3D, land = M3D && M3D.land; if (!land) return;
   const Geom = window.Geom, K = 1 / land.UNIT_M;
   const CS = 6;                                   // the side of a chunk, in map units
-  const V = 2.5;                                  // heights are drawn at two and a half times the map's scale: the downtown landmark models' own enlargement (Salesforce Tower, the Pyramid), so they stand among their real neighbours as in life (and as the models grow from afar, uRise, these grow with them)
+  const V = land.HX;                              // heights are drawn V times the map's scale (js/map3d/land.js HX), as the landmark models' are close in (Salesforce Tower, the Pyramid), so they stand among their real neighbours as in life (and as the models grow from afar, uRise, these grow with them)
+  const SV = V / 2.5;                             // V against the 2.5 the looks were drawn for: what stands on a roof is that much lower, and the walls' floors, bands and kinds are read in heights at 2.5 (vert), so a building keeps its real floors and its look
   const TALL = 60;                                // a building this tall (metres) or taller stands from the city-wide view inwards (tall below), the rest arrive by chunk as the camera comes near
   const CELL = 1.5;                               // the grid that answers "is this point built on"
   const FAR = 300;                                // an outline further than this from its area's origin, in map units (about 43 km), is not a building of that area
@@ -128,7 +129,7 @@
       const keep = []; for (const b of list) { if (b.place === undefined) settle(b); if (b.place >= 0) keep.push(b); } if (!keep.length) return null;
       keep.sort((a, b) => b.h - a.h);
       const pos = [], nor = [], aB = [], aW = [], idx = [], tri = [], cuts = []; let nv = 0, y0 = Infinity, y1 = -Infinity;
-      const vert = (x, y, z, nx, ny, nz, g, b, u, v, wall, bh) => { pos.push(x, y, z); nor.push(nx, ny, nz); aB.push(g, b.place, b.tint, 0); aW.push(u, v, wall, bh); if (y < y0) y0 = y; if (y > y1) y1 = y; return nv++; };
+      const vert = (x, y, z, nx, ny, nz, g, b, u, v, wall, bh) => { pos.push(x, y, z); nor.push(nx, ny, nz); aB.push(g, b.place, b.tint, 0); aW.push(u, v / SV, wall, bh / SV); if (y < y0) y0 = y; if (y > y1) y1 = y; return nv++; };
       keep.forEach((b, bi) => {
         const p = b.p, n = b.n, i = b.place, gc = env.hAt(i, b.cx, b.cz); let g = gc; for (let k = 0; k < n; k++) { const q = env.hAt(i, p[k * 2], p[k * 2 + 1]); if (q < g) g = q; }
         // on a slope it stands on the lowest ground under its outline and is as tall above the ground at its middle as on the flat; a part that starts above the ground (base) hangs from there
@@ -156,7 +157,7 @@
         } else {
           lid(base);
           // a tower with a plain flat top gets what stands on such roofs: a set-back storey, and on the tallest a plant room on that
-          if (convex && b.h >= 40 && span > 0.12) { const c1 = ring(p, 0.72, top, Math.min(0.09, hh * 0.05) + 0.02 * b.tint); lid(c1); if (b.h >= 110) lid(ring(p, 0.4, top + Math.min(0.09, hh * 0.05) + 0.02 * b.tint, 0.07 + 0.05 * b.tint)); }
+          if (convex && b.h >= 40 && span > 0.12) { const c1 = ring(p, 0.72, top, Math.min(0.09 * SV, hh * 0.05) + 0.02 * SV * b.tint); lid(c1); if (b.h >= 110) lid(ring(p, 0.4, top + Math.min(0.09 * SV, hh * 0.05) + 0.02 * SV * b.tint, (0.07 + 0.05 * b.tint) * SV)); }
         }
         };
         // the looks: walls, then a roof that reads as one. (C: the middle of the outline's area; star: every edge is seen from it, so
@@ -196,11 +197,11 @@
               ps = s; py = f; }
           } else if (tower && b.h >= 150 && r1 < 0.6 && !(b.base > 0)) {
             // one of the tallest: the shaft steps in twice below its top, and some carry a mast
-            const hc = Math.min(0.2 * hh, 0.55), y1 = top - hc, y2 = top - hc * 0.42;
+            const hc = Math.min(0.2 * hh, 0.55 * SV), y1 = top - hc, y2 = top - hc * 0.42;
             walls(1, bot, y1 - bot, 1); flat(1, y1); walls(0.8, y1, y2 - y1, 1); flat(0.8, y2); walls(0.58, y2, top - y2, 1); flat(0.58, top);
-            if (b.h >= 180 && r2 < 0.5) box(Cx, Cz, 0.012, 0.012, top, 0.22 + 0.2 * r3);
+            if (b.h >= 180 && r2 < 0.5) box(Cx, Cz, 0.012, 0.012, top, (0.22 + 0.2 * r3) * SV);
           } else if (tower) {
-            walls(1, bot, top - bot, 1); flat(1, top); const st = Math.min(0.09, hh * 0.05) + 0.02 * b.tint;
+            walls(1, bot, top - bot, 1); flat(1, top); const st = Math.min(0.09 * SV, hh * 0.05) + 0.02 * SV * b.tint;
             if (b.h >= 90 && r1 > 0.62) { // a chamfered crown: the walls lean in to a smaller top
               const s1 = 0.8, y1 = top + st * 1.5; ring(1);
               for (let k = 0; k < n; k++) { const ax = RX[k], az = RZ[k], cx = RX[k + 1], cz = RZ[k + 1], dx = cx - ax, dz = cz - az, l = Math.hypot(dx, dz); if (l < 1e-6) continue;
@@ -208,13 +209,13 @@
                 const v0 = vert(ax, top, az, nx, ny, nz, g, b, 0, top - gc, 2, hh), v1 = vert(cx, top, cz, nx, ny, nz, g, b, l, top - gc, 2, hh), v2 = vert(fx, y1, fz, nx, ny, nz, g, b, l, y1 - gc, 2, hh), v3 = vert(ex, y1, ez, nx, ny, nz, g, b, 0, y1 - gc, 2, hh); idx.push(v0, v2, v1, v0, v3, v2); }
               flat(s1, y1);
             } else { // a set-back storey, and on the tallest a plant room on that (as the plain towers have)
-              walls(0.72, top, st, 1); flat(0.72, top + st); if (b.h >= 110) { walls(0.4, top + st, 0.07 + 0.05 * b.tint, 2); flat(0.4, top + st + 0.07 + 0.05 * b.tint); } }
+              walls(0.72, top, st, 1); flat(0.72, top + st); if (b.h >= 110) { const pr = (0.07 + 0.05 * b.tint) * SV; walls(0.4, top + st, pr, 2); flat(0.4, top + st + pr); } }
           } else {
             walls(1, bot, top - bot, 1); flat(1, top);
             // what stands on a large flat roof: one to three plant rooms about its middle
             if (star && b.h >= 9 && r0 >= 0.06 && r1 > 0.2) { const nb = r0 > 0.17 ? 3 : r0 > 0.1 ? 2 : 1;
               for (let q = 0; q < nb; q++) { const a = (r2 + q / nb) * 6.2832, d = (nb > 1 ? 0.42 : 0.25 * r3) * r0, hs = Math.min(0.085, (0.2 + 0.1 * ((r3 * (q + 2) * 3.7) % 1)) * r0 * (nb > 1 ? 0.8 : 1.15));
-                box(Cx + Math.cos(a) * d, Cz + Math.sin(a) * d, hs, hs * (0.55 + 0.4 * ((r1 * (q + 3) * 5.3) % 1)), top, (q === 0 ? 0.034 : 0.02) + 0.02 * ((r2 * (q + 1) * 7.9) % 1)); } }
+                box(Cx + Math.cos(a) * d, Cz + Math.sin(a) * d, hs, hs * (0.55 + 0.4 * ((r1 * (q + 3) * 5.3) % 1)), top, ((q === 0 ? 0.034 : 0.02) + 0.02 * ((r2 * (q + 1) * 7.9) % 1)) * SV); } }
           }
         };
         if (env.look && env.look !== '0') { const m = [pos.length, nor.length, aB.length, aW.length, idx.length, nv, y0, y1];

@@ -10,7 +10,9 @@
 // recolours the fabric for nothing), their height grown from the ground as the map comes close.
 // The looks (env.look, the look given to gl; ?m3d-look=a|b|c, '0' or none: the plain houses they were): in the Victorian places a
 // house turns its gable to the street and carries a bay on that front; along the avenues the rows are flat-roofed, with the bay;
-// every house takes a wall colour of its own from its place's colour, windows by day, an edge to its roof.
+// every house takes a wall colour of its own from its place's colour, windows by day, an edge to its roof. Those are look b and c now; look a
+// (the default) keeps the simple gabled houses and improves them in steps (?m3d-house=1, the default; ?m3d-house=0: the houses exactly as they
+// were): HSTEPS below, each its own letter, so the steps can be pictured one by one (?m3d-hsteps=<letters>, for the pictures only).
 // World frame: x = map x, z = map y (south), y = up; one unit is one map unit, about 143 m.
 (function () {
   'use strict';
@@ -40,6 +42,9 @@
   const ROWS = ['Marina', 'Inner Sunset', 'Outer Sunset', 'Outer Richmond', 'Parkside'];
   const POCKET_RE = /(Regional|State|Memorial|Shoreline|Community|Central|City) Park|Preserve|Open Space|Wilderness|Golf|Marsh|Arboretum|Redwood|Woods\b|Botanical|Reservoir/;
   // where the buildings stand tall: [lon, lat, radius in map units, strength]; and along the Strip (given by the caller)
+  // the houses (look a): ?m3d-house=0 the plain houses as they were; 1 (the default) with the steps kept: a, each house its own tone; b, roofs a shade
+  // apart from walls; c, windows and a door band by day; d, rows shoulder to shoulder in the city and detached houses with yards outside it; e, sizes nearer life
+  const HOUSE = /[?&]m3d-house=0(?:&|$)/.test(location.search) ? 0 : 1, HSTEPS = (/[?&]m3d-hsteps=([a-e]*)(?:&|$)/.exec(location.search) || [0, 'abcde'])[1];
   const CORES = [[-122.3995, 37.7915, 9, 1], [-122.2712, 37.805, 6.5, 0.7], [-121.889, 37.3335, 6.5, 0.65], [-122.268, 37.8703, 3.2, 0.35], [-122.1617, 37.4447, 2.6, 0.3], [-122.0308, 37.9063, 2.6, 0.3]];
 
   // env: { HOODS, BB, HT, hAt(i, x, z): the ground of place i at a point (without it: HT[i], a flat top), INFO, SUBD, REGS, proj, inTop(i, x, z), avoid: [[x, z, r], ...], strip: [[x, z], ...],
@@ -60,9 +65,9 @@
     const blocked = (x, z, r) => { const l = AV.get(ak(Math.floor(x / 4), Math.floor(z / 4))); if (!l) return false; for (const a of l) { const dx = x - a[0], dz = z - a[1], rr = a[2] + r; if (dx * dx + dz * dz < rr * rr) return true; } return false; };
 
     // ---- a place's plan, made the first time a chunk needs it ----
-    const plans = [];
-    function plan(i) {
-      if (plans[i]) return plans[i];
+    const plans = [], plansH = [];
+    function plan(i, hs) {
+      hs = hs || ''; const PL = hs ? plansH : plans; if (PL[i]) return PL[i];
       const h = HOODS[i], info = INFO[h.name] || {}, tags = info.tags || [], away = !!(REGS[h.region] && REGS[h.region].away), sf = h.region === 'sf', seed = hash(h.name), R = rng(seed);
       const P = { i, seed, kind: PARK.includes(h.name) ? 'park' : WILD.includes(h.name) ? 'wild' : 'built', parks: [], ox: h.cx, oz: h.cy, y: HT[i] };
       const deg = sf ? (TURN[h.name] != null ? TURN[h.name] : 9) : away ? 0 : [0, 0, 12, -20, 33, 45, -8, 24][Math.floor(R() * 8)], a = deg * Math.PI / 180; P.a = a; P.c = Math.cos(a); P.s = Math.sin(a);
@@ -79,17 +84,20 @@
       // its sections' seeds: the lines between sections (drawn on the block's top) run along a street kept clear of buildings
       P.seeds = (SUBD[h.name] || []).map(s => proj([s.lon, s.lat])); if (P.seeds.length < 2) P.seeds = null;
       P.bay = sf && VICT.includes(h.name) ? 1 : sf && ROWS.includes(h.name) ? 2 : 0;
-      return plans[i] = P;
+      // the houses' steps (look a): d, the city's houses stand shoulder to shoulder, the gable to the street, and outside it apart in yards; e, a city lot and house nearer life
+      if (hs.includes('d')) { if (sf) Object.assign(P, { gap: 0.006, keep: Math.max(P.keep, 0.97), row: 1 }); else if (!city) Object.assign(P, { gap: P.gap + 0.08, keep: P.keep * 0.92, dp: P.dp * 0.82 }); }
+      if (hs.includes('e') && sf && !dense) Object.assign(P, { lw0: 0.25, lw1: 0.42, dp: 0.27, yard: 0.7 });
+      return PL[i] = P;
     }
 
     // ---- one chunk ----
     function chunk(ix, iz) {
-      const x0 = ix * CS, z0 = iz * CS, x1 = x0 + CS, z1 = z0 + CS, B = [], T = [], styled = !!(env.look && env.look !== '0'); let bays = 0;
+      const x0 = ix * CS, z0 = iz * CS, x1 = x0 + CS, z1 = z0 + CS, B = [], T = [], styled = env.look === 'b' || env.look === 'c', hs = HOUSE && env.look === 'a' ? HSTEPS : ''; let bays = 0;
       const own = (x, z) => x >= x0 && x < x1 && z >= z0 && z < z1;
       const tree = (P, x, z, r, tint, yard) => { if (env.solid && ((yard && env.dense(x, z)) || env.solid(x, z, r * 0.7))) return; if (!env.inTop(P.i, x, z) || !env.inTop(P.i, x + r, z + r * 0.5) || !env.inTop(P.i, x - r, z - r * 0.5) || blocked(x, z, r * 0.6) || (env.road && env.road(x, z, r + 0.12))) return; T.push(x, hAt(P.i, x, z), z, r, P.i, tint, 0); };
       for (let i = 0; i < HOODS.length; i++) {
         const bb = BB[i]; if (bb[2] < x0 - 3 || bb[0] > x1 + 3 || bb[3] < z0 - 3 || bb[1] > z1 + 3) continue;
-        const P = plan(i), c = P.c, s = P.s;
+        const P = plan(i, hs), c = P.c, s = P.s;
         const inPark = (x, z) => { for (const p of P.parks) if ((x - p[0]) * (x - p[0]) + (z - p[1]) * (z - p[1]) < p[2] * p[2]) return true; return false; };
         if (P.kind !== 'built') {
           // trees on a loose grid: groves where the noise is high, lawn or open hill between them
@@ -126,7 +134,7 @@
             // the looks: a house of the rows turns its front to the street (its local x points there: the gable's end, the bay on it); its tint, 2 and over, says so
             if (styled && P.bay && a !== 0 && !big && t2 < 0.86) { const sd = a > 0 ? 1 : -1, t3 = (tint * 104729.1) % 1; bays++;
               B.push(x, y, z, rows ? P.a - sd * Math.PI / 2 : P.a + (sd > 0 ? 0 : Math.PI), dp, hh, w, P.bay === 1 && t3 > 0.22 ? 0.36 + 0.2 * t3 : 0, P.i, tint + 2, 0); return; }
-            if (sx >= sz) B.push(x, y, z, P.a, sx, hh, sz, roof, P.i, tint, 0); else B.push(x, y, z, P.a + Math.PI / 2, sz, hh, sx, roof, P.i, tint, 0);
+            if (P.row && !big && a !== 0 ? rows : sx >= sz) B.push(x, y, z, P.a, sx, hh, sz, roof, P.i, tint, 0); else B.push(x, y, z, P.a + Math.PI / 2, sz, hh, sx, roof, P.i, tint, 0);   // (a row house: its ridge along the street, as its neighbours')
           };
           if (!tall && R() < P.big) { // one big building on the block: a school, a market, a depot
             put(0, 0, ih * (0.5 + R() * 0.3), iw * (0.6 + R() * 0.25), P.h0 * (1.1 + R() * 0.7), 0);
@@ -145,7 +153,7 @@
               }
             }
             // the yards down the middle of the block: a few trees
-            if (!tall) for (let b = -ih / 2 + 0.2; b < ih / 2 - 0.2; b += 0.42) { const r1 = R(), r2 = R(), r3 = R(); if (r1 > P.green) continue; const lu = rows ? b : (r2 - 0.5) * 0.08, lv = rows ? (r2 - 0.5) * 0.08 : b; tree(P, P.ox + (uc + lu) * c + (vc + lv) * s, P.oz - (uc + lu) * s + (vc + lv) * c, 0.1 + r3 * 0.07, r3, true); }
+            if (!tall) for (let b = -ih / 2 + 0.2; b < ih / 2 - 0.2; b += 0.42) { const r1 = R(), r2 = R(), r3 = R(); if (r1 > P.green) continue; const lu = rows ? b : (r2 - 0.5) * 0.08, lv = rows ? (r2 - 0.5) * 0.08 : b; tree(P, P.ox + (uc + lu) * c + (vc + lv) * s, P.oz - (uc + lu) * s + (vc + lv) * c, (0.1 + r3 * 0.07) * (P.yard || 1), r3, true); }
           }
         }
         // its parks: trees round a clearing, thicker towards the rim
@@ -171,7 +179,7 @@
   // which the fabric sinks away; uPale, uRoofK, uWallK: what the buildings are mixed towards and how far; uTree, uTreeK the same
   // for trees; uWin: the colour of lit windows, black by day)
   function gl(THREE, U, look) {
-    const NEW = look === 'a' || look === 'b' || look === 'c';
+    const HS = HOUSE && look === 'a' ? HSTEPS : '', NEW = look === 'b' || look === 'c', ON = k => HS.includes(k);   // HS: the houses' steps (look a); NEW: round one's looks
     const HEAD = `
 attribute vec4 aPos; attribute vec4 aSize; attribute vec3 aInfo;
 uniform sampler2D uPlace; uniform float uTexW; uniform float uGrow; uniform vec4 uFocus;
@@ -194,7 +202,7 @@ float fg = fabGrow(aPos.xz); vec4 fpl = fabPlace();
 vec3 transformed = position * aPos.w * vec3(1.0, 1.25, 1.0) * fg * step(0.02, fg) + vec3(aPos.x, aPos.y + fpl.a + aPos.w * 0.8 * fg, aPos.z);`;
     const uni = s => { for (const k in U) s.uniforms[k] = U[k]; };
     const bld = new THREE.MeshStandardMaterial({ metalness: 0, roughness: 0.86 });
-    bld.customProgramCacheKey = () => 'm3d-fab-b' + (NEW ? '-' + look : '');
+    bld.customProgramCacheKey = () => 'm3d-fab-b' + (NEW ? '-' + look : HS ? '-h' + HS : '');
     // the looks. K: how strongly the windows are drawn by day; V: how far a house's wall colour may stand from its place's; P: a pitched roof towards
     // the place's own colour, deeper [how deep, how far]; c keeps the plain colours and takes the shapes and the roofs' edges only
     const LK = { a: { K: 0.75, V: 1, P: [1, 0] }, b: { K: 1.5, V: 1.5, P: [0.62, 0.65] }, c: { K: 0, V: 0, P: [1, 0] } }[look] || {}, fl = v => v.toFixed(3);
@@ -228,16 +236,32 @@ if (uWin.r + uWin.g + uWin.b > 0.0) { vec2 wc = vWin.xy / vec2(${LK.K > 0 ? '0.0
   float lit = step(0.6, fract(sin(dot(wi, vec2(12.9898, 78.233))) * 43758.5453)) * step(0.22, wf.x) * step(wf.x, 0.78) * step(0.3, wf.y) * step(wf.y, 0.74);
   float fw = max(fwidth(wc.x), fwidth(wc.y)); totalEmissiveRadiance += uWin * mix(lit, 0.1, clamp(fw * 1.4 - 0.25, 0.0, 1.0)) * vWin.z; }`);
     };
+    // the houses' steps (HS): a, a tone of its own (paler or deeper than its neighbours, a breath warmer or cooler); b, a pitched roof deeper and greyer than
+    // its walls, a flat one paler; c, by day the windows as faint panes where the night's lit ones are, and a darker band of doors and garages at the foot,
+    // both fading to their mean as they come under a few pixels (from afar the houses are a quiet texture)
+    const HV = !HS ? '' : `
+${ON('a') ? `vec3 wall = mix(fpl.rgb, uPale, clamp(uWallK + (h2 - 0.5) * 0.34, 0.0, 0.9)) * (0.93 + 0.14 * h1); wall *= vec3(1.0 + 0.07 * (h3 - 0.5), 1.0, 1.0 - 0.07 * (h3 - 0.5));` : 'vec3 wall = mix(fpl.rgb, uPale, uWallK) * (0.9 + 0.2 * h1);'}
+vec3 roofc = mix(fpl.rgb, uPale, uRoofK) * (0.9 + 0.2 * h1); if (fract(ft * 3.17) > 0.8) roofc = mix(roofc, fpl.rgb * 0.8, 0.55);
+${ON('b') ? `if (pitched) roofc = mix(fpl.rgb, uPale, uRoofK * 0.35) * (0.8 + 0.12 * h2); else roofc = mix(wall, uPale, 0.3);` : ''}
+vFab = top ? roofc : wall; vH = aSize.y;`;
+    const HF = !HS || !ON('c') ? '' : `
+if (vWin.z > 0.5) { float y = vWin.y, fy = fwidth(y) + 0.00001, see = 1.0 - clamp(fy / 0.01 - 0.4, 0.0, 1.0);
+  diffuseColor.rgb *= 1.0 - 0.12 * see * (1.0 - smoothstep(0.03 - fy, 0.03 + fy, y));
+  vec2 wc = vWin.xy / vec2(0.075, 0.06), wf = fract(wc), fw = vec2(fwidth(wc.x), fwidth(wc.y)), e = min(fw, vec2(0.3)) + 0.0001;
+  float pane = smoothstep(0.22 - e.x, 0.22 + e.x, wf.x) * (1.0 - smoothstep(0.78 - e.x, 0.78 + e.x, wf.x)) * smoothstep(0.3 - e.y, 0.3 + e.y, wf.y) * (1.0 - smoothstep(0.74 - e.y, 0.74 + e.y, wf.y));
+  diffuseColor.rgb *= 1.0 - 0.13 * mix(0.25, pane, 1.0 - clamp(max(fw.x, fw.y) * 1.6 - 0.4, 0.0, 1.0)) * step(0.045, y) * step(y, vH - 0.012); }`;
     bld.onBeforeCompile = s => { uni(s);
       if (NEW) return styled(s);
-      s.vertexShader = s.vertexShader.replace('#include <common>', '#include <common>' + HEAD + '\nuniform vec3 uPale; uniform float uRoofK; uniform float uWallK;\nvarying vec3 vFab; varying vec3 vWin;')
-        .replace('#include <beginnormal_vertex>', B_NOR).replace('#include <begin_vertex>', B_POS + `
+      s.vertexShader = s.vertexShader.replace('#include <common>', '#include <common>' + HEAD + '\nuniform vec3 uPale; uniform float uRoofK; uniform float uWallK;\nvarying vec3 vFab; varying vec3 vWin;' + (HS ? '\nvarying float vH;' : ''))
+        .replace('#include <beginnormal_vertex>', B_NOR).replace('#include <begin_vertex>', B_POS + (HS ? `
+bool top = normal.y > 0.5 || uv.x != 0.0, pitched = uv.x != 0.0 && aSize.w > 0.01; float ft = aInfo.y, h1 = fract(ft * 7.31), h2 = fract(ft * 13.7), h3 = fract(ft * 29.3);` + HV + `
+vWin = vec3((abs(normal.x) > 0.5 ? position.z * aSize.z : position.x * aSize.x) + ft * 9.0, position.y * aSize.y, top ? 0.0 : 1.0);` : `
 bool top = normal.y > 0.5 || uv.x != 0.0; float ft = aInfo.y;
 vec3 fc = mix(fpl.rgb, uPale, top ? uRoofK : uWallK) * (0.9 + 0.2 * fract(ft * 7.31));
 if (top && fract(ft * 3.17) > 0.8) fc = mix(fc, fpl.rgb * 0.8, 0.55);
-vFab = fc; vWin = vec3((abs(normal.x) > 0.5 ? position.z * aSize.z : position.x * aSize.x) + ft * 9.0, position.y * aSize.y, top ? 0.0 : 1.0);`);
-      s.fragmentShader = s.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vFab; varying vec3 vWin; uniform vec3 uWin;')
-        .replace('#include <color_fragment>', 'diffuseColor.rgb = vFab;')
+vFab = fc; vWin = vec3((abs(normal.x) > 0.5 ? position.z * aSize.z : position.x * aSize.x) + ft * 9.0, position.y * aSize.y, top ? 0.0 : 1.0);`));
+      s.fragmentShader = s.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vFab; varying vec3 vWin; uniform vec3 uWin;' + (HS ? '\nvarying float vH;' : ''))
+        .replace('#include <color_fragment>', 'diffuseColor.rgb = vFab;' + HF)
         .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
 if (uWin.r + uWin.g + uWin.b > 0.0) { vec2 wc = vWin.xy / vec2(0.075, 0.06), wi = floor(wc), wf = wc - wi;
   float lit = step(0.6, fract(sin(dot(wi, vec2(12.9898, 78.233))) * 43758.5453)) * step(0.22, wf.x) * step(wf.x, 0.78) * step(0.3, wf.y) * step(wf.y, 0.74);

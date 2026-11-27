@@ -61,6 +61,22 @@
   };
   // the colours the extra landmarks bring (js/map3d/icons-*.js); a name already here keeps its colour
   const adoptMats = () => (window.M3D.extra || []).forEach(e => e && e.mats && Object.keys(e.mats).forEach(k => { if (!BUILT.paper[k]) { BUILT.paper[k] = e.mats[k][0]; BUILT.night[k] = e.mats[k][1]; } }));
+  // ---- richer colour, the light theme of the 3D map only (?m3d-rich=0|1|2|3; 0 the paper look as it was, 1 a notch richer, 2 rich, 3 bold) ----
+  // The app's tokens are left as they are (the flat map and the chrome do not change): the place colours, the water and the land are
+  // given more colour and a little less light where this map takes them in (richRGB), and the light is set for deeper, cooler shade
+  // under a warmer sun, the haze starting further out (its far edge, which taps also read, stays), a bluer sky, greener trees. Only
+  // colours and numbers change: no light, pass or texture is added. The night look is left as it is: it was never washed out.
+  const RICH = (() => { const m = /[?&]m3d-rich=([0-3])(?:&|$)/.exec(location.search); return m ? +m[1] : 3; })();
+  // per strength: sat, val: the place colours' saturation (about their own grey) and value; green: more for the greens; water: [towards a fuller blue, sat, val]; land, built,
+  // bridge: [sat, val] for the land around the places, the buildings' own colours, the bridges' tokens; deep: how far the open water deepens towards the coast colour; set: the look's
+  // own numbers (fog: the haze's near edge from a high view and from a low one, as multiples of the camera's distance; its far edge stays 8)
+  const RICHES = [null,
+    { sat: 1.16, val: 0.97, green: 0.1, water: [0.12, 1.15, 0.99], deep: 0.5, land: [1.04, 0.99], built: [1.08, 0.99], bridge: [1.08, 1], set: { fog: [2.3, 8, 0.95], key: { c: '#ffefd8', i: 2.5 }, hemi: { sky: '#eef2f6', ground: '#d9c8aa', i: 1.58 }, zenith: '#9cc1e3', castA: 0.26, roofK: 0.45, wallK: 0.3, tree: '#56884a', treeK: 0.66, washK: 0.72, bg: '#e6e6df' } },
+    { sat: 1.36, val: 0.93, green: 0.22, water: [0.24, 1.3, 0.97], deep: 0.56, land: [1.08, 0.975], built: [1.18, 0.97], bridge: [1.2, 0.97], set: { fog: [3, 8, 1.2], key: { c: '#ffebd0', i: 2.85 }, hemi: { sky: '#e6eef8', ground: '#d5c09e', i: 1.36 }, zenith: '#8cb9e6', castA: 0.32, roofK: 0.5, wallK: 0.36, tree: '#4c8843', treeK: 0.72, washK: 0.6, bg: '#e1e5e4' } },
+    { sat: 1.7, val: 0.88, green: 0.35, water: [0.38, 1.45, 0.94], deep: 0.64, land: [1.14, 0.96], built: [1.35, 0.94], bridge: [1.4, 0.93], set: { fog: [4, 8, 1.5], key: { c: '#ffe5c2', i: 3.2 }, hemi: { sky: '#dde9f9', ground: '#d0b890', i: 1.14 }, zenith: '#78aeea', castA: 0.4, roofK: 0.55, wallK: 0.42, tree: '#3f8a3b', treeK: 0.8, washK: 0.48, bg: '#dae2e7' } }];
+  const richRGB = (c, s, v, gr) => { const y = c[0] * .3 + c[1] * .59 + c[2] * .11, k = s + (gr && c[1] > c[0] && c[1] > c[2] ? gr * Math.min(1, (c[1] - Math.max(c[0], c[2])) / 24) : 0); return [0, 1, 2].map(j => clamp((y + (c[j] - y) * k) * v, 0, 255)); }; // more colour about its own grey, then less light
+  const richHex = (hex, sv) => '#' + richRGB(hex2rgb(hex), sv[0], sv[1]).map(x => Math.round(x).toString(16).padStart(2, '0')).join('');
+  function richLook(L, R) { const o = Object.assign({}, L, R.set); o.key = Object.assign({}, L.key, R.set.key); o.hemi = Object.assign({}, L.hemi, R.set.hemi); return o; }
   const LIGHTS = { warm: '#ffc27a', white: '#eaf2ff', red: '#ff4b3a', cool: '#9fd2ff', gold: '#ffcf6b', pink: '#ff6fb0', violet: '#9b7bff', sphere: '#5a72ff', beam: '#fff1c2' };
   // the CSS tokens read (the flat map's, the quiz's two inks, and the second ink for region names)
   const VARS = { water: '--water', paper: '--paper', ink: '--ink', ink2: '--ink-2', muted: '--muted', land: '--land', landOther: '--land-other', coast: '--coast', steel: '--steel', gg: '--gg', accent: '--accent', want: '--want', label: '--label', labelHalo: '--label-halo', subLine: '--sub-line', face: '--glyph-face', shade: '--glyph-shade', roof: '--glyph-roof', star: '--star', okInk: '--qz-ok-ink', noInk: '--qz-no-ink' };
@@ -139,14 +155,16 @@
 
     // ---- palette ----
     const spotCol = new Map(), spotColor = c => { let v = spotCol.get(c); if (v === undefined) { v = cssColor(c); spotCol.set(c, v); } return v; }; // a spot's colour, looked up once (again after refreshPalette: the theme or the palette changed)
+    let RK = null; const placeCol = c => RK ? richRGB(c, RK.sat, RK.val, RK.green) : c; // a place's colour as this map paints it (the richer colour: more of it, a little less light)
     function refreshPalette() {
       spotCol.clear(); const cs = getComputedStyle(document.documentElement); for (const k in VARS) P[k] = cs.getPropertyValue(VARS[k]).trim() || '#888888';
       const w = hex2rgb(P.water); dark = (w[0] * .3 + w[1] * .59 + w[2] * .11) < 110;
-      const L = LOOKS[dark ? 'night' : 'paper'], pal = Object.assign({}, BUILT[dark ? 'night' : 'paper']);
+      const R = dark ? null : RICHES[RICH], L = R ? richLook(LOOKS.paper, R) : LOOKS[dark ? 'night' : 'paper'], pal = Object.assign({}, BUILT[dark ? 'night' : 'paper']); RK = R;
+      if (R) { for (const k in pal) if (!/^(lamp|clock|trim|boulevard|white\w*)$/.test(k)) pal[k] = richHex(pal[k], R.built); P.gg = richHex(P.gg, R.bridge); P.steel = richHex(P.steel, R.bridge); P.water = richHex(mixHex(P.water, '#5b8fbd', R.water[0]), R.water.slice(1)); P.landOther = richHex(P.landOther, R.land); P.land = richHex(P.land, R.land); } // (the 3D map's own copies of the tokens: the page's stay as they are)
       Object.assign(pal, { gg: P.gg, ggShade: mixHex(P.gg, '#000000', .1), ggCable: mixHex(P.gg, '#000000', .05), steel: P.steel, steelShade: mixHex(P.steel, '#000000', .14), steelCable: mixHex(P.steel, '#000000', .07), flag: P.accent, ribbon: P.want });
       // the water deepens towards the open sea and lightens at the shore; the land around the places is the flat map's, a little
       // lifted in the dark so it reads against the water under this light
-      LK = Object.assign({}, L, { pal, water: P.water, deep: dark ? mixHex(P.water, '#000000', .38) : mixHex(P.water, P.coast, .43), shallow: dark ? mixHex(P.water, P.coast, .25) : mixHex(P.water, '#ffffff', .31), rim: dark ? P.coast : null,
+      LK = Object.assign({}, L, { pal, water: P.water, deep: dark ? mixHex(P.water, '#000000', .38) : mixHex(P.water, P.coast, R ? R.deep : .43), shallow: dark ? mixHex(P.water, P.coast, .25) : mixHex(P.water, '#ffffff', .31), rim: dark ? P.coast : null,
         landHex: mixHex(P.landOther, P.land, dark ? 1.7 : .25), land: null, liftC: lin(L.lift), sideC: lin(L.side), accent: lin(P.accent), ink: lin(P.ink), okInk: lin(P.okInk), noInk: lin(P.noInk) });
       LK.land = lin(LK.landHex); LK.haze = L.bg;
       // the light theme follows the day, gently (js/map3d/air.js sun): the light swings from the east to the west, low and warm at
@@ -732,7 +750,7 @@
     // accent on its edge and walls; the quiz's answers their green or red; the place under the pointer (or about to be picked) the ink.
     function paintTile(i) {
       const t = tiles[i]; if (t.v1 === t.v0) return;
-      const c0 = colNow[i], a = alphaNow[i], L = LK, f = flagNow[i], fill = [lerp(L.land[0], LIN[c0[0] | 0], a), lerp(L.land[1], LIN[c0[1] | 0], a), lerp(L.land[2], LIN[c0[2] | 0], a)];
+      const c0 = placeCol(colNow[i]), a = alphaNow[i], L = LK, f = flagNow[i], fill = [lerp(L.land[0], LIN[c0[0] | 0], a), lerp(L.land[1], LIN[c0[1] | 0], a), lerp(L.land[2], LIN[c0[2] | 0], a)];
       let top = mix3(fill, L.liftC, clamp((t.H - land.TOP0) / 4, 0, 1) * L.liftK * 2.2 + (f & 1 ? 0.1 : 0)), bev = mix3(top, L.liftC, L.bevelK), wall = mix3(fill, L.sideC, L.sideK);
       if (f & 1) { bev = mix3(L.accent, L.liftC, 0.15); wall = mix3(L.accent, L.sideC, 0.25); }
       else if (f & 24) { bev = f & 8 ? L.okInk : L.noInk; wall = mix3(bev, L.sideC, 0.2); }
@@ -876,7 +894,7 @@
       const c = C, L = LK;
       camera.position.set(c.px, c.py, c.pz); camera.up.set(0, 1, 0); camera.lookAt(cur.cx, FOCUS_Y, cur.cz);
       camera.near = Math.max(0.5, c.d * 0.05); camera.far = c.d * 14 + 600; camera.aspect = W / H; camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
-      { const low = smooth(c.ph, 1.05, 1.45); scene.fog.near = c.d * lerp(L.fog[0], 0.75, low); scene.fog.far = c.d * lerp(L.fog[1], 3.4, low); } // a low view looks a long way: the haze comes nearer, and the far land fades into it
+      { const low = smooth(c.ph, 1.05, 1.45); scene.fog.near = c.d * lerp(L.fog[0], L.fog[2] || 0.75, low); scene.fog.far = c.d * lerp(L.fog[1], 3.4, low); } // a low view looks a long way: the haze comes nearer, and the far land fades into it
       // the air: the sky behind a tilted view, the water's ripples (gentler from far off), the wash, the fog, what moves
       if (sky) sky.set(c, W, H);
       if (waterU) { waterU.uT.value = ambT; waterU.uD.value = c.d; waterU.uWave.value = L.wave * lerp(1, 0.4, smooth(Math.log(c.d), Math.log(150), Math.log(900))); }

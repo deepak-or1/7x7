@@ -970,7 +970,7 @@
   }
   // the margin's short time: 12m, 2h, 3d, then the date
   function agoShort(t) { const d = Date.parse(t), m = (Date.now() - d) / 60000; if (!isFinite(m) || m < -5) return ''; return m < 1 ? 'now' : m < 60 ? Math.round(m) + 'm' : m < 1440 ? Math.round(m / 60) + 'h' : m < 10080 ? Math.round(m / 1440) + 'd' : niceDate(new Date(d).toISOString().slice(0, 10)); }
-  function evWhat(e) { const nm = e.name || 'a spot'; return e.k === 'photo' ? `+${e.n === 1 ? '1 photo' : e.n + ' photos'}, ${nm}` : e.k === 'place' ? `walked ${nm}` : e.k === 'been' ? `went to ${nm}` : `logged ${nm}`; }
+  function evWhat(e) { const nm = e.name || 'a spot'; return e.k === 'photo' ? `+${e.n === 1 ? '1 photo' : e.n + ' photos'}, ${nm}` : e.k === 'place' ? `explored ${nm}` : e.k === 'been' ? `went to ${nm}` : `logged ${nm}`; }
   // photos.js: who adds a photo, what was added (an event), and the capture date of a photo on a been spot (offered, never applied unasked)
   function photoAdded(owner, ids, label) {
     const n = Array.isArray(ids) ? ids.length : ids && typeof ids === 'object' ? Object.keys(ids).length : 0; if (!n) return;

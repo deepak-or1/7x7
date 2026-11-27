@@ -2,15 +2,15 @@
 (() => {
   const X = window.M3D.extra = window.M3D.extra || [];
   // the true sizes (js/map3d.js lmTrue; the list and its rule are in icons-sf.js): js/map3d/models.js's own Strip models, and where a model here is not its real size times ex
-  const RD = Math.sqrt(2.5);   // (a round or steep one keeps its shape: drawn as a whole RD times its true size)
+  const V = (window.M3D.real && window.M3D.real.V) || 2.5, RD = Math.sqrt(V);   // (V: the real buildings' height factor, js/map3d/real.js, loaded before this; a round or steep one keeps its shape: drawn as a whole RD times its true size)
   window.M3D.lmTrue = Object.assign(window.M3D.lmTrue || {}, {
     sphere: [RD / 2.6, RD / 2.6], // Sphere: 112 m tall, 157 m across, round
-    // the Strip's three below stand among towers drawn 2.5 times as tall (js/map3d/icons-lv2.js): each is drawn tall enough to keep its real
+    // the Strip's three below stand among towers drawn V times as tall (js/map3d/icons-lv2.js): each is drawn tall enough to keep its real
     // place among them (taller than Paris' hotel, than Harrah's, than the Luxor's own towers), its plan kept to its real ground
-    eiffel: [RD / 4.2, 2.5 / 4.2], // the Eiffel Tower at Paris Las Vegas: 165 m, half the real one, its legs 62 m apart: drawn 1.58 times in plan, its heights 2.5 times as the towers round it
-    highroller: [2 / 3.8, 2 / 3.8], // High Roller: 168 m, a wheel: its shape kept, drawn twice its size (it stays taller than Harrah's 109 m, drawn 272 m)
+    eiffel: [RD / 4.2, V / 4.2], // the Eiffel Tower at Paris Las Vegas: 165 m, half the real one, its legs 62 m apart: drawn RD times in plan, its heights V times as the towers round it
+    highroller: [0.8 * V / 3.8, 0.8 * V / 3.8], // High Roller: 168 m, a wheel: its shape kept, drawn 0.8 V times its size (it stays taller than Harrah's 109 m, drawn V times)
     strat: 1 / 2.6,         // The STRAT: 350 m
-    luxor: [1 / 3, 2.1 / 3], // Luxor: 107 m on a 183 m base, a pyramid: its true base (its towers stand 4 m off it), 2.1 times its height (above its 80 m towers, drawn 200 m): steeper than the real 51 degrees
+    luxor: [1 / 3, 0.84 * V / 3], // Luxor: 107 m on a 183 m base, a pyramid: its true base (its towers stand 4 m off it), 0.84 V times its height (above its 80 m towers, drawn V times): steeper than the real 51 degrees
     muirwoods: [1, 1],      // Muir Woods: a few redwoods stand for a forest 2 km long: it keeps its size
   });
   const D = Math.PI / 180, CELL = 1 / 8;

@@ -394,11 +394,11 @@
       b.rod('red', [0, 300, 0], [0, 350, 0], 2, 0.8, 6);
       b.light([0, 352, 0], 'red', 2); b.light([0, 262, 0], 'gold', 5);
     },
-    // Luxor, 107 m: the black glass pyramid, the sphinx in front of it
+    // Luxor, 107 m: the black glass pyramid, the sphinx in front of it on the east, its head towards the Strip
     luxor(b) {
       b.frustum('luxor', 0, -20, 0, 196, 196, 183, 183, 20);
       b.frustum('luxor', 0, 0, 0, 183, 183, 1, 1, 107, { win: [22, 14], glow: 0.35 });
-      b.box('sand', 0, -20, 130, 30, 62, 34); b.box('sand', 0, 14, 110, 22, 22, 22); b.frustum('sand', 0, 36, 108, 24, 22, 16, 14, 8);
+      b.box('sand', 130, -20, 0, 62, 30, 34); b.box('sand', 150, 14, 0, 22, 22, 22); b.frustum('sand', 152, 36, 0, 22, 24, 14, 16, 8);
       b.light([0, 109, 0], 'beam', 6);
     },
   };
@@ -414,7 +414,7 @@
     ['alcatraz', ...at('alcatraz', -122.423, 37.8267), 1.7, 38, 'Alcatraz'],
     ['ladies', -122.4329, 37.7763, 6.5, 9, 'Painted Ladies'],
     ['palace', ...at('palace', -122.4487, 37.802), 5.5, 100, 'Palace of Fine Arts'],
-    ['sphere', ...at('sphere', -115.1617, 36.1208), 2.6, 0, 'Sphere'],
+    ['sphere', ...at('sphere', -115.1621, 36.1212), 2.6, 0, 'Sphere'],
     ['eiffel', ...at('eiffel', -115.1722, 36.1125), 4.2, 0, 'Eiffel Tower'],
     ['highroller', ...at('highroller', -115.1681, 36.1176), 3.8, 0, 'High Roller'],
     ['strat', ...at('strat', -115.1556, 36.1475), 2.6, 0, 'The STRAT'],

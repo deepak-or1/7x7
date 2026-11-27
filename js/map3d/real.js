@@ -99,7 +99,7 @@
       tallOf.sort((u, v) => u.key - v.key); for (let k = 0; k < tallOf.length; k += 50) groups.push(tallOf.slice(k, k + 50));
     }
     if (!areas) throw new Error('no area of the building data could be read');
-    if (M3D.heroes) M3D.heroes.match(grid, ck);   // the named buildings (js/map3d/heroes.js): each outline of its table is given its shape (b.hero)
+    if (M3D.heroes) try { M3D.heroes.match(grid, ck); } catch (e) { console.warn('3D map, the named buildings left out: ' + (e && e.message || e)); }   // the named buildings (js/map3d/heroes.js): each outline of its table is given its shape (b.hero)
     // is the circle r round a point built on (by any outline, kept or not: nothing made up stands there either)
     function solid(x, z, r) {
       for (let i = Math.floor((x - r) / CELL); i <= Math.floor((x + r) / CELL); i++) for (let j = Math.floor((z - r) / CELL); j <= Math.floor((z + r) / CELL); j++) {
@@ -218,8 +218,8 @@
                 box(Cx + Math.cos(a) * d, Cz + Math.sin(a) * d, hs, hs * (0.55 + 0.4 * ((r1 * (q + 3) * 5.3) % 1)), top, (q === 0 ? 0.034 : 0.02) + 0.02 * ((r2 * (q + 1) * 7.9) % 1)); } }
           }
         };
-        if (env.look && env.look !== '0') { const m = [pos.length, nor.length, aB.length, aW.length, idx.length, nv, y0, y1];
-          try { if (!(b.hero && M3D.heroes.put(b, vert, idx, ears, g, gc, K * V))) styled(); } catch (e) { pos.length = m[0]; nor.length = m[1]; aB.length = m[2]; aW.length = m[3]; idx.length = m[4]; nv = m[5]; y0 = m[6]; y1 = m[7]; plain(); } } // (a building the new roof fails on stands as the plain one)
+        if (env.look && env.look !== '0') { const m = [pos.length, nor.length, aB.length, aW.length, idx.length, nv, y0, y1], back = () => { pos.length = m[0]; nor.length = m[1]; aB.length = m[2]; aW.length = m[3]; idx.length = m[4]; nv = m[5]; y0 = m[6]; y1 = m[7]; };
+          try { if (!(b.hero != null && M3D.heroes.put(b, vert, idx, ears, g, gc, K * V))) styled(); } catch (e) { back(); if (b.hero === null) try { styled(); } catch (e2) { back(); plain(); } else plain(); } } // (a building the new roof fails on stands as the plain one; a named one whose shape fails, as the look makes any outline: heroes.js put)
         else plain();
         if (bi + 1 === Math.ceil(keep.length * 0.25)) cuts[0] = idx.length; if (bi + 1 === Math.ceil(keep.length * 0.5)) cuts[1] = idx.length;
       });
@@ -258,7 +258,7 @@ float pg = ${LK.G > 0 ? '0.03 + 0.47 * tall' : '0.0'}, pr = 0.12 + 0.16 * tall, 
 vec3 fc = mix(fpl.rgb, uPale, top ? uRoofK + (0.82 - uRoofK) * 0.7 * tall : uWallK + (0.86 - uWallK) * 0.72 * tall) * (0.9 + 0.2 * fract(ft * 7.31));
 if (st > 2.5 && !top) fc = mix(fc, uGlass * (0.92 + 0.16 * fract(ft * 7.31)), ${fl(LK.G)});
 if (top && fract(ft * 3.17) > 0.8) fc = mix(fc, fpl.rgb * 0.8, 0.55 * (1.0 - tall));
-if (!top) fc *= 0.84 + 0.16 * smoothstep(0.0, 0.26, aW.y);
+if (!top) fc *= 0.84 + 0.16 * smoothstep(0.0, ${fl(14.85 * K * V)}, aW.y);
 vFab = vec4(fc, ft); vWin = vec4(aW.x, aW.y, aW.z + 4.0 * st, aW.w);   // (two varyings, not three: the face's kind and the walls' kind in z, the height in w, the tint with the colour; read back as m3dKd, m3dSt, m3dHh, m3dFt)`);
       s.fragmentShader = s.fragmentShader.replace('#include <common>', `#include <common>
 varying vec4 vFab; varying vec4 vWin; uniform vec3 uWin;
@@ -298,8 +298,9 @@ if (uWin.r + uWin.g + uWin.b > 0.0 && m3dKd > 0.5 && m3dKd < 1.5) { float st = $
   // the street's band glows a little, in runs of shopfronts
   float sb = vWin.x / 0.22, sf = fract(sb); totalEmissiveRadiance += uWin * 0.5 * step(0.2, hh) * step(0.012, y) * step(y, 0.05) * step(0.12, sf) * step(sf, 0.88) * step(0.45, fract(sin(floor(sb) * 91.7 + m3dFt * 40.0) * 4375.85)) * (1.0 - clamp(fwidth(sb) * 3.0 - 0.3, 0.0, 1.0)); }`);
     };
+    if (NEW && M3D.heroes) try { const t = { vertexShader: THREE.ShaderLib.standard.vertexShader, fragmentShader: THREE.ShaderLib.standard.fragmentShader, uniforms: {} }; styled(t); M3D.heroes.shade(t); } catch (e) { M3D.heroes.shade(null); }   // (the named buildings told now, on a copy, whether the look's text can read their table: before any is made)
     mat.onBeforeCompile = s => { uni(s);
-      if (NEW) { styled(s); if (M3D.heroes) M3D.heroes.shade(s); s.fragmentShader += '\n// m3d-look\n'; return; }   // (the look's mark: js/map3d.js onShaderError)
+      if (NEW) { styled(s); if (M3D.heroes) try { M3D.heroes.shade(s); } catch (e) { console.warn('3D map, the named buildings: ' + (e && e.message || e)); } s.fragmentShader += '\n// m3d-look\n'; return; }   // (the look's mark: js/map3d.js onShaderError)
       s.vertexShader = s.vertexShader.replace('#include <common>', '#include <common>' + HEAD + '\nuniform vec3 uPale; uniform float uRoofK; uniform float uWallK;\nvarying vec3 vFab; varying vec4 vWin;')
         .replace('#include <begin_vertex>', POS + `
 bool top = aW.z < 0.5; float ft = aB.z, tall = smoothstep(0.3, 1.7, aW.w);

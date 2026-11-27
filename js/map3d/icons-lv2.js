@@ -3,14 +3,14 @@
 // STRAT and the Luxor are models.js's own). Every tower stands on its real outline (the table O below: the map's own outlines of
 // the Strip, js/map3d/buildings.js area vegas, simplified, in whole metres east and south of REF), at its real height, in its real
 // colours; a resort's casino, garages and grounds are in its model too, since the engine leaves out the real outlines under a model's
-// plan (js/map3d.js lmClear). Built at its true size (ex 1) with its heights stretched as the real buildings' are (RB_V, 2.5 times),
+// plan (js/map3d.js lmClear). Built at its true size (ex 1) with its heights stretched as the real buildings' are (V: js/map3d/real.js's factor),
 // so close in it stands to the same scale as everything round it and from afar it grows with the zoom as every landmark does.
-// A round or carved piece (a statue, a lion, a dome) keeps its shape: drawn as a whole sqrt(2.5) times its size (keep below).
+// A round or carved piece (a statue, a lion, a dome) keeps its shape: drawn as a whole sqrt(V) times its size (keep below).
 // Night: signs, crowns and fountains are faces that light up (glow in the vertex data); only a few models bring points of light.
 // A model that fails as it is built is left out alone (add below); no part is made after the first frame or per frame.
 (() => {
   const M3 = window.M3D, X = M3.extra = M3.extra || [];
-  const D = Math.PI / 180, CELL = 1 / 8, V = 2.5, RD = Math.sqrt(2.5);
+  const D = Math.PI / 180, CELL = 1 / 8, V = (M3.real && M3.real.V) || 2.5, RD = Math.sqrt(V);   // (V: the real buildings' height factor, js/map3d/real.js, loaded before this)
   // the outlines, from REF (lon, lat): [x0, z0, x1, z1, ...] metres east and south (tools: the test folder's gen.js, from buildings.js)
   const REF = [-115.17, 36.11], KX = 111320 * Math.cos(REF[1] * D), KY = 111320;
   // <lvdata>
@@ -38,12 +38,16 @@
   // add(entry, build): at its true size (ex 1, lmTrue [1, 1]); the heights inside build are real metres, drawn V times; a failure leaves this model out alone
   function add(e, build) {
     e.mats = MATS; e.ex = 1; M3.lmTrue[e.id] = [1, 1];
+    safe(e, b => {
+      if (!F) { const a = Geom.proj(REF), c = Geom.proj([REF[0] + 0.01, REF[1]]); F = (c[0] - a[0]) * Geom.UNIT_M / (0.01 * KX); }
+      B = b; OM = mx(e.lon, e.lat); b.push(new THREE.Matrix4().makeScale(F, F * V, F)); build(b, e); b.pop(); });
+  }
+  // safe(entry, fn): the entry's build is fn, and a failure in it takes back what it made, leaves a speck under the ground (the model has a size) and says
+  // so; the others are made as if it were not there
+  function safe(e, fn) {
     e.build = b => {
       const keep = ['pos', 'nor', 'uv', 'glow', 'mat', 'sh', 'lights'].map(k => [k, b[k].length]), st = b.stack.length, M0 = b.M.clone();
-      try {
-        if (!F) { const a = Geom.proj(REF), c = Geom.proj([REF[0] + 0.01, REF[1]]); F = (c[0] - a[0]) * Geom.UNIT_M / (0.01 * KX); }
-        B = b; OM = mx(e.lon, e.lat); b.push(new THREE.Matrix4().makeScale(F, F * V, F)); build(b, e); b.pop();
-      } catch (err) {
+      try { fn(b); } catch (err) {
         keep.forEach(([k, n]) => { b[k].length = n; }); b.stack.length = st; b.M.copy(M0);
         b.tri(b.id('lvDark'), [0, -30, 0], [0.5, -30, 0], [0, -30, 0.5], [0, 1, 0], [0, 1, 0], [0, 1, 0], [0, 0], [0, 0], [0, 0], 0); // (a speck under the ground: the model has a size)
         console.warn('3D map, ' + e.label + ' left out: ' + (err && err.message || err));
@@ -135,7 +139,7 @@
   // the Welcome to Fabulous Las Vegas sign, 7.6 m: the white diamond on two posts, its gold rim, the red star, on the median with palms
   // (as it was in icons-away.js: drawn 12 times its size from afar, true size close in; ex 12 and no frame of its own)
   const wpalm = (b, x, z, h, y0 = -3) => { const tx = x + h * 0.04; b.rod('awTrunk', [x, y0, z], [tx, h, z], h * 0.035, h * 0.022, 5); for (let k = 0; k < 6; k++) { const a = k * 60 * D + 0.3; b.beam('awTree', [tx, h, z], [tx + Math.cos(a) * h * 0.34, h - h * 0.15, z + Math.sin(a) * h * 0.34], h * 0.09, h * 0.02); } };
-  X.push({ id: 'welcome', lon: -115.1728, lat: 36.082, ex: 12, ry: 0, label: 'Welcome to Fabulous Las Vegas sign', mats: MATS, build: b => {
+  safe({ id: 'welcome', lon: -115.1728, lat: 36.082, ex: 12, ry: 0, label: 'Welcome to Fabulous Las Vegas sign', mats: MATS }, b => {
     b.box('stone', 0, -3, 0, 20, 6.5, 3.25);
     for (const s of [-1, 1]) b.box('white', s * 1.15, -3, 0, 0.42, 0.42, 6.3);
     const hex = (k, z) => [[-3.8, 0], [-1.4, 2.0], [1.4, 2.0], [3.8, 0], [1.4, -2.0], [-1.4, -2.0]].map(([px, py]) => [px * k, 4.8 + py * k, z]);
@@ -146,7 +150,7 @@
     b.loft('red', [star(-0.1), star(0.1)], { flat: true, cap0: true });
     wpalm(b, -7.4, 0.6, 10); wpalm(b, 7.6, -0.4, 9);
     b.light([0, 4.8, 1.4], 'gold', 2.2); b.light([0, 4.8, -1.4], 'gold', 2.2); b.light([0, 7.6, 0.3], 'red', 1.2);
-  } });
+  });
 
   // Mandalay Bay, 146 m: the gold glass Y of three wings (the Four Seasons in its top floors), Delano's gold L to the west, the casino,
   // the convention centre and the arena behind, and the beach with its wave pool to the south-west

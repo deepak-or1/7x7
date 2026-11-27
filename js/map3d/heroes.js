@@ -1,4 +1,5 @@
 // Seven by Seven, the 3D map: the named buildings of downtown San Francisco. Loaded only when the 3D map is wanted (index.html), with
+// Made by tools/heroes3d.js from tools/heroes3d.src.js: edit that file, then run node tools/heroes3d.js (do not edit this one by hand).
 // js/map3d/real.js, which calls it at three places (match, put, shade below) and stands without it.
 // A table of real buildings, each given its own shape, top, colour and walls in place of the plain outline js/map3d/real.js would
 // stand up there. A building of the table is still one of its chunk's buildings: its triangles go into the chunk's own mesh through
@@ -9,7 +10,9 @@
 // Each outline is named by what stays the same when js/map3d/buildings.js is made again: [lon, lat of a point inside it, its
 // height in metres, its count of points, its area in square metres]. An outline that is not found (the data changed), or a
 // building whose shape fails as it is made, stands as the plain outline it was. ?m3d-heroes=off: none of this.
-// Heights: the data's own (H below); a spire or a mast may stand above it. Shapes: from memory of each building, no survey.
+// Heights: the data's own (H below), unless the entry's options give the height of its tallest outline in life (H: metres; every
+// outline of the entry's own list is drawn that share taller, the outlines that go with it as they are); a spire or a mast may stand
+// above it. Drawn as real.js draws every height: times the factor it hands over (put's s). Shapes: from memory of each building, no survey.
 // Defines window.M3D.heroes.
 (function () {
   'use strict';
@@ -49,7 +52,7 @@
   // One building at a time: b, real.js's record of the outline, and what real.js hands over with it (put below), are set by begin ----
   let b, vert, idx, ears, g, gc, sc, ring, u0, bot, px;
   const Y = m => gc + m * sc;
-  function begin(rec, v, ix, er, gr, gm, s) { b = rec; vert = v; idx = ix; ears = er; g = gr; gc = gm; sc = s; ring = []; for (let k = 0; k < b.n; k++) ring.push([b.p[k * 2], b.p[k * 2 + 1]]); u0 = b.tint * 9; bot = (g - 0.02 - gc) / sc; px = []; B.ring = ring; B.H = b.h; B.bot = bot; return B; }
+  function begin(rec, v, ix, er, gr, gm, s, H) { b = rec; vert = v; idx = ix; ears = er; g = gr; gc = gm; sc = s; ring = []; for (let k = 0; k < b.n; k++) ring.push([b.p[k * 2], b.p[k * 2 + 1]]); u0 = b.tint * 9; bot = (g - 0.02 - gc) / sc; px = []; B.ring = ring; B.H = H; B.bot = bot; return B; }
   // a material's number, and what real.js's vert() reads of a building for it: the place, and the tint with the number in its whole part
   const M = mat => { const m = MI[mat]; if (m == null) throw new Error('no material ' + mat); return px[m] || (px[m] = { place: b.place, tint: m + 1.25 + b.tint * 0.5 }); };
   // a flat face of four corners (x, y, z each, in turn round it), turned towards (wx, wy, wz); q: M(material); ua, ub: along the wall at the first and the second corner
@@ -93,7 +96,7 @@
   function fan(f, a, c, m, R, sg, mat) { const pts = [], p0 = at(f, a, c); pts.push([p0[0], Y(m), p0[1]]); for (let k = 0; k <= 12; k++) { const t = k / 12 * Math.PI, q = at(f, a + Math.cos(t) * R, c); pts.push([q[0], Y(m + Math.sin(t) * R), q[1]]); } face(pts, [f.w[0] * sg, 0, f.w[1] * sg], mat, 2, 0); }
   // the outline as it is, in a material, with what the options add: o: { m: the walls, r: the roof, hull: its dents filled, c: corners cut by this,
   // fl: [share, m]: the foot spread to that share up to m, st: [[share of H, drawn in by m, material], ...]: the steps of its top, from the lowest }
-  function skin(o, r, H) { r = r || ring; H = H || b.h; if (o.hull) r = hull(r); if (o.c) r = cham(r, o.c * K);
+  function skin(o, r, H) { r = r || ring; H = H || B.H; if (o.hull) r = hull(r); if (o.c) r = cham(r, o.c * K);
     const st = o.st || []; let m0 = b.base > 0 && b.base < H ? b.base : bot, cur = r, mat = o.m;
     if (o.fl) { wall(scl(r, o.fl[0]), m0, o.fl[1], mat, { top: r, hh: H }); m0 = o.fl[1]; }
     for (let i = 0; i <= st.length; i++) { const m1 = i < st.length ? st[i][0] * H : H; ext(cur, m0, m1, mat, { r: o.r }); if (i < st.length) { cur = inset(r, st[i][1] * K); m0 = m1; mat = st[i][2] || o.m; } }
@@ -145,7 +148,7 @@
     ['One Embarcadero Center', [[-122.399410, 37.794514, 173, 8, 671], [-122.399370, 37.794595, 134, 4, 363], [-122.399893, 37.794577, 112, 4, 232], [-122.399262, 37.794460, 134, 4, 453], [-122.399773, 37.794343, 112, 4, 204]], { m: 'cc' }],
     ['Two Embarcadero Center', [[-122.398256, 37.795026, 130, 6, 952], [-122.398705, 37.794860, 93, 6, 740], [-122.398160, 37.795143, 93, 6, 808]], { m: 'cc' }],
     ['Three Embarcadero Center', [[-122.397097, 37.795057, 93, 7, 997], [-122.397739, 37.795192, 93, 6, 697], [-122.397091, 37.795179, 130, 6, 903]], { m: 'cc' }],
-    ['Four Embarcadero Center', [[-122.395961, 37.795336, 144, 6, 713], [-122.396387, 37.795363, 134, 4, 416], [-122.396194, 37.795165, 128, 4, 410], [-122.396216, 37.795444, 128, 4, 314], [-122.395927, 37.795260, 134, 4, 393]], { m: 'cc' }],
+    ['Four Embarcadero Center', [[-122.395961, 37.795336, 144, 6, 713], [-122.396387, 37.795363, 134, 4, 416], [-122.396194, 37.795165, 128, 4, 410], [-122.396216, 37.795444, 128, 4, 314], [-122.395927, 37.795260, 134, 4, 393]], { m: 'cc', H: 174 }],   // (the data: 144 m; in life 571 ft)
     ['Hyatt Regency', [[-122.396319, 37.794456, 61, 8, 880], [-122.396182, 37.794505, 19, 6, 127], [-122.396001, 37.794559, 16, 6, 127], [-122.396234, 37.794559, 13, 5, 110], [-122.396234, 37.794590, 10, 4, 76], [-122.395296, 37.794532, 61, 7, 1892], [-122.395944, 37.794209, 58, 6, 280], [-122.396046, 37.794227, 54, 6, 319], [-122.396171, 37.794240, 51, 6, 237], [-122.395415, 37.794689, 48, 6, 169], [-122.396029, 37.794303, 45, 6, 250], [-122.396143, 37.794316, 42, 6, 194], [-122.396148, 37.794343, 38, 6, 221], [-122.396154, 37.794370, 35, 6, 171], [-122.396194, 37.794397, 32, 6, 206], [-122.395949, 37.794451, 29, 6, 136], [-122.396171, 37.794451, 26, 6, 163], [-122.396177, 37.794478, 22, 6, 128]], { m: 'cb' }, [[[-122.396006, 37.794038, 83, 4, 933], ['hyatt']]]],
     ['101 California', [-122.397921, 37.792870, 183, 17, 2416], { m: 'gv', hull: 1, st: [[0.965, 3]] }, [[[-122.398336, 37.792794, 183, 6, 237], { m: 'gv' }], [[-122.398427, 37.792978, 13, 7, 2012], ['lean', { m: 'gs', to: T101, h0: 6, h1: 22 }]]]],
     ['345 California Center', [[-122.400711, 37.792574, 150, 4, 344], [-122.400341, 37.792533, 115, 6, 268], [-122.400245, 37.792628, 150, 4, 371], [-122.400620, 37.792663, 115, 6, 258]], { m: 'pk' }, [[[[-122.400574, 37.792592, 154, 4, 73], [-122.400381, 37.792614, 154, 4, 79]], ['spire']]]],
@@ -159,7 +162,7 @@
     ['The Infinity', [[-122.390648, 37.789421, 132, 13, 1042], [-122.391393, 37.789380, 117, 13, 1032]], { m: 'gg', st: [[0.96, 3]] }],
     ['Four Seasons (757 Market)', [-122.404358, 37.786438, 121, 9, 1852], { m: 'st', st: [[0.93, 3]] }],
     ['Marriott Marquis', [-122.404256, 37.785329, 137, 16, 3144], ['marriott']],
-    ['140 New Montgomery', [-122.399796, 37.786613, 83, 12, 1361], ['pacbell']],
+    ['140 New Montgomery', [-122.399796, 37.786613, 83, 12, 1361], ['pacbell', { H: 133 }]],   // (the data: 83 m; in life 435 ft)
     ['Russ Building', [-122.402728, 37.791433, 127, 12, 552], { m: 'tc', st: [[0.9, 1.5], [0.955, 3.5]] }, [[[[-122.402898, 37.791401, 77, 4, 237], [-122.402779, 37.791716, 51, 6, 765], [-122.402648, 37.791123, 51, 6, 591], [-122.402756, 37.791244, 70, 4, 75], [-122.402762, 37.791581, 70, 4, 98]], { m: 'tc' }]]],
     ['Shell Building', [-122.399910, 37.791509, 115, 4, 692], { m: 'sp', st: [[0.74, 2], [0.84, 4.5], [0.93, 7.5]] }],
     ['One Sansome', [-122.401296, 37.790418, 171, 5, 1732], { m: 'gr', st: [[0.13, 2.5], [0.955, 5.5]] }, [[[[-122.401268, 37.790413, 171, 4, 1227], [-122.401444, 37.790445, 171, 6, 70], [-122.401171, 37.790404, 171, 8, 80], [-122.401324, 37.790413, 171, 5, 1297]], 0], [[-122.400927, 37.790557, 14, 4, 1158], ['hall']]]],
@@ -194,29 +197,43 @@
   ];
 
   // ---- the three calls of js/map3d/real.js ----
-  const found = []; let bad = false;
-  // match(grid, ck): once, as real.js has sorted the outlines; grid.get(ck(x, z)): the outlines about a point. Each outline of the table gets its shape (b.hero)
+  const found = []; let ok = null;   // ok: whether the look's vertex shader can read the table (shade), null until it has been asked: no building is made here before it is true
+  // the shape of an entry's own outlines: with its height in life (H), its options also carry the share (k) its outlines are drawn taller by, from the tallest of them
+  const own = e => { const sh = e[2], o = Array.isArray(sh) ? sh[1] : sh; if (!o || !(o.H > 0)) return sh; const ks = typeof e[1][0] === 'number' ? [e[1]] : e[1], k = o.H / Math.max(...ks.map(q => q[2]));
+    return Array.isArray(sh) ? [sh[0], Object.assign({}, o, { k })] : Object.assign({}, o, { k }); };
+  // match(grid, ck): once, as real.js has sorted the outlines; grid.get(ck(x, z)): the outlines about a point. Each outline of the table gets its shape (b.hero).
+  // Should it fail as a whole (not one entry: that entry alone is left out), no outline keeps a shape
   function match(grid, ck) { found.length = 0; if (!ON) return; const find = (x, z) => grid.get(ck(x, z)); for (const l of grid.values()) for (const b of l) b.hero = undefined;   // (every record gets the member, so they all stay of one kind for the engine)
     const inRing = (p, n, x, z) => { let c = false; for (let i = 0, j = n - 1; i < n; j = i++) { const xi = p[i * 2], zi = p[i * 2 + 1], xj = p[j * 2], zj = p[j * 2 + 1]; if ((zi > z) !== (zj > z) && x < (xj - xi) * (z - zi) / (zj - zi) + xi) c = !c; } return c; };
     const one = (k, shape, row) => { const p = Geom.proj(k), l = find(p[0], p[1]) || []; let best = null, bd = 0.12; row.want++;
       for (const b of l) { if (b.h !== k[2] || b.n !== k[3] || b.hero !== undefined || !inRing(b.p, b.n, p[0], p[1])) continue; const d = Math.abs(b.area / (K * K) / k[4] - 1); if (d < bd) { bd = d; best = b; } }
       if (best) { best.hero = shape; row.got++; } };
     const all = (ks, shape, row) => { if (typeof ks[0] === 'number') one(ks, shape, row); else for (const k of ks) one(k, shape, row); };
-    for (const e of TABLE) { const row = { name: e[0], want: 0, got: 0 }; try { all(e[1], e[2], row); for (const x of e[3] || []) all(x[0], x[1], row); } catch (err) { row.err = String(err && err.message || err); } found.push(row); }
+    try { for (const e of TABLE) { const row = { name: e[0], want: 0, got: 0 }; try { all(e[1], own(e), row); for (const x of e[3] || []) all(x[0], x[1], row); } catch (err) { row.err = String(err && err.message || err); } found.push(row); } }
+    catch (e) { ok = false; for (const l of grid.values()) for (const b of l) b.hero = undefined; console.warn('3D map, the named buildings left out: ' + (e && e.message || e)); }
   }
   // put(b, …): as real.js makes the shape of outline b (b.hero set): true when the building is made here (or is not drawn), false to have the outline as the look
-  // makes it; a shape that fails throws, into real.js's own catch.
-  // vert, idx, ears: real.js's own; g: the ground it grows from; gc: the ground at its middle; s: map units of height per metre
-  function put(b, vert, idx, ears, g, gc, s) { const h = b.hero; if (!ON || bad || h == null) return false; if (h === 0) return true;
-    try { begin(b, vert, idx, ears, g, gc, s); if (Array.isArray(h)) F[h[0]](B, B.ring, b.h, h[1] || {}); else B.skin(h); return true; }
-    catch (e) { b.hero = null; console.warn('3D map, a named building stands as its outline: ' + (e && e.message || e)); throw e; } }   // (real.js takes back what was made of it and stands the plain outline up, as it does for a look that fails)
-  // shade(s): the look's shaders as real.js has written them, given the table of materials and the line that reads it. Should the look's
-  // vertex shader no longer have what the line needs, the buildings made from then on are plain outlines
-  function shade(s) { if (!ON) return; const v = s.vertexShader;
-    if (v.indexOf('vFab = ') < 0 || v.indexOf('float ft') < 0 || v.indexOf('#include <common>') < 0) { bad = true; return; }
-    s.uniforms.uHero = U;
-    s.vertexShader = v.replace('#include <common>', '#include <common>\nuniform vec4 uHero[' + NM + '];')
-      .replace('vFab = ', 'if (ft >= 1.0) { vec4 hm = uHero[int(ft) - 1]; ft = fract(ft); st = hm.a; fc = mix(uPale * hm.rgb, fpl.rgb, 0.1) * (top ? 1.0 : 0.86 + 0.14 * smoothstep(0.0, 0.26, aW.y)); }\nvFab = '); }
+  // makes it; a shape that fails throws, into real.js's own catch (b.hero null: real.js makes it as the look makes an outline).
+  // vert, idx, ears: real.js's own; g: the ground it grows from; gc: the ground at its middle; s: map units of height per metre (real.js's K times its factor)
+  function put(b, vert, idx, ears, g, gc, s) { const h = b.hero; if (!ON || ok !== true || h == null) return false; if (h === 0) return true;
+    const o = Array.isArray(h) ? h[1] || {} : h, H = b.h * (o.k || 1);
+    try { begin(b, vert, idx, ears, g, gc, s, H); if (Array.isArray(h)) F[h[0]](B, B.ring, H, o); else B.skin(h); return true; }
+    catch (e) { b.hero = null; console.warn('3D map, a named building stands as its outline: ' + (e && e.message || e)); throw e; } }   // (real.js takes back what was made of it and makes it again as any outline)
+  // shade(s): the look's shaders as real.js has written them, given the table of materials and the line that reads it. real.js asks it once on its own copy of
+  // the look's shader text as soon as it makes the look's material, before any building is made, then again as each program is made. Should that text not
+  // have everything the line reads (or real.js give no height factor), the named buildings are left out (said once) and every outline stands as the look makes it.
+  // The line: a named building's colour, as a real building's, is the look's pale (here times its material's colour) with the same share of its place's colour
+  // (a lens, the quiz, a selection and a fade move it as they move its neighbours); its walls a little darker below about 15 m, as real.js's are
+  const NEED = ['#include <common>', 'vFab = ', 'float ft', 'bool top', 'tall = ', 'st = r1', 'vec3 fc = ', 'vec4 fpl', ' aW = ', 'uniform vec3 uPale', 'uniform float uRoofK', 'uniform float uWallK'];
+  function shade(s) { if (!ON) return;
+    try { const v = s && s.vertexShader, V = M3D.real && M3D.real.V, miss = NEED.filter(t => typeof v !== 'string' || v.indexOf(t) < 0);
+      if (miss.length || !(V > 0)) throw new Error('the look\'s vertex shader has no ' + (miss.length ? miss.join(', ') : 'height factor'));
+      const vs = v.replace('#include <common>', '#include <common>\nuniform vec4 uHero[' + NM + '];')
+        .replace('vFab = ', 'if (ft >= 1.0) { vec4 hm = uHero[int(ft) - 1]; ft = fract(ft); st = hm.a; fc = mix(fpl.rgb, uPale * hm.rgb, top ? uRoofK + (0.82 - uRoofK) * 0.7 * tall : uWallK + (0.86 - uWallK) * 0.72 * tall) * (top ? 1.0 : 0.86 + 0.14 * smoothstep(0.0, ' + (14.85 * K * V).toFixed(3) + ', aW.y)); }\nvFab = ');
+      if (ok === false) return; s.vertexShader = vs; if (s.uniforms) s.uniforms.uHero = U; ok = true; }
+    catch (e) { if (ok !== false) console.warn('3D map, the named buildings left out: ' + (e && e.message || e)); ok = false;
+      // (a building made here before this is known carries a material's number in its tint: where the text allows, the line that drops it, so it stands in the look's own colours)
+      try { const v = s.vertexShader; if (v.indexOf('vFab = ') >= 0 && v.indexOf('float ft') >= 0) s.vertexShader = v.replace('vFab = ', 'if (ft >= 1.0) ft = fract(ft);\nvFab = '); } catch (e2) {} } }
 
-  M3D.heroes = { on: ON, match, put, shade, found, TABLE, MAT, F, pal: U };
+  M3D.heroes = { on: ON, match, put, shade, found, TABLE, MAT, F, pal: U, get ok() { return ok; } };
 })();

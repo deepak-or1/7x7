@@ -8,6 +8,9 @@
 // camera comes near; no THREE in it. gl(THREE, ...) draws a chunk: one instanced mesh of buildings and one of trees, their colour
 // read in the shader from a small texture that holds every place's colour as the app paints it (so a lens, a fade or the quiz
 // recolours the fabric for nothing), their height grown from the ground as the map comes close.
+// The looks (env.look, the look given to gl; ?m3d-look=a|b|c, '0' or none: the plain houses they were): in the Victorian places a
+// house turns its gable to the street and carries a bay on that front; along the avenues the rows are flat-roofed, with the bay;
+// every house takes a wall colour of its own from its place's colour, windows by day, an edge to its roof.
 // World frame: x = map x, z = map y (south), y = up; one unit is one map unit, about 143 m.
 (function () {
   'use strict';
@@ -32,6 +35,9 @@
   const TURN = { 'South of Market': 45, 'Outer Sunset': 0, 'Parkside': 0, 'Inner Sunset': 0, 'Outer Richmond': 0, 'Inner Richmond': 0, 'Lakeshore': 0, 'Seacliff': 0, 'Bayview': 38, 'Excelsior': 32, 'Outer Mission': 32, 'Crocker Amazon': 32, 'Visitacion Valley': 20, 'Potrero Hill': 4, 'Mission': 4, 'Noe Valley': 4, 'Castro/Upper Market': 4, 'Bernal Heights': 12, 'Treasure Island/YBI': 22 };
   // the parks inside a San Francisco place, by the name of the section that is one: the clearing's radius in map units
   const POCKET = { 'Alamo Square': 0.75, 'Buena Vista Park': 1.3, 'Dolores Park': 0.9, 'Washington Square': 0.5, 'Telegraph Hill': 0.8, 'Marina Green': 1.2, 'Fort Mason': 1.1, 'Alta Plaza': 0.8, 'Lafayette Park': 0.8, 'Aquatic Park': 0.7, 'Huntington Park': 0.4, 'Bernal Hill': 1.5, 'Precita Park': 0.5, 'Holly Park': 0.6, 'Balboa Park': 1.2, 'McLaren Park': 3, 'McLaren Park South': 2, 'Crocker Amazon Park': 1.4, 'Bayview Hill & Candlestick': 2, 'Lake Merced': 3, 'Stern Grove': 1.5, 'Fort Funston': 2, 'SF Zoo': 1.6, 'Mount Davidson': 1.5, 'Twin Peaks Summit': 1.6, 'Tank Hill': 0.5, 'Glen Canyon': 1.8, 'Glen Canyon Park': 1.8, 'Lincoln Park': 2.6, 'South Park': 0.35, 'Pine Lake Park': 0.8 };
+  // the looks: where the houses are Victorians (a gable and a bay to the street), and where they are the avenues' rows (a flat roof and a bay)
+  const VICT = ['Haight Ashbury', 'Castro/Upper Market', 'Noe Valley', 'Mission', 'Western Addition', 'Pacific Heights', 'Presidio Heights', 'Russian Hill', 'Nob Hill', 'North Beach', 'Bernal Heights', 'Potrero Hill', 'Glen Park', 'Inner Richmond'];
+  const ROWS = ['Marina', 'Inner Sunset', 'Outer Sunset', 'Outer Richmond', 'Parkside'];
   const POCKET_RE = /(Regional|State|Memorial|Shoreline|Community|Central|City) Park|Preserve|Open Space|Wilderness|Golf|Marsh|Arboretum|Redwood|Woods\b|Botanical|Reservoir/;
   // where the buildings stand tall: [lon, lat, radius in map units, strength]; and along the Strip (given by the caller)
   const CORES = [[-122.3995, 37.7915, 9, 1], [-122.2712, 37.805, 6.5, 0.7], [-121.889, 37.3335, 6.5, 0.65], [-122.268, 37.8703, 3.2, 0.35], [-122.1617, 37.4447, 2.6, 0.3], [-122.0308, 37.9063, 2.6, 0.3]];
@@ -72,14 +78,15 @@
       for (const s of SUBD[h.name] || []) { const r = sf ? POCKET[s.name] : POCKET_RE.test(s.name) ? 2.4 : 0; if (r) { const p = proj([s.lon, s.lat]); P.parks.push([p[0], p[1], r]); } }
       // its sections' seeds: the lines between sections (drawn on the block's top) run along a street kept clear of buildings
       P.seeds = (SUBD[h.name] || []).map(s => proj([s.lon, s.lat])); if (P.seeds.length < 2) P.seeds = null;
+      P.bay = sf && VICT.includes(h.name) ? 1 : sf && ROWS.includes(h.name) ? 2 : 0;
       return plans[i] = P;
     }
 
     // ---- one chunk ----
     function chunk(ix, iz) {
-      const x0 = ix * CS, z0 = iz * CS, x1 = x0 + CS, z1 = z0 + CS, B = [], T = [];
+      const x0 = ix * CS, z0 = iz * CS, x1 = x0 + CS, z1 = z0 + CS, B = [], T = [], styled = !!(env.look && env.look !== '0'); let bays = 0;
       const own = (x, z) => x >= x0 && x < x1 && z >= z0 && z < z1;
-      const tree = (P, x, z, r, tint, yard) => { if (env.solid && ((yard && env.dense(x, z)) || env.solid(x, z, r * 0.7))) return; if (!env.inTop(P.i, x, z) || !env.inTop(P.i, x + r, z + r * 0.5) || !env.inTop(P.i, x - r, z - r * 0.5) || blocked(x, z, r * 0.6)) return; T.push(x, hAt(P.i, x, z), z, r, P.i, tint, 0); };
+      const tree = (P, x, z, r, tint, yard) => { if (env.solid && ((yard && env.dense(x, z)) || env.solid(x, z, r * 0.7))) return; if (!env.inTop(P.i, x, z) || !env.inTop(P.i, x + r, z + r * 0.5) || !env.inTop(P.i, x - r, z - r * 0.5) || blocked(x, z, r * 0.6) || (env.road && env.road(x, z, r + 0.12))) return; T.push(x, hAt(P.i, x, z), z, r, P.i, tint, 0); };
       for (let i = 0; i < HOODS.length; i++) {
         const bb = BB[i]; if (bb[2] < x0 - 3 || bb[0] > x1 + 3 || bb[3] < z0 - 3 || bb[1] > z1 + 3) continue;
         const P = plan(i), c = P.c, s = P.s;
@@ -103,10 +110,10 @@
           if (bx < bb[0] - 2 || bx > bb[2] + 2 || bz < bb[1] - 2 || bz > bb[3] + 2) continue;
           const R = rng(mix32(P.seed, gi, gj)), d = core(bx, bz), tall = d > 0.22;
           // a lot's building: (a, b) on the block, a across the rows, b along them; w along the row, dp deep
-          const put = (a, b, w, dp, hh, roof) => {
+          const put = (a, b, w, dp, hh, roof, big) => {
             const lu = rows ? b : a, lv = rows ? a : b, x = P.ox + (uc + lu) * c + (vc + lv) * s, z = P.oz - (uc + lu) * s + (vc + lv) * c;
             const sx = rows ? w : dp, sz = rows ? dp : w, hx = sx / 2, hz = sz / 2;   // sx along the grid's u, sz along its v
-            if (inPark(x, z) || blocked(x, z, Math.max(hx, hz)) || !env.inTop(P.i, x, z)) return;
+            if (inPark(x, z) || blocked(x, z, Math.max(hx, hz)) || !env.inTop(P.i, x, z) || (env.road && env.road(x, z, Math.max(hx, hz)))) return;   // (a road runs here: js/map3d/roads.js)
             if (env.solid && (env.dense(x, z) || env.solid(x, z, Math.max(hx, hz) + 0.04))) return;   // real buildings stand here (js/map3d/real.js), or this is the part of town where every building is real
             // clear of the block's edge by a narrow street (CLEAR), and of the lines between the place's sections: the two nearest seeds, the distance to their bisector
             for (const [p, q] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) if (!env.inTop(P.i, x + (p * (hx + CLEAR) * c + q * (hz + CLEAR) * s), z + (-p * (hx + CLEAR) * s + q * (hz + CLEAR) * c))) return;
@@ -115,7 +122,11 @@
             // the ridge of a pitched roof runs along the row: the box's long side is turned to lie along local x
             // on a slope it stands on the lowest ground under its corners, and is as tall above the ground at its middle as on the flat
             const gy = hAt(P.i, x, z); let y = gy; for (const [p, q] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { const g = hAt(P.i, x + (p * hx * c + q * hz * s), z + (-p * hx * s + q * hz * c)); if (g < y) y = g; } hh += gy - y;
-            if (sx >= sz) B.push(x, y, z, P.a, sx, hh, sz, roof, P.i, R(), 0); else B.push(x, y, z, P.a + Math.PI / 2, sz, hh, sx, roof, P.i, R(), 0);
+            const tint = R(), t2 = (tint * 7919.3) % 1;
+            // the looks: a house of the rows turns its front to the street (its local x points there: the gable's end, the bay on it); its tint, 2 and over, says so
+            if (styled && P.bay && a !== 0 && !big && t2 < 0.86) { const sd = a > 0 ? 1 : -1, t3 = (tint * 104729.1) % 1; bays++;
+              B.push(x, y, z, rows ? P.a - sd * Math.PI / 2 : P.a + (sd > 0 ? 0 : Math.PI), dp, hh, w, P.bay === 1 && t3 > 0.22 ? 0.36 + 0.2 * t3 : 0, P.i, tint + 2, 0); return; }
+            if (sx >= sz) B.push(x, y, z, P.a, sx, hh, sz, roof, P.i, tint, 0); else B.push(x, y, z, P.a + Math.PI / 2, sz, hh, sx, roof, P.i, tint, 0);
           };
           if (!tall && R() < P.big) { // one big building on the block: a school, a market, a depot
             put(0, 0, ih * (0.5 + R() * 0.3), iw * (0.6 + R() * 0.25), P.h0 * (1.1 + R() * 0.7), 0);
@@ -128,7 +139,7 @@
                 const r1 = R(), r2 = R(), r3 = R();
                 if (r1 < keep) {
                   const hh = tall ? lerp(P.h0, P.h1, r2) + Math.pow(d, 1.5) * (0.35 + 0.95 * r2 * r2) : lerp(P.h0, P.h1, r2);
-                  put(side * (iw / 2 - dp / 2), t + lw / 2, lw - P.gap, dp, hh, tall || r3 > 0.72 ? 0 : P.roof * (0.75 + r3 * 0.5));
+                  put(side * (iw / 2 - dp / 2), t + lw / 2, lw - P.gap, dp, hh, tall || r3 > 0.72 ? 0 : P.roof * (0.75 + r3 * 0.5), tall);
                 }
                 t += lw;
               }
@@ -149,7 +160,7 @@
       }
       // in a seeded random order, so the first half of a chunk is an even half of it (a lighter fabric draws a part of each chunk)
       const shuffle = (A, n) => { const R = rng(mix32(77, ix, iz)), m = A.length / n, tmp = new Array(n); for (let i = m - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); if (i === j) continue; for (let k = 0; k < n; k++) tmp[k] = A[i * n + k]; for (let k = 0; k < n; k++) { A[i * n + k] = A[j * n + k]; A[j * n + k] = tmp[k]; } } return new Float32Array(A); };
-      return { ix, iz, b: shuffle(B, NB), nb: B.length / NB, t: shuffle(T, NT), nt: T.length / NT };
+      return { ix, iz, b: shuffle(B, NB), nb: B.length / NB, t: shuffle(T, NT), nt: T.length / NT, bays };
     }
     return { chunk, plan, core };
   }
@@ -159,7 +170,8 @@
   // row 1; uTexW its width; uGrow: how far the fabric stands, 0 to 1; uFocus: x, z of the view's middle, and the distances between
   // which the fabric sinks away; uPale, uRoofK, uWallK: what the buildings are mixed towards and how far; uTree, uTreeK the same
   // for trees; uWin: the colour of lit windows, black by day)
-  function gl(THREE, U) {
+  function gl(THREE, U, look) {
+    const NEW = look === 'a' || look === 'b' || look === 'c';
     const HEAD = `
 attribute vec4 aPos; attribute vec4 aSize; attribute vec3 aInfo;
 uniform sampler2D uPlace; uniform float uTexW; uniform float uGrow; uniform vec4 uFocus;
@@ -167,18 +179,57 @@ vec4 fabPlace() { return texture2D(uPlace, vec2((aInfo.x + 0.5) / uTexW, 0.25));
 float fabGrow(vec2 at) { float g = texture2D(uPlace, vec2((aInfo.z + 0.5) / uTexW, 0.75)).r; return uGrow * g * (1.0 - smoothstep(uFocus.z, uFocus.w, distance(at, uFocus.xy))); }
 vec3 fabTurn(vec3 p, float a) { float c = cos(a), s = sin(a); return vec3(c * p.x + s * p.z, p.y, -s * p.x + c * p.z); }`;
     // a building: the unit box under a ridge (uv.y marks the ridge's two points; uv.x the two slopes of the roof, by sign)
-    const B_POS = `
+    // (the looks: uv.y 2 marks a bay's points, on the unit building that has one: out from the front wall by a fixed depth, to one side of
+    // the front by the house's tint; on a house without a bay, tint under 2, they all lie at its foot and draw nothing)
+    const B_POS = NEW ? `
+float fg = fabGrow(aPos.xz); vec4 fpl = fabPlace(); float fr = aSize.w * aSize.z * 0.5, bay = step(1.5, uv.y), rdg = uv.y - 2.0 * bay, bx = bay * step(0.75, position.x);
+vec3 fl = vec3((position.x - bx) * aSize.x + bx * min(0.06, 0.22 * aSize.x), (position.y * aSize.y + rdg * fr) * fg, (position.z + bay * (fract(aInfo.y * 3.7) > 0.5 ? 0.2 : -0.2)) * aSize.z) * (1.0 - bay * (1.0 - step(1.5, aInfo.y)));
+vec3 transformed = fabTurn(fl, aPos.w) * step(0.02, fg) + vec3(aPos.x, aPos.y + fpl.a, aPos.z);` : `
 float fg = fabGrow(aPos.xz); vec4 fpl = fabPlace(); float fr = aSize.w * aSize.z * 0.5;
 vec3 transformed = fabTurn(vec3(position.x * aSize.x, (position.y * aSize.y + uv.y * fr) * fg, position.z * aSize.z), aPos.w) * step(0.02, fg) + vec3(aPos.x, aPos.y + fpl.a, aPos.z);`;
     const B_NOR = `
-vec3 objectNormal = uv.x != 0.0 ? normalize(vec3(0.0, 0.5 * aSize.z, uv.x * aSize.w * aSize.z * 0.5)) : vec3(normal); objectNormal = fabTurn(objectNormal, aPos.w);`;
+vec3 objectNormal = uv.x != 0.0 ? normalize(vec3(0.0, 0.5 * aSize.z, uv.x * aSize.w * aSize.z * ${NEW ? '0.18' : '0.5'})) : vec3(normal); objectNormal = fabTurn(objectNormal, aPos.w);`;   // (the looks: a roof's two slopes are lit a little more alike than they lie, so a steep roof keeps its place's colour on both)
     const T_POS = `
 float fg = fabGrow(aPos.xz); vec4 fpl = fabPlace();
 vec3 transformed = position * aPos.w * vec3(1.0, 1.25, 1.0) * fg * step(0.02, fg) + vec3(aPos.x, aPos.y + fpl.a + aPos.w * 0.8 * fg, aPos.z);`;
     const uni = s => { for (const k in U) s.uniforms[k] = U[k]; };
     const bld = new THREE.MeshStandardMaterial({ metalness: 0, roughness: 0.86 });
-    bld.customProgramCacheKey = () => 'm3d-fab-b';
+    bld.customProgramCacheKey = () => 'm3d-fab-b' + (NEW ? '-' + look : '');
+    // the looks. K: how strongly the windows are drawn by day; V: how far a house's wall colour may stand from its place's; P: a pitched roof towards
+    // the place's own colour, deeper [how deep, how far]; c keeps the plain colours and takes the shapes and the roofs' edges only
+    const LK = { a: { K: 0.75, V: 1, P: [1, 0] }, b: { K: 1.5, V: 1.5, P: [0.62, 0.65] }, c: { K: 0, V: 0, P: [1, 0] } }[look] || {}, fl = v => v.toFixed(3);
+    const styled = s => {
+      s.vertexShader = s.vertexShader.replace('#include <common>', '#include <common>' + HEAD + '\nuniform vec3 uPale; uniform float uRoofK; uniform float uWallK;\nvarying vec3 vFab; varying vec3 vWin; varying vec4 vHse;')
+        .replace('#include <beginnormal_vertex>', B_NOR).replace('#include <begin_vertex>', B_POS + `
+bool top = normal.y > 0.5 || uv.x != 0.0, pitched = uv.x != 0.0 && aSize.w > 0.01; float ft = fract(aInfo.y), h1 = fract(ft * 7.31), h2 = fract(ft * 13.7), h3 = fract(ft * 29.3);
+// a wall of its own, from its place's colour: paler or deeper than its neighbours, one in ten deep, a breath warmer or cooler
+vec3 wall = mix(fpl.rgb, uPale, clamp(uWallK + (h2 - 0.45) * ${fl(0.5 * LK.V)}, 0.0, 0.92)) * (0.9 + 0.2 * h1);
+if (h3 > 0.9) wall = mix(wall, fpl.rgb * 0.76, ${fl(Math.min(1, 0.6 * LK.V))});
+wall *= vec3(1.0 + ${fl(0.06 * LK.V)} * (h3 - 0.5), 1.0, 1.0 - ${fl(0.06 * LK.V)} * (h3 - 0.5));
+vec3 roofc = mix(fpl.rgb, uPale, uRoofK) * (0.9 + 0.2 * h1); if (fract(ft * 3.17) > 0.8) roofc = mix(roofc, fpl.rgb * 0.8, 0.55);
+if (pitched) roofc = mix(roofc, fpl.rgb * ${fl(LK.P[0])}, ${fl(LK.P[1])});
+vFab = top ? roofc : wall; vWin = vec3((abs(normal.x) > 0.5 ? position.z * aSize.z : position.x * aSize.x) + ft * 9.0, position.y * aSize.y, top ? 0.0 : 1.0);
+// for the roof's edge: how far a point of the top is from its eaves (the two ways), the height of the walls, and where on a pitched roof (0 the eaves, 1 the ridge; -1 a flat roof)
+vHse = vec4(bay > 0.5 ? 9.0 : (0.5 - abs(position.x)) * aSize.x, bay > 0.5 ? 9.0 : (0.5 - abs(position.z)) * aSize.z, aSize.y, pitched ? rdg : -1.0);`);
+      s.fragmentShader = s.fragmentShader.replace('#include <common>', `#include <common>
+varying vec3 vFab; varying vec3 vWin; varying vec4 vHse; uniform vec3 uWin;
+float m3dBox(float f, float a, float b, float w) { float e = min(w, 0.3) + 0.0001; return mix(b - a, smoothstep(a - e, a + e, f) * (1.0 - smoothstep(b - e, b + e, f)), 1.0 - clamp(w * 1.7 - 0.2, 0.0, 1.0)); }`)
+        .replace('#include <color_fragment>', `diffuseColor.rgb = vFab;
+if (vWin.z < 0.5) { float d = min(vHse.x, vHse.y), e = fwidth(d) + 0.00001, see = 1.0 - clamp(e / 0.012 - 0.5, 0.0, 1.0);
+  if (vHse.w < -0.5) { float cop = 1.0 - smoothstep(0.012 - e, 0.012 + e, d), ln = (1.0 - cop) * (1.0 - smoothstep(0.021 - e, 0.021 + e, d)); diffuseColor.rgb *= 1.0 + see * (0.06 * cop - 0.13 * ln - 0.035 * (1.0 - cop) * (1.0 - ln)); }   // a flat roof: its coping, the line of shade inside it
+  else diffuseColor.rgb *= (1.0 - see * 0.08 * (1.0 - smoothstep(0.011 - e, 0.011 + e, d))) * (0.99 + 0.05 * smoothstep(0.8, 1.0, vHse.w));   // a pitched one: a darker edge at the eaves, lighter along the ridge
+} else { float y = vWin.y, fy = fwidth(y) + 0.00001;
+  diffuseColor.rgb *= 1.0 - 0.07 * (1.0 - smoothstep(0.02 - fy, 0.02 + fy, y)) * (1.0 - clamp(fy / 0.012 - 0.6, 0.0, 1.0));   // its foot
+${LK.K > 0 ? `  vec2 wc = vWin.xy / vec2(0.07, 0.06), wf = fract(wc), fw = vec2(fwidth(wc.x), fwidth(wc.y));
+  diffuseColor.rgb *= 1.0 - ${fl(0.15 * LK.K)} * m3dBox(wf.x, 0.26, 0.74, fw.x) * m3dBox(wf.y, 0.32, 0.76, fw.y) * step(y, vHse.z - 0.012) * (1.0 - clamp(max(fw.x, fw.y) * 1.7 - 0.9, 0.0, 1.0));` : ''}
+}`)
+        .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+if (uWin.r + uWin.g + uWin.b > 0.0) { vec2 wc = vWin.xy / vec2(${LK.K > 0 ? '0.07' : '0.075'}, 0.06), wi = floor(wc), wf = wc - wi;
+  float lit = step(0.6, fract(sin(dot(wi, vec2(12.9898, 78.233))) * 43758.5453)) * step(0.22, wf.x) * step(wf.x, 0.78) * step(0.3, wf.y) * step(wf.y, 0.74);
+  float fw = max(fwidth(wc.x), fwidth(wc.y)); totalEmissiveRadiance += uWin * mix(lit, 0.1, clamp(fw * 1.4 - 0.25, 0.0, 1.0)) * vWin.z; }`);
+    };
     bld.onBeforeCompile = s => { uni(s);
+      if (NEW) return styled(s);
       s.vertexShader = s.vertexShader.replace('#include <common>', '#include <common>' + HEAD + '\nuniform vec3 uPale; uniform float uRoofK; uniform float uWallK;\nvarying vec3 vFab; varying vec3 vWin;')
         .replace('#include <beginnormal_vertex>', B_NOR).replace('#include <begin_vertex>', B_POS + `
 bool top = normal.y > 0.5 || uv.x != 0.0; float ft = aInfo.y;
@@ -201,7 +252,7 @@ if (uWin.r + uWin.g + uWin.b > 0.0) { vec2 wc = vWin.xy / vec2(0.075, 0.06), wi 
     };
     // what the key light's shadow pass draws: the same shapes
     const depthOf = (pos, key) => { const m = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking }); m.customProgramCacheKey = () => key; m.onBeforeCompile = s => { uni(s); s.vertexShader = s.vertexShader.replace('#include <common>', '#include <common>' + HEAD).replace('#include <begin_vertex>', pos); }; return m; };
-    const bldDepth = depthOf(B_POS, 'm3d-fab-bd'), treeDepth = depthOf(T_POS, 'm3d-fab-td');
+    const bldDepth = depthOf(B_POS, 'm3d-fab-bd' + (NEW ? '-n' : '')), treeDepth = depthOf(T_POS, 'm3d-fab-td');
     // the unit building: four walls, two slopes that lie flat when the roof has no pitch, two gable ends
     const bg = (() => {
       const P = [], N = [], V = [], quad = (a, b, c, d, n, uv) => { for (const q of [a, b, c, a, c, d]) { P.push(q[0], q[1], q[2]); N.push(n[0], n[1], n[2]); V.push(uv[0], q[3] || 0); } }, h = 0.5;
@@ -209,7 +260,17 @@ if (uWin.r + uWin.g + uWin.b > 0.0) { vec2 wc = vWin.xy / vec2(0.075, 0.06), wi 
       quad([h, 0, h], [h, 0, -h], [h, 1, -h], [h, 1, h], [1, 0, 0], [0]); quad([-h, 0, -h], [-h, 0, h], [-h, 1, h], [-h, 1, -h], [-1, 0, 0], [0]);
       quad([-h, 1, h], [h, 1, h], [h, 1, 0, 1], [-h, 1, 0, 1], [0, 1, 0], [1]); quad([h, 1, -h], [-h, 1, -h], [-h, 1, 0, 1], [h, 1, 0, 1], [0, 1, 0], [-1]);
       for (const [x, n] of [[h, 1], [-h, -1]]) for (const q of n > 0 ? [[x, 1, h], [x, 1, -h], [x, 1, 0, 1]] : [[x, 1, -h], [x, 1, h], [x, 1, 0, 1]]) { P.push(q[0], q[1], q[2]); N.push(n, 0, 0); V.push(0, q[3] || 0); }
-      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(P), 3)); g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(N), 3)); g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(V), 2)); return g;
+      const geo = () => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(P), 3)); g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(N), 3)); g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(V), 2)); return g; };
+      if (!NEW) return geo();
+      // the looks: the same shapes with each point kept once and an index (30 points a building for 42: less for every house to work out), and
+      // the same with a bay on the front wall (x = 0.5; x 1.5 its face, set out by the shader): two sides that lean in, a face, a top that slopes back to the wall
+      const once = () => { const at = new Map(), p = [], n = [], v = [], ix = []; for (let k = 0; k < P.length / 3; k++) { const key = [P[k * 3], P[k * 3 + 1], P[k * 3 + 2], N[k * 3], N[k * 3 + 1], N[k * 3 + 2], V[k * 2], V[k * 2 + 1]].join(','); let i = at.get(key); if (i === undefined) { i = p.length / 3; at.set(key, i); p.push(P[k * 3], P[k * 3 + 1], P[k * 3 + 2]); n.push(N[k * 3], N[k * 3 + 1], N[k * 3 + 2]); v.push(V[k * 2], V[k * 2 + 1]); } ix.push(i); }
+        const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(p), 3)); g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(n), 3)); g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(v), 2)); g.setIndex(new THREE.BufferAttribute(new Uint16Array(ix), 1)); return g; };
+      const plain = once();
+      const zw = 0.2, zf = 0.12, yf = 0.84, yw = 0.94, bq = (a, b, c, d, n) => { for (const q of [a, b, c, a, c, d]) { P.push(q[0], q[1], q[2]); N.push(n[0], n[1], n[2]); V.push(0, 2); } };
+      bq([1.5, 0, zf], [1.5, 0, -zf], [1.5, yf, -zf], [1.5, yf, zf], [1, 0, 0]); bq([h, 0, zw], [1.5, 0, zf], [1.5, yf, zf], [h, yw, zw], [0.5, 0, 0.87]);
+      bq([1.5, 0, -zf], [h, 0, -zw], [h, yw, -zw], [1.5, yf, -zf], [0.5, 0, -0.87]); bq([1.5, yf, zf], [1.5, yf, -zf], [h, yw, -zw], [h, yw, zw], [0.2, 0.98, 0]);
+      plain.bay = once(); return plain;
     })();
     const tg = new THREE.IcosahedronGeometry(1, 0);
     function inst(base, data, n, per, cx, cy, cz, up, sizes, mat, depth) {
@@ -223,9 +284,9 @@ if (uWin.r + uWin.g + uWin.b > 0.0) { vec2 wc = vWin.xy / vec2(0.075, 0.06), wi 
       for (let i = 0; i < c.nb; i++) c.b[i * NB + 10] = slot; for (let i = 0; i < c.nt; i++) c.t[i * NT + 6] = slot;
       let y0 = Infinity, y1 = -Infinity; for (let i = 0; i < c.nb; i++) { const y = c.b[i * NB + 1]; if (y < y0) y0 = y; if (y > y1) y1 = y; } for (let i = 0; i < c.nt; i++) { const y = c.t[i * NT + 1]; if (y < y0) y0 = y; if (y > y1) y1 = y; }
       const cx = (c.ix + 0.5) * CS, cz = (c.iz + 0.5) * CS, y = y0 < Infinity ? (y0 + y1) / 2 : 0, up = y0 < Infinity ? (y1 - y0) / 2 : 0;   // (the ground under a chunk is not level)
-      return { b: c.nb ? inst(bg, c.b, c.nb, NB, cx, y, cz, up, [['aPos', 4], ['aSize', 4], ['aInfo', 3]], bld, bldDepth) : null, t: c.nt ? inst(tg, c.t, c.nt, NT, cx, y, cz, up, [['aPos', 4], ['aInfo', 3]], tree, treeDepth) : null };
+      return { b: c.nb ? inst(c.bays && bg.bay ? bg.bay : bg, c.b, c.nb, NB, cx, y, cz, up, [['aPos', 4], ['aSize', 4], ['aInfo', 3]], bld, bldDepth) : null, t: c.nt ? inst(tg, c.t, c.nt, NT, cx, y, cz, up, [['aPos', 4], ['aInfo', 3]], tree, treeDepth) : null };
     }
-    return { mesh, mats: { bld, tree, bldDepth, treeDepth }, tris: { b: 14, t: 20 } };
+    return { mesh, mats: { bld, tree, bldDepth, treeDepth }, tris: { b: 14, t: 20, bay: 22 } };
   }
 
   window.M3D = window.M3D || {};

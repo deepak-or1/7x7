@@ -414,20 +414,20 @@
   // more landmarks, from the files loaded after this one (js/map3d/icons-*.js): each pushes { id, lon, lat, ex, ry, label, build(b),
   // mats: { name: [paper colour, night colour] } } onto window.M3D.extra; taken up once, before the icons or the skylines are made
   let adopted = false;
-  function adopt() { if (adopted) return; adopted = true; (window.M3D.extra || []).forEach(e => { if (!e || ICONS[e.id] || typeof e.build !== 'function') return; ICONS[e.id] = e.build; PLACED.push([e.id, e.lon, e.lat, e.ex, e.ry || 0, e.label]); }); }
+  function adopt() { if (adopted) return; adopted = true; (window.M3D.extra || []).forEach(e => { if (!e || ICONS[e.id] || typeof e.build !== 'function') return; ICONS[e.id] = e.build; PLACED.push([e.id, e.lon, e.lat, e.ex, e.ry || 0, e.label, !!e.flat]); }); }   // (flat: a park, not a tower: it keeps its size on the map and is named by its width)
   // ground(x, z): the ground there. near(x, z, x0, z0): the ground at (x, z) where it is the same place's top as at (x0, z0), else
   // null. A model stands on the ground at its own point; on a slope the uphill side of its base is in the hill, as a real
   // building's is, and where the ground under its plan falls away further than its base reaches down (what it has built below
   // its own ground level), it is set down until the base still meets the lowest of it
   function icons(ground, near) {
     adopt();
-    return PLACED.map(([id, lon, lat, ex, ry, label]) => {
+    return PLACED.map(([id, lon, lat, ex, ry, label, flat]) => {
       const b = new Builder(), p = proj([lon, lat]);
       b.place(0, 0, 0, ry, ex * K, () => ICONS[id](b));
       const out = b.finish(); out.geometry.computeBoundingBox(); const bb = out.geometry.boundingBox;
       let y = ground(p[0], p[1]);
       if (near) { let low = y; for (const [fx, fz] of [[bb.min.x, bb.min.z], [bb.max.x, bb.min.z], [bb.max.x, bb.max.z], [bb.min.x, bb.max.z], [bb.min.x, 0], [bb.max.x, 0], [0, bb.min.z], [0, bb.max.z]]) { const g = near(p[0] + fx * 0.8, p[1] + fz * 0.8, p[0], p[1]); if (g != null && g < low) low = g; } y = Math.min(y, low + Math.max(0, -bb.min.y) * 0.85); }
-      return Object.assign(out, { id, label, x: p[0], z: p[1], y, h: bb.max.y, r: Math.max(bb.max.x, bb.max.z, -bb.min.x, -bb.min.z) });
+      return Object.assign(out, { id, label, x: p[0], z: p[1], y, h: bb.max.y, r: Math.max(bb.max.x, bb.max.z, -bb.min.x, -bb.min.z), flat: !!flat });
     });
   }
 

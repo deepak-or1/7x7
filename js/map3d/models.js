@@ -191,8 +191,8 @@
     return f;
   }
 
-  function bayEast(b, ground) {
-    const f = RD_OFF ? bridgeFrame([-122.3590, 37.8135], [-122.3200, 37.8230], 1.7, 2.2, ground) : bridgeFrame([-122.3641, 37.8110], [-122.3277, 37.8220], 1.7, 2.2, ground), L = f.L;   // (?m3d-roads=off: where it stood before the roads, RD_OFF)
+  function bayEast(b, ground, off) {
+    const f = off ? bridgeFrame([-122.3590, 37.8135], [-122.3200, 37.8230], 1.7, 2.2, ground) : bridgeFrame([-122.3641, 37.8110], [-122.3277, 37.8220], 1.7, 2.2, ground), L = f.L;   // (?m3d-roads=off: where it stood before the roads, RD_OFF)
     const W2 = 300, Tx = 480, E2 = 865, sk1 = Math.min(L - 300, E2 + 160 * 13);
     const zr = x => x <= E2 ? 52 : x <= sk1 ? lerp(52, 12, sstep((x - E2) / (sk1 - E2))) : lerp(12, 6, (x - sk1) / (L - sk1));
     f.setDeck(zr, 0, 420);
@@ -239,12 +239,12 @@
     return f;
   }
 
-  function bridges(ground) {
-    const b = new Builder();
+  function bridges(ground, off) { // off: where they stood before the roads (?m3d-roads=off, or the roads not there: js/map3d.js)
+    if (off == null) off = RD_OFF; const b = new Builder();
     const out = { frames: {} };
-    out.frames.gg = goldenGate(b, ground); out.frames.bayWest = bayWest(b, ground); out.frames.bayEast = bayEast(b, ground);
+    out.frames.gg = goldenGate(b, ground); out.frames.bayWest = bayWest(b, ground); out.frames.bayEast = bayEast(b, ground, off);
     out.list = [out.frames.gg, out.frames.bayWest, out.frames.bayEast]; // every deck, for the soft shadows painted on the water
-    if (RD_OFF) { // where they stood before the roads (the real network's ends, below, came with js/map3d/roads.js)
+    if (off) { // where they stood before the roads (the real network's ends, below, came with js/map3d/roads.js)
     out.list.push(plainBridge(b, ground, [-122.4800, 37.9405], [-122.3960, 37.9345], { humps: [[0.3, 0.09, 56], [0.62, 0.09, 56]] }));  // Richmond-San Rafael
     out.list.push(plainBridge(b, ground, [-122.2560, 37.5660], [-122.1200, 37.6080], { humps: [[0.12, 0.08, 41]], pier: 420 }));         // San Mateo
     out.list.push(plainBridge(b, ground, [-122.1290, 37.4980], [-122.1100, 37.5118], { humps: [[0.5, 0.3, 26]], pier: 260 }));           // Dumbarton

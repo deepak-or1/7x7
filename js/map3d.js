@@ -1,4 +1,4 @@
-window.SBS_COMMIT = window.SBS_COMMIT || '3d 2026-11-27 looks2-trim';   // the build the speed tools print (js/map3d/bench.js): change it with every change to the 3D map
+window.SBS_COMMIT = window.SBS_COMMIT || '3d 2026-11-27 looks';   // the build the speed tools print (js/map3d/bench.js): change it with every change to the 3D map
 // The 3D map (beta): a second map engine beside js/map.js, with the same members and the same options, so js/app.js drives either.
 // It is inert unless index.html also loaded three.js and js/map3d/{land,models,blocks}.js (it does when the 3D map is asked for):
 // window.MapView3D returns null without them, or without WebGL, and the app makes the flat map instead.
@@ -354,8 +354,11 @@ window.SBS_COMMIT = window.SBS_COMMIT || '3d 2026-11-27 looks2-trim';   // the b
     const secG = new THREE.Group(); landG.add(secG);
     const C3 = new THREE.Color(), col = hex => { C3.set(hex); return [C3.r, C3.g, C3.b]; };
     let tiles = null, tileMesh = null, tilePos = null, tileCol = null, baseY = null, tileS = null, landMesh = null, landS = null, bridges = null, icons = [], cityParts = [];
-    let blockRings = null, cityFoot = [], cityStrip = [];
-    let roads = null;                                                     // the roads (js/map3d/roads.js), once their plan is made: { near, frames }, or none (the rest of their state: rd, below)
+    let blockRings = null, cityFoot = [], cityStrip = [], farPolys = null;
+    let roads = null;                                                     // the roads (js/map3d/roads.js), once their plan is made: { near, over, frames }, or none (the rest of their state: rd, below)
+    // the questions the generators ask of the roads and the parks: a throw in one leaves that part out (rdFail, parksGiveUp), not the generator asking
+    const rdNear = (x, z, r) => { if (!roads) return false; try { return roads.near(x, z, r); } catch (e) { rdFail(e); return false; } }, rdOver = (x, z, r) => { if (!roads || !roads.over) return Infinity; try { return roads.over(x, z, r); } catch (e) { rdFail(e); return Infinity; } };
+    const pkIn = (x, z, r) => { if (!pk || !pk.P) return false; try { return pk.P.inPark(x, z, r); } catch (e) { parksGiveUp(e); return false; } };
     let pk = null;                                                        // the parks (js/map3d/parks.js, parksLoad): { P: make's answer, gl, chunks, queue, ... }, or none
     let fineS = null, fineMesh = null, finePos = null, fineCol = null, fineBaseY = null, fineOn = false, fineBusy = false, tileSplit = 0, rimSplit = 0, rimF = null, rimBase = null, rimFBase = null, scatterY = null; // the full meshes of the places the fine grid covers (the relief), drawn close in instead of their far ones
     let rim = null, rimPos = null, flags = null, books = null, waterTex = null, wcv = null, wbox = null, wsc = 1, beam = null, nightBuilt = false, scatter = null, shadowDirty = true, vex = 1, lmScale = 1, lmB = 1, sh = {}, shT = 0, lightBasis = null;
@@ -368,15 +371,18 @@ window.SBS_COMMIT = window.SBS_COMMIT || '3d 2026-11-27 looks2-trim';   // the b
     // greens, blue the paler ones, mixed into the ground's own colour on its tops (not its walls). Made now, with an empty texture and uPkK 0
     // (nothing shows), so that nothing is compiled again when the parks arrive. ?m3d-parks=off: not at all
     const pkBlank = new THREE.DataTexture(new Uint8Array(4), 1, 1); pkBlank.needsUpdate = true;
-    const pkU = { uPkCam: { value: camera.matrixWorld }, uPkVex: { value: 1 }, uPkK: { value: 0 }, uPkLawn: { value: new THREE.Color() }, uPkDeep: { value: new THREE.Color() }, uPkPale: { value: new THREE.Color() }, uPkWater: { value: new THREE.Color() } };
+    const pkU = { uPkCam: { value: camera.matrixWorld }, uPkVex: { value: 1 }, uPkK: { value: 0 }, uPkKeep: { value: 0.28 }, uPkF: { value: new THREE.Vector4(1, 1, 1, 1) }, uPkLawn: { value: new THREE.Color() }, uPkDeep: { value: new THREE.Color() }, uPkPale: { value: new THREE.Color() }, uPkWater: { value: new THREE.Color() } };
     for (let q = 0; q < 4; q++) { pkU['uPk' + q] = { value: pkBlank }; pkU['uPkB' + q] = { value: new THREE.Vector4(0, 0, -1, -1) }; }
-    if (PARKS) for (const m of [tileMat, landMat, farMat]) {
-      m.customProgramCacheKey = () => 'm3d-pk-g'; m.onBeforeCompile = s => { Object.assign(s.uniforms, pkU);   // (no varying of its own: the point and the slope from the view's own, vViewPosition and vNormal, and the camera; as made: the ground's height stretched by vex)
-        let f = 'uniform float uPkK; uniform vec3 uPkLawn; uniform vec3 uPkDeep; uniform vec3 uPkPale; uniform vec3 uPkWater; uniform mat4 uPkCam; uniform float uPkVex;\n', g = 'vec3 pkN = (uPkCam * vec4(vNormal, 0.0)).xyz; pkN.y *= uPkVex; vec3 vPkP = vec3((uPkCam * vec4(-vViewPosition, 1.0)).xz, pkN.y / max(length(pkN), 1e-6));\n{ vec2 q = vPkP.xy, qx = dFdx(q), qy = dFdy(q); vec3 w = vec3(0.0); vec4 b;\n';
-        for (let k = 0; k < 4; k++) { f += `uniform sampler2D uPk${k}; uniform vec4 uPkB${k};\n`; g += `${k ? 'else ' : ''}if (q.x > uPkB${k}.x && q.y > uPkB${k}.y && q.x < uPkB${k}.z && q.y < uPkB${k}.w) { vec2 e = 1.0 / (uPkB${k}.zw - uPkB${k}.xy); w = textureGrad(uPk${k}, (q - uPkB${k}.xy) * e, qx * e, qy * e).rgb; }\n`; }
-        g += `float a = min(w.r, min(w.g, w.b)); w -= a; float s = w.r + w.g + w.b, c = min(1.0, s + a) * uPkK * smoothstep(0.35, 0.75, vPkP.z);   // (all three alike: a park's water)
+    // (each of the three its own strength, uPkK, and the far land its own flags of which textures hold a park on it, uPkF: the quiet land and the far
+    // land skip the work where they hold none; the blocks' tops carry their place's opacity in their colour's alpha, below 0 where the place holds no park: paintTile)
+    const pkUL = Object.assign({}, pkU, { uPkK: { value: 0 } }), pkUF = Object.assign({}, pkU, { uPkK: { value: 0 }, uPkF: { value: new THREE.Vector4(0, 0, 0, 0) } }); let pkGOff = false, pkHas = null, pkLens = false, pkMood = false;
+    if (PARKS) for (const [m, UU] of [[tileMat, pkU], [landMat, pkUL], [farMat, pkUF]]) {
+      m.customProgramCacheKey = () => 'm3d-pk-g'; m.onBeforeCompile = s => { Object.assign(s.uniforms, UU);   // (no varying of its own: the point and the slope from the view's own, vViewPosition and vNormal, and the camera; as made: the ground's height stretched by vex)
+        let f = 'uniform float uPkK; uniform float uPkKeep; uniform vec4 uPkF; uniform vec3 uPkLawn; uniform vec3 uPkDeep; uniform vec3 uPkPale; uniform vec3 uPkWater; uniform mat4 uPkCam; uniform float uPkVex;\n', g = 'if (uPkK > 0.0) { vec3 pkN = (uPkCam * vec4(vNormal, 0.0)).xyz; pkN.y *= uPkVex; vec3 vPkP = vec3((uPkCam * vec4(-vViewPosition, 1.0)).xz, pkN.y / max(length(pkN), 1e-6));\nvec2 q = vPkP.xy, qx = dFdx(q), qy = dFdy(q); vec3 w = vec3(0.0); float pkA = 1.0;\n#ifdef USE_COLOR_ALPHA\npkA = vColor.a > 0.0 ? smoothstep(0.4, 0.95, vColor.a) : 0.0;   // (a place faded by a filter or its region shows no park; one that holds none skips the work)\n#endif\nif (pkA > 0.0) {\n';
+        for (let k = 0; k < 4; k++) { f += `uniform sampler2D uPk${k}; uniform vec4 uPkB${k};\n`; g += `${k ? 'else ' : ''}if (q.x > uPkB${k}.x && q.y > uPkB${k}.y && q.x < uPkB${k}.z && q.y < uPkB${k}.w) { if (uPkF[${k}] > 0.5) { vec2 e = 1.0 / (uPkB${k}.zw - uPkB${k}.xy); w = textureGrad(uPk${k}, (q - uPkB${k}.xy) * e, qx * e, qy * e).rgb; } }\n`; }
+        g += `float a = min(w.r, min(w.g, w.b)); w -= a; float s = w.r + w.g + w.b, c = min(1.0, s + a) * uPkK * pkA * smoothstep(0.35, 0.75, vPkP.z);   // (all three alike: a park's water)
 if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + uPkPale * k.b; p = mix(p, vec3(dot(p, vec3(0.3, 0.55, 0.15))), min(k.g, k.b) * 0.9);
-  diffuseColor.rgb = mix(diffuseColor.rgb, (mix(p, diffuseColor.rgb, 0.28) * s + uPkWater * a) / max(s + a, 1e-4), c); } }`;
+  diffuseColor.rgb = mix(diffuseColor.rgb, (mix(p, diffuseColor.rgb, uPkKeep) * s + uPkWater * a) / max(s + a, 1e-4), c); } } }`;   // (uPkKeep: under a lens other than the first, or a filter, a place mostly park keeps half its own colour)
         s.fragmentShader = s.fragmentShader.replace('#include <common>', '#include <common>\n' + f).replace('#include <color_fragment>', '#include <color_fragment>\n' + g); };
     }
     // One small texture the fabric's shaders read: row 0, a texel per place, its top's colour as painted (paintTile) and how far it
@@ -385,13 +391,14 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
     const placeData = new Float32Array(TW * 2 * 4), placeTex = new THREE.DataTexture(placeData, TW, 2, THREE.RGBAFormat, THREE.FloatType); placeTex.magFilter = placeTex.minFilter = THREE.NearestFilter; placeTex.needsUpdate = true;
     const fabU = { uPlace: { value: placeTex }, uTexW: { value: TW }, uGrow: { value: 0 }, uFocus: { value: new THREE.Vector4(0, 0, 1, 2) }, uPale: { value: new THREE.Color() }, uRoofK: { value: 0.5 }, uWallK: { value: 0.3 }, uTree: { value: new THREE.Color() }, uTreeK: { value: 0.5 }, uWin: { value: new THREE.Color(0, 0, 0) }, uRise: { value: 1 }, uGlass: { value: new THREE.Color() } }; // uRise: the real buildings' growth from afar, the landmarks' (updateScene)
     const fab = { gen: null, gl: null, chunks: new Map(), queue: [], slots: Array.from({ length: TW }, (_, i) => TW - 1 - i), timer: 0, live: 0, land: new Map(), key: '', nb: 0, nt: 0 };
+    let rbWait = !!RB && !/[?&]m3d-real=off(?:&|$)/.test(location.search);   // (the real buildings' generator still to be made: the parks' trees wait for it, pkStep)
     const rb = { gen: null, gl: null, chunks: new Map(), queue: [], slots: fab.slots.splice(0, 72), timer: 0, live: 0, key: '', n: 0, tris: 0, tall: [], tallNext: 0, tallTimer: 0, tallGl: null, tallU: null }; // the real buildings (js/map3d/real.js): their chunks, as the fabric's, with slots of their own in the same texture; and the tall ones, in a few shapes of their own made once (tallPump)
     const sky = AIR ? AIR.sky(THREE) : null; if (sky) scene.add(sky.mesh);
     const waterU = AIR ? AIR.water(THREE, waterMat) : null; let noise = null, wash = null, fogBank = null, ferries = [], traffic = null;
-    function meshOf(S, mat) {
+    function meshOf(S, mat, ca) { // ca: the colour with an alpha (the blocks' tops, with the parks: paintTile)
       const g = new THREE.BufferGeometry();
       g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(S.pos), 3)); g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(S.nor), 3));
-      g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(S.pos.length), 3)); g.setIndex(new THREE.BufferAttribute(new Uint32Array(S.idx), 1));
+      g.setAttribute('color', ca ? new THREE.BufferAttribute(new Float32Array(S.pos.length / 3 * 4).fill(1), 4) : new THREE.BufferAttribute(new Float32Array(S.pos.length), 3)); g.setIndex(new THREE.BufferAttribute(new Uint32Array(S.idx), 1));
       g.computeBoundingSphere(); g.computeBoundingBox(); return new THREE.Mesh(g, mat);
     }
     // everything built: one material, vertex colours, windows that glow at night
@@ -447,7 +454,7 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
           if (RL) try { tb = RL.buildTiles(ol); } catch (e) { flatLand(e); }                                   // the relief fails as it is made: the plateaus
           if (!tb) tb = land.buildTiles(ol); tiles = tb.tiles; tileS = tb.mesh; tileSplit = tb.split || 0; heights();
           tiles.forEach(t => { if (!t.rim) t.rim = t.edge.map(r => r.map(q => [q[0], t.H, q[1]])); });
-          tileMesh = meshOf(tileS, tileMat); tileMesh.castShadow = tileMesh.receiveShadow = true; landG.add(tileMesh);
+          tileMesh = meshOf(tileS, tileMat, PARKS); tileMesh.castShadow = tileMesh.receiveShadow = true; landG.add(tileMesh);
           tilePos = tileMesh.geometry.attributes.position; tileCol = tileMesh.geometry.attributes.color; baseY = new Float32Array(tileS.n); for (let i = 0; i < tileS.n; i++) baseY[i] = tileS.pos[i * 3 + 1];
           tileMesh.geometry.boundingBox.max.y += LIFT; tileMesh.geometry.boundingSphere.radius += LIFT;
           // a hairline in the paper's colour round the top of every block (the flat map's line between places), from the region
@@ -457,7 +464,7 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
           stat.build.blocks = now() - t0;
         },
         () => { // the bridges, the landmarks, the flag and the bookmark
-          const t0 = now(); bridges = MD.bridges(ground); addBuilt(bridges);
+          const t0 = now(); const off = !(ROADS && M3D.roads && M3D.roads.make); bridges = MD.bridges(ground, off); bridges.off = off; bridges.mesh = addBuilt(bridges);   // (without the roads, the seven bridges where they stood before them; the roads failing later puts them back there: bridgesBack)
           icons = MD.icons(ground, (x, z, x0, z0) => { const i = hoodAt(x0, z0); return i >= 0 && inPolys(tiles[i].tops, x, z) ? hAt(i, x, z) : null; }); icons.forEach(ic => { ic.mesh = addBuilt(ic); ic.hood = hoodAt(ic.x, ic.z); ic.lm = LM_ID[ic.id]; [ic.tk, ic.tv] = lmTrue(ic); const at = SCALE === 'true' && (M3D.lmAt || {})[ic.id]; if (at) { const p = proj(at); ic.x = p[0]; ic.z = p[1]; ic.y = ground(ic.x, ic.z); ic.hood = hoodAt(ic.x, ic.z); } ic.mesh.position.set(ic.x, ic.y, ic.z); });   // (M3D.lmAt: a model whose true size would leave the real place it stands for stands on that place: icons-sf.js)
           const inst = model => { const m = new THREE.InstancedMesh(model.geometry, markMat, HOODS.length); m.count = 0; m.castShadow = true; m.frustumCulled = false; landG.add(m); built.push({ mesh: m, mat: model.mat, names: model.names, shade: model.shade }); return m; };
           flags = inst(MD.flag()); books = inst(MD.bookmark()); stat.build.models = now() - t0;
@@ -467,7 +474,7 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
           const ex = land.extent(landS), [x0, z0, x1, z1] = ex.farLand;
           { // far land: the Central Valley east of the counties and the desert around the Strip, one flat sheet; and (the tilted view sees past the flat map's canvas) the land north, north-east and south of the counties, roughed in
             const g = new THREE.BufferGeometry(), y = land.LAND_TOP - 0.03, Pp = [], N = [], I = [];
-            const sheets = [[[x0, z0], [x0, z1], [x1 + 3000, z1], [x1 + 3000, z0]], [[-262, -4000], [-262, 75], [x0 + 5, 75], [x0 + 5, -4000]], [[780, 75], [780, 440], [x0 + 5, 440], [x0 + 5, 75]],
+            const sheets = farPolys = [[[x0, z0], [x0, z1], [x1 + 3000, z1], [x1 + 3000, z0]], [[-262, -4000], [-262, 75], [x0 + 5, 75], [x0 + 5, -4000]], [[780, 75], [780, 440], [x0 + 5, 440], [x0 + 5, 75]],
               [[486, 1373], [560, 1426], [640, 1470], [690, 1482], [750, 1481], [800, 1540], [815, 1600], [790, 1680], [760, 1720], [800, 1800], [900, 2100], [x0 + 5, 2500], [x0 + 5, 1373]]];
             for (const poly of sheets) { const k = Pp.length / 3, f = land.tri2(poly, []); for (const p of poly) { Pp.push(p[0], y, p[1]); N.push(0, 1, 0); }
               for (const t of f) { const a = poly[t[0]], b2 = poly[t[1]], c = poly[t[2]], cr = (b2[0] - a[0]) * (c[1] - a[1]) - (b2[1] - a[1]) * (c[0] - a[0]); if (cr > 0) I.push(k + t[0], k + t[2], k + t[1]); else I.push(k + t[0], k + t[1], k + t[2]); } }
@@ -490,15 +497,16 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
         () => { // after the first frame: the real buildings' outlines (js/map3d/real.js, from js/map3d/buildings.js), unpacked and sorted by chunk; their shapes are made as the camera comes near. Without them (the file missing or cut short, ?m3d-real=off) the town is the made-up one it was
           const t0 = now(); if (RB && !/[?&]m3d-real=off(?:&|$)/.test(location.search)) try {
             const boxes = icons.map(ic => { const b = ic.geometry.boundingBox, k = lmClear(ic, 1.12); return [ic.x + b.min.x * k, ic.z + b.min.z * k, ic.x + b.max.x * k, ic.z + b.max.z * k]; }); // a landmark's plan, a little grown: no real outline stands in it
-            rb.gen = RB.make(M3D.buildingData, { inTop: (x, z) => { const i = hoodAt(x, z); return i >= 0 && inPolys(tiles[i].tops, x, z) ? i : -1; }, inTopOf: (i, x, z) => inPolys(tiles[i].tops, x, z), hAt, boxes, get look() { return LOOK.v; }, road: (x, z, r) => !!roads && roads.near(x, z, r) }); rb.gl = RB.gl(THREE, fabU, LOOK.v);
+            rb.gen = RB.make(M3D.buildingData, { inTop: (x, z) => { const i = hoodAt(x, z); return i >= 0 && inPolys(tiles[i].tops, x, z) ? i : -1; }, inTopOf: (i, x, z) => inPolys(tiles[i].tops, x, z), hAt, boxes, get look() { return LOOK.v; }, road: rdNear }); rb.gl = RB.gl(THREE, fabU, LOOK.v); if (pk) { pk.chunks.clear(); pk.key = ''; }   // (trees made before: again, clear of them)
             rb.tallU = Object.assign({}, fabU, { uGrow: { value: 0 }, uFocus: { value: new THREE.Vector4(0, 0, 1e6, 2e6) } }); rb.tallGl = RB.gl(THREE, rb.tallU, LOOK.v); // the tall ones: their own rise (from the city-wide view), everywhere in sight
+            if (LOOK.v !== '0') { rb.plain = RB.gl(THREE, fabU, '0'); rb.plainTall = RB.gl(THREE, rb.tallU, '0'); }   // (the plain ones, should the look's shaders fail here: lookGiveUp; warmed by warmUp)
             // its two shaders are made now, one a frame, on a building nobody sees (as the fabric's below): not in the first flight in
             const slot = rb.slots.pop(), d = rb.gl.mesh({ ix: 0, iz: 0, n: 3, ...RB.pack([cur.cx, 0, cur.cz, cur.cx + 0.01, 0, cur.cz, cur.cx, 0.01, cur.cz], [0, 1, 0, 0, 1, 0, 0, 1, 0], new Float32Array(12), new Float32Array(12), 3), idx: new Uint16Array([0, 1, 2]), y0: 0, y1: 0.01 }, slot);
             placeData[(TW + slot) * 4] = 0; d.frustumCulled = false; d.castShadow = false;
             const seq = [() => landG.add(d), () => { d.castShadow = true; shadowDirty = true; }, () => { landG.remove(d); d.geometry.dispose(); rb.slots.push(slot); }];
             let q = 0; const go = () => { if (dead) return; if (!SW.warmOff && (ptrs.size || fly)) return void setTimeout(go, 120); const t1 = now(); seq[q++](); needs = true; if (raf) { cancelAnimationFrame(raf); raf = 0; } lastT = now(); frame(lastT, true); stat.build['realWarm' + q] = now() - t1; if (q < seq.length) setTimeout(go, 120); }; setTimeout(go, 120);
           } catch (e) { rb.gen = rb.gl = null; console.warn('3D map, the real buildings left out: ' + (e && e.message || e)); }
-          stat.build.real = now() - t0;
+          rbWait = false; stat.build.real = now() - t0;
         },
         () => { // the skylines and the Strip's resorts (by place, so each rises with its block), then the night's lights
           const t0 = now(), strip = {}; HOODS.forEach(h => { if (REGS[h.region] && REGS[h.region].away && SUBD[h.name]) strip[h.name] = SUBD[h.name]; });
@@ -519,7 +527,7 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
             try {
               if (!RL) throw new Error('no relief'); while (q < list.length && now() - t1 < (moving ? 3 : 7)) { const i = list[q++]; tiles[i].fine = RL.buildFine(S2, i, blockRings); }
               spent += now() - t1; if (q < list.length) return void setTimeout(go, moving ? 24 : 8);
-              fineS = S2; fineMesh = meshOf(S2, tileMat); fineMesh.castShadow = fineMesh.receiveShadow = true; fineMesh.visible = false; fineMesh.geometry.boundingBox.max.y += LIFT; fineMesh.geometry.boundingSphere.radius += LIFT; landG.add(fineMesh);
+              fineS = S2; fineMesh = meshOf(S2, tileMat, PARKS); fineMesh.castShadow = fineMesh.receiveShadow = true; fineMesh.visible = false; fineMesh.geometry.boundingBox.max.y += LIFT; fineMesh.geometry.boundingSphere.radius += LIFT; landG.add(fineMesh);
               finePos = fineMesh.geometry.attributes.position; fineCol = fineMesh.geometry.attributes.color; fineBaseY = new Float32Array(S2.n); for (let i = 0; i < S2.n; i++) fineBaseY[i] = S2.pos[i * 3 + 1];
               const segs = [], hs = []; list.forEach(i => { const f = tiles[i].fine; f.r0 = segs.length; rimSegs(f.rim, segs, hs); f.r1 = segs.length; });
               rimF = new THREE.Mesh(ribbon(segs, 0.006, 1, hs), rim.material); rimF.renderOrder = 1; rimF.frustumCulled = false; rimF.visible = false; rimFBase = new Float32Array(rimF.geometry.attributes.position.count); for (let k = 0; k < rimFBase.length; k++) rimFBase[k] = rimF.geometry.attributes.position.array[k * 3 + 1]; secG.add(rimF); if (!SW.warmOff) upQ.push(fineMesh, rimF); // (their buffers sent at the next frame at rest, not when they first show: upOne)
@@ -534,7 +542,7 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
         () => { // the city fabric (js/map3d/fabric.js): only its plan; its chunks are made as the camera comes near
           const t0 = now(); try { if (FB && FB.gl) {
             const avoid = []; for (const ic of icons) avoid.push([ic.x, ic.z, ic.flat ? ic.r * 0.95 : SCALE === 'big' ? ic.r * 1.8 + 0.2 : ic.r * lmClear(ic, 1.3) + 0.06]); for (const f of cityFoot) avoid.push(f); HOODS.forEach(h => avoid.push([h.cx, h.cy, 0.5])); // (landmarks are drawn up to about 1.8 times their size while the fabric shows)
-            fab.gen = FB.make({ HOODS, BB, HT, hAt, INFO: window.INFO, SUBD, REGS, proj, inTop: (i, x, z) => inPolys(tiles[i].tops, x, z), avoid, strip: cityStrip, solid: rb.gen ? (x, z, r) => !!rb.gen && rb.gen.solid(x, z, r) : null, dense: rb.gen ? (x, z) => !!rb.gen && rb.gen.dense(x, z) : null, get look() { return LOOK.v; }, road: (x, z, r) => !!roads && roads.near(x, z, r), get park() { return pk && pk.ready ? pk.P.inPark : null; } }); fab.gl = FB.gl(THREE, fabU, LOOK.v); // (solid, dense: once the real buildings have given up, rbGiveUp, nothing real stands anywhere)
+            fab.gen = FB.make({ HOODS, BB, HT, hAt, INFO: window.INFO, SUBD, REGS, proj, inTop: (i, x, z) => inPolys(tiles[i].tops, x, z), avoid, strip: cityStrip, solid: rb.gen ? (x, z, r) => !!rb.gen && rb.gen.solid(x, z, r) : null, dense: rb.gen ? (x, z) => !!rb.gen && rb.gen.dense(x, z) : null, get look() { return LOOK.v; }, road: rdNear, get park() { return pk && pk.ready ? pkIn : null; } }); fab.gl = FB.gl(THREE, fabU, LOOK.v); if (LOOK.v !== '0') fab.plain = FB.gl(THREE, fabU, '0'); // (fab.plain: as rb.plain; solid, dense: once the real buildings have given up, rbGiveUp, nothing real stands anywhere)
             // its four shaders are made now, one a frame, on a building and a tree nobody sees: not in the middle of the first flight in
             const d = fab.gl.mesh({ ix: 0, iz: 0, nb: 1, nt: 1, b: new Float32Array([cur.cx, 0, cur.cz, 0, 1, 1, 1, 0, 0, 0, 0]), t: new Float32Array([cur.cx, 0, cur.cz, 1, 0, 0, 0]) }, fab.slots.shift());
             for (const m of [d.b, d.t]) { m.frustumCulled = false; m.castShadow = false; }
@@ -573,7 +581,7 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
     }
     function buildNight() {
       if (nightBuilt || !ready) return; nightBuilt = true;
-      pointsOf(bridges.lights); icons.forEach(ic => pointsOf(ic.lights, ic.mesh)); cityParts.forEach(p => { if (!p.pts) p.pts = pointsOf(p.lights, p.mesh); }); rdNight(); lifeNight();
+      bridges.pts = pointsOf(bridges.lights); icons.forEach(ic => pointsOf(ic.lights, ic.mesh)); cityParts.forEach(p => { if (!p.pts) p.pts = pointsOf(p.lights, p.mesh); }); rdNight(); lifeNight();
       // a scatter of small warm lights over every place, denser where it is busy: on a loose street grid, most crossings dark, so
       // it reads as blocks of lit streets, not as stars
       const R = (() => { let s = 4242; return () => (s = (s * 48271) % 2147483647) / 2147483647; })(), dens = { buzz: 1, sun: 0.55, fog: 0.5, hills: 0.4, water: 0.42, green: 0.07 }, list = [], INFO = window.INFO || {};
@@ -617,7 +625,7 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
     function stepLife() {
       const show = Q.life && !quiz && area === AREAS[0], s = clamp(lmScale * 1.9, 1.9, 4.5);
       for (const f of ferries) { const p = f.path.at(f.off + ambT * f.speed); f.mesh.visible = show; f.mesh.position.set(p[0], 0.004, p[1]); f.mesh.rotation.y = p[2]; f.mesh.scale.setScalar(s); }
-      if (traffic && traffic.pts) { traffic.pts.visible = Q.life && !quiz && !!LK.lights; if (traffic.pts.visible) { const a = traffic.pts.geometry.attributes.position; traffic.cars.forEach((c, i) => { const x = (((c.x0 + c.dir * ambT * c.v) % c.f.L) + c.f.L) % c.f.L, q = c.f.D(x, c.lat, 2.2); a.array[i * 3] = q[0]; a.array[i * 3 + 1] = q[1]; a.array[i * 3 + 2] = q[2]; }); a.needsUpdate = true; } }
+      if (traffic && traffic.pts) { traffic.pts.visible = Q.life && !quiz && !!LK.lights && (!!roads || area === AREAS[0]); if (traffic.pts.visible) { const a = traffic.pts.geometry.attributes.position; traffic.cars.forEach((c, i) => { const x = (((c.x0 + c.dir * ambT * c.v) % c.f.L) + c.f.L) % c.f.L, q = c.f.D(x, c.lat, 2.2); a.array[i * 3] = q[0]; a.array[i * 3 + 1] = q[1]; a.array[i * 3 + 2] = q[2]; }); a.needsUpdate = true; } }
     }
     // the look of the air's own pieces (made after the first look was applied)
     function applyAir() { const L = LK; if (wash) wash.U.uCol.value.set(L.wash); if (fogBank) fogBank.U.uCol.value.set(L.fogC); for (const f of ferries) f.wake.material.uniforms.uCol.value.set(L.wash); }
@@ -700,8 +708,8 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
     // (fresh: not culled, and one not shown yet drawn far below the view), so its buffers go to the GPU then, not when the view first turns to it or it first shows. upQ: big buffers made hidden (the fine ground and
     // its rim, the blocks' rim, the wash), drawn once far below the view at the next frame at rest (upOne; one shown by then is drawn where it stands, untouched). m3d-warm=off: none of this
     const CAP = !SW.warmOff, addQ = [], fresh = [], upQ = [];
-    const addLater = (ms, ok, n, rest) => { if (!CAP) { for (const m of ms) if (m && ok()) landG.add(m); return; } addQ.push({ ms, ok, n, rest }); }; // (rest: joins only in a frame at rest, the roads' ribbons and lamps)
-    function addOne() { let by = 0, k = 0, i = 0; while (i < addQ.length && (!k || by + addQ[i].n < 512000)) { const a = addQ[i]; if (a.rest && moving) { i++; continue; } addQ.splice(i, 1); if (!a.ok()) continue; for (const m of a.ms) if (m) { landG.add(m); fresh.push(m); } by += a.n; k++; needs = true; } } // (at least one a frame, then more while the frame's new bytes stay under 512 kB)
+    const addLater = (ms, ok, n, rest) => { if (!CAP) { for (const m of ms) if (m) landG.add(m); ok(); return; } addQ.push({ ms, ok, n, rest }); }; // (rest: joins only in a frame at rest, the roads' ribbons and lamps)
+    function addOne() { let by = 0, k = 0, i = 0; while (i < addQ.length && (!k || by + addQ[i].n < 512000)) { const a = addQ[i]; if (a.rest && moving) { i++; continue; } addQ.splice(i, 1); if (!a.ok()) continue; for (const m of a.ms) if (m) { landG.add(m); fresh.push(m); } by += a.n; k++; needs = true; } return by; } // (at least one a frame, then more while the frame's new bytes stay under 512 kB)
     const offView = m => { const k = [m, m.visible, m.frustumCulled, m.castShadow, m.position.y]; if (!m.visible) { m.visible = true; m.castShadow = false; m.position.y = -1e6; } m.frustumCulled = false; return k; }, backView = k => { const m = k[0]; m.visible = k[1]; m.frustumCulled = k[2]; m.castShadow = k[3]; m.position.y = k[4]; }; // drawn this frame wherever it is (one not shown yet: far below the view, where nothing of it reaches the screen)
     let parked = 0; // (how many were drawn far below the view: stats land.parked)
     function upOne() { if (moving || !upQ.length) return null; const m = upQ.shift(); if (!m || !m.parent) return null; const k = offView(m), t0 = now(); if (k[4] !== m.position.y) parked++; // (one shown this frame is drawn where it stands, as it is: offView)
@@ -712,6 +720,7 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
     function warmUp() {
       const list = [() => rim, () => wash && wash.mesh, () => fogBank && fogBank.group, () => ferries[0] && ferries[0].mesh, () => traffic && traffic.pts, () => { const g = new THREE.CylinderGeometry(0.2, 0.05, 1, 6, 1, true); return Object.assign(new THREE.Mesh(g, beamMat), { done: () => g.dispose() }); },
         () => { if (!ROADS || !M3D.roads) return null; if (!rdMat) rdMat = rdFarMat(); const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(9), 3)); return Object.assign(new THREE.Mesh(g, rdMat), { renderOrder: -1, done: () => g.dispose() }); }]; // (the roads' ribbons, js/map3d/roads.js; their structure, lamps and the parks' trees use programs made already or warmed by their own steps)
+      for (const gp of [() => rb.plain, () => fab.plain]) for (const k of ['mat', 'depth', 'bld', 'bldDepth', 'tree', 'treeDepth']) list.push(() => { const g = gp(), m = g && g.mats[k]; if (!m || LOOK.v === '0') return null; const geo = new THREE.BufferGeometry(); return Object.assign(new THREE.Mesh(geo, m), { done: () => geo.dispose() }); });   // (the plain buildings' programs, should a look's fail: lookGiveUp)
       let q = 0; stat.build.warmPlan = list.length; stat.build.warmAll = 0; upQ.push(rim); if (wash) upQ.push(wash.mesh); needs = true; kick(); // (the blocks' rim and the wash show only from close in: their buffers now, a frame at rest each)
       const go = () => { if (dead) return; if (ptrs.size || fly || moving) return void setTimeout(go, 150); const t1 = now(), o = list[q++](); if (o) { try { renderer.compile(o, camera, scene); } catch (e) {} if (o.done) o.done(); }
         const ms = now() - t1; stat.build['warmC' + q] = ms; stat.build.warmAll += ms; if (q < list.length) setTimeout(go, 40); else stat.build.warmEnd = Math.round(now() - stat.firstFrame); };
@@ -719,6 +728,7 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
     }
     // the real buildings fail while they are made: they are all taken away, and the fabric made so far with them (it kept clear of
     // them) is made again, now in their place (its wrappers of solid and dense answer "nothing real here" from now on)
+    function rbTallDrop() { for (const t of rb.tall) { t.m.removeFromParent(); t.m.geometry.dispose(); placeData[(TW + t.slot) * 4] = 0; rb.slots.push(t.slot); } rb.tall.length = 0; rb.tallNext = 0; placeTex.needsUpdate = true; }   // (made again from the first group: tallPump)
     function rbGiveUp(e) {
       console.warn('3D map, the real buildings stopped: ' + (e && e.stack || e)); rb.queue.length = 0; rb.gen = null; rb.key = '';
       for (const [k, ch] of [...rb.chunks]) rbDrop(k, ch); for (const t of rb.tall) { landG.remove(t.m); t.m.geometry.dispose(); placeData[(TW + t.slot) * 4] = 0; rb.slots.push(t.slot); } rb.tall.length = 0; placeTex.needsUpdate = true;
@@ -731,54 +741,75 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
     const PK_R = 24, PK_CAP = 3200, PK_COL = { paper: ['#b6cf8f', '#8fb071', '#cddca2', '#6f9658', '#55804a', '#4d7743'], night: ['#4f8460', '#41704f', '#5e8a68', '#2f4c3c', '#243b2f', '#1f3529'] }; // the trees within PK_R map units of the view's middle, at most PK_CAP; the colours [lawn, deep, pale ground; trees light, dark; woods]
     const PK_D = [700, 1700], PK_FAR = 0.3; let pkDark = null;   // PK_D: the camera's distances between which the parks' ground goes from its full green (the city-wide view, about 440 off on a phone) to PK_FAR of it (the whole bay)
     function parksLoad() {
-      if (window.M3D.parks && window.M3D.parkData) return void setTimeout(parksMake, 0);
-      const add = (src, last) => { const s = document.createElement('script'); s.src = src; s.async = false; s.onerror = () => console.warn('3D map, the parks left out: ' + src + ' did not load'); if (last) s.onload = () => { if (!dead) setTimeout(parksMake, 0); }; document.head.appendChild(s); };
+      if (window.M3D.parks && window.M3D.parkData) return void parksMake();
+      const add = (src, last) => { const s = document.createElement('script'); s.src = src; s.async = false; s.onerror = () => console.warn('3D map, the parks left out: ' + src + ' did not load'); if (last) s.onload = () => { if (!dead) parksMake(); }; document.head.appendChild(s); };
       add('js/map3d/parkdata.js'); add('js/map3d/parks.js', true);
     }
+    let pkOff = false;   // (given up: not made again in this session)
     function parksGiveUp(e) {
-      console.warn('3D map, the parks left out: ' + (e && e.stack || e)); pkU.uPkK.value = 0;
-      if (pk) { clearTimeout(pk.timer); if (pk.gl) { landG.remove(pk.gl.mesh); pk.gl.mesh.geometry.dispose(); } for (const t of pk.tex) t.dispose(); const was = pk.ready; pk = null; if (was && fab.gen) { for (const [k, ch] of [...fab.chunks]) fabDrop(k, ch); fab.queue.length = 0; fab.key = ''; } }
+      console.warn('3D map, the parks left out: ' + (e && e.stack || e)); pkOff = true; pkU.uPkK.value = pkUL.uPkK.value = pkUF.uPkK.value = 0;
+      if (pk) { clearTimeout(pk.timer); if (pk.gl) { pk.gl.mesh.removeFromParent(); pk.gl.mesh.geometry.dispose(); for (const k in pk.gl.mats) pk.gl.mats[k].dispose(); } for (const t of pk.tex) t.dispose(); const was = pk.ready; pk = null; if (was && fab.gen) { for (const [k, ch] of [...fab.chunks]) fabDrop(k, ch); fab.queue.length = 0; fab.key = ''; } }
       for (let q = 0; q < 4; q++) pkU['uPk' + q].value = pkBlank; shadowDirty = true; needs = true; kick();
     }
+    // the park ground of a shader that cannot be made here (onShaderError): the land's three materials back to their plain shader, and no parks
+    function pkGroundOff() { if (pkGOff) return; pkGOff = true; for (const m of [tileMat, landMat, farMat]) { delete m.customProgramCacheKey; m.onBeforeCompile = THREE.Material.prototype.onBeforeCompile; m.needsUpdate = true; } parksGiveUp(new Error('the park ground could not be made')); }
     function parksMake() {
-      const MP = window.M3D.parks; if (dead || pk || !MP || !tiles) return; const t0 = now();
-      try {
-        const OTHER = (G.other || []).map(p => { const r = p[0].map(proj), b = [Infinity, Infinity, -Infinity, -Infinity]; for (const q of r) { b[0] = Math.min(b[0], q[0]); b[1] = Math.min(b[1], q[1]); b[2] = Math.max(b[2], q[0]); b[3] = Math.max(b[3], q[1]); } return { r, b }; }), FARX = proj([-121.3, 42.5])[0];
-        const landAt = (x, z) => x > FARX || OTHER.some(o => x >= o.b[0] && x <= o.b[2] && z >= o.b[1] && z <= o.b[3] && Geom.pip(o.r, x, z));   // the quiet land between the places, or the far land beyond the counties (the Strip's desert)
-        const P = MP.make(window.M3D.parkData, { HOODS, hoodAt, inTop: (i, x, z) => inPolys(tiles[i].tops, x, z), hAt, landAt, landY: x => x > FARX ? land.LAND_TOP - 0.03 : land.LAND_TOP, solid: (x, z, r) => !!rb.gen && rb.gen.solid(x, z, r), road: (x, z, r) => !!roads && roads.near(x, z, r), avoid: icons.map(ic => [ic.x, ic.z, ic.flat ? ic.r * 0.95 : ic.r * ic.tk * 1.1 + 0.03]) });
-        pk = { P, gl: null, U: null, chunks: new Map(), queue: [], want: [], r: PK_R, key: '', timer: 0, n: 0, made: 0, worst: 0, ready: false, tex: [], t0: now(), bornLast: -1e9, dirty: false, slices: 0, slowest: 0 };
-      } catch (e) { pk = null; return void parksGiveUp(e); }
-      let bs = null, q = 0, job = null, cv = null;
-      // in slices of at most 2.5 ms, each a turn of the shared pumps at rest (pkPump: the frame's turn or the idle timer's; never while a finger is down, a flight runs or the map moves): the data read, each texture painted, then sent (a turn of its own), then the trees' mesh
+      const MP = window.M3D.parks; if (dead || pk || pkOff || !MP || !tiles) return; const t0 = now();
+      pk = { P: null, gl: null, U: null, chunks: new Map(), queue: [], want: [], r: PK_R, key: '', timer: 0, n: 0, made: 0, worst: 0, ready: false, tex: [], t0, bornLast: -1e9, dirty: false, slices: 0, slowest: 0, cj: null, job: null, lean: false };
+      let bs = null, q = 0, job = null, cv = null, hp = 0, has = null, farF = null;
+      // in slices of at most 2.5 ms, each a turn of the shared pumps at rest (pkPump: the frame's turn or the idle timer's; never while a finger is down, a flight runs or the map moves): the generator made, the data
+      // read, which places and which textures hold a park (pkHas, uPkF: the ground's work is skipped where none does), each texture painted, then sent (a turn of its own), then the trees' mesh
       const step = stop => {
-        if (dead || !pk) return; const t1 = now(), ms0 = Math.max(0.5, Math.min(2.5, stop - t1)), again = () => { const ms = now() - t1; pk.slices++; if (ms > pk.slowest) { pk.slowest = ms; pk.slowAt = !bs ? 'read' : 'texture ' + q; } };
+        if (dead || !pk) return; const t1 = now(), ms0 = Math.max(0.5, Math.min(2.5, stop - t1)), again = () => { const ms = now() - t1; pk.slices++; if (ms > pk.slowest) { pk.slowest = ms; pk.slowAt = !pk.P ? 'make' : !bs ? 'read' : !farF ? 'places' : 'texture ' + q; } };
         try {
-          if (!bs) { if (pk.P.prep(ms0)) { bs = pk.P.boxes(); stat.build.parks = Math.round(now() - t0); } return void again(); }
+          if (!pk.P) {
+            const OTHER = (G.other || []).map(p => { const r = p[0].map(proj), b = [Infinity, Infinity, -Infinity, -Infinity]; for (const q of r) { b[0] = Math.min(b[0], q[0]); b[1] = Math.min(b[1], q[1]); b[2] = Math.max(b[2], q[0]); b[3] = Math.max(b[3], q[1]); } return { r, b }; }), FARX = proj([-121.3, 42.5])[0];
+            const landAt = (x, z) => x > FARX || OTHER.some(o => x >= o.b[0] && x <= o.b[2] && z >= o.b[1] && z <= o.b[3] && Geom.pip(o.r, x, z));   // the quiet land between the places, or the far land beyond the counties (the Strip's desert)
+            pk.P = MP.make(window.M3D.parkData, { HOODS, hoodAt, inTop: (i, x, z) => inPolys(tiles[i].tops, x, z), hAt, landAt, landY: x => x > FARX ? land.LAND_TOP - 0.03 : land.LAND_TOP, solid: (x, z, r) => !!rb.gen && rb.gen.solid(x, z, r), road: rdNear, over: rdOver, lean: coarse, avoid: icons.map(ic => [ic.x, ic.z, ic.flat ? ic.r * 0.95 : ic.r * lmClear(ic, 1.12) + 0.03]) });   // (lean: on a touch screen the largest texture smaller; avoid: a landmark's plan as the real buildings keep clear of it)
+            return void again(); }
+          if (!bs) { if (pk.P.prep(ms0)) { bs = pk.P.boxes(); has = new Uint8Array(HOODS.length); stat.build.parks = Math.round(now() - t0); } return void again(); }
+          if (!farF) { // which places hold a park (its points, and points along its edges, on them; or their middle in it), and which textures hold one on the far land
+            const L = pk.P.parks, end = t1 + ms0, onFar = (x, z) => !!farPolys && farPolys.some(r => Geom.pip(r, x, z));
+            while (hp < L.length && now() < end) { const p = L[hp++], st = clamp(Math.min(p.x1 - p.x0, p.z1 - p.z0) / 4, 0.05, 0.3);
+              for (let a = 0, b2 = p.n - 1; a < p.n; b2 = a++) { const ax = p.p[b2 * 2], az = p.p[b2 * 2 + 1], dx = p.p[a * 2] - ax, dz = p.p[a * 2 + 1] - az, m = Math.max(1, Math.ceil(Math.hypot(dx, dz) / st));
+                for (let e = 0; e < m; e++) { const x = ax + dx * e / m, z = az + dz * e / m, i = hoodAt(x, z); if (i >= 0) has[i] = 1; else if (p.fl == null && onFar(x, z)) p.fl = bs.findIndex(b => x > b.box[0] && z > b.box[1] && x < b.box[2] && z < b.box[3]); } } }
+            if (hp < L.length) return void again();
+            HOODS.forEach((h, i) => { if (!has[i] && pk.P.at(h.cx, h.cy, true)) has[i] = 1; }); farF = [0, 0, 0, 0]; for (const p of L) if (p.fl >= 0) farF[p.fl] = 1;
+            pkHas = has; pkUF.uPkF.value.set(farF[0], farF[1], farF[2], farF[3]); paintAll = true; needs = true; kick(); stat.build.parkPlaces = has.reduce((s, v) => s + v, 0); stat.build.parkFar = farF.join(''); return void again(); }
           if (q < bs.length) { const b = bs[q];
             if (!job) { cv = document.createElement('canvas'); job = pk.P.paint(b, cv); return void again(); }   // (the canvas made in a turn of its own)
             if (job !== true) { if (job(ms0)) job = true; return void again(); }
-            const tx = new THREE.CanvasTexture(cv); tx.flipY = false; tx.anisotropy = 4; renderer.initTexture(tx); pkU['uPk' + q].value = tx; pkU['uPkB' + q].value.set(b.box[0], b.box[1], b.box[2], b.box[3]); pk.tex.push(tx); q++; job = null; stat.build['parkTex' + q] = Math.round((now() - t1) * 10) / 10; needs = true; kick(); return void again(); }
+            if (addQ.length) return void again();   // (sent in a turn of its own: not in a frame that sends new meshes too)
+            let tx = pk.tex[q]; if (tx) { tx.image = cv; tx.needsUpdate = true; } else { tx = new THREE.CanvasTexture(cv); tx.flipY = false; tx.anisotropy = 4; pk.tex.push(tx); pkU['uPk' + q].value = tx; pkU['uPkB' + q].value.set(b.box[0], b.box[1], b.box[2], b.box[3]); }
+            renderer.initTexture(tx); if (coarse) { cv.width = cv.height = 1; pk.lean = true; }   // (on a touch screen the canvas is let go once sent: after a lost context they are painted again, pk.repaint)
+            q++; job = null; stat.build['parkTex' + q] = Math.round((now() - t1) * 10) / 10; needs = true; kick(); return void again(); }
+          if (pk.ready) { pk.job = null; return; }   // (painted again after a lost context: the textures only)
           pk.U = { uPlace: fabU.uPlace, uTexW: fabU.uTexW, uGrow: fabU.uGrow, uFocus: { value: new THREE.Vector4(0, 0, 1, 2) }, uPkNow: { value: 0 }, uTreeA: { value: new THREE.Color() }, uTreeB: { value: new THREE.Color() }, uPkWood: { value: new THREE.Color() } };
-          pk.job = null; pk.gl = MP.gl(THREE, pk.U, PK_CAP); landG.add(pk.gl.mesh); pkDark = null; pk.ready = true; pk.warming = true;
+          pk.job = null; pk.gl = MP.gl(THREE, pk.U, PK_CAP); const m = pk.gl.mesh; m.visible = false; m.castShadow = false; landG.add(m); pkDark = null; pk.ready = true; pk.warming = true;   // (hidden, and no shadow, until the warm-up below shows it: its two programs made one a frame)
           if (fab.gen && fab.chunks.size) { for (const [k, ch] of [...fab.chunks]) fabDrop(k, ch); fab.queue.length = 0; fab.key = ''; }   // (made before the parks were known: made again, clear of them)
           // the trees' two shaders made now, one a frame, on a tree of no size nobody sees (as the fabric's): not in the middle of a flight
-          const m = pk.gl.mesh, seq = [() => { pk.gl.fill([{ t: new Float32Array(MP.NT), n: 1, born: 0 }]); m.visible = true; m.castShadow = false; }, () => { m.castShadow = true; shadowDirty = true; }, () => { pk.warming = false; pk.key = ''; pk.n = pk.gl.fill([]); }];
+          const seq = [() => { pk.gl.fill([{ t: new Float32Array(MP.NT), n: 1, born: 0 }]); m.visible = true; m.castShadow = false; }, () => { m.castShadow = true; shadowDirty = true; }, () => { pk.warming = false; pk.key = ''; pk.n = pk.gl.fill([]); }];
           let w = 0; const go = () => { if (dead || !pk) return; if (!SW.warmOff && (ptrs.size || fly)) return void setTimeout(go, 120); try { seq[w++](); } catch (e) { return void parksGiveUp(e); } needs = true; if (raf) { cancelAnimationFrame(raf); raf = 0; } lastT = now(); frame(lastT, true); if (w < seq.length) setTimeout(go, 120); }; setTimeout(go, 120);
         } catch (e) { return void parksGiveUp(e); }
         stat.build.parksDone = Math.round(now() - pk.t0); stat.build.parkSlices = pk.slices; stat.build.parkSlowest = Math.round(pk.slowest * 10) / 10; stat.build.parkSlowestAt = pk.slowAt; stat.build.parkLast = Math.round((now() - t1) * 10) / 10; needs = true; kick();
       };
+      pk.repaint = () => { q = 0; job = null; if (!pk.job) pk.job = step; if (!pk.timer) pk.timer = pumpT(pkPump); };
       pk.job = step; if (!pk.timer) pk.timer = pumpT(pkPump); needs = true; kick();
     }
-    const pkBusy = () => !!(pk && (pk.job || (pk.ready && pk.queue.length)));   // the parks' pump has work: their making (pk.job), or chunks of trees asked for
+    const pkBusy = () => !!(pk && ((pk.job && !moving) || (pk.ready && (pk.queue.length || pk.cj))));   // the parks' pump has work it can do now: their making (pk.job, at rest only), or chunks of trees asked for
+    // a chunk of trees is made a slice at a time (parks.js chunk, a generator), within the turn's end
     function pkPump(end) {
       if (!pk) return; if (!end) pk.timer = 0; if (dead || (!end && byFrame())) return;
       if (pk.job) { const tJ = now(); if (!moving && !ptrs.size && !fly) pk.job(end || tJ + 6); if (EVa && !end) EVa.pumpTimers = (EVa.pumpTimers || 0) + now() - tJ; if (pk && pk.job && !pk.timer && !byFrame()) pk.timer = pumpT(pkPump); return; }   // (at rest only: else the next turn)
-      if (!pk.ready) return; const t0 = now(), budget = moving ? 2.5 : 6; let made = false;
+      if (!pk.ready) return; const t0 = now(), stop = end || t0 + (moving ? 2.5 : 6); let made = false;
       try {
-        while (pk.queue.length && (end ? now() < end : now() - t0 < budget)) { const q = pk.queue.shift(); if (pk.chunks.has(q.k)) continue; const t1 = now(), c = pk.P.chunk(q.ix, q.iz), ms = now() - t1; c.born = now() - pk.t0; pk.chunks.set(q.k, c); pk.made++; if (ms > pk.worst) pk.worst = ms; made = true; }
+        while ((pk.cj || pk.queue.length) && now() < stop) {
+          if (!pk.cj) { const q = pk.queue.shift(); if (pk.chunks.has(q.k)) continue; pk.cj = { k: q.k, g: pk.P.chunk(q.ix, q.iz) }; }
+          const t1 = now(), r = pk.cj.g.next(), ms = now() - t1; if (ms > pk.worst) pk.worst = ms; if (!r.done) continue;
+          const c = r.value; c.born = now() - pk.t0; pk.chunks.set(pk.cj.k, c); pk.cj = null; pk.made++; made = true; }
       } catch (e) { return void parksGiveUp(e); }
-      if (made) { pkFill(); needs = true; kick(); if (EVa) EVa.parks = (EVa.parks || 0) + 1; } if (EVa && !end) EVa.pumpTimers = (EVa.pumpTimers || 0) + now() - t0;
-      if (pk.queue.length && !pk.timer && !byFrame()) pk.timer = pumpT(pkPump);
+      if (made) { if (moving) pk.dirty = true; else pkFill(); needs = true; kick(); if (EVa) EVa.parks = (EVa.parks || 0) + 1; } if (EVa && !end) EVa.pumpTimers = (EVa.pumpTimers || 0) + now() - t0;   // (while the map moves the trees' buffer is sent again through the cap on new bytes a frame: draw)
+      if ((pk.cj || pk.queue.length) && !pk.timer && !byFrame()) pk.timer = pumpT(pkPump);
     }
     function pkFill() {
       const list = [], near = pk.r * 0.45; let born = -1e9; for (const [k, d] of pk.want) { const c = pk.chunks.get(k); if (c && c.n) { c.use = d < near ? c.n : c.nb; if (c.use) list.push(c); if (c.born > born) born = c.born; } }   // (beyond near, a chunk's groves only: a single tree there is a pixel or two)
@@ -786,37 +817,42 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
       if (pk.chunks.size > 500) { const keep = new Set(pk.want.map(w => w[0])); for (const k of [...pk.chunks.keys()]) if (!keep.has(k) && pk.chunks.size > 400) pk.chunks.delete(k); }
     }
     // each frame (nothing that loops over the trees): the ground's green fading in (out for the quiz), the trees' colours for the
-    // theme, how far they stand (the fabric's rise), and when the view's middle has moved to other chunks, which are wanted
+    // theme, how far they stand (the fabric's rise), and when the view's middle has moved to other chunks, which are wanted (not while the roads' plan or the real
+    // buildings are still to come: the trees keep clear of both). A throw here leaves the parks out, not the map (parksGiveUp)
     function pkStep(dt) {
-      if (!pk || !pk.ready) return false; let anim = false; const U = pk.U, m = pk.gl.mesh;
+      if (!pk || !pk.ready) return false; try { let anim = false; const U = pk.U, m = pk.gl.mesh;
       if (pkDark !== dark) { pkDark = dark; const C2 = PK_COL[dark ? 'night' : 'paper'].map(h => RK ? '#' + richRGB(hex2rgb(h), RK.sat, RK.val, RK.green).map(v => Math.round(v).toString(16).padStart(2, '0')).join('') : h); pkU.uPkWater.value.set(LK.water); pkU.uPkLawn.value.set(C2[0]); pkU.uPkDeep.value.set(C2[1]); pkU.uPkPale.value.set(C2[2]); U.uTreeA.value.set(C2[3]); U.uTreeB.value.set(C2[4]); U.uPkWood.value.set(C2[5]); }   // (in the light theme the richer colour of ?m3d-rich, as the places take theirs: placeCol)
       const tg = quiz ? 0 : 1, k0 = pk.k0 || 0; if (k0 !== tg) { pk.k0 = RM.matches ? tg : k0 < tg ? Math.min(tg, k0 + dt / 600) : Math.max(tg, k0 - dt / 300); anim = true; }
-      pkU.uPkK.value = pk.k0 * lerp(1, PK_FAR, smooth(Math.log(C.d), Math.log(PK_D[0]), Math.log(PK_D[1])));   // (from the whole bay the parks are faint and the places' own colours lead; full from the city-wide view in)
+      const kg = pk.k0 * lerp(1, PK_FAR, smooth(Math.log(C.d), Math.log(PK_D[0]), Math.log(PK_D[1]))); pkU.uPkK.value = pkUL.uPkK.value = pkUF.uPkK.value = kg < 0.05 ? 0 : kg; pkU.uPkKeep.value = pkLens || pkMood ? 0.5 : 0.28;   // (from the whole bay the parks are faint and the places' own colours lead; full from the city-wide view in; below 0.05, none: the work skipped)
       U.uPkNow.value = now() - pk.t0; if (U.uPkNow.value - pk.bornLast < 480) { anim = true; pk.late = true; }
       if (pk.late && !moving) { pk.late = false; shadowDirty = true; }   // (new trees: their shadows drawn at rest, not while the map moves)
       if (pk.warming) return anim; const grow = fabU.uGrow.value; m.visible = grow > 0 && pk.n > 0; m.castShadow = Q.fabShadow;
+      if (pk.dirty && !moving) pkFill();
       if (kNow() < FK0 * 0.75 || quiz) return anim;
       const fx = cur.cx, fz = cur.cz, R = Math.min(PK_R, fabU.uFocus.value.w), S = pk.P.CS; U.uFocus.value.set(fx, fz, R * 0.82, R);
       const i0 = Math.floor((fx - R) / S), i1 = Math.floor((fx + R) / S), j0 = Math.floor((fz - R) / S), j1 = Math.floor((fz + R) / S), ex = C.px, ez = C.pz, key = [i0, i1, j0, j1, Math.floor(ex / S), Math.floor(ez / S)].join(',');
-      if (key !== pk.key) { pk.key = key; const want = [], q = [];   // (a chunk's distance: from the middle of the view, or from under the camera where that is less: a low view looks at what is near it, too)
+      if (key !== pk.key && !rd.busy && !rbWait) { pk.key = key; const want = [], q = [];   // (a chunk's distance: from the middle of the view, or from under the camera where that is less: a low view looks at what is near it, too)
         for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) { const cx = (i + 0.5) * S, cz = (j + 0.5) * S, df = Math.hypot(cx - fx, cz - fz), d = Math.min(df, Math.hypot(cx - ex, cz - ez)), kk = i * 65536 + j; if (df > R + S * 0.7 || !pk.P.has(i, j)) continue; want.push([kk, d]); if (!pk.chunks.has(kk)) q.push({ k: kk, ix: i, iz: j, d }); }
-        want.sort((a, b) => a[1] - b[1]); pk.want = want; pk.r = R; q.sort((a, b) => a.d - b.d); pk.queue = q; pkFill();
+        want.sort((a, b) => a[1] - b[1]); pk.want = want; pk.r = R; q.sort((a, b) => a.d - b.d); pk.queue = q; if (moving) pk.dirty = true; else pkFill();
         if (q.length && !pk.timer && !byFrame()) pk.timer = pumpT(pkPump); }
-      return anim;
+      return anim; } catch (e) { parksGiveUp(e); return false; }
     }
     // a look's shaders cannot be made here (a compile error, renderer.debug.onShaderError below): once, the plain buildings instead. What was
     // made with the look is taken away and made again plain (the two generators read LOOK.v), with the plain shaders
+    const glFree = g => { if (g && g.mats) for (const k in g.mats) g.mats[k].dispose(); };
     function lookGiveUp() {
       if (LOOK.v === '0' || dead) return; console.warn('3D map, the look of the buildings left out: the plain ones instead'); LOOK.v = '0';
       try {
-        if (rb.gen && RB) { for (const [k, ch] of [...rb.chunks]) rbDrop(k, ch); rb.queue.length = 0; rb.key = '';
-          for (const t of rb.tall) { landG.remove(t.m); t.m.geometry.dispose(); placeData[(TW + t.slot) * 4] = 0; rb.slots.push(t.slot); } rb.tall.length = 0; rb.tallNext = 0;
-          rb.gl = RB.gl(THREE, fabU, '0'); rb.tallGl = RB.gl(THREE, rb.tallU, '0'); }
-        if (fab.gl && FB) { for (const [k, ch] of [...fab.chunks]) fabDrop(k, ch); fab.queue.length = 0; fab.key = ''; fab.gl = FB.gl(THREE, fabU, '0'); }
+        if (rb.gen && RB) { for (const [k, ch] of [...rb.chunks]) rbDrop(k, ch); rb.queue.length = 0; rb.key = ''; rbTallDrop();
+          glFree(rb.gl); glFree(rb.tallGl); rb.gl = rb.plain || RB.gl(THREE, fabU, '0'); rb.tallGl = rb.plainTall || RB.gl(THREE, rb.tallU, '0'); }   // (the plain ones made and warmed at the start: warmUp)
+        if (fab.gl && FB) { for (const [k, ch] of [...fab.chunks]) fabDrop(k, ch); fab.queue.length = 0; fab.key = ''; glFree(fab.gl); fab.gl = fab.plain || FB.gl(THREE, fabU, '0'); }
       } catch (e) { console.warn('3D map: ' + (e && e.stack || e)); }
       placeTex.needsUpdate = true; shadowDirty = true; needs = true; kick();
     }
-    renderer.debug.onShaderError = (gl, program) => { let log = ''; try { log = gl.getProgramInfoLog(program) || ''; } catch (e) {} console.error('3D map, a shader could not be made: ' + log.slice(0, 600)); if (LOOK.v !== '0') setTimeout(lookGiveUp, 0); };
+    // a shader that cannot be made here: what it belongs to, told by its own text, is left out (the parks' ground: the land's plain shader again; a look's: the plain buildings;
+    // the parks' trees: the parks; the roads' ribbons: the roads); anything else, said once in the console
+    renderer.debug.onShaderError = (gl, program, vs, fs) => { let log = '', src = ''; try { log = gl.getProgramInfoLog(program) || ''; src = (fs ? gl.getShaderSource(fs) || '' : '') + '\n' + (vs ? gl.getShaderSource(vs) || '' : ''); } catch (e) {} console.error('3D map, a shader could not be made: ' + log.slice(0, 600));
+      if (/\buPkLawn\b/.test(src)) setTimeout(pkGroundOff, 0); else if (/\bpkGrow\b/.test(src)) setTimeout(() => parksGiveUp(new Error('a shader of the trees could not be made')), 0); else if (/m3d-look/.test(src)) { if (LOOK.v !== '0') setTimeout(lookGiveUp, 0); } else if (/\buInvG\b/.test(src)) setTimeout(() => rdFail(new Error('the shader of the ribbons could not be made')), 0); };
     // ---- the roads (js/map3d/roads.js, from the list in js/map3d/roaddata.js): a plan and the flat ribbons, made once, a few
     // milliseconds at a time; the structure (decks, piers, walls, portals) in chunks near the camera, made and dropped as it moves ----
     const rd = { net: null, plan: null, busy: false, late: false, off: false, on: false, quiz: false, night: false, shade: false, lampsAsked: false, key: '', want: new Set(), queue: [], todo: [], job: null, chunks: new Map(), far: [], lamps: [], timer: 0, tris: 0, t: {} };
@@ -837,7 +873,7 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
     // after the first frame: the list is added to the page (it is not in index.html's chain); the buildings wait for the plan, 4 s at most
     function rdLoad() {
       rd.busy = true; const s = document.createElement('script'), t0 = now(); s.src = 'js/map3d/roaddata.js'; s.async = true;
-      s.onload = () => { if (dead) return; rd.t.load = Math.round(now() - t0); try { rd.net = M3D.roads.make(M3D.roadData, { hood: hoodAt, hAt, bridges: bridges.list, clips: M3D.roadData.areas.map(a => { const A = AREAS.find(q => q.id === a.name); if (!A || A === AREAS[0]) return null; const b = base.regionBBox(A.id); return [b[0] - 9, b[1] - 9, b[2] + 9, b[3] + 9]; }), lids: [].concat(...icons.filter(ic => ic.flat).map(ic => { const e = (M3D.extra || []).find(q => q && q.id === ic.id); return e && e.lids ? e.lids : [[ic.x, ic.z, ic.r * 1.15]]; })), flat: RFLAT, streets: STREETS }); rd.plan = rd.net.plan; rd.t.t0 = now(); if (!rd.timer) rd.timer = pumpT(rdPump); } catch (e) { rdFail(e); } };
+      s.onload = () => { if (dead || rd.dead) return; rd.t.load = Math.round(now() - t0); try { rd.net = M3D.roads.make(M3D.roadData, { hood: hoodAt, hAt, bridges: bridges.list, clips: M3D.roadData.areas.map(a => { const A = AREAS.find(q => q.id === a.name); if (!A || A === AREAS[0]) return null; const b = base.regionBBox(A.id); return [b[0] - 9, b[1] - 9, b[2] + 9, b[3] + 9]; }), lids: [].concat(...icons.filter(ic => ic.flat).map(ic => { const e = (M3D.extra || []).find(q => q && q.id === ic.id); return e && e.lids ? e.lids : [[ic.x, ic.z, ic.r * 1.15]]; })), flat: RFLAT, streets: STREETS }); rd.plan = rd.net.plan; rd.t.t0 = now(); if (!rd.timer) rd.timer = pumpT(rdPump); } catch (e) { rdFail(e); } };
       s.onerror = () => rdFail(new Error('js/map3d/roaddata.js did not load'));
       document.head.appendChild(s); setTimeout(() => { if (rd.busy) { rd.busy = false; rd.late = true; needs = true; kick(); } }, 4000);
     }
@@ -845,18 +881,30 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
     function rdFail(e) {
       console.warn('3D map, the roads left out: ' + (e && e.stack || e)); for (const k of [...rd.chunks.keys()]) rdDrop(k);
       for (const f of rd.far) { landG.remove(f.mesh); f.mesh.geometry.dispose(); const i = built.indexOf(f.b); if (i >= 0) built.splice(i, 1); }
-      for (const l of rd.lamps) if (l) { landG.remove(l.pts); l.pts.geometry.dispose(); const i = lightSets.indexOf(l.pts); if (i >= 0) lightSets.splice(i, 1); }
-      rd.far = []; rd.lamps = []; rd.net = rd.plan = rd.job = null; rd.queue.length = rd.todo.length = 0; roads = null; rd.busy = false; needs = true; kick();
+      for (const l of rd.lamps) if (l) { l.pts.removeFromParent(); l.pts.geometry.dispose(); const i = lightSets.indexOf(l.pts); if (i >= 0) lightSets.splice(i, 1); }
+      rd.far = []; rd.lamps = []; rd.net = rd.plan = rd.job = null; rd.queue.length = rd.todo.length = 0; roads = null; rd.busy = false; rd.dead = true; needs = true; kick();
+      if (!dead && bridges && !bridges.off) setTimeout(bridgesBack, 0);   // (and the seven bridges where they stood before the roads, their traffic with them)
+    }
+    // without the roads: the bridges made again where they stood before them (models.js bridges, off), and the night's traffic on the bridges' own frames only
+    function bridgesBack() {
+      if (dead || !bridges || bridges.off) return; const old = bridges, nb = MD.bridges(ground, true); nb.off = true;
+      old.mesh.removeFromParent(); old.mesh.geometry.dispose(); const i = built.findIndex(b => b.mesh === old.mesh); if (i >= 0) built.splice(i, 1);
+      if (old.pts) { old.pts.removeFromParent(); old.pts.geometry.dispose(); const j = lightSets.indexOf(old.pts); if (j >= 0) lightSets.splice(j, 1); }
+      bridges = nb; nb.mesh = addBuilt(nb); if (nightBuilt) nb.pts = pointsOf(nb.lights); paintBuilt();
+      if (traffic) { const to = new Map([[old.frames.gg, nb.frames.gg], [old.frames.bayWest, nb.frames.bayWest], [old.frames.bayEast, nb.frames.bayEast]]); traffic.cars = traffic.cars.filter(c => to.has(c.f)); for (const c of traffic.cars) c.f = to.get(c.f);
+        if (traffic.pts) { traffic.pts.removeFromParent(); traffic.pts.geometry.dispose(); const j = lightSets.indexOf(traffic.pts); if (j >= 0) lightSets.splice(j, 1); }
+        traffic.pts = pointsOf(traffic.cars.map(c => ({ x: 0, y: 0, z: 0, kind: c.dir > 0 ? '#fff0d0' : '#ff5846', size: 0.5 }))); if (traffic.pts) traffic.pts.frustumCulled = false; stepLife(); }
+      if (wcv && LK) paintWater(); shadowDirty = true; needs = true; kick();   // (the decks' shadows painted on the water)
     }
     // their structure cannot be made: the ribbons alone, as with ?m3d-roads=flat
     function rdFlat(e) { console.warn('3D map, the roads\' structure left out: ' + (e && e.stack || e)); rd.off = true; rd.job = null; rd.queue.length = 0; for (const k of [...rd.chunks.keys()]) rdDrop(k); }
-    const rdWork = () => !!(rd.net && (rd.plan || rd.job || rd.queue.length || rd.todo.length));
+    const rdWork = () => !!(rd.net && (((rd.plan || rd.todo.length) && !moving) || (rd.job && (rd.job.kind === 'chunk' || !moving)) || rd.queue.length));   // (work that can go on now: the plan, the ribbons and the lamps only at rest)
     // a chunk's piece of the ribbons folded away while its structure stands (their widths set to nothing), and back
     function rdFold(k, on) { for (const f of rd.far) { const g = f.groups.get(k); if (!g) continue; const a = f.mesh.geometry.attributes.aW; if (on) a.array.fill(0, g[0] * 2, g[1] * 2); else a.array.set(f.w0.subarray(g[0] * 2, g[1] * 2), g[0] * 2); if (a.addUpdateRange) a.addUpdateRange(g[0] * 2, (g[1] - g[0]) * 2); a.needsUpdate = true; } }
-    function rdDrop(k) { const ch = rd.chunks.get(k); if (ch && ch.mesh) { landG.remove(ch.mesh); ch.mesh.geometry.dispose(); const i = built.findIndex(b => b.mesh === ch.mesh); if (i >= 0) built.splice(i, 1); rd.tris -= ch.tris; rdFold(ch.fk, false); if (moving) rd.shade = true; else shadowDirty = true; needs = true; } rd.chunks.delete(k); }
+    function rdDrop(k) { const ch = rd.chunks.get(k); if (ch && ch.mesh) { ch.mesh.removeFromParent(); ch.mesh.geometry.dispose(); const i = built.findIndex(b => b.mesh === ch.mesh); if (i >= 0) built.splice(i, 1); rd.tris -= ch.tris; rdFold(ch.fk, false); if (moving) rd.shade = true; else shadowDirty = true; needs = true; } rd.chunks.delete(k); }
     // the vertices of a chunk (and the lamps) that stand on place i, raised with it
     function rdLiftChunk(ch, i, h) { const lf = ch.lifts, a = ch.mesh.geometry.attributes.position; let hit = false; for (let q = 0; q < lf.length; q += 3) if (lf[q] === i) { if (!ch.y0) { ch.y0 = new Float32Array(a.count); for (let v = 0; v < a.count; v++) ch.y0[v] = a.array[v * 3 + 1]; } for (let v = lf[q + 1]; v < lf[q + 2]; v++) a.array[v * 3 + 1] = ch.y0[v] + h; hit = true; } if (hit) a.needsUpdate = true; }
-    function rdLift(i, h) { for (const ch of rd.chunks.values()) if (ch.mesh) rdLiftChunk(ch, i, h); for (const l of rd.lamps) { const r = l && l.runs.get(i); if (!r) continue; const a = l.pts.geometry.attributes.position; for (let k = r[0]; k < r[1]; k++) a.array[k * 3 + 1] = l.y0[k] + h; a.needsUpdate = true; } }
+    function rdLift(i, h) { try { for (const ch of rd.chunks.values()) if (ch.mesh) rdLiftChunk(ch, i, h); for (const l of rd.lamps) { const r = l && l.runs.get(i); if (!r) continue; const a = l.pts.geometry.attributes.position; for (let k = r[0]; k < r[1]; k++) a.array[k * 3 + 1] = l.y0[k] + h; a.needsUpdate = true; } } catch (e) { rdFail(e); } }
     // the night's lamps along the motorways: asked for when the night look is first on, made after the ribbons
     function rdNight() { rd.night = true; if (!rd.net || rd.plan || rd.lampsAsked) return; rd.lampsAsked = true; const a0 = area === AREAS[0] ? 0 : 1; for (const a of [a0, 1 - a0]) if (a < rd.net.areas) rd.todo.push({ kind: 'lamps', a, g: rd.net.lamps(a) }); if (!rd.timer && !byFrame()) rd.timer = pumpT(rdPump); }
     // the cars of the night's traffic on the roads' frames, when life was made before them (buildLife takes the frames that are there)
@@ -875,19 +923,21 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
       try {
         while (now() < stop) {
           if (rd.plan) { if (!still) break; const t1 = now(), r = rd.plan.next(); rd.t.planStep = Math.max(rd.t.planStep || 0, +(now() - t1).toFixed(1));
-            if (N.ready && !roads) { roads = { near: N.near, frames: N.frames }; rd.busy = false; rd.t.ready = Math.round(now() - rd.t.t0); made = true;
-              if (rd.late) { for (const [k, ch] of [...rb.chunks]) rbDrop(k, ch); rb.key = ''; for (const [k, ch] of [...fab.chunks]) fabDrop(k, ch); fab.key = ''; } }   // (the buildings made while the list was late: again, clear of the roads)
-            if (r.done) { rd.plan = null; rd.t.plan = Math.round(now() - rd.t.t0); const a0 = area === AREAS[0] ? 0 : 1; for (const a of [a0, 1 - a0]) if (a < N.areas) rd.todo.push({ kind: 'far', a, g: N.far(a) }); if (rd.night) rdNight(); rdCars(); }
+            if (N.ready && !roads) { roads = { near: N.near, over: N.over, frames: N.frames }; rd.busy = false; rd.t.ready = Math.round(now() - rd.t.t0); made = true; if (pk) { pk.chunks.clear(); pk.key = ''; }   // (trees made before the plan: again, clear of the roads)
+              if (rd.late) { if (rb.gen && rb.gen.resettle) rb.gen.resettle(); for (const [k, ch] of [...rb.chunks]) rbDrop(k, ch); rb.key = ''; rbTallDrop(); for (const [k, ch] of [...fab.chunks]) fabDrop(k, ch); fab.key = ''; } }   // (the buildings made while the list was late: each placed again, clear of the roads)
+            if (r.done) { rd.plan = N.plan = null; rd.key = ''; rd.t.plan = Math.round(now() - rd.t.t0); const a0 = area === AREAS[0] ? 0 : 1; for (const a of [a0, 1 - a0]) if (a < N.areas) rd.todo.push({ kind: 'far', a, g: N.far(a) }); if (rd.night) rdNight(); rdCars(); }   // (rd.key: the chunks asked for again, now with the portals the plan's last steps added)
+            else if (r.value === 'turn') break;   // (a big allocation waits for the next turn)
             continue; }
           if (!rd.job) { let q = null; if (!rd.off) while ((q = rd.queue.shift())) if (!rd.chunks.has(q.k) && rd.want.has(q.k)) break;
             if (q) rd.job = { kind: 'chunk', k: q.k, ix: q.ix, iz: q.iz, g: N.chunk(q.ix, q.iz) }; else if (rd.todo.length && still) rd.job = rd.todo.shift(); else break; }
-          if (rd.job.kind !== 'chunk' && !still) break; kind = rd.job.kind; const t1 = now(), r = rd.job.g.next(); rd.t[kind + 'Step'] = Math.max(rd.t[kind + 'Step'] || 0, +(now() - t1).toFixed(1)); if (!r.done) continue;
+          if (rd.job.kind !== 'chunk' && !still) break; kind = rd.job.kind; const t1 = now(), r = rd.job.g.next(); rd.t[kind + 'Step'] = Math.max(rd.t[kind + 'Step'] || 0, +(now() - t1).toFixed(1)); if (!r.done) { if (r.value === 'turn') break; continue; }
           const j = rd.job, v = r.value; rd.job = null; made = true;
           if (j.kind === 'far') { if (!v.length) continue; if (!rdMat) rdMat = rdFarMat();
             for (const f of v) { const mesh = new THREE.Mesh(f.geometry, rdMat), b = { mesh, mat: f.mat, names: f.names }, e = { mesh, b, groups: f.groups, w0: f.w0, tris: f.tris, a: j.a }; mesh.visible = !quiz; mesh.renderOrder = -1; mesh.matrixAutoUpdate = false; built.push(b); paintOne(b); rd.far.push(e); addLater([mesh], () => rd.far.includes(e), bytesOf([mesh]), true); }   // (joins the scene in a frame at rest: addOne)
             for (const ch of rd.chunks.values()) if (ch.mesh && ch.mesh.parent === landG) rdFold(ch.fk, true); rd.t['far' + j.a] = Math.round(now() - rd.t.t0); }
           else if (j.kind === 'lamps') { const pts = pointsOf(v, rdHold); if (!pts) continue; const runs = new Map(); v.forEach((l, k) => { const r2 = runs.get(l.hood); if (r2) r2[1] = k + 1; else runs.set(l.hood, [k, k + 1]); }); pts.visible = !quiz && !!LK.lights;
             const l = rd.lamps[j.a] = { pts, runs, y0: Float32Array.from(v, q => q.y), n: v.length }; addLater([pts], () => rd.lamps[j.a] === l, bytesOf([pts]), true); for (const [i, r2] of runs) if (i >= 0 && liftV[i]) { const a = pts.geometry.attributes.position; for (let k = r2[0]; k < r2[1]; k++) a.array[k * 3 + 1] = l.y0[k] + liftV[i]; } }
+          else if (!rd.want.has(j.k)) { if (v.geometry) v.geometry.dispose(); }   // (no longer asked for while it was made: not kept)
           else if (!v.tris) rd.chunks.set(j.k, { ix: j.ix, iz: j.iz });
           else { const mesh = addBuilt(v, true, rdHold), ch = { ix: j.ix, iz: j.iz, mesh, lifts: v.lifts, tris: v.tris, fk: (j.ix + 2048) * 16384 + (j.iz + 2048), y0: null }, k = j.k; paintOne(built[built.length - 1]); mesh.geometry.boundingSphere.radius += 1; mesh.renderOrder = -1; mesh.matrixAutoUpdate = false;   // (drawn before the land: the ground under a road is then not shaded at all)
             rd.chunks.set(j.k, ch); rd.tris += v.tris; addLater([mesh], () => rd.chunks.get(k) === ch && (rdFold(ch.fk, true), moving ? (rd.shade = true) : (shadowDirty = true), true), bytesOf([mesh])); for (let q = 0, seen = -1; q < v.lifts.length; q += 3) { const i = v.lifts[q]; if (i !== seen && liftV[i]) rdLiftChunk(ch, i, liftV[i]); seen = i; } if (moving) rd.shade = true; else shadowDirty = true; }   // (while the map moves: into the shadows at the next rest, rdStep, not by a redraw of its own)
@@ -899,7 +949,7 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
     // each frame: the ribbons' scale; which chunks of structure the view asks for (from the scale at which a deck's height shows: the
     // RD_MAX nearest to a point a little towards the camera from the middle of the view), looked at again only when that point has
     // moved half a chunk; the others are dropped, but for one (so a view that hovers between two does not make and drop them in turn)
-    function rdStep(c) {
+    function rdStep(c) { try {   // (a throw here leaves the roads out, not the map: rdFail)
       const N = rd.net; if (!N || !roads) return; rdU.uInvG.value = 2 / (F * H); if (rd.shade && !moving) { rd.shade = false; shadowDirty = true; }
       if (rd.quiz !== !!quiz) { rd.quiz = !!quiz; for (const f of rd.far) f.mesh.visible = !quiz; for (const l of rd.lamps) if (l) l.pts.visible = !quiz && !!LK.lights; }   // (the quiz hides the roads, as it hides the landmarks: they are hints)
       if (RFLAT || rd.off) return;
@@ -911,7 +961,7 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
         all.sort((a, b) => a.d - b.d); rd.want = new Set(all.slice(0, RD_MAX).map(q => q.k)); const keep = new Set(all.slice(0, RD_MAX + 1).map(q => q.k));
         rd.queue = all.slice(0, RD_MAX).filter(q => !rd.chunks.has(q.k)); for (const k of [...rd.chunks.keys()]) if (!keep.has(k)) rdDrop(k); }
       if (rdWork() && !rd.timer && !byFrame()) rd.timer = pumpT(rdPump);
-    }
+    } catch (e) { rdFail(e); } }
 
     // each frame: how far the fabric stands for the zoom, the circle of ground it stands in (a little ahead of the middle of a
     // tilted view), which chunks that asks for, and each chunk's own rise when it is new
@@ -996,9 +1046,9 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
       else if (f & 4) { top = mix3(top, L.ink, 0.2); bev = mix3(L.ink, top, 0.1); }
       else if (f & 2) { top = mix3(top, L.liftC, 0.1); bev = mix3(L.ink, top, 0.3); }
       placeData[i * 4] = top[0]; placeData[i * 4 + 1] = top[1]; placeData[i * 4 + 2] = top[2]; placeTex.needsUpdate = true;
-      const K = tileS.kind, S = tileS.shade, A = tileCol.array;
-      for (let v = t.v0; v < t.v1; v++) { const k = K[v], c = k === 0 ? top : k === 1 ? bev : wall, s = S[v]; A[v * 3] = c[0] * s; A[v * 3 + 1] = c[1] * s; A[v * 3 + 2] = c[2] * s; }
-      if (t.fine && fineMesh) { const f = t.fine, K2 = fineS.kind, S2 = fineS.shade, A2 = fineCol.array; for (let v = f.v0; v < f.v1; v++) { const k = K2[v], c = k === 0 ? top : k === 1 ? bev : wall, s2 = S2[v]; A2[v * 3] = c[0] * s2; A2[v * 3 + 1] = c[1] * s2; A2[v * 3 + 2] = c[2] * s2; } fineCol.needsUpdate = true; }
+      const K = tileS.kind, S = tileS.shade, A = tileCol.array, N = tileCol.itemSize, al = pkHas && !pkHas[i] ? -a : a;   // (the alpha: the place's opacity, for the parks' ground; below 0, no park on it)
+      for (let v = t.v0; v < t.v1; v++) { const k = K[v], c = k === 0 ? top : k === 1 ? bev : wall, s = S[v]; A[v * N] = c[0] * s; A[v * N + 1] = c[1] * s; A[v * N + 2] = c[2] * s; if (N === 4) A[v * 4 + 3] = al; }
+      if (t.fine && fineMesh) { const f = t.fine, K2 = fineS.kind, S2 = fineS.shade, A2 = fineCol.array; for (let v = f.v0; v < f.v1; v++) { const k = K2[v], c = k === 0 ? top : k === 1 ? bev : wall, s2 = S2[v]; A2[v * N] = c[0] * s2; A2[v * N + 1] = c[1] * s2; A2[v * N + 2] = c[2] * s2; if (N === 4) A2[v * 4 + 3] = al; } fineCol.needsUpdate = true; }
     }
     function paintBuilt() {
       for (const b of built) {
@@ -1020,7 +1070,7 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
       tileMat.roughness = L.tileRough; builtMat.roughness = L.builtRough; waterMat.roughness = L.waterRough; waterMat.metalness = L.waterMetal; builtMat.emissiveIntensity = L.glow; paneU.uPaneK.value = L.pane; paneU.uAmb.value = L.amb;
       hemi.color.set(L.hemi.sky); hemi.groundColor.set(L.hemi.ground); hemi.intensity = L.hemi.i; key.color.set(L.key.c); key.intensity = L.key.i; key.shadow.radius = L.shadowR;
       paintBuilt(); for (const m of secMeshes.values()) m.dirty = true; selKey = ''; for (const e of edgeMeshes.values()) e.key = '~'; // (stale: kept until replaced, updateSections)
-      if (L.lights) buildNight(); lightSets.forEach(p => { p.visible = L.lights; }); if (beam) beam.visible = L.lights;
+      if (L.lights) buildNight(); lightSets.forEach(p => { p.visible = L.lights; }); for (const l of rd.lamps) if (l) l.pts.visible = !quiz && !!L.lights; if (beam) beam.visible = L.lights;   // (the roads' lamps as the roads: hidden in the quiz)
       shadowDirty = true; needs = true;
     }
 
@@ -1132,7 +1182,7 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
 
     // ---- one frame of the scene ----
     const lightDir = new THREE.Vector3(), lightCam = new THREE.OrthographicCamera(), m4 = new THREE.Matrix4(), qt = new THREE.Quaternion(), sc = new THREE.Vector3(), ps = new THREE.Vector3(), v3 = new THREE.Vector3(), yAxis = new THREE.Vector3(0, 1, 0), xAxis = new THREE.Vector3(1, 0, 0), q2 = new THREE.Quaternion();
-    let C = null, viewBB = [0, 0, 0, 0], subF = [];
+    let C = null, viewBB = [0, 0, 0, 0], subF = [], lmShade = false;
     function updateScene(t, vx, dt) {
       const c = C, L = LK;
       camera.position.set(c.px, c.py, c.pz); camera.up.set(0, 1, 0); camera.lookAt(cur.cx, FOCUS_Y, cur.cz);
@@ -1147,12 +1197,15 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
       c.vex = vex;
       // the landmarks grow a little as the map zooms out, so the skyline reads from across the bay; each stands on its block
       const k = clamp(Math.pow(c.d / 150, 0.7), 1, 2.6); if (Math.abs(k - lmScale) > 0.004) { lmScale = k; shadowDirty = true; }
-      const kb = SCALE === 'big' ? 1 : smooth(Math.log(c.d), Math.log(LM_D[0]), Math.log(LM_D[1])); if (Math.abs(kb - lmB) > 0.003 || (kb !== lmB && (kb === 0 || kb === 1))) { lmB = kb; shadowDirty = true; }   // (as the size changes, the shadows are drawn again: while the map moves at most every 100 ms, as for any change)
+      const kb = SCALE === 'big' ? 1 : smooth(Math.log(c.d), Math.log(LM_D[0]), Math.log(LM_D[1])); if (Math.abs(kb - lmB) > 0.003 || (kb !== lmB && (kb === 0 || kb === 1))) { lmB = kb; if (moving) lmShade = true; else shadowDirty = true; } if (lmShade && !moving) { lmShade = false; shadowDirty = true; }   // (as the size changes, the shadows are drawn again: at the next rest, not while the map moves)
       fabU.uRise.value = lmScale / vex;                                 // the real buildings stand at the landmarks' scale, near or far (js/map3d/real.js V)
-      const show = !quiz; // the quiz hides the landmarks and the skylines, as the flat map hides its glyphs: they are hints
+      const show = !quiz, gF = SCALE === 'big' ? 0 : smooth(kNow(), FK0, FK1); // the quiz hides the landmarks and the skylines, as the flat map hides its glyphs: they are hints. gF: how far the houses stand (fabStep's rise)
       for (const ic of icons) { // a model a few pixels tall is not drawn at all (nor its shadow): with some seventy of them that is most of them, most of the time
-        const y = ic.y + (ic.hood >= 0 ? liftV[ic.hood] : 0), zc = (ic.x - c.px) * c.fx + (y * vex - c.py) * c.fy + (ic.z - c.pz) * c.fz; if (!ic.flat) { ic.sh = lerp(ic.tk, lmScale, lmB); ic.sv = lmScale * lerp(ic.tv, 1, lmB); } ic.px = zc > 0 ? (ic.flat ? Math.max(ic.h, ic.r) : ic.h * ic.sv) * c.g / zc : 0;   // (a flat one, a park: by its width; it keeps its size and its heights stretch as the land's do, so the road that runs in under it still meets it)
-        ic.side = ic.px; if (!ic.flat && lmB < 1 && zc > 0) { const sd = Math.max(ic.h * ic.sv, 2 * ic.r * ic.sh) * c.g / zc, F = LM_MIN * (1 - lmB) * (1 - smooth(Math.hypot(ic.x - cur.cx, ic.z - cur.cz), LM_NEAR, LM_NEAR * 2)); ic.side = sd; if (sd < F && sd > 0) { const f = Math.min(F / sd, lmScale / Math.max(ic.sh, ic.sv)); if (f > 1) { ic.sh *= f; ic.sv *= f; ic.px *= f; ic.side = sd * f; } } }   // (close in, never smaller on screen than LM_MIN pixels on its largest side, nor larger than from afar: true size is the rule, the floor keeps a small one findable)
+        const y = ic.y + (ic.hood >= 0 ? liftV[ic.hood] : 0), zc = (ic.x - c.px) * c.fx + (y * vex - c.py) * c.fy + (ic.z - c.pz) * c.fz; if (!ic.flat) { ic.sh = lerp(ic.tk, lmScale, lmB); ic.sv = lmScale * lerp(ic.tv, 1, lmB);
+          if (ic.clr == null) ic.clr = SCALE === 'big' || (ic.hood >= 0 && REGS[HOODS[ic.hood].region] && REGS[HOODS[ic.hood].region].away) ? 0 : lmClear(ic, 1.12);   // (clr: the plan the houses, the real buildings and the trees keep clear of, lmClear)
+          if (ic.clr && gF > 0 && ic.sh > ic.clr) { const s2 = ic.sh + (ic.clr - ic.sh) * gF; ic.sv *= s2 / ic.sh; ic.sh = s2; } }   // (where the houses stand, a landmark is drawn no larger than what they keep clear of: its size eases out to the larger one from afar as they sink)
+        ic.px = zc > 0 ? (ic.flat ? Math.max(ic.h, ic.r) : ic.h * ic.sv) * c.g / zc : 0;   // (a flat one, a park: by its width; it keeps its size and its heights stretch as the land's do, so the road that runs in under it still meets it)
+        ic.side = ic.px; ic.held = false; if (!ic.flat && lmB < 1 && zc > 0) { const sd = Math.max(ic.h * ic.sv, 2 * ic.r * ic.sh) * c.g / zc, F = LM_MIN * (1 - lmB) * (1 - smooth(Math.hypot(ic.x - cur.cx, ic.z - cur.cz), LM_NEAR, LM_NEAR * 2)); ic.side = sd; if (sd < F && sd > 0) { const f = Math.min(F / sd, lmScale / Math.max(ic.sh, ic.sv)); if (f > 1) { ic.sh *= f; ic.sv *= f; ic.px *= f; ic.side = sd * f; ic.held = true; } } }   // (held: the floor holds it, and it is named: drawOverlay)   // (close in, never smaller on screen than LM_MIN pixels on its largest side, nor larger than from afar: true size is the rule, the floor keeps a small one findable)
         const vis = show && ic.px >= (ic.mesh.visible ? 4 : 5.5); if (ic.mesh.visible !== vis) { ic.mesh.visible = vis; shadowDirty = true; }
         if (!ic.flat) ic.mesh.scale.set(ic.sh, ic.sv / vex, ic.sh); ic.mesh.position.y = y; }
       for (const p of cityParts) { p.mesh.visible = show; const sy = (1 + (lmScale - 1) * 0.6) / vex; p.mesh.scale.y = sy; p.mesh.position.y = p.hood >= 0 ? (p.g0 != null ? p.g0 : HT[p.hood]) * (1 - sy) + liftV[p.hood] : 0; } // stretched from the ground it stands on (its block's top), not from the water
@@ -1215,15 +1268,15 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
       // the region fade follows the camera, as in the flat map: a hand pan or zoom fades it out, the next flight brings it back
       const farOn = !userMoved || !!quiz, f0 = farA[0], tgt = farOn ? 1 : 0;
       if (region === 'all' || RM.matches) farA[0] = tgt; else if (Math.abs(tgt - farA[0]) < 0.01) farA[0] = tgt; else { farA[0] += (tgt - farA[0]) * (1 - Math.exp(-dt / 160)); anim = true; }
-      const pk = quiz ? (press >= 0 ? press : hover) : -1, okM = new Set(), noM = new Set(); if (quiz) for (const m of quiz.marks()) { if (m.dot && !m.name) continue; (m.ok ? okM : noM).add(m.i); }
+      let mood = false; const pk = quiz ? (press >= 0 ? press : hover) : -1, okM = new Set(), noM = new Set(); if (quiz) for (const m of quiz.marks()) { if (m.dot && !m.name) continue; (m.ok ? okM : noM).add(m.i); }
       for (let i = 0; i < HOODS.length; i++) {
         const bb = BB[i], vis = bb[2] > viewBB[0] && bb[0] < viewBB[2] && bb[3] > viewBB[1] && bb[1] < viewBB[3];
-        const far = region !== 'all' && HOODS[i].region !== region && i !== sel, a = (o.alphaFor ? o.alphaFor(i) : 1) * (far ? lerp(1, .32, farA[0]) : 1);
+        const far = region !== 'all' && HOODS[i].region !== region && i !== sel, af = o.alphaFor ? o.alphaFor(i) : 1, a = af * (far ? lerp(1, .32, farA[0]) : 1); if (af < 0.999) mood = true;
         subF[i] = vis ? subFactor(i) * (far ? 1 - farA[0] : 1) : 0; // a place faded with its region keeps its sections to itself
         const f = (i === sel ? 1 : 0) | (i === hover && i !== sel && !quiz ? 2 : 0) | (pk === i && quiz.pick(i) ? 4 : 0) | (okM.has(i) ? 8 : 0) | (noM.has(i) ? 16 : 0);
         if (paintAll || f !== flagNow[i] || Math.abs(a - alphaNow[i]) > 0.002) { flagNow[i] = f; alphaNow[i] = a; if (tiles) { paintTile(i); tileCol.needsUpdate = true; } needs = true; }
       }
-      if (tiles) paintAll = false;
+      if (tiles) paintAll = false; pkMood = mood;   // (a filter or the veil on: the parks' ground keeps more of the places' colours, pkStep)
       return anim || farA[0] !== f0;
     }
 
@@ -1272,9 +1325,9 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
         const hi = IDX[l.hood], far = farOn && region !== 'all' && hi != null && HOODS[hi].region !== region, ic = model[j];
         if (ic) {
           const s = ic.mesh.scale.x, y = ic.mesh.position.y, a = at(ic.x, ic.z, y), b = at(ic.x, ic.z, y + ic.h * (ic.flat ? s / c.vex : ic.mesh.scale.y)); if (a[2] <= 0 || b[2] <= 0) return;
-          const hpx = a[1] - b[1], wpx = ic.r * s * c.g / a[2], box = [Math.min(a[0], b[0]) - wpx * .55, b[1] - 2, Math.max(a[0], b[0]) + wpx * .55, a[1] + 2];
-          if (hpx < 8 || box[2] < 0 || box[0] > W || box[3] < 0 || box[1] > H) return;
-          if (quiz) return; placed.push(box); if (lmF > .5 && hpx >= 12 && !far) lmBox[j] = box;
+          const hpx = a[1] - b[1], wpx = ic.r * s * c.g / a[2], box = [Math.min(a[0], b[0]) - wpx * .55, b[1] - 2, Math.max(a[0], b[0]) + wpx * .55, a[1] + 2], big = Math.max(hpx, box[2] - box[0]);
+          if (big < 8 || box[2] < 0 || box[0] > W || box[3] < 0 || box[1] > H) return;
+          if (quiz) return; placed.push(box); if (lmF > .5 && big >= 12 && !far) { const mx = (box[0] + box[2]) / 2, my = (box[1] + box[3]) / 2, hx = Math.max(12, (box[2] - box[0]) / 2), hy = Math.max(12, (box[3] - box[1]) / 2); lmBox[j] = [mx - hx, my - hy, mx + hx, my + hy]; }   // (a tap target at least 24 px each way)
           return;
         }
         const h = hi != null ? gAt(hi, l.x, l.y) : 0, p = at(l.x, l.y, h), on = p[2] > 0 && p[0] > -60 && p[0] < W + 60 && p[1] > -60 && p[1] < H + 60;
@@ -1341,11 +1394,11 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
       // to Fabulous Las Vegas sign). The names placed are read once a landmark is big enough to be named
       let said = null; const near = Math.max(160, 10 * kNow()), words = t => (String(t || '').toLowerCase().match(/[a-z]{4,}/g) || []).filter(w => !LM_STOP.has(w));
       if (!quiz && ready) for (const ic of icons) {
-        if (!ic.label || !(ic.px >= 40 || (lmB < 1 && ic.side >= LM_MIN * 0.9 * (1 - lmB))) || !ic.mesh.visible) continue; const a = at(ic.x, ic.z, ic.mesh.position.y); if (a[2] <= 0 || a[2] > c.d * 2.3) continue;   // (close in, every landmark held at its least size is named)
+        if (!ic.label || !(ic.px >= 40 || ic.held) || !ic.mesh.visible) continue; const a = at(ic.x, ic.z, ic.mesh.position.y); if (a[2] <= 0 || a[2] > c.d * 2.3) continue;   // (close in, every landmark held at its least size is named)
         if (!said) said = [...want.values()].filter(r => r.text).map(r => ({ x: r.x, y: r.y, t: r.text.toLowerCase(), w: new Set(words(r.text)) }));
-        const lt = ic.label.toLowerCase(); if (said.some(r => r.t === lt) || said.some(r => Math.hypot(r.x - a[0], r.y - a[1]) <= near && words(ic.label).filter(w => r.w.has(w)).length >= (lmB < 1 ? 2 : 1))) continue;   // (close in, a name sharing one word with a place's is still a name of its own: the Castro Theatre in the Castro)
+        const lt = ic.label.toLowerCase(), lw = ic.lw || (ic.lw = words(ic.label)), nw = Math.min(lmB < 1 ? 2 : 1, lw.length); if (said.some(r => r.t === lt) || (nw && said.some(r => Math.hypot(r.x - a[0], r.y - a[1]) <= near && lw.filter(w => r.w.has(w)).length >= nw))) continue;   // (close in, a name sharing one word with a place's is still a name of its own: the Castro Theatre in the Castro)
         const size = fsz - 0.5, tw = measure(ic.label, 500, size), ok = b => !(b[2] < 0 || b[0] > W || b[3] < 0 || b[1] > H || !inView(b) || clash(b)); let bx = [a[0] - tw / 2 - 3, a[1] + 3, a[0] + tw / 2 + 3, a[1] + 4 + size * 1.25];
-        if (!ok(bx)) { if (!(lmB < 1 && ic.side >= LM_MIN * 0.9 * (1 - lmB))) continue; const t = at(ic.x, ic.z, ic.mesh.position.y + ic.h * ic.mesh.scale.y), lh = size * 1.25 + 1, my = (a[1] + t[1]) / 2; if (t[2] <= 0) continue;   // (close in, where its own place under it is taken: over its top, a line higher, or beside it)
+        if (!ok(bx)) { if (!ic.held) continue; const t = at(ic.x, ic.z, ic.mesh.position.y + ic.h * ic.mesh.scale.y), lh = size * 1.25 + 1, my = (a[1] + t[1]) / 2; if (t[2] <= 0) continue;   // (close in, where its own place under it is taken: over its top, a line higher, or beside it)
           bx = [[t[0] - tw / 2 - 3, t[1] - 3 - lh, t[0] + tw / 2 + 3, t[1] - 3], [t[0] - tw / 2 - 3, t[1] - 5 - 2 * lh, t[0] + tw / 2 + 3, t[1] - 5 - lh], [a[0] + 10, my - lh / 2, a[0] + 16 + tw, my + lh / 2], [a[0] - 16 - tw, my - lh / 2, a[0] - 10, my + lh / 2]].find(ok); if (!bx) continue; }
         placed.push(bx); put('L' + ic.id, { text: ic.label, x: (bx[0] + bx[2]) / 2, y: (bx[1] + bx[3]) / 2, size, ls: 0, weight: 500, color: P.ink2 });
       }
@@ -1476,12 +1529,12 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
       if (!dark && !busy && !ptrs.size && t - sunAt > 240000) { sunAt = t; const k0 = sunKey; refreshPalette(); if (sunKey !== k0) applyLook(); }
       if (tm && paintAll && tiles) EVa.paint = 1; let anim = prepare(dt), why = (busy ? 1 : 0) | (anim ? 2 : 0) | (needs ? 4 : 0); if (stepLifts(t)) { anim = true; needs = true; why |= 8; if (EVa) EVa.lift = 1; }
       const mv = busy || ptrs.size > 0; govern(fgap, mv, asked); if (mv !== moving) { moving = mv; setPR(prOf()); if (!mv && (sh.loose || shadowDirty || upQ.length || (SW.hold && T.shadowHold !== false))) needs = true; if (!mv && !SW.pumpOld) pumpsGo(); } // a lighter frame while the map moves, the full one when it rests
-      if (addQ.length) addOne(); if (upQ.length && !moving) needs = true; // one newly made mesh joins the scene this frame (CAP); a big buffer made hidden goes to the GPU (upOne)
+      const nB = addQ.length ? addOne() : 0; if (upQ.length && !moving) needs = true; if (pk && pk.dirty && pk.ready && !pk.warming && moving && (!CAP || nB + PK_CAP * 32 <= 512000)) { pkFill(); needs = true; }   // (while the map moves the trees' buffer, PK_CAP trees of 32 bytes, is sent again only within the frame's cap on new bytes) // one newly made mesh joins the scene this frame (CAP); a big buffer made hidden goes to the GPU (upOne)
       const only = tick && amb && !needs && !busy && !anim && !olAnim;      // a frame of ambient motion alone: the scene is drawn, the names stand as they are
       if (tm) tm[1] = tm[2] = tm[3] = now(); if (needs || (tick && amb)) { needs = false; if (gov.probing) gov.dirty = true; if (updateScene(t, vx, dt)) { anim = true; needs = true; why |= 16; } if (tm) tm[2] = now(); const up = upOne(), fr = fresh.length ? fresh.splice(0).map(offView) : null; renderer.render(scene, camera); if (up) up(); if (fr) fr.forEach(backView); if (tm) tm[3] = now(); stat.frames++; stat.drawn = now(); if (only) stat.amb++; if (!stat.firstFrame) stat.firstFrame = now(); }
       if (!only) { olAnim = drawOverlay(t, dt); anim = olAnim || anim; if (tm) EVa.names = lblA.size; } if (tm) tm[4] = now(); lastDraw = now(); if (byFrame()) pumpTurn(); if (tm) tm[5] = now(); stat.lastMs = now() - t0; stat.why = why | (olAnim ? 32 : 0) | (me ? 64 : 0) | (tick ? 128 : 0);
       if ((mv || anim) && !only) stat.busyAt = now(); // (restMs)
-      if (busy || anim || needs || addQ.length || (upQ.length && !moving) || (byFrame() && pumpWork()) || (coarse && ptrs.size && sawMv)) raf = requestAnimationFrame(frame); // (a finger at rest on the map: the pumps' turns go on while there is work; on a touch screen a finger that moved: the next frame, so the governor judges frames, not the finger's pauses)
+      if (busy || anim || needs || addQ.some(a => !a.rest || !moving) || (upQ.length && !moving) || (byFrame() && pumpWork()) || (coarse && ptrs.size && sawMv)) raf = requestAnimationFrame(frame); // (a finger at rest on the map: the pumps' turns go on while there is work; on a touch screen a finger that moved: the next frame, so the governor judges frames, not the finger's pauses)
       else { probe(); if (me && !meTimer) meTimer = setTimeout(() => { meTimer = 0; if (!dead) kick(); }, 33); if (amb && !ambTimer) ambArm(AMB_GAP - 5); } // the location dot's pulse alone: a frame every 33 ms at most, and the ambient motion goes on
       rafOwn = raf; // (the frame the next one is asked for by)
       if (tm) { const ms = [1, 2, 3, 4, 5].map(k => tm[k] - tm[k - 1]); if (direct && fAcc) { fAcc.ms = fAcc.ms.map((v, k) => v + ms[k]); fAcc.asked = !!raf || !coarse; EVa.direct = (EVa.direct || 0) + 1; } else fAcc = { t0: tm[0], sh: tm.sh, mode: ptrs.size > 1 ? 'pinch' : ptrs.size ? 'drag' : busy && (m0 === 'fly' || m0 === 'smooth' || m0 === 'inertia') ? m0 : only ? 'ambient' : anim || busy ? 'anim' : 'still', asked: !!raf || !coarse, ms }; onDraw(t, mv || !!anim, only, rec); }
@@ -1600,7 +1653,7 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
     // out of sight: the ambient motion stops at once; back in sight within its time, it picks up where it stood
     document.addEventListener('visibilitychange', () => { if (document.hidden) { clearTimeout(ambTimer); ambTimer = 0; } else if (ambOn()) { ambTick = true; kick(); } }, { signal: sig });
     glc.addEventListener('webglcontextlost', e => e.preventDefault());
-    glc.addEventListener('webglcontextrestored', () => { shadowDirty = true; shT = -1e9; needs = true; kick(); });
+    glc.addEventListener('webglcontextrestored', () => { shadowDirty = true; shT = -1e9; if (pk && pk.lean && pk.repaint) pk.repaint(); needs = true; kick(); });   // (the parks' textures let go on a touch screen: painted again)
 
     // ---- resize ----
     function resize() {
@@ -1637,7 +1690,7 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
       jumpTo(v) { poke(); const s = stateOf(v), a = areaObj(s.cx, s.cz); if (a !== area) { s.th = 0; s.off = 0; } area = a; Object.assign(cur, limit(s)); Object.assign(goal, cur); fly = null; mode = 'still'; sync(); shadowDirty = true; needs = true; kick(); },
       get area() { return area.id; }, areaAt: base.areaAt, areas: AREAS,
       zoom(f) { poke(); zoomAt(W / 2, H / 2, f); },
-      setColors(colors, animate) { fogLens = colors.some(c => /--fog\d/.test(String(c))); colors.forEach((c, i) => { const rgb = hex2rgb(cssColor(c)); colTo[i] = rgb; if (!animate) colNow[i] = rgb.slice(); }); colAnim = !!animate; paintAll = true; needs = true; kick(); },
+      setColors(colors, animate) { fogLens = colors.some(c => /--fog\d/.test(String(c))); pkLens = colors.some(c => /--(fog\d|hill\d|accent|grey-fill)\b/.test(String(c))); colors.forEach((c, i) => { const rgb = hex2rgb(cssColor(c)); colTo[i] = rgb; if (!animate) colNow[i] = rgb.slice(); }); colAnim = !!animate; paintAll = true; needs = true; kick(); },
       setState(s) { if (s.region !== undefined) region = s.region; if (s.sel !== undefined) sel = s.sel; if (s.selSub !== undefined) selSub = s.selSub; if (s.quiz !== undefined) { quiz = s.quiz; press = -1; } needs = true; kick(); },
       setHover(i, sub, spot) { if (i === hover && sub === hoverSub && spot === hoverSpot) return; hover = i; hoverSub = sub; hoverSpot = spot; needs = true; kick(); },
       pop(i) { markAnim[i] = now(); needs = true; kick(); },
@@ -1646,9 +1699,9 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
       hoodPx,
       restMs() { return ptrs.size || fly ? 0 : now() - stat.busyAt; }, // how long the map has rested: no finger, no flight, no frame that moved or animated (ambient motion alone aside); the app waits on it before making the street map
       // for tests and the console: the look of the buildings in use ('0': the plain ones), and what the roads are (null: none)
-      get parks() { return pk ? { ready: pk.ready, shapes: pk.P.parks.length, textures: pk.tex.length, chunks: pk.chunks.size, made: pk.made, worstMs: +pk.worst.toFixed(2), trees: pk.n, queue: pk.queue.length, busy: !pk.ready || pk.queue.length > 0, ground: +pkU.uPkK.value.toFixed(2) } : null; }, get scale() { return SCALE; }, get sizeBlend() { return +lmB.toFixed(3); },   // (the landmarks' size: 1 as from afar, 0 true)
-      get landmarks() { return icons ? icons.filter(ic => ic.mesh.visible).map(ic => ({ id: ic.id, px: Math.round(ic.px), side: Math.round(ic.side || 0), plan: +(ic.sh || 1).toFixed(3), height: +(ic.sv || 0).toFixed(3), named: lblA.has('L' + ic.id) })) : []; },   // (for tests: the landmarks drawn, their size on screen and scale, and whether named)
-      get look() { return LOOK.v; }, get roads() { const N = rd.net; return roads && N ? { lines: N.lines, metres: Math.round(N.metres), flat: RFLAT, streets: STREETS, structure: !RFLAT && !rd.off, chunks: [...rd.chunks.values()].filter(c => c.mesh).length, triangles: rd.tris, ribbons: rd.far.reduce((s, f) => s + f.tris, 0), ribbonMeshes: rd.far.length, lamps: rd.lamps.map(l => l ? l.n : 0), piers: N.piers, portals: N.portals, frames: N.frames.length, busy: rdWork(), slow: +N.slow.toFixed(2), times: rd.t } : null; },
+      get parks() { return pk ? { ready: pk.ready, shapes: pk.P && pk.P.parks ? pk.P.parks.length : 0, textures: pk.tex.length, chunks: pk.chunks.size, made: pk.made, worstMs: +pk.worst.toFixed(2), trees: pk.n, queue: pk.queue.length, busy: !pk.ready || pk.queue.length > 0, ground: +pkU.uPkK.value.toFixed(2) } : null; }, get scale() { return SCALE; }, get sizeBlend() { return +lmB.toFixed(3); },   // (the landmarks' size: 1 as from afar, 0 true)
+      get landmarks() { return icons ? icons.filter(ic => ic.mesh.visible).map(ic => ({ id: ic.id, px: Math.round(ic.px), side: Math.round(ic.side || 0), plan: +(ic.sh || 1).toFixed(3), height: +(ic.sv || 0).toFixed(3), named: lblA.has('L' + ic.id), held: !!ic.held })) : []; },   // (for tests: the landmarks drawn, their size on screen and scale, and whether named)
+      get look() { return LOOK.v; }, get roads() { const N = rd.net; return roads && N ? { lines: N.lines, metres: Math.round(N.metres), flat: RFLAT, streets: STREETS, structure: !RFLAT && !rd.off, chunks: [...rd.chunks.values()].filter(c => c.mesh).length, triangles: rd.tris, ribbons: rd.far.reduce((s, f) => s + f.tris, 0), ribbonMeshes: rd.far.length, lamps: rd.lamps.map(l => l ? l.n : 0), held: rdHold.children.length, piers: N.piers, portals: N.portals, frames: N.frames.length, busy: rdWork(), slow: +N.slow.toFixed(2), times: rd.t } : null; },
       // for tests and the console: what was built and how long it took, what a frame draws, and the cost of frames along a flight
       stats(lite) { const info = renderer.info; let tris = 0; const seen = q => { for (let p = q; p; p = p.parent) if (!p.visible) return false; return true; }; if (!lite) scene.traverse(q => { if ((q.isMesh || q.isPoints) && seen(q) && q.geometry) { const g = q.geometry, n = q.isPoints ? 0 : Math.min(g.drawRange.count, g.index ? g.index.count : g.attributes.position.count) / 3; tris += n * (q.isInstancedMesh ? q.count : g.isInstancedBufferGeometry ? g.instanceCount : 1); } });
         return { ready, blocks: stat.blocks, build: stat.build, firstFrame: stat.firstFrame ? Math.round(stat.firstFrame - stat.t0) : 0, sinceNav: stat.firstFrame ? Math.round(stat.firstFrame) : 0, frames: stat.frames, lastMs: +stat.lastMs.toFixed(2), sceneTriangles: Math.round(tris), calls: info.render.calls, triangles: info.render.triangles, pr, size: [W, H], dark, area: area.id, quality: Q.level, gov: { last: gov.last || 0, good: gov.good, fails: gov.fails.slice(), idle: +(gov.idle || 0).toFixed(1), cap: +(gov.cap || 0).toFixed(1), trial: gov.try ? gov.try.from : -1, min: gov.min === Infinity ? 0 : +gov.min.toFixed(1) }, fog: fogBank ? +fogBank.U.uK.value.toFixed(3) : 0, land: { relief: !!RL, close: fineOn, closeReady: !!fineMesh, closeWaits: !!fineMesh && upQ.includes(fineMesh), fineY: fineMesh ? fineMesh.position.y : null, parked, places: RL ? RL.fineList.length : 0 }, outline: { sel, sub: selSub, edge: sel >= 0 && edgeMeshes.has(sel) ? edgeMeshes.get(sel).key.split('|')[0] === P.accent : null, line: selKey.split('|').slice(0, 2).join('|'), lines: selMeshes.length }, real: { on: !!rb.gen, chunks: rb.live, buildings: rb.n, triangles: rb.tris, queue: rb.queue.length, tall: { groups: rb.tall.length, of: rb.gen ? rb.gen.tallCount : 0, buildings: rb.tall.reduce((s, t) => s + t.n, 0), triangles: rb.tall.reduce((s, t) => s + t.tris, 0), rise: rb.tallU ? +rb.tallU.uGrow.value.toFixed(2) : 0 } }, fabric: { chunks: fab.live, buildings: fab.nb, trees: fab.nt, grow: +fabU.uGrow.value.toFixed(2), queue: fab.queue.length + addQ.length, waiting: addQ.length }, why: stat.why, ambient: { on: ambOn(), t: +ambT.toFixed(2), frames: stat.amb, left: Math.max(0, Math.round(ambUntil - now())), ferry: ferries[0] ? [+ferries[0].mesh.position.x.toFixed(3), +ferries[0].mesh.position.z.toFixed(3)] : null }, view: Object.assign({ ph: +camOf(cur).ph.toFixed(3) }, cur),

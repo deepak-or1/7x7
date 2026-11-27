@@ -47,16 +47,16 @@
   // area there (the shapes before it stand)
   function unpack(area, names, out) {
     if (!area || typeof area.data !== 'string' || !Array.isArray(area.origin)) throw new Error('a park area is not whole');
-    const bin = atob(area.data), n = bin.length, s = new Uint8Array(n); for (let k = 0; k < n; k++) s[k] = bin.charCodeAt(k);
-    let i = 0, px = 0, py = 0, done = false; const o = area.origin, kx = 1 / (111320 * Math.cos(o[1] * Math.PI / 180)), t0 = out.length;
+    let s = null, n = 0, i = 0, px = 0, py = 0, done = false; const o = area.origin, kx = 1 / (111320 * Math.cos(o[1] * Math.PI / 180)), t0 = out.length;   // (s: the bytes, decoded in the first read)
     const uv = () => { let v = 0, m = 1, b; do { if (i >= n) throw new Error('the park data is cut short'); b = s[i++]; v += (b & 127) * m; m *= 128; } while (b & 128); return v; };
     const sv = () => { const u = uv(); return u & 1 ? -(u + 1) / 2 : u / 2; };
     return ms => { if (done) return true; const t1 = performance.now();
     try {
+      if (!s) { const bin = atob(area.data); n = bin.length; s = new Uint8Array(n); for (let k = 0; k < n; k++) s[k] = bin.charCodeAt(k); }
       while (i < n && performance.now() - t1 < ms) {
         const kind = uv(), name = names[uv()] || '', ha = uv() / 10, np = uv(); if (!(np >= 3 && np <= 5000) || kind > 5) throw new Error('a park shape is not whole');
         const p = new Float32Array(np * 2); let x = px + sv(), y = py + sv(); px = x; py = y;
-        for (let k = 0; k < np; k++) { if (k) { x += sv(); y += sv(); } const q = Geom.proj([o[0] + x * kx, o[1] + y / 111320]); p[k * 2] = q[0]; p[k * 2 + 1] = q[1]; }
+        for (let k = 0; k < np; k++) { if (k) { x += sv(); y += sv(); } if (!(Math.abs(x) < 1e6 && Math.abs(y) < 1e6)) throw new Error('a park shape lies off the map'); const q = Geom.proj([o[0] + x * kx, o[1] + y / 111320]); p[k * 2] = q[0]; p[k * 2 + 1] = q[1]; }
         out.push({ kind, name, ha, p, n: np, area: area.name });
       }
     } catch (e) { console.warn('3D map, the parks of ' + area.name + ' after ' + (out.length - t0) + ' shapes left out: ' + (e && e.message || e)); i = n; }
@@ -73,8 +73,10 @@
     return out;
     function finish() {
     if (!parks.length) throw new Error('no park could be read');
-    // each park's box, its seed, its kind of trees; the largest first (a smaller one painted over a larger is the one that holds there)
+    // each park's box, its seed, its kind of trees; the largest first (a smaller one painted over a larger is the one that holds there); one whose box is wider than
+    // about 400 units (57 km: no park is) left out, a corrupt shape
     parks.forEach((p, k) => { let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity; for (let q = 0; q < p.n; q++) { const x = p.p[q * 2], z = p.p[q * 2 + 1]; if (x < x0) x0 = x; if (x > x1) x1 = x; if (z < z0) z0 = z; if (z > z1) z1 = z; } Object.assign(p, { x0, z0, x1, z1, seed: mix32(k, p.n, Math.round(p.ha * 10)), huge: p.kind === 1 && p.ha >= HUGE, lake: p.area === 'bay' && LAKES[p.name] ? LAKES[p.name] * K : 0 }); });
+    for (let k = parks.length - 1; k >= 0; k--) { const p = parks[k]; if (!(p.x1 - p.x0 < 400 && p.z1 - p.z0 < 400)) { console.warn('3D map, a park shape left out: ' + p.name); parks.splice(k, 1); } }
     parks.sort((a, b) => b.ha - a.ha); parks.forEach((p, k) => { p.id = k; });
     // two grids: the parks up to 16 units across on cells of CELL, the larger ones (the reserves of the bay) on cells of 16
     const grid = new Map(), wide = new Map(), gk = (i, j) => i * 8192 + j;
@@ -99,7 +101,7 @@
         let x0, z0, x1, z1;
         if (w == null) { x0 = Infinity; z0 = Infinity; x1 = -Infinity; z1 = -Infinity; for (const p of parks) if (p.area === 'bay') { x0 = Math.min(x0, p.x0); z0 = Math.min(z0, p.z0); x1 = Math.max(x1, p.x1); z1 = Math.max(z1, p.z1); } if (!(x1 > x0)) continue; }
         else { const a = Geom.proj([w, n]), b = Geom.proj([e, s]); x0 = a[0]; z0 = a[1]; x1 = b[0]; z1 = b[1]; }
-        out.push({ name, box: [x0, z0, x1, z1], w: pw, h: ph });
+        out.push({ name, box: [x0, z0, x1, z1], w: env.lean ? Math.min(pw, 1024) : pw, h: env.lean ? Math.min(ph, 1024) : ph });   // (lean: a touch screen's, San Francisco's 1024 square, not 1536)
       }
       return out;
     }
@@ -123,7 +125,8 @@
           yield;
         }
         if (wd) { const wc = document.createElement('canvas'); wc.width = ww; wc.height = wh; wc.getContext('2d').putImageData(new ImageData(wd, ww, wh), 0, 0); yield;
-          c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'lighter'; c.imageSmoothingEnabled = true; c.drawImage(wc, 0, 0, b.w, b.h); c.restore(); }
+          const ky = b.h / wh; for (let y0 = 0; y0 < wh; y0 += 64) { const y1 = Math.min(wh, y0 + 64), s0 = Math.max(0, y0 - 1), s1 = Math.min(wh, y1 + 1);   // (a band of rows a step, drawn from a row more each side, clipped to the band: the same soft edges as one draw)
+            c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.beginPath(); c.rect(0, y0 * ky, b.w, (y1 - y0) * ky); c.clip(); c.globalCompositeOperation = 'lighter'; c.imageSmoothingEnabled = true; c.drawImage(wc, 0, s0, ww, s1 - s0, 0, s0 * ky, b.w, (s1 - s0) * ky); c.restore(); yield; } }
       })();
       return ms => { const t0 = performance.now(); while (performance.now() - t0 < ms) if (job.next().done) return true; return false; };
     }
@@ -142,32 +145,34 @@
       return null;
     }
     let avc = av; const clear = (x, z, r) => { if (env.solid && env.solid(x, z, r * 0.6)) return false; if (env.road && env.road(x, z, r * 0.8 + 0.03)) return false; for (const a of avc) { const dx = x - a[0], dz = z - a[1], rr = a[2] + r * 0.5; if (dx * dx + dz * dz < rr * rr) return false; } return true; };
-    function chunk(ix, iz) {
-      const x0 = ix * CS, z0 = iz * CS, x1 = x0 + CS, z1 = z0 + CS, T = []; let tested = 0;
+    // (a generator: it gives the turn back after each park and every 64 steps of its loops, js/map3d.js pkPump; its value at the end is the chunk)
+    function* chunk(ix, iz) {
+      const x0 = ix * CS, z0 = iz * CS, x1 = x0 + CS, z1 = z0 + CS, T = []; let tested = 0, w = 0;
       const own = (x, z) => x >= x0 && x < x1 && z >= z0 && z < z1; avc = av.filter(a => a[0] + a[2] + 1 > x0 && a[0] - a[2] - 1 < x1 && a[1] + a[2] + 1 > z0 && a[1] - a[2] - 1 < z1);   // (the landmarks that can reach into this chunk)
       const put = (p, x, z, rm, hk, tint) => { // a tree of crown radius rm metres in park p, if it may stand there: in p, on land, clear of what is built
         const r = rm * M; tested++; if (!own(x, z) || !inP(p, x, z) || (p.lake && nearD2(p, x, z, p.lake - r) > (p.lake - r) * (p.lake - r))) return false; const inner = at(x, z, true); if (inner && inner !== p && inner.ha < p.ha) return false;   // (a smaller park inside this one plants its own)
         if (!clear(x, z, r)) return false; const g = stand(x, z); if (!g || (p.huge && g[1] >= 0)) return false;
+        if (env.over && g[0] + r * hk > env.over(x, z, r)) return false;   // (under a raised deck: none taller than its underside)
         T.push(x, g[0], z, r, hk, g[1], tint, p.kind); return true;
       };
       const l = new Set(); for (const [G, C] of [[grid, CELL], [wide, 16]]) for (let i = Math.floor(x0 / C); i <= Math.floor((x1 - 1e-6) / C); i++) for (let j = Math.floor(z0 / C); j <= Math.floor((z1 - 1e-6) / C); j++) for (const p of G.get(gk(i, j)) || []) l.add(p);
       for (const p of l) {
-        if (p.x1 < x0 || p.x0 > x1 || p.z1 < z0 || p.z0 > z1) continue;
+        if (p.x1 < x0 || p.x0 > x1 || p.z1 < z0 || p.z0 > z1) continue; yield; w = 0;   // (a park a step)
         const k = p.kind, s = p.seed, cut = woodCut(p);
         if (k === 3) { // golf: a few trees along the roughs, in short lines (the noise's ridges), the fairways clear
           const st = 0.17; for (let gx = Math.floor(Math.max(x0, p.x0) / st); gx * st < Math.min(x1, p.x1); gx++) for (let gz = Math.floor(Math.max(z0, p.z0) / st); gz * st < Math.min(z1, p.z1); gz++) {
-            const R = rng(mix32(s, gx, gz)), x = (gx + 0.2 + R() * 0.6) * st, z = (gz + 0.2 + R() * 0.6) * st, g = noise(x * 2.2, z * 2.2, s); if (Math.abs(g - 0.5) > 0.045 || R() > 0.55) continue; put(p, x, z, 5 + R() * 3, 2 + R() * 0.6, R()); }
+            if (++w > 63) { w = 0; yield; } const R = rng(mix32(s, gx, gz)), x = (gx + 0.2 + R() * 0.6) * st, z = (gz + 0.2 + R() * 0.6) * st, g = noise(x * 2.2, z * 2.2, s); if (Math.abs(g - 0.5) > 0.045 || R() > 0.55) continue; put(p, x, z, 5 + R() * 3, 2 + R() * 0.6, R()); }
           continue;
         }
         if (k === 4) { // a cemetery: rows of small dark trees along its paths
           const st = 0.1; for (let gx = Math.floor(Math.max(x0, p.x0) / st); gx * st < Math.min(x1, p.x1); gx++) for (let gz = Math.floor(Math.max(z0, p.z0) / (st * 3)); gz * st * 3 < Math.min(z1, p.z1); gz++) {
-            const R = rng(mix32(s, gx, gz)); if (R() > 0.45) continue; put(p, (gx + 0.5) * st, (gz + 0.5) * st * 3, 3.5 + R() * 1.5, 2.6 + R(), 0.15 + R() * 0.2); }
+            if (++w > 63) { w = 0; yield; } const R = rng(mix32(s, gx, gz)); if (R() > 0.45) continue; put(p, (gx + 0.5) * st, (gz + 0.5) * st * 3, 3.5 + R() * 1.5, 2.6 + R(), 0.15 + R() * 0.2); }
           continue;
         }
         // the woods: groves where the noise is high (one shape a grove, a reserve's further apart and larger), single trees at their rims
         const big = k === 1 || p.ha >= 20, gs = k === 1 ? 0.5 : big ? 0.36 : 0.28;
         for (let gx = Math.floor(Math.max(x0, p.x0) / gs); gx * gs < Math.min(x1, p.x1); gx++) for (let gz = Math.floor(Math.max(z0, p.z0) / gs); gz * gs < Math.min(z1, p.z1); gz++) {
-          const R = rng(mix32(s ^ 0x5bd1, gx, gz)), x = (gx + 0.15 + R() * 0.7) * gs, z = (gz + 0.15 + R() * 0.7) * gs, g = grove(x, z, s); if (g < cut) continue;
+          if (++w > 63) { w = 0; yield; } const R = rng(mix32(s ^ 0x5bd1, gx, gz)), x = (gx + 0.15 + R() * 0.7) * gs, z = (gz + 0.15 + R() * 0.7) * gs, g = grove(x, z, s); if (g < cut) continue;
           const t = clamp((g - cut) / 0.16, 0, 1);
           if (k === 1) put(p, x, z, 24 + 14 * t + R() * 8, 1.15 + R() * 0.4, 0.5 + R() * 0.5);
           else if (t > 0.3 && big) put(p, x, z, 15 + 9 * t + R() * 6, 1.3 + R() * 0.5, 0.4 + R() * 0.6);
@@ -177,14 +182,14 @@
         if (k !== 1 || p.ha < 60) {
           const st = 0.13, ins = 0.06;
           for (let q = 0, j = p.n - 1; q < p.n; j = q++) {
-            const ax = p.p[j * 2], az = p.p[j * 2 + 1], bx = p.p[q * 2], bz = p.p[q * 2 + 1], dx = bx - ax, dz = bz - az, L = Math.hypot(dx, dz); if (L < 1e-6) continue;
+            if (++w > 63) { w = 0; yield; } const ax = p.p[j * 2], az = p.p[j * 2 + 1], bx = p.p[q * 2], bz = p.p[q * 2 + 1], dx = bx - ax, dz = bz - az, L = Math.hypot(dx, dz); if (L < 1e-6) continue;
             if (Math.max(ax, bx) < x0 - 0.2 || Math.min(ax, bx) > x1 + 0.2 || Math.max(az, bz) < z0 - 0.2 || Math.min(az, bz) > z1 + 0.2) continue;
             const nx = -dz / L, nz = dx / L, m = Math.max(1, Math.round(L / st));
-            for (let e = 0; e < m; e++) { const f = (e + 0.5) / m, x = ax + dx * f, z = az + dz * f; if (!own(x, z)) continue; const R = rng(mix32(s ^ 0x77, Math.round(x * 50), Math.round(z * 50))); if (noise(x * 1.6, z * 1.6, s + 5) < 0.38) continue;
+            for (let e = 0; e < m; e++) { if (++w > 63) { w = 0; yield; } const f = (e + 0.5) / m, x = ax + dx * f, z = az + dz * f; if (!own(x, z)) continue; const R = rng(mix32(s ^ 0x77, Math.round(x * 50), Math.round(z * 50))); if (noise(x * 1.6, z * 1.6, s + 5) < 0.38) continue;
               const d = ins * (0.7 + R() * 0.6); if (!put(p, x + nx * d, z + nz * d, 5.5 + R() * 3.5, 1.8 + R() * 0.6, R())) put(p, x - nx * d, z - nz * d, 5.5 + R() * 3.5, 1.8 + R() * 0.6, R()); }
           }
           const ls = 0.24; for (let gx = Math.floor(Math.max(x0, p.x0) / ls); gx * ls < Math.min(x1, p.x1); gx++) for (let gz = Math.floor(Math.max(z0, p.z0) / ls); gz * ls < Math.min(z1, p.z1); gz++) {
-            const R = rng(mix32(s ^ 0x1234, gx, gz)); if (R() > (p.ha >= 20 ? 0.05 : 0.16)) continue; const x = (gx + R()) * ls, z = (gz + R()) * ls; if (grove(x, z, s) >= cut) continue; put(p, x, z, 6 + R() * 3, 1.8 + R() * 0.5, R()); }
+            if (++w > 63) { w = 0; yield; } const R = rng(mix32(s ^ 0x1234, gx, gz)); if (R() > (p.ha >= 20 ? 0.05 : 0.16)) continue; const x = (gx + R()) * ls, z = (gz + R()) * ls; if (grove(x, z, s) >= cut) continue; put(p, x, z, 6 + R() * 3, 1.8 + R() * 0.5, R()); }
         }
       }
       // the groves first (a crown of 12 m radius or more), then the single trees: a chunk far from the middle of the view draws its groves only (nb of them)

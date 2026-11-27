@@ -252,7 +252,7 @@ if (vWin.z > 0.5) { float y = vWin.y, fy = fwidth(y) + 0.00001, see = 1.0 - clam
   if (fa > 0.0) pane = smoothstep(0.22 - e.x, 0.22 + e.x, wf.x) * (1.0 - smoothstep(0.78 - e.x, 0.78 + e.x, wf.x)) * smoothstep(0.3 - e.y, 0.3 + e.y, wf.y) * (1.0 - smoothstep(0.74 - e.y, 0.74 + e.y, wf.y));
   diffuseColor.rgb *= 1.0 - 0.13 * mix(0.25, pane, fa) * step(0.045, y) * step(y, vH - 0.012); }`;
     bld.onBeforeCompile = s => { uni(s);
-      if (NEW) return styled(s);
+      if (NEW) { styled(s); s.fragmentShader += '\n// m3d-look\n'; return; }   // (the look's mark: js/map3d.js onShaderError)
       s.vertexShader = s.vertexShader.replace('#include <common>', '#include <common>' + HEAD + '\nuniform vec3 uPale; uniform float uRoofK; uniform float uWallK;\nvarying vec3 vFab; varying vec3 vWin;' + (HS ? '\nvarying float vH;' : ''))
         .replace('#include <beginnormal_vertex>', B_NOR).replace('#include <begin_vertex>', B_POS + (HS ? `
 bool top = normal.y > 0.5 || uv.x != 0.0, pitched = uv.x != 0.0 && aSize.w > 0.01; float ft = aInfo.y, h1 = fract(ft * 7.31), h2 = fract(ft * 13.7), h3 = fract(ft * 29.3);` + HV + `
@@ -262,7 +262,7 @@ vec3 fc = mix(fpl.rgb, uPale, top ? uRoofK : uWallK) * (0.9 + 0.2 * fract(ft * 7
 if (top && fract(ft * 3.17) > 0.8) fc = mix(fc, fpl.rgb * 0.8, 0.55);
 vFab = fc; vWin = vec3((abs(normal.x) > 0.5 ? position.z * aSize.z : position.x * aSize.x) + ft * 9.0, position.y * aSize.y, top ? 0.0 : 1.0);`));
       s.fragmentShader = s.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vFab; varying vec3 vWin; uniform vec3 uWin;' + (HS ? '\nvarying float vH;' : ''))
-        .replace('#include <color_fragment>', 'diffuseColor.rgb = vFab;' + HF)
+        .replace('#include <color_fragment>', 'diffuseColor.rgb = vFab;' + HF + (HS ? '\n// m3d-look\n' : ''))
         .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
 if (uWin.r + uWin.g + uWin.b > 0.0) { vec2 wc = vWin.xy / vec2(0.075, 0.06), wi = floor(wc), wf = wc - wi;
   float lit = step(0.6, fract(sin(dot(wi, vec2(12.9898, 78.233))) * 43758.5453)) * step(0.22, wf.x) * step(wf.x, 0.78) * step(0.3, wf.y) * step(wf.y, 0.74);

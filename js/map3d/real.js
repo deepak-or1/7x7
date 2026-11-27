@@ -224,7 +224,9 @@
       });
       return Object.assign(pack(pos, nor, aB, aW, nv), { ix, iz, count: keep.length, n: nv, idx: nv > 65535 ? new Uint32Array(idx) : new Uint16Array(idx), quarter: cuts[0] || idx.length, half: cuts[1] || idx.length, y0, y1 });
     }
-    return { chunk, has, solid, dense, total, CS, tall, tallCount: groups.length, TALL };
+    // every outline placed again when next made (the roads' list came late: the outlines placed before did not keep clear of them)
+    const resettle = () => { for (const l of chunks.values()) for (const b of l) b.place = undefined; for (const l of groups) for (const b of l) b.place = undefined; };
+    return { chunk, has, solid, dense, total, CS, tall, tallCount: groups.length, TALL, resettle };
   }
 
   // ---- drawing ----
@@ -296,7 +298,7 @@ if (uWin.r + uWin.g + uWin.b > 0.0 && m3dKd > 0.5 && m3dKd < 1.5) { float st = $
   float sb = vWin.x / 0.22, sf = fract(sb); totalEmissiveRadiance += uWin * 0.5 * step(0.2, hh) * step(0.012, y) * step(y, 0.05) * step(0.12, sf) * step(sf, 0.88) * step(0.45, fract(sin(floor(sb) * 91.7 + m3dFt * 40.0) * 4375.85)) * (1.0 - clamp(fwidth(sb) * 3.0 - 0.3, 0.0, 1.0)); }`);
     };
     mat.onBeforeCompile = s => { uni(s);
-      if (NEW) return styled(s);
+      if (NEW) { styled(s); s.fragmentShader += '\n// m3d-look\n'; return; }   // (the look's mark: js/map3d.js onShaderError)
       s.vertexShader = s.vertexShader.replace('#include <common>', '#include <common>' + HEAD + '\nuniform vec3 uPale; uniform float uRoofK; uniform float uWallK;\nvarying vec3 vFab; varying vec4 vWin;')
         .replace('#include <begin_vertex>', POS + `
 bool top = aW.z < 0.5; float ft = aB.z, tall = smoothstep(0.3, 1.7, aW.w);

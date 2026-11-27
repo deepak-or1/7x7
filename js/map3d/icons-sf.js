@@ -8,6 +8,7 @@
     sfHedge: ['#8aa877', '#33483a'], sfTree: ['#7d9a6c', '#2e4034'], sfJade: ['#78a891', '#3e5e53'], sfMaroon: ['#9b4b44', '#5c3030'], sfCopper: ['#a28b6b', '#55493a'],
     sfPatina: ['#8db3a0', '#46645a'], sfGranite: ['#715b58', '#372e31'], sfRose: ['#5e6c82', '#e2aa6a'], sfWood: ['#b9a385', '#584b3d'], sfSign: ['#f3ecda', '#ffe2a8'],
     sfStucco: ['#e3cfb2', '#5e564b'], sfRock: ['#8e7c6b', '#3d3732'],
+    ttLawn: ['#b3c692', '#40574a'], ttMeadow: ['#cbc893', '#4f5946'], ttPath: ['#f0e6d0', '#7a7362'], ttTile: ['#c9705a', '#7c4a40'],
     sfR1: ['#d9614f', '#b4473b'], sfR2: ['#e8964f', '#c27639'], sfR3: ['#ecd06a', '#c6ac4e'], sfR4: ['#79b071', '#548c55'], sfR5: ['#5f8fc4', '#40699c'], sfR6: ['#8c6fb3', '#674f8c'],
   };
   const mats = (...names) => Object.fromEntries(names.map(n => [n, M[n]]));
@@ -648,4 +649,69 @@
       b.box('dark', 20, 46, 0, 6, 8, 3); b.rod('dark', [20, 46, 0], [20, 22, 0], 0.25, 0.25, 4); b.box('dark', 20, 20.5, 0, 2.4, 2.4, 1.5);
       b.light([-48, 56, 0], 'red', 1.1); b.light([48, 56, 0], 'red', 1.1);
     } });
+  // Presidio Tunnel Tops (opened 2022): the park laid over the Presidio Parkway's Main Post tunnels, between the Main Post and
+  // Crissy Field. Its long axis is the tunnel's own: the two mouths are read from the road list (js/map3d/roads.js, the way
+  // 'main-post'; without that file, the same two points), so the roadway runs in under it at each end. Local frame: x along the
+  // tunnel (east), z towards the Main Post (south), the bluff and the bay on -z. The lawns stand a little above the highest real
+  // ground under them, the terraces step down the bluff to the ground at its foot, each no lower than the land beneath it
+  // (M3D.land.heightAt; flat land: a low mound). Approximate, drawn 1.7 times.
+  {
+    const land = window.M3D.land, EX = 1.7, S = EX / land.UNIT_M; let pw = [-122.4597, 37.8024], pe = [-122.4553, 37.8018];
+    try { for (const r of window.M3D.roadData.roads) for (const w of r.ways) if (w.id === 'main-post') { pw = w.pts[0]; pe = w.pts[w.pts.length - 1]; } } catch (e) {}
+    const A = land.proj(pw), B = land.proj(pe), O = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2], ry = -Math.atan2(B[1] - A[1], B[0] - A[0]), HALF = Math.hypot(B[0] - A[0], B[1] - A[1]) / 2 / S, cr = Math.cos(ry), sr = Math.sin(ry);
+    X.push({ id: 'tunneltops', lon: (pw[0] + pe[0]) / 2, lat: (pw[1] + pe[1]) / 2, ex: EX, ry: ry / D2R, label: 'Tunnel Tops', flat: true, mats: mats('ttLawn', 'ttMeadow', 'ttPath', 'ttTile', 'sfTree', 'sfWood', 'sfRock', 'sfStucco', 'sfTurf'),
+      build(b) {
+        const hA = land.heightAt, g0 = hA ? hA(O[0], O[1]) : 0, G = (x, z) => hA ? (hA(O[0] + (x * cr + z * sr) * S, O[1] + (-x * sr + z * cr) * S) - g0) / S : 0;   // the real ground at a local point, in local metres above the ground at the middle
+        const over = (x0, x1, z0, z1) => { let m = -Infinity; for (let i = 0; i <= 8; i++) for (let j = 0; j <= 6; j++) m = Math.max(m, G(lerp(x0, x1, i / 8), lerp(z0, z1, j / 6))); return m; };
+        const H = HALF, ZN = -46, ZS = 62, DEEP = -64, rw = G(-H, 0) + 2.5, re = G(H, 0) + 2.5;                  // the lid from ZN (the bluff's edge) to ZS (the Main Post); the roadway at the two mouths
+        const Yt = Math.max(over(-H - 4, H + 4, ZN, ZS) + 1.5, rw + 11.5, re + 11.5);                             // the lawns: over the land, and clear of the roadway
+        const box = (m, x0, x1, z0, z1, y0, y1, o) => b.loft(m, [[[x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1]], [[x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1]]], Object.assign({ flat: true }, o));
+        // a strip along points [x, y, z]: w wide, t thick (paths, rails)
+        const strip = (m, pts, w, t) => b.loft(m, pts.map((p, i) => { const a = pts[Math.max(0, i - 1)], c = pts[Math.min(pts.length - 1, i + 1)], l = Math.hypot(c[0] - a[0], c[2] - a[2]) || 1, nx = -(c[2] - a[2]) / l * w / 2, nz = (c[0] - a[0]) / l * w / 2; return [[p[0] - nx, p[1], p[2] - nz], [p[0] + nx, p[1], p[2] + nz], [p[0] + nx, p[1] + t, p[2] + nz], [p[0] - nx, p[1] + t, p[2] - nz]]; }), { flat: true, cap0: true });
+        const oval = (x, z, rx, rz, n, a0 = 0, a1 = Math.PI * 2) => Array.from({ length: n + 1 }, (_, i) => { const a = lerp(a0, a1, i / n); return [x + Math.cos(a) * rx, z + Math.sin(a) * rz]; });
+        // the lid: the lawn's own mass between the two portal buildings, its south side a grass bank down to the Main Post
+        b.loft('ttLawn', [[[-H + 9, DEEP, ZN], [H - 9, DEEP, ZN], [H - 9, DEEP, ZS + 20], [-H + 9, DEEP, ZS + 20]], [[-H + 9, Yt - 13, ZN], [H - 9, Yt - 13, ZN], [H - 9, Yt - 13, ZS + 20], [-H + 9, Yt - 13, ZS + 20]], [[-H + 9, Yt, ZN], [H - 9, Yt, ZN], [H - 9, Yt, ZS], [-H + 9, Yt, ZS]]], { flat: true });
+        for (const e of [-1, 1]) { // each end: the lawn carried on over the mouth, between two wing walls, on a lintel over the two bores and the pier between them
+          const xi = e * (H - 9), xo = e * (H + 5), x0 = Math.min(xi, xo), x1 = Math.max(xi, xo), yr = e < 0 ? rw : re, yl = Math.min(Yt - 2, yr + 9.5);
+          box('ttLawn', x0, x1, ZN, -21, DEEP, Yt); box('ttLawn', x0, x1, 21, ZS, DEEP, Yt);                    // the flanks
+          box('ttLawn', x0, x1, -21, 21, yl, Yt);                                                               // over the mouth
+          box('concreteLight', xo - e * 0.4, xo + e * 2.2, -27, -18.5, DEEP, Yt + 1.3); box('concreteLight', xo - e * 0.4, xo + e * 2.2, 18.5, 27, DEEP, Yt + 1.3);
+          box('concreteLight', xo - e * 0.4, xo + e * 2.2, -18.5, 18.5, yl - 0.6, Yt + 1.3); box('concrete', xo - e * 4, xo + e * 2.6, -1.6, 1.6, DEEP, yl);   // the headwall: two piers, the lintel and its parapet, the pier between the bores
+          box('dark', xi - e * 0.3, xi + e * 0.5, -21, 21, DEEP, yl); box('dark', x0, x1, -21.2, -20.6, DEEP, yl); box('dark', x0, x1, 20.6, 21.2, DEEP, yl); box('dark', x0, x1, -21, 21, yl - 0.5, yl - 0.1);   // inside: dark
+          for (const sd of [-1, 1]) b.loft('concreteLight', [[[xo, DEEP, sd * 27], [xo + e * 30, DEEP, sd * 27], [xo + e * 30, DEEP, sd * 29.2], [xo, DEEP, sd * 29.2]], [[xo, Yt + 1.3, sd * 27], [xo + e * 30, yr + 1.5, sd * 27], [xo + e * 30, yr + 1.5, sd * 29.2], [xo, Yt + 1.3, sd * 29.2]]], { flat: true });   // wing walls that fall away along the roadway
+        }
+        // the bluff: three terraces down to the ground at its foot, a stone wall at the lip of each, the Presidio Steps down the middle
+        const yn = Math.min(Yt - 7, (G(-70, -126) + G(0, -126) + G(70, -126)) / 3 + 1), T = []; let prev = Yt, zt = ZN;
+        for (let i = 0; i < 3; i++) { const z1 = zt - 22, x0 = -H - 5 + 10 * (i + 1), x1 = H + 5 - 10 * (i + 1), y = Math.min(prev - 1.5, Math.max(Yt - (Yt - yn) * (i + 1) / 3.4, over(x0, x1, z1, zt) + 0.9));
+          box(i === 1 ? 'ttMeadow' : 'ttLawn', x0, x1, z1, zt + 0.5, DEEP, y); box('stoneShade', x0 - 0.8, x1 + 0.8, z1 - 1.2, z1, DEEP, y + 1.1); T.push({ y, z0: zt, z1, x0, x1 }); prev = y; zt = z1; }
+        box('stoneShade', -H - 5, H + 5, ZN - 1.2, ZN, DEEP, Yt + 1.1);                                           // the Cliff Walk's wall at the lid's edge
+        { const ys = [Yt].concat(T.map(t => t.y)), zs = [ZN].concat(T.map(t => t.z1)); for (let i = 0; i < 3; i++) for (let k = 0; k < 4; k++) { const f0 = k / 4, f1 = (k + 1) / 4, z0 = zs[i] - 1.3 - 20.7 * f0, z1 = zs[i] - 1.3 - 20.7 * f1; box('concreteLight', -13, 13, z1, z0 + 0.2, DEEP, lerp(ys[i], ys[i + 1], f1) + 0.25); } }
+        for (const t of T) for (const sx of [-1, 1]) strip('ttPath', [[sx * 22, t.y, t.z0 - 9], [sx * (t.x1 - 14), t.y, t.z0 - 9]], 3.4, 0.3);   // a path along each terrace
+        // the overlooks: three decks out over the bluff, the western one turned to the Golden Gate
+        for (const [x, r] of [[-H + 34, 13], [-28, 10], [58, 11]]) { const ring = oval(x, ZN - 1, r, r * 0.9, 12, Math.PI, Math.PI * 2);
+          b.loft('ttPath', [ring.map(q => [q[0], Yt - 1.6, q[1]]), ring.map(q => [q[0], Yt + 0.35, q[1]])], { flat: false }); strip('concreteLight', ring.map(q => [q[0], Yt + 0.35, q[1]]), 0.7, 1.2); }
+        // on the lid: the paths (a long loop, two crossings, the walk along the bluff), a brighter lawn inside the loop, the plaza by the Main Post, the campfire circle
+        const loop = oval(4, 12, H - 38, 30, 28).map(q => [q[0], Yt, q[1]]); strip('ttPath', loop, 4.2, 0.32);
+        strip('ttPath', [[-H + 12, Yt, ZN + 7], [H - 12, Yt, ZN + 7]], 4.6, 0.32); strip('ttPath', [[-40, Yt, ZN + 7], [-34, Yt, 12], [-46, Yt, ZS - 4]], 3.6, 0.32); strip('ttPath', [[44, Yt, ZN + 7], [38, Yt, 14], [50, Yt, ZS - 4]], 3.6, 0.32);
+        { const r = oval(4, 12, H - 47, 22, 20, 0, Math.PI * 2).slice(0, 20); b.loft('sfTurf', [r.map(q => [q[0], Yt - 0.5, q[1]]), r.map(q => [q[0], Yt + 0.22, q[1]])], {}); }
+        box('ttPath', -30, 30, ZS - 16, ZS - 1, Yt - 1, Yt + 0.3);                                               // the plaza
+        for (const x of [-20, -7, 8, 21]) box(x % 2 ? 'sfWood' : 'white', x - 4, x + 4, ZS - 12.5, ZS - 8, Yt + 0.3, Yt + 3.6);   // carts and tables on it
+        { const cx = H - 34, cz = 34; b.cyl('stone', cx, Yt - 0.5, cz, 8.5, 8.5, 1.1, 14); b.cyl('ttPath', cx, Yt + 0.6, cz, 7, 7, 0.1, 14); b.cyl('sfRock', cx, Yt + 0.6, cz, 1.8, 1.4, 1, 8); }
+        // trees: along the Main Post side and at the two ends, a few on the terraces
+        const R = (() => { let s = 20220717; return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
+        for (let i = 0; i < 9; i++) { const x = -H + 18 + i * (2 * H - 36) / 8 + (R() - 0.5) * 8; if (Math.abs(x) < 34) continue; tree(b, x, ZS - 7 - R() * 5, 7.5 + R() * 3, 15 + R() * 6, Yt); }
+        for (const e of [-1, 1]) for (let i = 0; i < 3; i++) tree(b, e * (H - 17 - R() * 6), -30 + i * 24 + R() * 6, 6.5 + R() * 2.5, 13 + R() * 5, Yt);
+        T.forEach((t, i) => { for (let k = 0; k < 4; k++) { const x = (k < 2 ? -1 : 1) * (26 + (k % 2) * 30 + R() * 14); if (Math.abs(x) < t.x1 - 8) tree(b, x, t.z0 - 15 - R() * 3, 5 + R() * 2, 10 + R() * 4, t.y); } });
+        // at the foot of the bluff: the Outpost, a play ground of logs, boulders and a nest on sand, and the Field Station beside it
+        { const x0 = -H + 20, x1 = -8, z0 = zt - 38, z1 = zt - 5, y = Math.max(yn, over(x0, x1, z0, z1) + 0.8); b.loft('sand', [se((x0 + x1) / 2, DEEP, (z0 + z1) / 2, (x1 - x0) / 2, (z1 - z0) / 2, 14, 3), se((x0 + x1) / 2, y, (z0 + z1) / 2, (x1 - x0) / 2, (z1 - z0) / 2, 14, 3)], {});
+          const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+          b.rod('sfWood', [cx - 30, y + 2, cz - 6], [cx - 8, y + 2.6, cz + 4], 2, 1.7, 7); b.rod('sfWood', [cx + 6, y + 1.8, cz + 8], [cx + 24, y + 1.8, cz - 2], 1.8, 1.5, 7);   // fallen trunks
+          for (const [dx, dz, r] of [[-22, 9, 3.2], [-2, -8, 4], [14, -9, 2.8], [30, 6, 3.4]]) b.lathe('sfRock', cx + dx, cz + dz, [[r, y - 0.5], [r * 0.85, y + r * 0.45], [r * 0.4, y + r * 0.8], [0, y + r * 0.9]], 7, { cap: false });
+          b.cyl('sfWood', cx + 2, y, cz + 2, 4.2, 3.6, 6.5, 9); b.cyl('ttTile', cx + 2, y + 6.5, cz + 2, 5.2, 0, 4, 9);                                              // the nest tower
+          b.loft('ttLawn', [b.circ(cx - 14, y - 0.5, cz - 1, 6.5, 10), b.circ(cx - 14, y + 2.6, cz - 1, 2.6, 10)], {});                                              // a mound to climb
+          const fx = x1 + 30, fy = Math.max(y, over(x1 + 12, x1 + 48, z0 + 4, z1 - 4) + 0.6); box('sfStucco', fx - 17, fx + 17, cz - 7, cz + 7, DEEP, fy + 7, { win: [8, 1], glow: 0.7 }); gableX(b, 'ttTile', fx - 18, fx + 18, fy + 7, cz, 8, 4.2); }
+        // on the Main Post's side: two of the post's white buildings under red roofs (the visitor centre, the transit centre)
+        for (const [x, w] of [[-64, 26], [66, 22]]) { const z = ZS + 30, y = over(x - w, x + w, z - 9, z + 9) + 0.4; box('white', x - w, x + w, z - 8, z + 8, DEEP, y + 8, { win: [10, 2], glow: 0.7 }); gableX(b, 'ttTile', x - w - 1, x + w + 1, y + 8, z, 9, 4.6); }
+      } });
+  }
 })();

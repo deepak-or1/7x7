@@ -25,7 +25,7 @@
   const KINDS = bare({ food: { label: 'Food', c: 'var(--k-food)', e: '🍜' }, drink: { label: 'Drinks', c: 'var(--k-drink)', e: '🍸' }, coffee: { label: 'Coffee', c: 'var(--k-coffee)', e: '☕' }, view: { label: 'View', c: 'var(--k-view)', e: '🌄' }, shop: { label: 'Shop', c: 'var(--k-shop)', e: '🛍️' }, park: { label: 'Park', c: 'var(--k-park)', e: '🌳' }, other: { label: 'Other', c: 'var(--k-other)', e: '📍' } });
   const VIBE_E = { fog: '🌫️', hills: '⛰️', water: '🌊', sun: '☀️', buzz: '✨', green: '🌿' }; // the cover emoji of a place and its sections
   const VERDICT = ['', 'Skip it', 'Meh', 'Solid', 'Great', 'Loved it']; // a spot's rating, in words
-  const LENSES = { vibe: { label: 'Character', sub: 'Six kinds of place' }, fog: { label: 'Fog', sub: 'Sunbelt to permanent cloud' }, elev: { label: 'Hills', sub: 'Sea level to the summits' }, done: { label: 'Been', sub: 'Where you have been' } };
+  const LENSES = { vibe: { label: 'Character', sub: 'Six kinds of place' }, fog: { label: 'Fog', sub: 'Sunbelt to permanent cloud' }, elev: { label: 'Hills', sub: 'Sea level to the summits' }, done: { label: 'Explored', sub: 'Where you have been' } };
   const STAMPS = [
     { id: 'first', label: 'First steps', test: s => s.n >= 1, icon: '1' }, { id: 'ten', label: 'Ten down', test: s => s.n >= 10, icon: '10' },
     { id: 'half', label: 'Half the city', test: s => s.sf >= Math.ceil(REGION_N.sf / 2), icon: '½' }, { id: 'all', label: 'Whole city', test: s => s.sf >= REGION_N.sf, icon: String(REGION_N.sf) },
@@ -44,21 +44,30 @@
     back: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>',
     x: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17"/></svg>', // the header's X: the old log tool's plus, turned 45 degrees
     check: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3 3 7-7" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    star: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2h8v12l-4-3.2L4 14z" fill="#fff"/></svg>', // want to go: a bookmark (the gold star is a friend's pick)
+    star: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2h8v12l-4-3.2L4 14z" fill="#fff"/></svg>',
+    plus: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>',
+    bookmark: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-6-4.5L6 21z"/></svg>', // want to go: a bookmark (the gold star is a friend's pick)
     pin: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6-5.3-6-11a6 6 0 0 1 12 0c0 5.7-6 11-6 11z"/><circle cx="12" cy="10" r="2.2"/></svg>',
     close: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
   };
 
   // ---------- state ----------
   const state = { loc: { region: 'all', hood: null, sub: null, spot: null }, view: null, lens: 'vibe', filters: new Set(), query: '', showAll: true, theme: 'system', done: bare(), want: bare(), spots: bare(), placing: false, pending: null, draft: null, canWrite: true, store: 'none', quiz: null, hover: -1 };
-  try { const s = JSON.parse(localStorage.getItem('sbs-prefs-v3') || localStorage.getItem('sbs-prefs-v2') || '{}'); if (LENSES[s.lens || s.mode]) state.lens = s.lens || s.mode; if (s.showAll === false) state.showAll = false; if (s.theme === 'light' || s.theme === 'dark') state.theme = s.theme; if (AWAY.includes(s.area)) state.lastArea = s.area; state.map3d = s.map3d === true; } catch (e) {}
-  const savePrefs = () => { try { localStorage.setItem('sbs-prefs-v3', JSON.stringify(Object.assign({ lens: state.lens, showAll: state.showAll, theme: state.theme, area: areaKey(state.loc.region) }, state.map3d ? { map3d: true } : null))); } catch (e) {} }; // area: the app opens in the area it was left in; map3d: the 3D map (beta), kept only while it is on
+  try { const s = JSON.parse(localStorage.getItem('sbs-prefs-v3') || localStorage.getItem('sbs-prefs-v2') || '{}'); if (LENSES[s.lens || s.mode]) state.lens = s.lens || s.mode; if (s.showAll === false) state.showAll = false; if (s.theme === 'light' || s.theme === 'dark') state.theme = s.theme; if (AWAY.includes(s.area)) state.lastArea = s.area; state.map3d = s.map3d === true; state.bmOnly = s.bmOnly === true; } catch (e) {}
+  const savePrefs = () => { try { localStorage.setItem('sbs-prefs-v3', JSON.stringify(Object.assign({ lens: state.lens, showAll: state.showAll, theme: state.theme, area: areaKey(state.loc.region) }, state.map3d ? { map3d: true } : null, state.bmOnly ? { bmOnly: true } : null))); } catch (e) {} }; // area: the app opens in the area it was left in; map3d: the 3D map (beta), kept only while it is on
   function applyTheme() { if (state.theme === 'light' || state.theme === 'dark') document.documentElement.setAttribute('data-theme', state.theme); else document.documentElement.removeAttribute('data-theme'); syncThemeColor(); if (window.StreetMap) StreetMap.restyle(); }
   // the browser / PWA status band follows the theme the page actually shows: the paper tone at the top of the map
   function syncThemeColor() { const c = getComputedStyle(document.documentElement).getPropertyValue('--land-other').trim(); if (c) document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.setAttribute('content', c)); } // both metas (their media attributes only matter before this runs)
   applyTheme();
-  const isDone = i => !!state.done[slug(HOODS[i].name)];
-  const isWant = i => !!state.want[slug(HOODS[i].name)];
+  // a place is explored once one of its spots is been (or it was flagged by hand before spots did this). A spot is bookmarked while it
+  // is still to visit (status want) unless unbookmarked, or when bookmarked after a visit (bm). reflag() keeps the sets the map reads
+  // each frame; it runs on every adopt, persist and render.
+  let beenHoods = new Map(), bmHoods = new Set();
+  const isBm = sp => !!sp && typeof sp === 'object' && (sp.bm === true || (sp.status === 'want' && sp.bm !== false));
+  function reflag() { beenHoods = new Map(); bmHoods = new Set(); for (const id in state.spots) { const sp = state.spots[id]; if (!sp || IDX[sp.hood] == null) continue; if ((sp.status || 'been') === 'been') { const at = String(sp.at || ''), was = beenHoods.get(sp.hood); beenHoods.set(sp.hood, was == null || (at && at < was) ? at : was); } if (isBm(sp)) bmHoods.add(sp.hood); } }
+  const isDone = i => !!state.done[slug(HOODS[i].name)] || beenHoods.has(HOODS[i].name);
+  const isWant = i => bmHoods.has(HOODS[i].name); // a place with a bookmarked spot (place-level want to go is no longer offered)
+  const flagOf = name => state.done[slug(name)] || (beenHoods.has(name) ? { at: beenHoods.get(name), note: '' } : null); // the hand flag, else the first been spot's date
   const inRegion = (i, r = state.loc.region) => r === 'all' || HOODS[i].region === r;
   const isPhone = () => window.innerWidth <= 880;
   // ---------- who is using this device ----------
@@ -74,7 +83,7 @@
 
   // ---------- map ----------
   const stage = $('stage'), canvas = $('map'), panel = $('panel'), head = $('head'), sheetEl = $('sheet'), tip = $('tip');
-  const spotList = () => { const out = []; for (const id in state.spots) { const sp = state.spots[id]; if (!sp._xy) sp._xy = Geom.proj([sp.lon, sp.lat]); out.push({ id, x: sp._xy[0], y: sp._xy[1], c: (KINDS[sp.kind] || KINDS.other).c, name: sp.name, status: sp.status || 'been', hood: sp.hood }); } if (state.pending) out.push({ id: 'pending', x: state.pending.x, y: state.pending.y, c: 'var(--accent)', name: '', status: 'pending' }); return out; };
+  const spotList = () => { const out = []; for (const id in state.spots) { const sp = state.spots[id]; if (state.bmOnly && !isBm(sp) && id !== state.loc.spot) continue; if (!sp._xy) sp._xy = Geom.proj([sp.lon, sp.lat]); out.push({ id, x: sp._xy[0], y: sp._xy[1], c: (KINDS[sp.kind] || KINDS.other).c, name: sp.name, status: sp.status || 'been', hood: sp.hood }); } if (state.pending) out.push({ id: 'pending', x: state.pending.x, y: state.pending.y, c: 'var(--accent)', name: '', status: 'pending' }); return out; };
   const marksFor = () => HOODS.map((h, i) => isDone(i) ? 'flag' : isWant(i) ? 'star' : null);
   const matches = i => { if (!inRegion(i)) return false; const info = INFO[HOODS[i].name]; for (const t of state.filters) if (!info.tags.includes(t)) return false; return true; };
   // the 3D map (beta) when it was asked for (index.html) and can run here (js/map3d.js: three.js loaded, WebGL), else the flat map
@@ -86,7 +95,7 @@
     // it (insetClear, set by frame())
     insets() { const c = document.querySelector('#ctl .stack').getBoundingClientRect(), right = Math.max(0, window.innerWidth - c.left) + 8; if (isPhone()) return { top: sheet && sheet.detent === 'full' ? 0 : Math.max(c.top + 4, insetPill ? $('areas').getBoundingClientRect().bottom + 8 : 0), right: insetClear ? right : 0, bottom: (sheet ? sheet.visible : 0) + 12, left: 0 }; return { top: document.querySelector('.top .search').getBoundingClientRect().bottom + 10, right, bottom: 12, left: 0 }; },
     spots: spotList, marks: marksFor, selectedSpot: () => state.loc.spot,
-    alphaFor(i) { if (state.quiz) return 1; const filtered = state.filters.size > 0 && !matches(i) ? .25 : 1; const veil = !state.showAll && state.lens !== 'done' && !isDone(i) ? .35 : 1; return filtered * veil; },
+    alphaFor(i) { if (state.quiz) return 1; const filtered = (state.filters.size > 0 && !matches(i)) || (state.bmOnly && !isWant(i)) ? .25 : 1; const veil = !state.showAll && state.lens !== 'done' && !isDone(i) ? .35 : 1; return filtered * veil; },
     onTap, onHover, onGestureStart() { fingerOn = true; mapBusyT = fingerT = performance.now(); closeLenses(); openAreas(false); }, onGestureEnd() { fingerOn = false; mapBusyT = performance.now(); }, onMove() { mapBusyT = fingerT = performance.now(); }, // (the map in use: the street map waits, streetGate)
     // the floating chrome (the control capsule; the search field, which on the phone sits in the capsule's top slot) reserves its footprint so map labels avoid it
     occluders() { if (isPhone() && document.documentElement.classList.contains('sheet-full')) return []; return ['.top .search', '#ctl .stack', '#areas'].map(s => document.querySelector(s)).filter(el => el && el.offsetParent !== null && getComputedStyle(el).opacity !== '0').map(el => el.getBoundingClientRect()).filter(b => b.height > 0).map(b => [b.left - 4, b.top - 4, b.right + 4, b.bottom + 4]); },
@@ -249,7 +258,7 @@
       map.setHover(i, hit.sub, null); stage.classList.add('pointing');
       if (state.quiz) { tip.classList.remove('on'); if (!quizMap.pick(i)) { map.setHover(-1, -1, null); stage.classList.remove('pointing'); } return; } // locked on an answer: nothing to point at (but the green place, which is Next after a miss)
       if (s && (l.hood === name || map.hoodPx(i) > 420)) showTip(sx, sy, s.name, name);
-      else showTip(sx, sy, name, isDone(i) ? 'Been ✓' : isWant(i) ? 'Want to go' : INFO[name].line);
+      else showTip(sx, sy, name, isDone(i) ? 'Explored ✓' : isWant(i) ? 'Bookmarked spots' : INFO[name].line);
       return;
     }
     map.setHover(-1, -1, null); tip.classList.remove('on'); stage.classList.remove('pointing');
@@ -293,7 +302,12 @@
   const lensesEl = $('lenses'), lensBtn = $('lens-btn');
   function swatches(lens) { if (lens === 'vibe') return Object.values(VIBES).map(v => `<i style="--c:var(--${v.cls})"></i>`).join(''); if (lens === 'fog') return [1, 2, 3, 4, 5].map(n => `<i style="--c:var(--fog${n})"></i>`).join(''); if (lens === 'elev') return [1, 2, 3, 4, 5].map(n => `<i style="--c:var(--hill${n})"></i>`).join(''); return `<i style="--c:var(--accent)"></i><i style="--c:var(--grey-fill)"></i>`; }
   // the layers menu: the four lenses, and under them the legend of the one in use (the map has no legend of its own)
-  function renderLenses() { lensesEl.innerHTML = Object.entries(LENSES).map(([k, v]) => `<button type="button" data-lens="${k}" aria-pressed="${state.lens === k}"><span><b>${v.label}</b><small>${v.sub}</small></span><span class="sw">${swatches(k)}</span></button>`).join('') + '<div class="lgd" id="legend"></div>'; lensesEl.querySelectorAll('[data-lens]').forEach(b => b.addEventListener('click', () => { setLens(b.dataset.lens); closeLenses(); })); renderLegend(); }
+  function renderLenses() { lensesEl.innerHTML = Object.entries(LENSES).map(([k, v]) => `<button type="button" data-lens="${k}" aria-pressed="${state.lens === k}"><span><b>${v.label}</b><small>${v.sub}</small></span><span class="sw">${swatches(k)}</span></button>`).join('') + '<div class="lgd" id="legend"></div>'
+    + `<label class="switch bmonly"><span class="bmi">${ICON.bookmark}</span><span><b>Bookmarked only</b><small>Only bookmarked spots, and the places they are in</small></span><input type="checkbox" id="bm-only" ${state.bmOnly ? 'checked' : ''}></label>`;
+    lensesEl.querySelectorAll('[data-lens]').forEach(b => b.addEventListener('click', () => { setLens(b.dataset.lens); closeLenses(); }));
+    lensesEl.querySelector('#bm-only').addEventListener('change', e => setBmOnly(e.target.checked)); lensBtn.classList.toggle('filtering', !!state.bmOnly); renderLegend(); }
+  // the map filter: only bookmarked spots, the places without one veiled. While on, the layers button carries a dot
+  function setBmOnly(on) { state.bmOnly = !!on; savePrefs(); const cb = $('bm-only'); if (cb) cb.checked = state.bmOnly; lensBtn.classList.toggle('filtering', state.bmOnly); map.invalidate(); map.redraw(); if (state.bmOnly && !bmHoods.size) toast('Nothing bookmarked yet. Open a spot and tap the bookmark.', 3600); }
   function setLens(k) { state.lens = k; savePrefs(); renderLenses(); recolor(true); }
   function renderLegend() {
     const el = $('legend'), k = state.lens; if (!el) return;
@@ -302,7 +316,7 @@
       : Object.values(VIBES).map(v => `<span><i style="--c:var(--${v.cls})"></i>${v.label}</span>`).join('');
     else if (k === 'fog') el.innerHTML = `<span>Sunny</span><span class="ramp">${swatches('fog')}</span><span>Always foggy</span>`;
     else if (k === 'elev') { const r = state.loc.region, low = REGIONS[r] && REGIONS[r].low; el.innerHTML = `<span>${low ? esc(low.label) : 'Sea level'}</span><span class="ramp">${swatches('elev')}</span><span>${ft(AREA_MAX[areaKey(r)]).toLocaleString()} ft</span>`; }
-    else el.innerHTML = `<span><i style="--c:var(--accent)"></i>Been</span><span><i style="--c:var(--grey-fill)"></i>Everywhere else</span>`;
+    else el.innerHTML = `<span><i style="--c:var(--accent)"></i>Explored</span><span><i style="--c:var(--grey-fill)"></i>Everywhere else</span>`;
     el.setAttribute('aria-label', 'Legend: ' + LENSES[k].label);
   }
   function closeLenses() { lensesEl.classList.remove('on'); lensBtn.setAttribute('aria-expanded', 'false'); }
@@ -365,7 +379,7 @@
   if (amenu) amenu.addEventListener('click', e => { const b = e.target.closest('[data-area]'); if (!b) return; const kb = e.detail === 0; openAreas(false); go({ region: areaRegion(b.dataset.area) }, { tap: true }); if (kb) { const c = areasEl.querySelector('button'); if (c) c.focus(); } }); // chosen by keyboard: the focus goes back to the chip
   new MutationObserver(() => { const c = document.documentElement.classList; if (c.contains('searching') || (isPhone() && c.contains('sheet-full'))) openAreas(false); }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] }); // search or the full sheet hides the chip
   function render() {
-    renderLegend(); renderAreas();
+    reflag(); renderLegend(); renderAreas();
     if (state.query) renderSearch();
     else if (state.quiz) renderQuiz();
     else {
@@ -381,10 +395,10 @@
   }
   function wire(root) {
     root.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => go(JSON.parse(b.dataset.go), { tap: true })));
-    root.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => go(state.loc, { view: b.dataset.view, fly: false, replace: true, sheet: isPhone() ? 'full' : undefined })));
+    root.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => { if (b.hasAttribute('data-bm')) state.spotFilter = { status: 'bm' }; go(state.loc, { view: b.dataset.view, fly: false, replace: true, sheet: isPhone() ? 'full' : undefined }); }));
   }
   const rowSub = (hood, s, j) => { const n = Object.values(state.spots).filter(sp => sp.hood === hood && sp.sub === s.name).length; return `<li><button type="button" class="row" data-go='${attr({ hood, sub: s.name })}'>${s.star ? '<span class="ic starb" aria-label="Starred"></span>' : `<span class="ic sq" style="--c:${colorFor(IDX[hood])};opacity:${[1, .75, .5][j % 3]}"></span>`}<span class="nm">${esc(s.name)}<small>${s.star ? `<span class="why">${esc(s.star)}</span> · ` : ''}${esc(s.line)}</small></span><span class="rt">${n ? n + (n === 1 ? ' spot' : ' spots') : ''}<span class="chev"></span></span></button></li>`; };
-  const rowSpot = (id, withPlace) => { const sp = state.spots[id], k = KINDS[sp.kind] || KINDS.other; const meta = [k.label, withPlace ? (sp.sub || sp.hood) : sp.sub, sp.note].filter(Boolean).join(' · '); const rt = sp.status === 'want' ? 'want to go' : (sp.rating > 0 ? '★'.repeat(Math.max(1, Math.min(5, Math.round(sp.rating) || 1))) : niceDate(sp.at)); return `<li><button type="button" class="row" data-go='${attr({ spot: id })}'><span class="ic" style="--c:${k.c};${sp.status === 'want' ? 'background:transparent;box-shadow:0 0 0 2px ' + k.c + ' inset' : ''}"></span><span class="nm">${esc(sp.name)}<small>${esc(meta)}</small></span><span class="rt">${esc(rt)}</span></button></li>`; };
+  const rowSpot = (id, withPlace) => { const sp = state.spots[id], k = KINDS[sp.kind] || KINDS.other; const meta = [k.label, withPlace ? (sp.sub || sp.hood) : sp.sub, sp.note].filter(Boolean).join(' · '); const rt = sp.status === 'want' ? 'not been yet' : (sp.rating > 0 ? '★'.repeat(Math.max(1, Math.min(5, Math.round(sp.rating) || 1))) : niceDate(sp.at)); return `<li><button type="button" class="row" data-go='${attr({ spot: id })}'><span class="ic" style="--c:${k.c};${sp.status === 'want' ? 'background:transparent;box-shadow:0 0 0 2px ' + k.c + ' inset' : ''}"></span><span class="nm">${esc(sp.name)}${isBm(sp) ? '<span class="bmk" role="img" aria-label="Bookmarked"></span>' : ''}<small>${esc(meta)}</small></span><span class="rt">${esc(rt)}</span></button></li>`; };
   const spotsIn = (hood, sub) => Object.keys(state.spots).filter(id => state.spots[id].hood === hood && (!sub || state.spots[id].sub === sub)).sort((a, b) => (state.spots[a].at < state.spots[b].at ? 1 : -1));
   // ---- Google Maps: a text query lands on the real place; a pinned, GPS or approximate spot keeps its coordinates
   // (a made-up name resolves to the wrong place). From place search, `where` is 'street · district · city'; the
@@ -470,14 +484,13 @@
     const r = state.loc.region, n = doneCount(), total = REGION_N[r], s = stampState(), earned = STAMPS.filter(st => st.test(s)), next = STAMPS.find(st => !st.test(s));
     const news = r === 'all' ? state.news.length : 0;
     const recent = Object.keys(state.spots).filter(id => IDX[state.spots[id].hood] != null && inRegion(IDX[state.spots[id].hood])).sort((a, b) => (state.spots[a].at < state.spots[b].at ? 1 : -1));
-    const entries = NAMES.filter(x => inRegion(IDX[x]) && state.done[slug(x)]).sort((a, b) => String(state.done[slug(b)].at ?? '').localeCompare(String(state.done[slug(a)].at ?? '')) || a.localeCompare(b));
-    const wantList = NAMES.filter(x => inRegion(IDX[x]) && state.want[slug(x)] && !state.done[slug(x)]);
+    const entries = NAMES.filter(x => inRegion(IDX[x]) && flagOf(x)).sort((a, b) => String(flagOf(b).at ?? '').localeCompare(String(flagOf(a).at ?? '')) || a.localeCompare(b));
+    const bmList = recent.filter(id => isBm(state.spots[id]));
     // the first screen of the map in play (the Bay Area's, an away map's own): the title and, on its row, the panel's own three counts:
-    // places walked (the progress below), want to go (the Want to go places below plus the spots saved as want to go) and spots (the
-    // Spots list below)
+    // places explored (the progress below), saved (the Bookmarked spots below) and spots (the Spots list below)
     if (r === 'all' || AWAY.includes(r)) {
-      const w = wantList.length + recent.filter(id => state.spots[id].status === 'want').length, sp = recent.length;
-      setHead({ back: r !== 'all', title: r === 'all' ? 'Seven by Seven<em>.</em>' : esc(REGIONS[r].label), badge: news ? String(news) : '', tally: [[n, 'Walked', `${n} ${n === 1 ? 'place' : 'places'} walked`], [w, 'Want', `${w} want to go`], [sp, 'Spots', `${sp} ${sp === 1 ? 'spot' : 'spots'}`]] });
+      const w = bmList.length, sp = recent.length;
+      setHead({ back: r !== 'all', title: r === 'all' ? 'Seven by Seven<em>.</em>' : esc(REGIONS[r].label), badge: news ? String(news) : '', tally: [[n, 'Walked', `${n} ${n === 1 ? 'place' : 'places'} walked`], [w, 'Saved', `${w} bookmarked`], [sp, 'Spots', `${sp} ${sp === 1 ? 'spot' : 'spots'}`]] });
     } else setHead({ path: { crumbs: crumbsOf(state.loc) }, title: REGIONS[r].label });
     const active = state.filters.size > 0, hits = active ? NAMES.filter(x => matches(IDX[x])) : [];
     const places = r === 'all'
@@ -491,8 +504,8 @@
         ${active ? `<h3>${hits.length ? hits.length + ' match' + (hits.length === 1 ? '' : 'es') : 'No matches'}</h3><div class="textlinks">${hits.map(a => `<button type="button" class="${isDone(IDX[a]) ? 'done' : isWant(IDX[a]) ? 'want' : ''}" data-go='${attr({ hood: a })}'>${esc(a)}</button>`).join('')}</div>` : ''}</div>`;
     const list = `<h3>${r === 'all' ? 'Regions' : 'Places'} <span class="n">${r === 'all' ? '' : total}</span></h3><ul class="rows ${r === 'all' || REGIONS[r].ordered ? '' : 'cols2'}">${places}</ul>`; // an ordered region (the Strip, north to south) reads down one column
     panel.innerHTML = (news ? newsBlock() : '') + (r === 'all' && window.Lookback ? Lookback.card() : '') + progress + (isPhone() ? list + lead + links : lead + links + list) + `
-      ${entries.length ? `<h3>Been <span class="n">${entries.length}</span></h3><ul class="rows">${entries.map(x => `<li><button type="button" class="row" data-go='${attr({ hood: x })}'><span class="ic flag"></span><span class="nm">${esc(x)}${state.done[slug(x)].note ? `<small>${esc(state.done[slug(x)].note)}</small>` : ''}</span><span class="rt">${niceDate(state.done[slug(x)].at)}</span></button></li>`).join('')}</ul>` : ''}
-      ${wantList.length ? `<h3>Want to go <span class="n">${wantList.length}</span></h3><div class="textlinks">${wantList.map(a => `<button type="button" class="want" data-go='${attr({ hood: a })}'>${esc(a)}</button>`).join('')}</div>` : ''}
+      ${entries.length ? `<h3>Explored <span class="n">${entries.length}</span></h3><ul class="rows">${entries.map(x => `<li><button type="button" class="row" data-go='${attr({ hood: x })}'><span class="ic flag"></span><span class="nm">${esc(x)}${flagOf(x).note ? `<small>${esc(flagOf(x).note)}</small>` : ''}</span><span class="rt">${niceDate(flagOf(x).at)}</span></button></li>`).join('')}</ul>` : ''}
+      ${bmList.length ? `<h3>Bookmarked <span class="n">${bmList.length}</span>${bmList.length > 6 ? `<button type="button" class="act" data-view="spots" data-bm>All ${bmList.length}</button>` : ''}</h3><ul class="rows">${bmList.slice(0, 6).map(id => rowSpot(id, true)).join('')}</ul>` : ''}
       <h3>Spots <span class="n">${recent.length || ''}</span>${recent.length > 6 ? `<button type="button" class="act" data-view="spots">All ${recent.length}</button>` : ''}</h3>
       ${recent.length ? `<ul class="rows">${recent.slice(0, 6).map(id => rowSpot(id, true)).join('')}</ul>` : `<p class="empty">Restaurants, bars, views, shops: search a name or drop a pin, then rate it.</p>`}
       <h3>Stamps <span class="n">${earned.length} of ${STAMPS.length}</span></h3><div class="stamps">${STAMPS.map(st => `<div class="stamp ${st.test(s) ? 'got' : ''}"><b>${st.icon}</b>${st.label}</div>`).join('')}</div>
@@ -528,7 +541,7 @@
 
   // ---- a neighborhood ----
   function renderHood(name) {
-    const i = IDX[name], info = INFO[name], h = HOODS[i], k = slug(name), done = state.done[k], want = state.want[k], secs = subs(name), mine = spotsIn(name);
+    const i = IDX[name], info = INFO[name], h = HOODS[i], k = slug(name), done = state.done[k], secs = subs(name), mine = spotsIn(name), beenN = mine.filter(id => (state.spots[id].status || 'been') === 'been').length, bmN = mine.filter(id => isBm(state.spots[id])).length;
     const roof = h.max === Math.max(...HOODS.filter(x => x.region === h.region).map(x => x.max)), dis = state.canWrite ? '' : 'disabled';
     const keepNote = panel.dataset.name === name && panel.querySelector('#note') ? panel.querySelector('#note').value : null; panel.dataset.name = name;
     setHead({ path: { crumbs: crumbsOf(state.loc) }, title: esc(name) }); // the vibe is the first of the facts
@@ -537,9 +550,10 @@
       ${hero(ownerKey.place(name), name, Object.assign(vibeLook(name), { extras }))}
       <p class="lead">${esc(info.line)}</p>
       <div class="marks">
-        <button type="button" class="mark done ${done ? 'on' : ''}" id="explore" aria-pressed="${!!done}" ${dis}><span class="box">${ICON.check}</span><span><b>Been</b><small>${done ? [niceDate(done.at), 'tap to undo'].filter(Boolean).join(' · ') : 'Plants a flag'}</small></span></button>
-        <button type="button" class="mark want ${want ? 'on' : ''}" id="want" aria-pressed="${!!want}" ${dis || (done ? 'disabled' : '')}><span class="box">${ICON.star}</span><span><b>Want to go</b><small>${done ? 'Already been' : want ? 'Tap to remove' : 'Save for later'}</small></span></button>
+        <button type="button" class="mark add" id="add-spot" ${dis}><span class="box">${ICON.plus}</span><span><b>Add a spot</b><small>${beenN ? 'Log another place here' : 'Your first one flags it'}</small></span></button>
+        <div class="mark count" role="group" aria-label="Spots in ${esc(name)}"><span><b>${beenN}</b><small>been</small></span><span class="bm"><b>${bmN}</b><small>bookmarked</small></span></div>
       </div>
+      ${done && !beenN ? `<p class="handflag">Flagged by hand${niceDate(done.at) ? ' · ' + niceDate(done.at) : ''}${state.canWrite ? ' · <button type="button" id="explore">Remove flag</button>' : ''}</p>` : ''}
       ${done ? `<textarea class="note" id="note" placeholder="What did you eat, see, or climb?" aria-label="Notes for ${esc(name)}">${esc(keepNote ?? done.note ?? '')}</textarea>` : ''}<div class="savestate" id="savestate">${state.canWrite ? '' : 'Sign in to keep a list'}</div>
       ${secs.length ? `<h3>Sections <span class="n">${secs.length}</span></h3><ul class="rows">${secs.map((s, j) => [s, j]).sort((a, b) => !!b[0].star - !!a[0].star).map(([s, j]) => rowSub(name, s, j)).join('')}</ul>` : ''}
       <div class="facts"><span class="vibe"><i style="--c:var(--${toneOf(name)})"></i><b>${VIBES[info.vibe].label}</b></span><span><b>${ft(h.max).toLocaleString()} ft</b> high point${roof ? ' · ' + REGIONS[h.region].roof : ''}</span><span><b>Fog</b> <span class="dots">${[1, 2, 3, 4, 5].map(n => `<i class="${n <= info.fog ? 'on' : ''}"></i>`).join('')}</span> ${FOG_WORDS[info.fog - 1]}</span></div>
@@ -549,8 +563,8 @@
       <h3>Known for</h3><ul class="plain">${info.known.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
       <h3>One thing to know</h3><p class="fact">${esc(info.fact)}</p>
       <h3>Next door</h3>${h.adj.length ? `<div class="textlinks">${h.adj.map(a => `<button type="button" class="${isDone(IDX[a]) ? 'done' : isWant(IDX[a]) ? 'want' : ''}" data-go='${attr({ hood: a })}'>${esc(a)}</button>`).join('')}</div>` : '<p class="empty">Nobody. It is an island.</p>'}`;
-    panel.querySelector('#explore').addEventListener('click', () => toggleDone(name));
-    panel.querySelector('#want').addEventListener('click', () => toggleWant(name));
+    { const b = panel.querySelector('#explore'); if (b) b.addEventListener('click', () => toggleDone(name)); }
+    panel.querySelector('#add-spot').addEventListener('click', () => startLog({ hood: name }));
     const n = panel.querySelector('#note'); if (n) n.addEventListener('input', e => noteInput(name, e.target.value));
   }
   // ---- a section of a neighborhood ----
@@ -574,13 +588,13 @@
   // ---- a spot ----
   function renderSpot(id) {
     const sp = state.spots[id], k = KINDS[sp.kind] || KINDS.other;
-    setHead({ path: { crumbs: crumbsOf(state.loc), tag: `<i style="--c:${k.c}"></i>${k.label}` }, title: esc(sp.name), tools: [{ id: 'edit', label: 'Edit', icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16v4z"/><path d="M13 7l4 4"/></svg>', run: () => { const s = state.spots[id]; if (s) startLog({ hood: s.hood, sub: s.sub, edit: id }); } }] });
+    setHead({ path: { crumbs: crumbsOf(state.loc), tag: `<i style="--c:${k.c}"></i>${k.label}` }, title: esc(sp.name), tools: [{ id: 'bm', label: isBm(sp) ? 'Remove bookmark' : 'Bookmark', icon: ICON.bookmark.replace('<svg', `<svg class="${isBm(sp) ? 'on' : ''}"`), run: () => toggleBm(id) }, { id: 'edit', label: 'Edit', icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16v4z"/><path d="M13 7l4 4"/></svg>', run: () => { const s = state.spots[id]; if (s) startLog({ hood: s.hood, sub: s.sub, edit: id }); } }] });
     const mq = spotQuery(sp), aq = spotApple(sp), want = sp.status === 'want', r = want ? 0 : Math.max(0, Math.min(5, sp.rating | 0)), by = cleanName(sp.by);
     const sv = { key: 'spot:' + id + '@' + ll(sp.lat, sp.lon), name: sp.name, href: tapLink(mq, aq), q: mq, z: 17, lat: sp.lat, lon: sp.lon, zoom: 16, pin: { c: k.c, e: k.e } };
     if (!paint(`
       ${hero(ownerKey.spot(id), sp.name, { c: k.c, e: k.e, badge: { e: k.e, t: k.label } })}
       ${sp.where ? `<p class="lead"><span class="kbody" hidden><i style="--c:${k.c}"></i>${esc(k.label)} · </span>${esc(sp.where)}</p>` : `<p class="lead kbody" hidden><i style="--c:${k.c}"></i>${esc(k.label)}</p>`}
-      <div class="vrow">${r ? `<span class="vstars" role="img" aria-label="${r} of 5 stars"><span aria-hidden="true">${'★'.repeat(r)}<i>${'★'.repeat(5 - r)}</i></span></span><b class="vword">${VERDICT[r]}</b>` : ''}<span class="pstamp ${want ? 'want' : 'been'}">${want ? 'Want to go' : window.Lookback ? esc(Lookback.stamp(sp)) : `Been${niceDate(sp.at) ? ' · ' + esc(niceDate(sp.at)) : ''}`}</span></div>
+      <div class="vrow">${r ? `<span class="vstars" role="img" aria-label="${r} of 5 stars"><span aria-hidden="true">${'★'.repeat(r)}<i>${'★'.repeat(5 - r)}</i></span></span><b class="vword">${VERDICT[r]}</b>` : ''}<span class="pstamp ${want ? 'want' : 'been'}">${want ? 'Not been yet' : window.Lookback ? esc(Lookback.stamp(sp)) : `Been${niceDate(sp.at) ? ' · ' + esc(niceDate(sp.at)) : ''}`}</span></div>
       ${by ? `<p class="vby">Logged by ${esc(by)}</p>` : ''}${window.Lookback ? Lookback.spotBlock(id) : ''}
       ${sp.note ? `<p class="pull">${esc(sp.note)}</p>` : ''}
       ${okLL(sp.lat, sp.lon) ? streetMap(sv) : ''}${mapBtns(mq, aq)}
@@ -592,16 +606,16 @@
     panel.querySelector('#del').addEventListener('click', () => { panel.querySelector('#del-confirm').hidden = false; panel.querySelector('#del').hidden = true; });
     panel.querySelector('#del-no').addEventListener('click', () => { panel.querySelector('#del-confirm').hidden = true; panel.querySelector('#del').hidden = false; });
     panel.querySelector('#del-yes').addEventListener('click', () => removeSpot(id));
-    const bn = panel.querySelector('#been-now'); if (bn) bn.addEventListener('click', async () => { if (!state.spots[id]) return; await beforeWrite(); const s = state.spots[id]; if (!s || s.status === 'been') return; s.status = 'been'; if (window.Lookback) Lookback.markBeen(s, today()); else s.at = today(); const ok = await persist(); render(); toast(`${s.name}: been there.`); if (ok !== false) logEvent('been', { id, name: s.name, hood: s.hood }); });
+    const bn = panel.querySelector('#been-now'); if (bn) bn.addEventListener('click', async () => { if (!state.spots[id]) return; await beforeWrite(); const s = state.spots[id]; if (!s || s.status === 'been') return; const hi = IDX[s.hood], fresh = hi != null && !isDone(hi); s.status = 'been'; delete s.bm; if (window.Lookback) Lookback.markBeen(s, today()); else s.at = today(); const ok = await persist(); render(); if (fresh && isDone(hi)) { map.pop(hi); if (state.lens === 'done') recolor(true); } map.redraw(); toast(fresh && isDone(hi) ? `${s.name}: been there. ${s.hood} explored.` : `${s.name}: been there.`); if (ok !== false) logEvent('been', { id, name: s.name, hood: s.hood }); });
   }
   // ---- all spots ----
   function renderSpots() {
     const r = state.loc.region; const f = state.spotFilter || {};
     let ids = Object.keys(state.spots).filter(id => IDX[state.spots[id].hood] != null && inRegion(IDX[state.spots[id].hood], r));
-    if (f.kind) ids = ids.filter(id => state.spots[id].kind === f.kind); if (f.status) ids = ids.filter(id => (state.spots[id].status || 'been') === f.status);
+    if (f.kind) ids = ids.filter(id => state.spots[id].kind === f.kind); if (f.status) ids = ids.filter(id => f.status === 'bm' ? isBm(state.spots[id]) : (state.spots[id].status || 'been') === f.status);
     ids.sort((a, b) => (state.spots[a].at < state.spots[b].at ? 1 : -1));
     setHead({ eyebrow: 'Logbook', title: 'Spots', onBack: () => go(state.loc, { replace: true, fly: false }) });
-    panel.innerHTML = `<div class="textlinks chips"><button type="button" data-sf="status:" aria-pressed="${!f.status}">All</button><button type="button" data-sf="status:been" aria-pressed="${f.status === 'been'}">Been</button><button type="button" data-sf="status:want" aria-pressed="${f.status === 'want'}">Want to go</button></div>
+    panel.innerHTML = `<div class="textlinks chips"><button type="button" data-sf="status:" aria-pressed="${!f.status}">All</button><button type="button" data-sf="status:been" aria-pressed="${f.status === 'been'}">Been</button><button type="button" data-sf="status:bm" aria-pressed="${f.status === 'bm'}">Bookmarked</button></div>
       <div class="textlinks chips"><button type="button" data-sf="kind:" aria-pressed="${!f.kind}">Any kind</button>${Object.entries(KINDS).map(([k, v]) => `<button type="button" data-sf="kind:${k}" aria-pressed="${f.kind === k}">${v.label}</button>`).join('')}</div>
       <h3>${ids.length} ${ids.length === 1 ? 'spot' : 'spots'}</h3>${ids.length ? `<ul class="rows">${ids.map(id => rowSpot(id, true)).join('')}</ul>` : '<p class="empty">Nothing matches.</p>'}`;
     panel.querySelectorAll('[data-sf]').forEach(b => b.addEventListener('click', () => { const [k, v] = b.dataset.sf.split(':'); state.spotFilter = Object.assign({}, f, { [k]: v || null }); renderSpots(); wire(panel); }));
@@ -750,7 +764,7 @@
   let docRef = null, writing = Promise.resolve(), lastSent = null;
   const clone = o => JSON.parse(JSON.stringify(o || {}));
   function persist() {
-    const spots = {}; for (const id in state.spots) { const { _xy, ...rest } = state.spots[id]; spots[id] = rest; }
+    reflag(); const spots = {}; for (const id in state.spots) { const { _xy, ...rest } = state.spots[id]; spots[id] = rest; }
     const payload = { hoods: { ...state.done }, want: { ...state.want }, spots, updatedAt: new Date().toISOString() };
     if (state.store !== 'db') { try { localStorage.setItem('sbs-explored', JSON.stringify(payload)); } catch (e) {} }
     if (docRef) { lastSent = payload.updatedAt; writing = writing.then(() => docRef.set(payload)).then(() => true, e => { if (e && e.code === 'invalid_argument') { state.canWrite = false; render(); } setSaveState('Could not save. Try again in a moment.'); console.warn('save failed', e); return false; }); return writing; }
@@ -761,6 +775,7 @@
   function adopt(body) {
     state.done = bare(clone(body.hoods)); state.want = bare(clone(body.want)); state.spots = bare(clone(body.spots));
     for (const id in state.spots) { const sp = state.spots[id]; if (!sp || typeof sp !== 'object' || Array.isArray(sp)) { delete state.spots[id]; continue; } if (!sp.status) sp.status = 'been'; if (!sp.sub && IDX[sp.hood] != null) { const [x, y] = Geom.proj([sp.lon, sp.lat]); const j = map.subIndexAt(IDX[sp.hood], x, y); if (j >= 0) sp.sub = subs(sp.hood)[j].name; } }
+    reflag();
   }
   async function toggleDone(name) {
     if (!state.canWrite) return;
@@ -773,12 +788,6 @@
     setSaveState('Saving…'); const ok = await persist(); if (ok !== false) { setSaveState(state.done[k] ? 'Saved' : ''); if (walking && state.done[k] && !walkedEv.has(k)) { walkedEv.add(k); logEvent('place', { id: k, name, hood: name }); } } // still walked once saved (no undo meanwhile), and one event a place a session however often it is toggled
   }
   const walkedEv = new Set();
-  async function toggleWant(name) {
-    if (!state.canWrite) return; const k = slug(name), i = IDX[name];
-    if (!state.want[k] && needsName()) { await beforeWrite(); if (state.want[k] || state.loc.hood !== name) return; }
-    if (state.want[k]) delete state.want[k]; else { state.want[k] = { at: today() }; map.pop(i); }
-    map.redraw(); render(); setSaveState('Saving…'); if (await persist() !== false) setSaveState('Saved');
-  }
   let noteTimer = null;
   function noteInput(name, text) { const k = slug(name); if (!state.done[k]) return; state.done[k].note = text; setSaveState('Saving…'); clearTimeout(noteTimer); noteTimer = setTimeout(async () => { if (await persist() !== false) setSaveState('Saved'); }, 700); }
   let local = null;
@@ -1066,7 +1075,7 @@
       <p class="empty" id="lf-nosearch" style="font-size:12.5px;margin:-4px 0 10px" ${state.searchDown ? '' : 'hidden'}>Live suggestions are not available here. Press Enter to search, or type the name and drop a pin.</p>
       ${placed ? '' : `<div class="actions" style="margin:0 0 14px"><button type="button" class="btn sm" id="lf-pin">${ICON.pin} Drop a pin on the map</button><button type="button" class="btn sm" id="lf-gps" ${d.locating ? 'disabled aria-busy="true"' : ''}>${d.locating ? 'Finding your location…' : 'Use my location'}</button></div>`}
       <div class="field"><label>Kind</label><div class="seg" id="lf-kind">${Object.entries(KINDS).filter(([k]) => k !== 'other').map(([k, v]) => `<button type="button" data-k="${k}" aria-pressed="${d.kind === k}">${v.label}</button>`).join('')}</div></div>
-      <div class="field"><label>Status</label><div class="seg" id="lf-status"><button type="button" data-s="been" aria-pressed="${d.status === 'been'}">Been</button><button type="button" data-s="want" aria-pressed="${d.status === 'want'}">Want to go</button></div></div>
+      <div class="field"><label>Status</label><div class="seg" id="lf-status"><button type="button" data-s="been" aria-pressed="${d.status === 'been'}">Been</button><button type="button" data-s="want" aria-pressed="${d.status === 'want'}">Bookmark for later</button></div></div>
       <div class="two lf-been" id="lf-been" ${d.status === 'been' ? '' : 'hidden'}>
         <div class="field" style="margin:0"><label>Rating</label><div class="rate" id="lf-rate">${[1, 2, 3, 4, 5].map(n => `<button type="button" data-r="${n}" class="${n <= d.rating ? 'on' : ''}" aria-label="${n} star${n > 1 ? 's' : ''}">★</button>`).join('')}</div></div>
         <div class="field lf-when" style="margin:0"><label for="lf-date">When</label><input type="date" id="lf-date" value="${esc(d.at || today())}"></div>
@@ -1126,11 +1135,20 @@
     }
     const id = d.id || ('s' + Date.now().toString(36)), prev = d.id ? state.spots[d.id] : null;
     const by = prev ? cleanName(prev.by) : who(), was = prev ? prev.status : null; // by: who first logged it, kept through every edit
-    state.spots[id] = { ...(by ? { by } : {}), name: name.slice(0, 80), kind: KINDS[d.kind] ? d.kind : 'other', status: d.status === 'want' ? 'want' : 'been', rating: d.status === 'been' ? (d.rating | 0) : 0, note: (d.note || '').trim().slice(0, 400), lon: +d.lon.toFixed(5), lat: +d.lat.toFixed(5), hood: d.hood, sub: d.sub || null, at: d.at || today(), where: (d.where || '').slice(0, 120), src: d.src || null };
+    const hi = IDX[d.hood], before = stampState(), fresh = hi != null && !isDone(hi); // fresh: this spot may be the one that flags its place
+    const bm = prev && typeof prev.bm === 'boolean' && was === (d.status === 'want' ? 'want' : 'been') ? { bm: prev.bm } : {}; // a bookmark set by hand survives an edit, not a change of status
+    state.spots[id] = { ...(by ? { by } : {}), ...bm, name: name.slice(0, 80), kind: KINDS[d.kind] ? d.kind : 'other', status: d.status === 'want' ? 'want' : 'been', rating: d.status === 'been' ? (d.rating | 0) : 0, note: (d.note || '').trim().slice(0, 400), lon: +d.lon.toFixed(5), lat: +d.lat.toFixed(5), hood: d.hood, sub: d.sub || null, at: d.at || today(), where: (d.where || '').slice(0, 120), src: d.src || null };
     const said = window.Lookback ? Lookback.carry(prev, state.spots[id]) : ''; // the date edits the latest visit (js/lookback.js keeps spot.visits)
     state.draft = null; state.pending = null; state.placing = false; stage.classList.remove('placing');
-    toast(said || (d.id ? 'Saved' : `${name} logged`)); setSaveState('Saving…'); const ok = await persist(); go({ spot: id }, { replace: true }); if (ok !== false) setSaveState('Saved');
+    reflag(); const flagged = fresh && isDone(hi), stamp = flagged ? STAMPS.find(s => !s.test(before) && s.test(stampState())) : null;
+    if (flagged) { map.pop(hi); if (state.lens === 'done') recolor(true); }
+    toast(stamp ? `${d.hood} explored. Stamp earned: ${stamp.label}` : flagged ? `${d.hood} explored. +${ft(HOODS[hi].max).toLocaleString()} ft` : said || (d.id ? 'Saved' : `${name} logged`)); setSaveState('Saving…'); const ok = await persist(); go({ spot: id }, { replace: true }); if (ok !== false) setSaveState('Saved');
     if (ok !== false && state.spots[id]) { const s = state.spots[id], k = !prev ? 'spot' : was === 'want' && s.status === 'been' ? 'been' : null; if (k) logEvent(k, { id, name: s.name, hood: s.hood }); }
+  }
+  async function toggleBm(id) {
+    if (!state.canWrite || !state.spots[id]) return; if (needsName()) { await beforeWrite(); if (!state.spots[id]) return; }
+    const s = state.spots[id], on = !isBm(s); s.bm = on; map.redraw(); render(); if (state.bmOnly) map.invalidate();
+    toast(on ? `${s.name} bookmarked` : 'Bookmark removed'); await persist();
   }
   async function removeSpot(id) { const sp = state.spots[id]; if (!sp) return; delete state.spots[id]; go({ hood: sp.hood, sub: sp.sub }, { replace: true, fly: false }); map.redraw(); const ok = await persist(); if (ok !== false && state.store === 'sync' && window.Photos) { try { Photos.removeAll(ownerKey.spot(id)); } catch (e) {} } toast(`${sp.name} removed`); } // its photos go too, best effort, once the delete is saved
 

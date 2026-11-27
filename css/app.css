@@ -812,3 +812,25 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
   .lk-ctl { align-items: center; gap: 14px; } .lk-ag, .lk-dsum { font-size: 14.5px; } .lk-od { font-size: 13.5px; }
   .lk-yr { min-height: 56px; }
 }
+
+/* the place panel: Add a spot beside the counts of its spots (been, bookmarked); a place's flag comes from its first been spot */
+.mark.add { cursor: pointer; }
+.mark.add .box { background: var(--accent); box-shadow: none; color: var(--accent-ink); }
+.mark.add .box svg { opacity: 1; width: 11px; height: 11px; }
+.mark.add:not([disabled]):hover { border-color: var(--accent); }
+.mark.count { justify-content: space-around; gap: 6px; padding: 7px 8px; background: transparent; }
+.mark.count > span { display: grid; justify-items: center; line-height: 1.1; }
+.mark.count b { font: 600 19px/1.1 var(--display); font-variant-numeric: tabular-nums; color: var(--accent-deep, var(--accent)); }
+.mark.count .bm b { color: var(--want); }
+.mark.count small { font-size: 11.5px; }
+.handflag { margin: 8px 0 0; font-size: 12.5px; color: var(--muted); }
+.handflag button { border: 0; background: none; padding: 0; font: inherit; font-weight: 600; color: var(--accent-deep, var(--accent)); cursor: pointer; }
+/* a bookmarked spot: a small blue bookmark after its name, and the header's bookmark filled */
+.row .nm .bmk { display: inline-block; width: .62em; height: .8em; margin-left: 6px; vertical-align: -.02em; background: var(--want); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 72%, 0 100%); }
+.head .tools button svg.on { fill: var(--want); stroke: var(--want); }
+/* the map filter in the layers menu, and a dot on the layers button while it is on */
+.lenses .bmonly { margin: 4px 4px 0; padding: 9px 6px 5px; border-top: 1px solid var(--glass-edge); border-bottom: 0; display: grid; grid-template-columns: auto 1fr auto; gap: 10px; font-size: 13.5px; }
+.lenses .bmonly b { font-weight: 600; display: block; }
+.lenses .bmonly .bmi svg { width: 15px; height: 15px; fill: var(--want); stroke: none; display: block; }
+#lens-btn { position: relative; }
+#lens-btn.filtering::after { content: ""; position: absolute; top: 7px; right: 7px; width: 8px; height: 8px; border-radius: 50%; background: var(--want); box-shadow: 0 0 0 2px var(--glass-strong); }

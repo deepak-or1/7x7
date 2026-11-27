@@ -487,10 +487,10 @@
     const entries = NAMES.filter(x => inRegion(IDX[x]) && flagOf(x)).sort((a, b) => String(flagOf(b).at ?? '').localeCompare(String(flagOf(a).at ?? '')) || a.localeCompare(b));
     const bmList = recent.filter(id => isBm(state.spots[id]));
     // the first screen of the map in play (the Bay Area's, an away map's own): the title and, on its row, the panel's own three counts:
-    // places explored (the progress below), saved (the Bookmarked spots below) and spots (the Spots list below)
+    // neighborhoods explored (the progress below), spots (the Spots list below) and bookmarked (the Bookmarked spots below)
     if (r === 'all' || AWAY.includes(r)) {
       const w = bmList.length, sp = recent.length;
-      setHead({ back: r !== 'all', title: r === 'all' ? 'Seven by Seven<em>.</em>' : esc(REGIONS[r].label), badge: news ? String(news) : '', tally: [[n, 'Walked', `${n} ${n === 1 ? 'place' : 'places'} walked`], [w, 'Saved', `${w} bookmarked`], [sp, 'Spots', `${sp} ${sp === 1 ? 'spot' : 'spots'}`]] });
+      setHead({ back: r !== 'all', title: r === 'all' ? 'Seven by Seven<em>.</em>' : esc(REGIONS[r].label), badge: news ? String(news) : '', tally: [[n, 'Neighborhoods', `${n} ${n === 1 ? 'neighborhood' : 'neighborhoods'} explored`], [sp, 'Spots', `${sp} ${sp === 1 ? 'spot' : 'spots'}`], [w, 'Bookmarked', `${w} bookmarked`]] });
     } else setHead({ path: { crumbs: crumbsOf(state.loc) }, title: REGIONS[r].label });
     const active = state.filters.size > 0, hits = active ? NAMES.filter(x => matches(IDX[x])) : [];
     const places = r === 'all'

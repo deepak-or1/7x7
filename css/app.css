@@ -859,3 +859,6 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
 .head.first .tally small { margin-top: 0; font-size: 10.5px; }
 .head.first .tally button:nth-child(3) b { color: var(--want); }
 .progress.mini { margin: -2px 0 6px; } .progress.mini .bar { height: 4px; }
+/* while the layers menu is open the map controls rise above the area pill and the search pill, which the menu reaches over; closed,
+   they stay under the search (on the phone its button sits over the controls' top slot) */
+.ctl.lensing { z-index: 5; }

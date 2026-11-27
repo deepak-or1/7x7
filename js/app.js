@@ -319,8 +319,8 @@
     else el.innerHTML = `<span><i style="--c:var(--accent)"></i>Explored</span><span><i style="--c:var(--grey-fill)"></i>Everywhere else</span>`;
     el.setAttribute('aria-label', 'Legend: ' + LENSES[k].label);
   }
-  function closeLenses() { lensesEl.classList.remove('on'); lensBtn.setAttribute('aria-expanded', 'false'); }
-  lensBtn.addEventListener('click', e => { e.stopPropagation(); const on = !lensesEl.classList.contains('on'); lensesEl.classList.toggle('on', on); lensBtn.setAttribute('aria-expanded', String(on)); });
+  function closeLenses() { lensesEl.classList.remove('on'); lensBtn.setAttribute('aria-expanded', 'false'); lensBtn.closest('.ctl').classList.remove('lensing'); }
+  lensBtn.addEventListener('click', e => { e.stopPropagation(); const on = !lensesEl.classList.contains('on'); lensesEl.classList.toggle('on', on); lensBtn.setAttribute('aria-expanded', String(on)); lensBtn.closest('.ctl').classList.toggle('lensing', on); });
   document.addEventListener('pointerdown', e => { if (!e.target.closest('#lenses, #lens-btn')) closeLenses(); if (!e.target.closest('#areas, #areas-menu')) openAreas(false); });
   $('zoom-in').addEventListener('click', () => map.zoom(1 / 1.6)); $('zoom-out').addEventListener('click', () => map.zoom(1.6));
   document.addEventListener('keydown', e => { if (dialogOpen()) return; if (e.key === 'Escape' && areasOpen()) { openAreas(false, true); return; } if (e.target.matches('input, textarea, select')) { if (e.key === 'Escape') e.target.blur(); return; } if (e.key === 'Escape') { if (state.view || level(state.loc) > 0) up(); } else if (e.key === '+' || e.key === '=') map.zoom(1 / 1.6); else if (e.key === '-') map.zoom(1.6); });

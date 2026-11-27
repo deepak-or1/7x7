@@ -191,7 +191,7 @@
   }
 
   function bayEast(b, ground) {
-    const f = bridgeFrame([-122.3590, 37.8135], [-122.3200, 37.8230], 1.7, 2.2, ground), L = f.L;
+    const f = bridgeFrame([-122.3641, 37.8110], [-122.3277, 37.8220], 1.7, 2.2, ground), L = f.L;
     const W2 = 300, Tx = 480, E2 = 865, sk1 = Math.min(L - 300, E2 + 160 * 13);
     const zr = x => x <= E2 ? 52 : x <= sk1 ? lerp(52, 12, sstep((x - E2) / (sk1 - E2))) : lerp(12, 6, (x - sk1) / (L - sk1));
     f.setDeck(zr, 0, 420);
@@ -243,12 +243,12 @@
     const out = { frames: {} };
     out.frames.gg = goldenGate(b, ground); out.frames.bayWest = bayWest(b, ground); out.frames.bayEast = bayEast(b, ground);
     out.list = [out.frames.gg, out.frames.bayWest, out.frames.bayEast]; // every deck, for the soft shadows painted on the water
-    out.list.push(plainBridge(b, ground, [-122.4800, 37.9405], [-122.3960, 37.9345], { humps: [[0.3, 0.09, 56], [0.62, 0.09, 56]] }));  // Richmond-San Rafael
-    out.list.push(plainBridge(b, ground, [-122.2560, 37.5660], [-122.1200, 37.6080], { humps: [[0.12, 0.08, 41]], pier: 420 }));         // San Mateo
-    out.list.push(plainBridge(b, ground, [-122.1290, 37.4980], [-122.1100, 37.5118], { humps: [[0.5, 0.3, 26]], pier: 260 }));           // Dumbarton
-    out.list.push(plainBridge(b, ground, [-122.2262, 38.0562], [-122.2285, 38.0662], { humps: [[0.5, 0.42, 46]], towers: true, pier: 500 })); // Carquinez
-    out.list.push(plainBridge(b, ground, [-122.1230, 38.0335], [-122.1265, 38.0470], { humps: [[0.5, 0.3, 42]], pier: 240 }));           // Benicia-Martinez
-    out.list.push(plainBridge(b, ground, [-121.7518, 38.0122], [-121.7495, 38.0345], { humps: [[0.45, 0.3, 41]], pier: 300 }));          // Antioch
+    out.list.push(plainBridge(b, ground, [-122.4778, 37.9426], [-122.4053, 37.9324], { humps: [[0.3, 0.09, 56], [0.62, 0.09, 56]] }));  // Richmond-San Rafael
+    out.list.push(plainBridge(b, ground, [-122.2632, 37.5729], [-122.1557, 37.6168], { humps: [[0.12, 0.08, 41]], pier: 420 }));         // San Mateo
+    out.list.push(plainBridge(b, ground, [-122.1301, 37.4980], [-122.1084, 37.5141], { humps: [[0.5, 0.3, 26]], pier: 260 }));           // Dumbarton
+    out.list.push(plainBridge(b, ground, [-122.2282, 38.0523], [-122.2267, 38.0659], { humps: [[0.5, 0.42, 46]], towers: true, pier: 500 })); // Carquinez
+    out.list.push(plainBridge(b, ground, [-122.1171, 38.0326], [-122.1287, 38.0480], { humps: [[0.5, 0.3, 42]], pier: 240 }));           // Benicia-Martinez
+    out.list.push(plainBridge(b, ground, [-121.7515, 38.0167], [-121.7516, 38.0427], { humps: [[0.45, 0.3, 41]], pier: 300 }));          // Antioch
     return Object.assign(out, b.finish());
   }
 

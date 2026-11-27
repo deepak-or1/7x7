@@ -8,7 +8,7 @@
     // the Strip's three below stand among towers drawn V times as tall (js/map3d/icons-lv2.js): each is drawn tall enough to keep its real
     // place among them (taller than Paris' hotel, than Harrah's, than the Luxor's own towers), its plan kept to its real ground
     eiffel: [RD / 4.2, V / 4.2], // the Eiffel Tower at Paris Las Vegas: 165 m, half the real one, its legs 62 m apart: drawn RD times in plan, its heights V times as the towers round it
-    highroller: [0.8 * V / 3.8, 0.8 * V / 3.8], // High Roller: 168 m, a wheel: its shape kept, drawn 0.8 V times its size (it stays taller than Harrah's 109 m, drawn V times)
+    highroller: [Math.max(RD, 0.8 * V) / 3.8, Math.max(RD, 0.8 * V) / 3.8], // High Roller: 168 m, a wheel: its shape kept, drawn RD times its size as a round one is, and never under 0.8 V times (it stays taller than Harrah's 109 m, drawn V times)
     strat: 1 / 2.6,         // The STRAT: 350 m
     luxor: [1 / 3, 0.84 * V / 3], // Luxor: 107 m on a 183 m base, a pyramid: its true base (its towers stand 4 m off it), 0.84 V times its height (above its 80 m towers, drawn V times): steeper than the real 51 degrees
     muirwoods: [1, 1],      // Muir Woods: a few redwoods stand for a forest 2 km long: it keeps its size

@@ -115,8 +115,8 @@
       const top = q => H * (1 - o.d * (hi - pr(q)) / (hi - lo)); B.wall(r, B.bot, top, o.m, { hh: H }); B.lid(r, top, 'rf', { plain: 1 }); },
     // a glass roof leaning up against a tower at o.to (the atrium of 101 California)
     lean(B, r, H, o) { const p = Geom.proj(o.to); let far = 0; const d = q => Math.hypot(q[0] - p[0], q[1] - p[1]); for (const q of r) far = Math.max(far, d(q)); const top = q => o.h1 - (o.h1 - o.h0) * Math.min(1, d(q) / far); B.wall(r, B.bot, top, o.m, { hh: o.h1 }); B.lid(r, top, o.m, { plain: 1 }); },
-    // a spire of 345 California: the data's small square carried up to a point
-    spire(B, r, H) { B.wall(r, H * 0.7, H, 'pk', { kind: 2 }); B.wall(r, H, H + 36, 'wh', { s: 0.05, kind: 2 }); },
+    // a spire of 345 California: the data's small square carried up to a point (o.tip: the point's height in metres)
+    spire(B, r, H, o) { B.wall(r, H * 0.7, H, 'pk', { kind: 2 }); B.wall(r, H, o && o.tip > H ? o.tip : H + 36, 'wh', { s: 0.05, kind: 2 }); },
     // the Hyatt Regency's tallest part and the drum of the restaurant that turned on its roof
     hyatt(B, r, H) { B.skin({ m: 'cb' }); B.ext(B.ngon(cen(r), 12, 20), H, H + 6.5, 'cb'); },
     // the Marriott Marquis: the stepped middle and the fan windows of its top (the "jukebox")
@@ -151,7 +151,7 @@
     ['Four Embarcadero Center', KS(6842-6846), { m: 'cc', H: 174 }],   // (the data: 144 m; in life 571 ft)
     ['Hyatt Regency', KS(5819-5823, 5825-5837), { m: 'cb' }, [[K(5824), ['hyatt']]]],
     ['101 California', K(6933), { m: 'gv', hull: 1, st: [[0.965, 3]] }, [[K(6931), { m: 'gv' }], [K(6932), ['lean', { m: 'gs', to: T101, h0: 6, h1: 22 }]]]],
-    ['345 California Center', KS(6822, 6825-6827), { m: 'pk' }, [[KS(6821, 6823), ['spire']]]],
+    ['345 California Center', KS(6822, 6825-6827), { m: 'pk' }, [[KS(6821, 6823), ['spire', { tip: 212 }]]]],   // (the spires' points: 212 m, 695 ft, in life)
     ['44 Montgomery', K(5914), { m: 'gy' }],
     ['One Market Plaza', KS(6194, 6195), { m: 'cc', c: 4, st: [[0.96, 3]] }, [[K(6197), { m: 'bk' }]]],
     ['50 Fremont (Salesforce West)', K(6733), { m: 'pk', st: [[0.8, 3], [0.88, 6], [0.95, 10]] }],
@@ -182,9 +182,9 @@
     ['Flood Building', K(5747), { m: 'st' }],
     ['Palace Hotel', K(6979), { m: 'tn' }],
     ['Old Mint', K(2814), { m: 'st' }],
-    ['Federal Building (7th and Mission)', K(10505), { m: 'sv' }],
+    ['Federal Building (7th and Mission)', K(10505), { m: 'sv', H: 71 }],   // (the data: 58 m; in life 18 storeys, 234 ft)
     ['Market Square (1355 Market)', KS(41, 42), { m: 'ad' }],
-    ['Fox Plaza', K(36), { m: 'fx' }],
+    ['Fox Plaza', K(36), { m: 'fx', H: 117 }],   // (the data: 126 m; in life 384 ft)
     ['100 Van Ness', K(60), { m: 'gb' }],
     ['War Memorial Opera House and Veterans Building', KS(23, 27), { m: 'st' }],
     ['Davies Symphony Hall', K(26), { m: 'cp' }],
@@ -222,14 +222,15 @@
   // shade(s): the look's shaders as real.js has written them, given the table of materials and the line that reads it. real.js asks it once on its own copy of
   // the look's shader text as soon as it makes the look's material, before any building is made, then again as each program is made. Should that text not
   // have everything the line reads (or real.js give no height factor), the named buildings are left out (said once) and every outline stands as the look makes it.
-  // The line: a named building's colour, as a real building's, is the look's pale (here times its material's colour) with the same share of its place's colour
-  // (a lens, the quiz, a selection and a fade move it as they move its neighbours); its walls a little darker below about 15 m, as real.js's are
+  // The line: a named building's colour is the look's pale (here times its material's colour) with a share of its place's colour: a tenth in the plain view (the
+  // look its pictures were approved in), and while a lens, the quiz, a selection or a fade recolours the places (uHeroL, eased to 1 by js/map3d.js) the share a real
+  // building of its height takes, so it moves as its neighbours do; its walls a little darker below about 15 m, as real.js's are (aW.y: heights as real.js sends them, divided by its SV)
   const NEED = ['#include <common>', 'vFab = ', 'float ft', 'bool top', 'tall = ', 'st = r1', 'vec3 fc = ', 'vec4 fpl', ' aW = ', 'uniform vec3 uPale', 'uniform float uRoofK', 'uniform float uWallK'];
   function shade(s) { if (!ON) return;
     try { const v = s && s.vertexShader, V = M3D.real && M3D.real.V, miss = NEED.filter(t => typeof v !== 'string' || v.indexOf(t) < 0);
       if (miss.length || !(V > 0)) throw new Error('the look\'s vertex shader has no ' + (miss.length ? miss.join(', ') : 'height factor'));
-      const vs = v.replace('#include <common>', '#include <common>\nuniform vec4 uHero[' + NM + '];')
-        .replace('vFab = ', 'if (ft >= 1.0) { vec4 hm = uHero[int(ft) - 1]; ft = fract(ft); st = hm.a; fc = mix(fpl.rgb, uPale * hm.rgb, top ? uRoofK + (0.82 - uRoofK) * 0.7 * tall : uWallK + (0.86 - uWallK) * 0.72 * tall) * (top ? 1.0 : 0.86 + 0.14 * smoothstep(0.0, ' + (14.85 * K * V).toFixed(3) + ', aW.y)); }\nvFab = ');
+      const vs = v.replace('#include <common>', '#include <common>\nuniform vec4 uHero[' + NM + '];\nuniform float uHeroL;')
+        .replace('vFab = ', 'if (ft >= 1.0) { vec4 hm = uHero[int(ft) - 1]; ft = fract(ft); st = hm.a; fc = mix(fpl.rgb, uPale * hm.rgb, mix(0.9, top ? uRoofK + (0.82 - uRoofK) * 0.7 * tall : uWallK + (0.86 - uWallK) * 0.72 * tall, uHeroL)) * (top ? 1.0 : 0.86 + 0.14 * smoothstep(0.0, ' + (14.85 * K * V / (M3D.real.SV || 1)).toFixed(3) + ', aW.y)); }\nvFab = ');
       if (ok === false) return; s.vertexShader = vs; if (s.uniforms) s.uniforms.uHero = U; ok = true; }
     catch (e) { if (ok !== false) console.warn('3D map, the named buildings left out: ' + (e && e.message || e)); ok = false;
       // (a building made here before this is known carries a material's number in its tint: where the text allows, the line that drops it, so it stands in the look's own colours)

@@ -210,7 +210,7 @@
       // or two ramps' meet) of RUN or more, a viaduct or a flyover; or one that crosses over another road of the list, at an interchange. The
       // rest, a short bridge over a street, a creek or a railway, lies on the ground as the road it carries does
       const par = Int32Array.from(L, (_, i) => i), find = i => { while (par[i] !== i) i = par[i] = par[par[i]]; return i; }, runLen = new Float32Array(L.length), real = new Uint8Array(L.length);
-      for (const nd of nodes) { const r = []; let live = 0; for (let q = 0; q < nd.ends.length; q += 2) { const ln = L[nd.ends[q]]; if (ln.dead) continue; live++; if (ln.st === 1) r.push(ln); }
+      for (const nd of nodes) { if (late()) yield* pause(); const r = []; let live = 0; for (let q = 0; q < nd.ends.length; q += 2) { const ln = L[nd.ends[q]]; if (ln.dead) continue; live++; if (ln.st === 1) r.push(ln); }
         for (let a = 0; a < r.length; a++) for (let b = a + 1; b < r.length; b++) if (live === 2 || (r[a].ref && r[a].ref === r[b].ref) || (r[a].cls === 1 && r[b].cls === 1)) par[find(r[a].i)] = find(r[b].i); }
       for (const ln of L) if (!ln.dead && ln.st === 1) runLen[find(ln.i)] += ln.len;
       yield* pause();
@@ -238,7 +238,7 @@
             for (let j = r.k0; j < r.k1; j++) { const ax = o.X[j], az = o.Z[j], dx = o.X[j + 1] - ax, dz = o.Z[j + 1] - az, l2 = dx * dx + dz * dz || 1e-12, t = clamp(((x - ax) * dx + (z - az) * dz) / l2, 0, 1); if (Math.hypot(ax + dx * t - x, az + dz * t - z) < R && Math.abs(o.TX[j] * ln.TX[k] + o.TZ[j] * ln.TZ[k]) > 0.85) { ok = true; break; } }
             if (ok) break; } if (ok) hits++; }
         return hits * 2 > tries; };
-      { let n0 = 0; for (const ln of cand) { if (late()) yield* pause(); if (twin(ln)) { n0++; real[find(ln.i)] = 1; } } let n1 = 0; for (const ln of cand) if (twin(ln)) n1++; net.twins = [n0, n1]; }
+      { let n0 = 0; for (const ln of cand) { if (late()) yield* pause(); if (twin(ln)) { n0++; real[find(ln.i)] = 1; } } let n1 = 0; for (const ln of cand) { if (late()) yield* pause(); if (twin(ln)) n1++; } net.twins = [n0, n1]; }
       const runs = new Map(); net.runs = []; net.flattened = 0; net.flatM = 0;
       for (const ln of L) { if (ln.dead || ln.st !== 1) continue; if (late()) yield* pause(); const r = find(ln.i); if (!real[r]) { ln.st = 0; net.flattened++; net.flatM += ln.len / K; continue; }
         ln.own = LEVEL(ln.layer); let o = runs.get(r); if (!o) { runs.set(r, o = { refs: [], m: 0, x: 0, z: 0, top: 0, lines: 0, best: 0 }); net.runs.push(o); } o.m += ln.len / K; o.lines++; o.top = Math.max(o.top, ln.layer); if (ln.ref && !o.refs.includes(ln.ref)) o.refs.push(ln.ref); if (ln.len > o.best) { o.best = ln.len; const k = ln.n >> 1; o.x = ln.X[k]; o.z = ln.Z[k]; } }
@@ -267,8 +267,8 @@
       // margin above it (equal layers: the later line is the upper), rising to it and back at a road's grade. Measured with the roadways' own heights, yAt)
       { const XS = [], NEED = DT + 0.034 + 0.03, at = (ln, k, t) => lerp(yAt(ln, k), yAt(ln, k + 1), t);
         for (const [key, rs] of cells) { if (late()) yield* pause();
-          for (const ra of rs) { const U = ra.ln; if (U.st !== 1) continue;
-            for (const rb of rs) { const D = rb.ln, b = rb.b, a = ra.b; if (D === U || (D.st === 1 && (D.layer > U.layer || (D.layer === U.layer && D.i > U.i))) || b[0] > a[2] || b[2] < a[0] || b[1] > a[3] || b[3] < a[1]) continue;
+          for (const ra of rs) { const U = ra.ln; if (U.st !== 1) continue; if (late()) yield* pause();
+            for (const rb of rs) { if (late()) yield* pause(); const D = rb.ln, b = rb.b, a = ra.b; if (D === U || (D.st === 1 && (D.layer > U.layer || (D.layer === U.layer && D.i > U.i))) || b[0] > a[2] || b[2] < a[0] || b[1] > a[3] || b[3] < a[1]) continue;
               for (let k = ra.k0; k < ra.k1; k++) for (let j = rb.k0; j < rb.k1; j++) { const ax = U.X[k], az = U.Z[k], bx = U.X[k + 1] - ax, bz = U.Z[k + 1] - az, cx = D.X[j] - ax, cz = D.Z[j] - az, dx = D.X[j + 1] - D.X[j], dz = D.Z[j + 1] - D.Z[j], den = bx * dz - bz * dx; if (Math.abs(den) < 1e-12) continue;
                 const t = (cx * dz - cz * dx) / den, u = (cx * bz - cz * bx) / den; if (t < 0 || t > 1 || u < 0 || u > 1) continue; const s1 = lerp(U.S[k], U.S[k + 1], t), s2 = lerp(D.S[j], D.S[j + 1], u); if (s1 > EN && s1 < U.len - EN && s2 > EN && s2 < D.len - EN) XS.push(U, k, t, s1, D, j, u); } } } }
         let lo0 = Infinity, lo1 = Infinity, bumped = 0, deep = 0, s0n = 0, s1n = 0;

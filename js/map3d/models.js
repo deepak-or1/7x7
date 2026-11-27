@@ -7,6 +7,7 @@
   'use strict';
   const T = window.M3D.land, proj = T.proj, K = 1 / T.UNIT_M; // K: world units per metre
   const lerp = (a, b, t) => a + (b - a) * t, clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  const RD_OFF = /[?&]m3d-roads=off(?:&|$)/.test(location.search);   // ?m3d-roads=off (js/map3d.js): no roads, and the seven bridges where they stood before the roads came (bridges below)
   const sstep = t => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
   const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]], mul = (a, s) => [a[0] * s, a[1] * s, a[2] * s];
   const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2], cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
@@ -190,8 +191,8 @@
     return f;
   }
 
-  function bayEast(b, ground) {
-    const f = bridgeFrame([-122.3590, 37.8135], [-122.3200, 37.8230], 1.7, 2.2, ground), L = f.L;
+  function bayEast(b, ground, off) {
+    const f = off ? bridgeFrame([-122.3590, 37.8135], [-122.3200, 37.8230], 1.7, 2.2, ground) : bridgeFrame([-122.3641, 37.8110], [-122.3277, 37.8220], 1.7, 2.2, ground), L = f.L;   // (?m3d-roads=off: where it stood before the roads, RD_OFF)
     const W2 = 300, Tx = 480, E2 = 865, sk1 = Math.min(L - 300, E2 + 160 * 13);
     const zr = x => x <= E2 ? 52 : x <= sk1 ? lerp(52, 12, sstep((x - E2) / (sk1 - E2))) : lerp(12, 6, (x - sk1) / (L - sk1));
     f.setDeck(zr, 0, 420);
@@ -238,17 +239,25 @@
     return f;
   }
 
-  function bridges(ground) {
-    const b = new Builder();
+  function bridges(ground, off) { // off: where they stood before the roads (?m3d-roads=off, or the roads not there: js/map3d.js)
+    if (off == null) off = RD_OFF; const b = new Builder();
     const out = { frames: {} };
-    out.frames.gg = goldenGate(b, ground); out.frames.bayWest = bayWest(b, ground); out.frames.bayEast = bayEast(b, ground);
+    out.frames.gg = goldenGate(b, ground); out.frames.bayWest = bayWest(b, ground); out.frames.bayEast = bayEast(b, ground, off);
     out.list = [out.frames.gg, out.frames.bayWest, out.frames.bayEast]; // every deck, for the soft shadows painted on the water
+    if (off) { // where they stood before the roads (the real network's ends, below, came with js/map3d/roads.js)
     out.list.push(plainBridge(b, ground, [-122.4800, 37.9405], [-122.3960, 37.9345], { humps: [[0.3, 0.09, 56], [0.62, 0.09, 56]] }));  // Richmond-San Rafael
     out.list.push(plainBridge(b, ground, [-122.2560, 37.5660], [-122.1200, 37.6080], { humps: [[0.12, 0.08, 41]], pier: 420 }));         // San Mateo
     out.list.push(plainBridge(b, ground, [-122.1290, 37.4980], [-122.1100, 37.5118], { humps: [[0.5, 0.3, 26]], pier: 260 }));           // Dumbarton
     out.list.push(plainBridge(b, ground, [-122.2262, 38.0562], [-122.2285, 38.0662], { humps: [[0.5, 0.42, 46]], towers: true, pier: 500 })); // Carquinez
     out.list.push(plainBridge(b, ground, [-122.1230, 38.0335], [-122.1265, 38.0470], { humps: [[0.5, 0.3, 42]], pier: 240 }));           // Benicia-Martinez
     out.list.push(plainBridge(b, ground, [-121.7518, 38.0122], [-121.7495, 38.0345], { humps: [[0.45, 0.3, 41]], pier: 300 }));          // Antioch
+    return Object.assign(out, b.finish()); }
+    out.list.push(plainBridge(b, ground, [-122.4778, 37.9426], [-122.4053, 37.9324], { humps: [[0.3, 0.09, 56], [0.62, 0.09, 56]] }));  // Richmond-San Rafael
+    out.list.push(plainBridge(b, ground, [-122.2632, 37.5729], [-122.1557, 37.6168], { humps: [[0.12, 0.08, 41]], pier: 420 }));         // San Mateo
+    out.list.push(plainBridge(b, ground, [-122.1301, 37.4980], [-122.1084, 37.5141], { humps: [[0.5, 0.3, 26]], pier: 260 }));           // Dumbarton
+    out.list.push(plainBridge(b, ground, [-122.2282, 38.0523], [-122.2267, 38.0659], { humps: [[0.5, 0.42, 46]], towers: true, pier: 500 })); // Carquinez
+    out.list.push(plainBridge(b, ground, [-122.1171, 38.0326], [-122.1287, 38.0480], { humps: [[0.5, 0.3, 42]], pier: 240 }));           // Benicia-Martinez
+    out.list.push(plainBridge(b, ground, [-121.7515, 38.0167], [-121.7516, 38.0427], { humps: [[0.45, 0.3, 41]], pier: 300 }));          // Antioch
     return Object.assign(out, b.finish());
   }
 
@@ -414,20 +423,20 @@
   // more landmarks, from the files loaded after this one (js/map3d/icons-*.js): each pushes { id, lon, lat, ex, ry, label, build(b),
   // mats: { name: [paper colour, night colour] } } onto window.M3D.extra; taken up once, before the icons or the skylines are made
   let adopted = false;
-  function adopt() { if (adopted) return; adopted = true; (window.M3D.extra || []).forEach(e => { if (!e || ICONS[e.id] || typeof e.build !== 'function') return; ICONS[e.id] = e.build; PLACED.push([e.id, e.lon, e.lat, e.ex, e.ry || 0, e.label]); }); }
+  function adopt() { if (adopted) return; adopted = true; (window.M3D.extra || []).forEach(e => { if (!e || ICONS[e.id] || typeof e.build !== 'function') return; ICONS[e.id] = e.build; PLACED.push([e.id, e.lon, e.lat, e.ex, e.ry || 0, e.label, !!e.flat]); }); }   // (flat: a park, not a tower: it keeps its size on the map and is named by its width)
   // ground(x, z): the ground there. near(x, z, x0, z0): the ground at (x, z) where it is the same place's top as at (x0, z0), else
   // null. A model stands on the ground at its own point; on a slope the uphill side of its base is in the hill, as a real
   // building's is, and where the ground under its plan falls away further than its base reaches down (what it has built below
   // its own ground level), it is set down until the base still meets the lowest of it
   function icons(ground, near) {
     adopt();
-    return PLACED.map(([id, lon, lat, ex, ry, label]) => {
+    return PLACED.map(([id, lon, lat, ex, ry, label, flat]) => {
       const b = new Builder(), p = proj([lon, lat]);
       b.place(0, 0, 0, ry, ex * K, () => ICONS[id](b));
       const out = b.finish(); out.geometry.computeBoundingBox(); const bb = out.geometry.boundingBox;
       let y = ground(p[0], p[1]);
       if (near) { let low = y; for (const [fx, fz] of [[bb.min.x, bb.min.z], [bb.max.x, bb.min.z], [bb.max.x, bb.max.z], [bb.min.x, bb.max.z], [bb.min.x, 0], [bb.max.x, 0], [0, bb.min.z], [0, bb.max.z]]) { const g = near(p[0] + fx * 0.8, p[1] + fz * 0.8, p[0], p[1]); if (g != null && g < low) low = g; } y = Math.min(y, low + Math.max(0, -bb.min.y) * 0.85); }
-      return Object.assign(out, { id, label, x: p[0], z: p[1], y, h: bb.max.y, r: Math.max(bb.max.x, bb.max.z, -bb.min.x, -bb.min.z) });
+      return Object.assign(out, { id, label, x: p[0], z: p[1], y, h: bb.max.y, r: Math.max(bb.max.x, bb.max.z, -bb.min.x, -bb.min.z), flat: !!flat });
     });
   }
 

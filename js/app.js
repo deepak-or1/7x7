@@ -380,13 +380,13 @@
   if (amenu) amenu.addEventListener('click', e => { const b = e.target.closest('[data-area]'); if (!b) return; const kb = e.detail === 0; openAreas(false); go({ region: areaRegion(b.dataset.area) }, { tap: true }); if (kb) { const c = areasEl.querySelector('button'); if (c) c.focus(); } }); // chosen by keyboard: the focus goes back to the chip
   new MutationObserver(() => { const c = document.documentElement.classList; if (c.contains('searching') || (isPhone() && c.contains('sheet-full'))) openAreas(false); }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] }); // search or the full sheet hides the chip
   function render() {
-    reflag(); renderLegend(); renderAreas();
+    reflag(); renderLegend(); renderAreas(); $('settings-btn').setAttribute('aria-pressed', String(state.view === 'settings'));
     if (state.query) renderSearch();
     else if (state.quiz) renderQuiz();
     else {
       const l = state.loc, v = state.view; let fresh = true;
       if (!l.spot) stamped = null; // back on this spot later, the stamp lands again
-      if (v === 'log') renderLogForm(); else if (v === 'spots') renderSpots(); else if (v === 'hoods') renderHoods(); else if (window.Lookback && Lookback.view(v)) {} else if (l.spot) fresh = renderSpot(l.spot); else if (l.sub) fresh = renderSub(l.hood, l.sub); else if (l.hood) renderHood(l.hood); else renderHome();
+      if (v === 'log') renderLogForm(); else if (v === 'spots') renderSpots(); else if (v === 'hoods') renderHoods(); else if (v === 'settings') renderSettings(); else if (window.Lookback && Lookback.view(v)) {} else if (l.spot) fresh = renderSpot(l.spot); else if (l.sub) fresh = renderSub(l.hood, l.sub); else if (l.hood) renderHood(l.hood); else renderHome();
       if (fresh !== false) { wire(panel); if (window.Photos) Photos.mount(panel); } // fresh false: the panel was left as it was, listeners and all
       if (!v && level(l) >= 2) streetSoon();
     }
@@ -513,33 +513,12 @@
       <h3>Spots <span class="n">${recent.length || ''}</span>${recent.length > 6 ? `<button type="button" class="act" data-view="spots">All ${recent.length}</button>` : ''}</h3>
       ${recent.length ? `<ul class="rows">${recent.slice(0, 6).map(id => rowSpot(id, true)).join('')}</ul>` : `<p class="empty">Restaurants, bars, views, shops: search a name or drop a pin, then rate it.</p>`}
       `}
-      <h3>Stamps <span class="n">${earned.length} of ${STAMPS.length}</span></h3><div class="stamps">${STAMPS.map(st => `<div class="stamp ${st.test(s) ? 'got' : ''}"><b>${st.icon}</b>${st.label}</div>`).join('')}</div>
-      <details class="more"><summary>Settings</summary>
-        <label class="switch"><span>Color every place, been or not</span><input type="checkbox" id="show-all" ${state.showAll ? 'checked' : ''}></label>
-        <label class="switch"><span>3D map (beta)${!window.MapView3D || (window.SBS_MAP3D && !map.is3d) || map3dOff() ? '<small>Not available here</small>' : ''}</span><input type="checkbox" id="map3d" ${state.map3d || window.SBS_MAP3D ? 'checked' : ''} ${window.MapView3D ? '' : 'disabled'}></label>
-        <div class="field" style="margin-top:12px"><label>Appearance</label><div class="seg">${['system', 'light', 'dark'].map(t => `<button type="button" data-theme-pick="${t}" aria-pressed="${state.theme === t}">${t === 'system' ? 'System' : t[0].toUpperCase() + t.slice(1)}</button>`).join('')}</div></div>
-        ${state.store === 'sync' ? `<div class="field"><label for="who-in">Your name on this device</label><input id="who-in" maxlength="${WHO_MAX}" autocomplete="given-name" enterkeyhint="done" placeholder="Shown on what you add" value="${esc(who())}"></div>` : ''}
-        <div class="actions" style="margin-top:4px"><button type="button" class="btn sm" id="export">Export log</button><button type="button" class="btn sm" id="import">Import</button><input type="file" id="import-file" accept="application/json" hidden>${state.store === 'sync' ? '<button type="button" class="btn sm primary" id="share-log">Share this log</button><button type="button" class="btn sm" id="join-log">Join a log</button>' + (prevKeys().length ? '<button type="button" class="btn sm quiet" id="back-log">Back to the previous log</button>' : '') : ''}</div>
-        <p class="fine">${state.store === 'db' ? 'Your log, list, spots and notes are saved with this artifact and shared with everyone it is shared with.' : state.store === 'sync' ? 'This log is shared: everyone who opens your link sees it and adds to it, live. Keep the link private, and bookmark it on each phone. Photos are shared with the log the same way, but Export log does not include them.' : 'Your log is saved in this browser. Export it now and then to keep a copy, or to move it to another device.'} San Francisco boundaries from the SF Planning Department, high points from Mapzen elevation data. Boundaries everywhere else in the Bay Area from the US Census; their high points are approximate. The Las Vegas Strip is drawn between I-15 and Paradise Road, cut at its cross streets. Place search by Photon, © OpenStreetMap contributors.</p>
-        ${window.MapView3D ? '<p class="fine m3d-credit">3D map: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>. United States 3DEP (formerly NED) and global GMTED2010 and SRTM terrain data courtesy of the U.S. Geological Survey.</p>' : ''}
-      </details>`;
+      <h3>Stamps <span class="n">${earned.length} of ${STAMPS.length}</span></h3><div class="stamps">${STAMPS.map(st => `<div class="stamp ${st.test(s) ? 'got' : ''}"><b>${st.icon}</b>${st.label}</div>`).join('')}</div>`;
     panel.querySelector('#surprise').addEventListener('click', surprise);
     panel.querySelector('#quiz').addEventListener('click', startQuiz);
     panel.querySelector('[data-mood-toggle]').addEventListener('click', e => { const m = panel.querySelector('#moods'); m.hidden = !m.hidden; e.currentTarget.setAttribute('aria-expanded', String(!m.hidden)); });
     panel.querySelectorAll('[data-mood]').forEach(b => b.addEventListener('click', () => { const t = b.dataset.mood; state.filters.has(t) ? state.filters.delete(t) : state.filters.add(t); map.invalidate(); render(); panel.querySelector('#moods').hidden = false; }));
-    panel.querySelectorAll('[data-theme-pick]').forEach(b => b.addEventListener('click', () => { state.theme = b.dataset.themePick; savePrefs(); applyTheme(); map.refreshPalette(); recolor(false); render(); }));
-    panel.querySelector('#show-all').addEventListener('change', e => { state.showAll = e.target.checked; savePrefs(); map.invalidate(); });
-    panel.querySelector('#map3d').addEventListener('change', e => { // the other map engine: kept with the prefs, and the page loads again with it (an engine named in the address is dropped, or it would win)
-      state.map3d = e.target.checked; savePrefs(); try { sessionStorage.removeItem('sbs-map3d-off'); sessionStorage.removeItem('sbs-map3d-q2'); } catch (err) {}
-      const u = new URL(location.href); u.searchParams.delete('map'); if (u.href === location.href) location.reload(); else location.replace(u.href);
-    });
-    panel.querySelector('#export').addEventListener('click', exportLog);
-    panel.querySelector('#import').addEventListener('click', () => panel.querySelector('#import-file').click());
-    panel.querySelector('#import-file').addEventListener('change', e => importLog(e.target.files[0]));
-    const sh = panel.querySelector('#share-log'); if (sh) sh.addEventListener('click', shareLog);
-    panel.querySelectorAll('#join-log, #join-log-hint').forEach(b => b.addEventListener('click', joinLog));
-    const bl = panel.querySelector('#back-log'); if (bl) bl.addEventListener('click', () => joinLog(true));
-    const wi = panel.querySelector('#who-in'); if (wi) { wi.addEventListener('keydown', e => { if (e.key === 'Enter') wi.blur(); }); wi.addEventListener('change', () => { setWho(wi.value); wi.value = who(); toast(who() ? `You are ${who()} on this device` : 'No name on this device'); }); }
+    { const j = panel.querySelector('#join-log-hint'); if (j) j.addEventListener('click', joinLog); }
     const ns = panel.querySelector('#news-seen'); if (ns) ns.addEventListener('click', markSeen);
     panel.querySelectorAll('[data-news]').forEach(b => b.addEventListener('click', () => { const e = newsShown.find(x => x.key === b.dataset.news); if (e) openEv(e); }));
   }
@@ -611,6 +590,34 @@
   }
   // a count on the first screen opens its list: the neighborhoods explored (hoods), or the spots (all, or the bookmarked: f)
   function openList(view, f) { if (f) state.spotFilter = f; go(state.loc, { view, fly: false, replace: true, sheet: isPhone() ? 'full' : undefined }); }
+  // ---- settings: their own page, opened from the gear in the map controls ----
+  function renderSettings() {
+    setHead({ eyebrow: 'Seven by Seven', title: 'Settings', onBack: () => go(state.loc, { replace: true, fly: false }) });
+    panel.innerHTML = `<div class="settings">
+        <label class="switch"><span>Color every place, been or not</span><input type="checkbox" id="show-all" ${state.showAll ? 'checked' : ''}></label>
+        <label class="switch"><span>3D map (beta)${!window.MapView3D || (window.SBS_MAP3D && !map.is3d) || map3dOff() ? '<small>Not available here</small>' : ''}</span><input type="checkbox" id="map3d" ${state.map3d || window.SBS_MAP3D ? 'checked' : ''} ${window.MapView3D ? '' : 'disabled'}></label>
+        <div class="field" style="margin-top:12px"><label>Appearance</label><div class="seg">${['system', 'light', 'dark'].map(t => `<button type="button" data-theme-pick="${t}" aria-pressed="${state.theme === t}">${t === 'system' ? 'System' : t[0].toUpperCase() + t.slice(1)}</button>`).join('')}</div></div>
+        ${state.store === 'sync' ? `<div class="field"><label for="who-in">Your name on this device</label><input id="who-in" maxlength="${WHO_MAX}" autocomplete="given-name" enterkeyhint="done" placeholder="Shown on what you add" value="${esc(who())}"></div>` : ''}
+        <div class="actions" style="margin-top:4px"><button type="button" class="btn sm" id="export">Export log</button><button type="button" class="btn sm" id="import">Import</button><input type="file" id="import-file" accept="application/json" hidden>${state.store === 'sync' ? '<button type="button" class="btn sm primary" id="share-log">Share this log</button><button type="button" class="btn sm" id="join-log">Join a log</button>' + (prevKeys().length ? '<button type="button" class="btn sm quiet" id="back-log">Back to the previous log</button>' : '') : ''}</div>
+        <p class="fine">${state.store === 'db' ? 'Your log, list, spots and notes are saved with this artifact and shared with everyone it is shared with.' : state.store === 'sync' ? 'This log is shared: everyone who opens your link sees it and adds to it, live. Keep the link private, and bookmark it on each phone. Photos are shared with the log the same way, but Export log does not include them.' : 'Your log is saved in this browser. Export it now and then to keep a copy, or to move it to another device.'} San Francisco boundaries from the SF Planning Department, high points from Mapzen elevation data. Boundaries everywhere else in the Bay Area from the US Census; their high points are approximate. The Las Vegas Strip is drawn between I-15 and Paradise Road, cut at its cross streets. Place search by Photon, © OpenStreetMap contributors.</p>
+        ${window.MapView3D ? '<p class="fine m3d-credit">3D map: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>. United States 3DEP (formerly NED) and global GMTED2010 and SRTM terrain data courtesy of the U.S. Geological Survey.</p>' : ''}
+      </div>`;
+    panel.querySelectorAll('[data-theme-pick]').forEach(b => b.addEventListener('click', () => { state.theme = b.dataset.themePick; savePrefs(); applyTheme(); map.refreshPalette(); recolor(false); render(); }));
+    panel.querySelector('#show-all').addEventListener('change', e => { state.showAll = e.target.checked; savePrefs(); map.invalidate(); });
+    panel.querySelector('#map3d').addEventListener('change', e => { // the other map engine: kept with the prefs, and the page loads again with it (an engine named in the address is dropped, or it would win)
+      state.map3d = e.target.checked; savePrefs(); try { sessionStorage.removeItem('sbs-map3d-off'); sessionStorage.removeItem('sbs-map3d-q2'); } catch (err) {}
+      const u = new URL(location.href); u.searchParams.delete('map'); if (u.href === location.href) location.reload(); else location.replace(u.href);
+    });
+    panel.querySelector('#export').addEventListener('click', exportLog);
+    panel.querySelector('#import').addEventListener('click', () => panel.querySelector('#import-file').click());
+    panel.querySelector('#import-file').addEventListener('change', e => importLog(e.target.files[0]));
+    const sh = panel.querySelector('#share-log'); if (sh) sh.addEventListener('click', shareLog);
+    { const j = panel.querySelector('#join-log'); if (j) j.addEventListener('click', joinLog); }
+    const bl = panel.querySelector('#back-log'); if (bl) bl.addEventListener('click', () => joinLog(true));
+    const wi = panel.querySelector('#who-in'); if (wi) { wi.addEventListener('keydown', e => { if (e.key === 'Enter') wi.blur(); }); wi.addEventListener('change', () => { setWho(wi.value); wi.value = who(); toast(who() ? `You are ${who()} on this device` : 'No name on this device'); }); }
+  }
+  function toggleSettings() { if (state.view === 'settings') go(state.loc, { replace: true, fly: false }); else go(state.loc, { view: 'settings', fly: false, replace: true, sheet: isPhone() ? 'full' : undefined }); }
+  $('settings-btn').addEventListener('click', toggleSettings);
   // ---- neighborhoods explored, region by region (the first screen no longer lists the regions: their counts lead here) ----
   function renderHoods() {
     const r = state.loc.region, regs = r === 'all' ? Object.keys(REGIONS).filter(k => k !== 'all') : [r];

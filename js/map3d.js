@@ -680,12 +680,12 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
     }
     let pumpI = 0; // the pump that goes first in the next frame's turn
     function pumpTurn() { const end = now() + (moving ? 2.5 : 4), P3 = [fabPump, rbPump, tallPump, pkPump, rdPump], r0 = raf, l0 = lastT; for (let q = 0; q < P3.length; q++) P3[(pumpI + q) % P3.length](end); pumpI = (pumpI + 1) % P3.length; if (raf !== r0) { cancelAnimationFrame(raf); raf = r0; lastT = l0; } } // (a chunk made asks for a frame: draw asks for it itself, once)
-    const pumpWork = () => rdWork() || !!((fab.gen && fab.queue.length) || (pk && pk.ready && pk.queue.length) || (rb.gen && (rb.queue.length || (rb.tallGo && rb.tallGl && rb.tallNext < rb.gen.tallCount && rb.slots.length)))); // a queue the pumps can still work on
-    function pumpsGo() { if (rdWork() && !rd.timer) rd.timer = pumpT(rdPump); if (fab.queue.length && !fab.timer) fab.timer = pumpT(fabPump); if (pk && pk.ready && pk.queue.length && !pk.timer) pk.timer = pumpT(pkPump); if (rb.queue.length && !rb.timer) rb.timer = pumpT(rbPump); if (rb.tallGo && rb.gen && rb.tallNext < rb.gen.tallCount && rb.slots.length && !rb.tallTimer) rb.tallTimer = pumpT(tallPump); } // at rest again: the timers of the queues with work
+    const pumpWork = () => rdWork() || !!((fab.gen && fab.queue.length) || pkBusy() || (rb.gen && (rb.queue.length || (rb.tallGo && rb.tallGl && rb.tallNext < rb.gen.tallCount && rb.slots.length)))); // a queue the pumps can still work on
+    function pumpsGo() { if (rdWork() && !rd.timer) rd.timer = pumpT(rdPump); if (fab.queue.length && !fab.timer) fab.timer = pumpT(fabPump); if (pkBusy() && !pk.timer) pk.timer = pumpT(pkPump); if (rb.queue.length && !rb.timer) rb.timer = pumpT(rbPump); if (rb.tallGo && rb.gen && rb.tallNext < rb.gen.tallCount && rb.slots.length && !rb.tallTimer) rb.tallTimer = pumpT(tallPump); } // at rest again: the timers of the queues with work
     function armIdle(ms) { if (!idleT && !dead) idleT = setTimeout(idleTurn, ms == null ? 100 : ms); }
     function idleTurn() { // no frame for 100 ms: one pump's turn, the next in line with work, until 4 ms have passed (a chunk made asks for a frame: from then on draw gives the turns)
       idleT = 0; if (dead || !pumpWork()) return; const since = now() - lastDraw; if (since < 100) return armIdle(101 - since);
-      const t0 = now(), P3 = [[fabPump, () => fab.gen && fab.queue.length], [rbPump, () => rb.gen && rb.queue.length], [tallPump, () => rb.tallGo && rb.gen && rb.tallGl && rb.tallNext < rb.gen.tallCount && rb.slots.length], [pkPump, () => pk && pk.ready && pk.queue.length], [rdPump, rdWork]];
+      const t0 = now(), P3 = [[fabPump, () => fab.gen && fab.queue.length], [rbPump, () => rb.gen && rb.queue.length], [tallPump, () => rb.tallGo && rb.gen && rb.tallGl && rb.tallNext < rb.gen.tallCount && rb.slots.length], [pkPump, pkBusy], [rdPump, rdWork]];
       for (let q = 0; q < P3.length; q++) { const e = P3[(pumpI + q) % P3.length]; if (e[1]()) { pumpI = (pumpI + q + 1) % P3.length; e[0](t0 + 4); break; } }
       if (EVa) EVa.pumpTimers = (EVa.pumpTimers || 0) + now() - t0; clearTimeout(idleT); idleT = 0; if (pumpWork()) armIdle(16); // (the pump's own re-arm asked for the usual 100 ms: the next turn is 16 ms away)
     }
@@ -694,8 +694,8 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
     // (fresh: not culled, and one not shown yet drawn far below the view), so its buffers go to the GPU then, not when the view first turns to it or it first shows. upQ: big buffers made hidden (the fine ground and
     // its rim, the blocks' rim, the wash), drawn once far below the view at the next frame at rest (upOne; one shown by then is drawn where it stands, untouched). m3d-warm=off: none of this
     const CAP = !SW.warmOff, addQ = [], fresh = [], upQ = [];
-    const addLater = (ms, ok, n) => { if (!CAP) { for (const m of ms) if (m) landG.add(m); return; } addQ.push({ ms, ok, n }); };
-    function addOne() { let by = 0, k = 0; while (addQ.length && (!k || by + addQ[0].n < 512000)) { const a = addQ.shift(); if (!a.ok()) continue; for (const m of a.ms) if (m) { landG.add(m); fresh.push(m); } by += a.n; k++; needs = true; } } // (at least one a frame, then more while the frame's new bytes stay under 512 kB)
+    const addLater = (ms, ok, n, rest) => { if (!CAP) { for (const m of ms) if (m && ok()) landG.add(m); return; } addQ.push({ ms, ok, n, rest }); }; // (rest: joins only in a frame at rest, the roads' ribbons and lamps)
+    function addOne() { let by = 0, k = 0, i = 0; while (i < addQ.length && (!k || by + addQ[i].n < 512000)) { const a = addQ[i]; if (a.rest && moving) { i++; continue; } addQ.splice(i, 1); if (!a.ok()) continue; for (const m of a.ms) if (m) { landG.add(m); fresh.push(m); } by += a.n; k++; needs = true; } } // (at least one a frame, then more while the frame's new bytes stay under 512 kB)
     const offView = m => { const k = [m, m.visible, m.frustumCulled, m.castShadow, m.position.y]; if (!m.visible) { m.visible = true; m.castShadow = false; m.position.y = -1e6; } m.frustumCulled = false; return k; }, backView = k => { const m = k[0]; m.visible = k[1]; m.frustumCulled = k[2]; m.castShadow = k[3]; m.position.y = k[4]; }; // drawn this frame wherever it is (one not shown yet: far below the view, where nothing of it reaches the screen)
     let parked = 0; // (how many were drawn far below the view: stats land.parked)
     function upOne() { if (moving || !upQ.length) return null; const m = upQ.shift(); if (!m || !m.parent) return null; const k = offView(m), t0 = now(); if (k[4] !== m.position.y) parked++; // (one shown this frame is drawn where it stands, as it is: offView)
@@ -704,7 +704,8 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
     // close in; the fog; the ferries and their wakes; the night's lights and traffic; the Luxor's beam), compiled after the first frame, one a
     // slice, at rest (a finger down, a flight or a moving map: later); the fabric's and the real buildings' own were warmed by their steps
     function warmUp() {
-      const list = [() => rim, () => wash && wash.mesh, () => fogBank && fogBank.group, () => ferries[0] && ferries[0].mesh, () => traffic && traffic.pts, () => { const g = new THREE.CylinderGeometry(0.2, 0.05, 1, 6, 1, true); return Object.assign(new THREE.Mesh(g, beamMat), { done: () => g.dispose() }); }];
+      const list = [() => rim, () => wash && wash.mesh, () => fogBank && fogBank.group, () => ferries[0] && ferries[0].mesh, () => traffic && traffic.pts, () => { const g = new THREE.CylinderGeometry(0.2, 0.05, 1, 6, 1, true); return Object.assign(new THREE.Mesh(g, beamMat), { done: () => g.dispose() }); },
+        () => { if (!ROADS || !M3D.roads) return null; if (!rdMat) rdMat = rdFarMat(); const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(9), 3)); return Object.assign(new THREE.Mesh(g, rdMat), { renderOrder: -1, done: () => g.dispose() }); }]; // (the roads' ribbons, js/map3d/roads.js; their structure, lamps and the parks' trees use programs made already or warmed by their own steps)
       let q = 0; stat.build.warmPlan = list.length; stat.build.warmAll = 0; upQ.push(rim); if (wash) upQ.push(wash.mesh); needs = true; kick(); // (the blocks' rim and the wash show only from close in: their buffers now, a frame at rest each)
       const go = () => { if (dead) return; if (ptrs.size || fly || moving) return void setTimeout(go, 150); const t1 = now(), o = list[q++](); if (o) { try { renderer.compile(o, camera, scene); } catch (e) {} if (o.done) o.done(); }
         const ms = now() - t1; stat.build['warmC' + q] = ms; stat.build.warmAll += ms; if (q < list.length) setTimeout(go, 40); else stat.build.warmEnd = Math.round(now() - stat.firstFrame); };
@@ -742,31 +743,35 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
         pk = { P, gl: null, U: null, chunks: new Map(), queue: [], want: [], r: PK_R, key: '', timer: 0, n: 0, made: 0, worst: 0, ready: false, tex: [], t0: now(), bornLast: -1e9, dirty: false, slices: 0, slowest: 0 };
       } catch (e) { pk = null; return void parksGiveUp(e); }
       let bs = null, q = 0, job = null, cv = null;
-      const step = () => { // in turns of 3 ms at most (2.5 of work asked): the data read, each texture painted, then sent (a turn of its own), then the trees' mesh
-        if (dead || !pk) return; const t1 = now(), again = () => { const ms = now() - t1; pk.slices++; if (ms > pk.slowest) { pk.slowest = ms; pk.slowAt = !bs ? 'read' : 'texture ' + q; } setTimeout(step, moving ? 40 : 16); };
+      // in slices of at most 2.5 ms, each a turn of the shared pumps at rest (pkPump: the frame's turn or the idle timer's; never while a finger is down, a flight runs or the map moves): the data read, each texture painted, then sent (a turn of its own), then the trees' mesh
+      const step = stop => {
+        if (dead || !pk) return; const t1 = now(), ms0 = Math.max(0.5, Math.min(2.5, stop - t1)), again = () => { const ms = now() - t1; pk.slices++; if (ms > pk.slowest) { pk.slowest = ms; pk.slowAt = !bs ? 'read' : 'texture ' + q; } };
         try {
-          if (!bs) { if (pk.P.prep(2.5)) { bs = pk.P.boxes(); stat.build.parks = Math.round(now() - t0); } return void again(); }
+          if (!bs) { if (pk.P.prep(ms0)) { bs = pk.P.boxes(); stat.build.parks = Math.round(now() - t0); } return void again(); }
           if (q < bs.length) { const b = bs[q];
             if (!job) { cv = document.createElement('canvas'); job = pk.P.paint(b, cv); return void again(); }   // (the canvas made in a turn of its own)
-            if (job !== true) { if (job(2.5)) job = true; return void again(); }
+            if (job !== true) { if (job(ms0)) job = true; return void again(); }
             const tx = new THREE.CanvasTexture(cv); tx.flipY = false; tx.anisotropy = 4; renderer.initTexture(tx); pkU['uPk' + q].value = tx; pkU['uPkB' + q].value.set(b.box[0], b.box[1], b.box[2], b.box[3]); pk.tex.push(tx); q++; job = null; stat.build['parkTex' + q] = Math.round((now() - t1) * 10) / 10; needs = true; kick(); return void again(); }
           pk.U = { uPlace: fabU.uPlace, uTexW: fabU.uTexW, uGrow: fabU.uGrow, uFocus: { value: new THREE.Vector4(0, 0, 1, 2) }, uPkNow: { value: 0 }, uTreeA: { value: new THREE.Color() }, uTreeB: { value: new THREE.Color() }, uPkWood: { value: new THREE.Color() } };
-          pk.gl = MP.gl(THREE, pk.U, PK_CAP); landG.add(pk.gl.mesh); pkDark = null; pk.ready = true; pk.warming = true;
+          pk.job = null; pk.gl = MP.gl(THREE, pk.U, PK_CAP); landG.add(pk.gl.mesh); pkDark = null; pk.ready = true; pk.warming = true;
           if (fab.gen && fab.chunks.size) { for (const [k, ch] of [...fab.chunks]) fabDrop(k, ch); fab.queue.length = 0; fab.key = ''; }   // (made before the parks were known: made again, clear of them)
           // the trees' two shaders made now, one a frame, on a tree of no size nobody sees (as the fabric's): not in the middle of a flight
           const m = pk.gl.mesh, seq = [() => { pk.gl.fill([{ t: new Float32Array(MP.NT), n: 1, born: 0 }]); m.visible = true; m.castShadow = false; }, () => { m.castShadow = true; shadowDirty = true; }, () => { pk.warming = false; pk.key = ''; pk.n = pk.gl.fill([]); }];
-          let w = 0; const go = () => { if (dead || !pk) return; try { seq[w++](); } catch (e) { return void parksGiveUp(e); } needs = true; if (raf) { cancelAnimationFrame(raf); raf = 0; } lastT = now(); frame(lastT, true); if (w < seq.length) setTimeout(go, 120); }; setTimeout(go, 120);
+          let w = 0; const go = () => { if (dead || !pk) return; if (!SW.warmOff && (ptrs.size || fly)) return void setTimeout(go, 120); try { seq[w++](); } catch (e) { return void parksGiveUp(e); } needs = true; if (raf) { cancelAnimationFrame(raf); raf = 0; } lastT = now(); frame(lastT, true); if (w < seq.length) setTimeout(go, 120); }; setTimeout(go, 120);
         } catch (e) { return void parksGiveUp(e); }
         stat.build.parksDone = Math.round(now() - pk.t0); stat.build.parkSlices = pk.slices; stat.build.parkSlowest = Math.round(pk.slowest * 10) / 10; stat.build.parkSlowestAt = pk.slowAt; stat.build.parkLast = Math.round((now() - t1) * 10) / 10; needs = true; kick();
       };
-      setTimeout(step, 0);
+      pk.job = step; if (!pk.timer) pk.timer = pumpT(pkPump); needs = true; kick();
     }
+    const pkBusy = () => !!(pk && (pk.job || (pk.ready && pk.queue.length)));   // the parks' pump has work: their making (pk.job), or chunks of trees asked for
     function pkPump(end) {
-      if (!pk) return; if (!end) pk.timer = 0; if (dead || !pk.ready || (!end && byFrame())) return; const t0 = now(), budget = moving ? 2.5 : 6; let made = false;
+      if (!pk) return; if (!end) pk.timer = 0; if (dead || (!end && byFrame())) return;
+      if (pk.job) { const tJ = now(); if (!moving && !ptrs.size && !fly) pk.job(end || tJ + 6); if (EVa && !end) EVa.pumpTimers = (EVa.pumpTimers || 0) + now() - tJ; if (pk && pk.job && !pk.timer && !byFrame()) pk.timer = pumpT(pkPump); return; }   // (at rest only: else the next turn)
+      if (!pk.ready) return; const t0 = now(), budget = moving ? 2.5 : 6; let made = false;
       try {
         while (pk.queue.length && (end ? now() < end : now() - t0 < budget)) { const q = pk.queue.shift(); if (pk.chunks.has(q.k)) continue; const t1 = now(), c = pk.P.chunk(q.ix, q.iz), ms = now() - t1; c.born = now() - pk.t0; pk.chunks.set(q.k, c); pk.made++; if (ms > pk.worst) pk.worst = ms; made = true; }
       } catch (e) { return void parksGiveUp(e); }
-      if (made) { pkFill(); needs = true; kick(); }
+      if (made) { pkFill(); needs = true; kick(); if (EVa) EVa.parks = (EVa.parks || 0) + 1; } if (EVa && !end) EVa.pumpTimers = (EVa.pumpTimers || 0) + now() - t0;
       if (pk.queue.length && !pk.timer && !byFrame()) pk.timer = pumpT(pkPump);
     }
     function pkFill() {
@@ -808,7 +813,7 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
     // ---- the roads (js/map3d/roads.js, from the list in js/map3d/roaddata.js): a plan and the flat ribbons, made once, a few
     // milliseconds at a time; the structure (decks, piers, walls, portals) in chunks near the camera, made and dropped as it moves ----
     const rd = { net: null, plan: null, busy: false, late: false, off: false, on: false, quiz: false, night: false, shade: false, lampsAsked: false, key: '', want: new Set(), queue: [], todo: [], job: null, chunks: new Map(), far: [], lamps: [], timer: 0, tris: 0, t: {} };
-    const rdU = { uInvG: { value: 0.001 } }, RD_MAX = 3; let rdMat = null;   // RD_MAX: the most chunks of structure asked for at once (one more may stand while the view moves on): each is a draw call
+    const rdU = { uInvG: { value: 0.001 } }, RD_MAX = 3, rdHold = new THREE.Group(); let rdMat = null;   // RD_MAX: the most chunks of structure asked for at once (one more may stand while the view moves on): each is a draw call; rdHold: what is made waits there, out of the scene, until it joins it (addLater)
     const paintOne = b => { const cols = b.names.map(n => col(LK.pal[n] || '#ff00ff')), a = b.mesh.geometry.attributes.color; for (let i = 0; i < b.mat.length; i++) { const c = cols[b.mat[i]]; a.array[i * 3] = c[0]; a.array[i * 3 + 1] = c[1]; a.array[i * 3 + 2] = c[2]; } a.needsUpdate = true; }; // (as paintBuilt, one mesh)
     // the ribbons' material: unlit, in the roads' colours; a ribbon is its real width, and never narrower on screen than its class's hair
     // (aW: [half width, half the least width in pixels]; uInvG: map units to a pixel at a unit's depth); it rises with a selected place
@@ -854,33 +859,34 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
       if (traffic.cars.length === n0) return; if (traffic.pts) { landG.remove(traffic.pts); traffic.pts.geometry.dispose(); const i = lightSets.indexOf(traffic.pts); if (i >= 0) lightSets.splice(i, 1); }
       traffic.pts = pointsOf(traffic.cars.map(c => ({ x: 0, y: 0, z: 0, kind: c.dir > 0 ? '#fff0d0' : '#ff5846', size: 0.5 }))); if (traffic.pts) traffic.pts.frustumCulled = false; stepLife();
     }
-    // one turn of the roads' work, as the fabric's pumps take theirs (at rest from its timer, while the map moves in the frame's shared
-    // turn): the plan first (the buildings are let go as soon as it can say where a road is), then the nearest chunk asked for, else
-    // the ribbons, else the lamps; each piece of work is a generator that is run until the time is up
+    // one turn of the roads' work, as the fabric's pumps take theirs (the frame's shared turn while frames are drawn, else the idle
+    // timer's, pumpT): the plan first (the buildings are let go as soon as it can say where a road is), then the nearest chunk asked for, else
+    // the ribbons, else the lamps; each piece of work is a generator that is run until the time is up. The plan, the ribbons and the lamps
+    // are made only at rest; what is made joins the scene through the cap on new bytes a frame (addLater; the ribbons and lamps in a frame at rest)
     function rdPump(end) {
-      if (!end) rd.timer = 0; const N = rd.net; if (dead || !N || (!end && byFrame())) return; const stop = end || now() + 2; let made = false, kind = 'plan';
+      if (!end) rd.timer = 0; const N = rd.net; if (dead || !N || (!end && byFrame())) return; const stop = end || now() + 2, still = !moving && !ptrs.size && !fly; let made = false, kind = 'plan'; // (still: the plan, the ribbons and the lamps are made only at rest; a chunk of structure in any turn)
       try {
         while (now() < stop) {
-          if (rd.plan) { const t1 = now(), r = rd.plan.next(); rd.t.planStep = Math.max(rd.t.planStep || 0, +(now() - t1).toFixed(1));
+          if (rd.plan) { if (!still) break; const t1 = now(), r = rd.plan.next(); rd.t.planStep = Math.max(rd.t.planStep || 0, +(now() - t1).toFixed(1));
             if (N.ready && !roads) { roads = { near: N.near, frames: N.frames }; rd.busy = false; rd.t.ready = Math.round(now() - rd.t.t0); made = true;
               if (rd.late) { for (const [k, ch] of [...rb.chunks]) rbDrop(k, ch); rb.key = ''; for (const [k, ch] of [...fab.chunks]) fabDrop(k, ch); fab.key = ''; } }   // (the buildings made while the list was late: again, clear of the roads)
             if (r.done) { rd.plan = null; rd.t.plan = Math.round(now() - rd.t.t0); const a0 = area === AREAS[0] ? 0 : 1; for (const a of [a0, 1 - a0]) if (a < N.areas) rd.todo.push({ kind: 'far', a, g: N.far(a) }); if (rd.night) rdNight(); rdCars(); }
             continue; }
           if (!rd.job) { let q = null; if (!rd.off) while ((q = rd.queue.shift())) if (!rd.chunks.has(q.k) && rd.want.has(q.k)) break;
-            if (q) rd.job = { kind: 'chunk', k: q.k, ix: q.ix, iz: q.iz, g: N.chunk(q.ix, q.iz) }; else if (rd.todo.length) rd.job = rd.todo.shift(); else break; }
-          kind = rd.job.kind; const t1 = now(), r = rd.job.g.next(); rd.t[kind + 'Step'] = Math.max(rd.t[kind + 'Step'] || 0, +(now() - t1).toFixed(1)); if (!r.done) continue;
+            if (q) rd.job = { kind: 'chunk', k: q.k, ix: q.ix, iz: q.iz, g: N.chunk(q.ix, q.iz) }; else if (rd.todo.length && still) rd.job = rd.todo.shift(); else break; }
+          if (rd.job.kind !== 'chunk' && !still) break; kind = rd.job.kind; const t1 = now(), r = rd.job.g.next(); rd.t[kind + 'Step'] = Math.max(rd.t[kind + 'Step'] || 0, +(now() - t1).toFixed(1)); if (!r.done) continue;
           const j = rd.job, v = r.value; rd.job = null; made = true;
           if (j.kind === 'far') { if (!v.length) continue; if (!rdMat) rdMat = rdFarMat();
-            for (const f of v) { const mesh = new THREE.Mesh(f.geometry, rdMat), b = { mesh, mat: f.mat, names: f.names }; mesh.visible = !quiz; mesh.renderOrder = -1; mesh.matrixAutoUpdate = false; landG.add(mesh); built.push(b); paintOne(b); rd.far.push({ mesh, b, groups: f.groups, w0: f.w0, tris: f.tris, a: j.a }); }
-            for (const ch of rd.chunks.values()) if (ch.mesh) rdFold(ch.fk, true); rd.t['far' + j.a] = Math.round(now() - rd.t.t0); }
-          else if (j.kind === 'lamps') { const pts = pointsOf(v); if (!pts) continue; const runs = new Map(); v.forEach((l, k) => { const r2 = runs.get(l.hood); if (r2) r2[1] = k + 1; else runs.set(l.hood, [k, k + 1]); }); pts.visible = !quiz && !!LK.lights;
-            const l = rd.lamps[j.a] = { pts, runs, y0: Float32Array.from(v, q => q.y), n: v.length }; for (const [i, r2] of runs) if (i >= 0 && liftV[i]) { const a = pts.geometry.attributes.position; for (let k = r2[0]; k < r2[1]; k++) a.array[k * 3 + 1] = l.y0[k] + liftV[i]; } }
+            for (const f of v) { const mesh = new THREE.Mesh(f.geometry, rdMat), b = { mesh, mat: f.mat, names: f.names }, e = { mesh, b, groups: f.groups, w0: f.w0, tris: f.tris, a: j.a }; mesh.visible = !quiz; mesh.renderOrder = -1; mesh.matrixAutoUpdate = false; built.push(b); paintOne(b); rd.far.push(e); addLater([mesh], () => rd.far.includes(e), bytesOf([mesh]), true); }   // (joins the scene in a frame at rest: addOne)
+            for (const ch of rd.chunks.values()) if (ch.mesh && ch.mesh.parent === landG) rdFold(ch.fk, true); rd.t['far' + j.a] = Math.round(now() - rd.t.t0); }
+          else if (j.kind === 'lamps') { const pts = pointsOf(v, rdHold); if (!pts) continue; const runs = new Map(); v.forEach((l, k) => { const r2 = runs.get(l.hood); if (r2) r2[1] = k + 1; else runs.set(l.hood, [k, k + 1]); }); pts.visible = !quiz && !!LK.lights;
+            const l = rd.lamps[j.a] = { pts, runs, y0: Float32Array.from(v, q => q.y), n: v.length }; addLater([pts], () => rd.lamps[j.a] === l, bytesOf([pts]), true); for (const [i, r2] of runs) if (i >= 0 && liftV[i]) { const a = pts.geometry.attributes.position; for (let k = r2[0]; k < r2[1]; k++) a.array[k * 3 + 1] = l.y0[k] + liftV[i]; } }
           else if (!v.tris) rd.chunks.set(j.k, { ix: j.ix, iz: j.iz });
-          else { const mesh = addBuilt(v), ch = { ix: j.ix, iz: j.iz, mesh, lifts: v.lifts, tris: v.tris, fk: (j.ix + 2048) * 16384 + (j.iz + 2048), y0: null }; paintOne(built[built.length - 1]); mesh.geometry.boundingSphere.radius += 1; mesh.renderOrder = -1; mesh.matrixAutoUpdate = false;   // (drawn before the land: the ground under a road is then not shaded at all)
-            rd.chunks.set(j.k, ch); rd.tris += v.tris; rdFold(ch.fk, true); for (let q = 0, seen = -1; q < v.lifts.length; q += 3) { const i = v.lifts[q]; if (i !== seen && liftV[i]) rdLiftChunk(ch, i, liftV[i]); seen = i; } if (moving) rd.shade = true; else shadowDirty = true; }   // (while the map moves: into the shadows at the next rest, rdStep, not by a redraw of its own)
+          else { const mesh = addBuilt(v, true, rdHold), ch = { ix: j.ix, iz: j.iz, mesh, lifts: v.lifts, tris: v.tris, fk: (j.ix + 2048) * 16384 + (j.iz + 2048), y0: null }, k = j.k; paintOne(built[built.length - 1]); mesh.geometry.boundingSphere.radius += 1; mesh.renderOrder = -1; mesh.matrixAutoUpdate = false;   // (drawn before the land: the ground under a road is then not shaded at all)
+            rd.chunks.set(j.k, ch); rd.tris += v.tris; addLater([mesh], () => rd.chunks.get(k) === ch && (rdFold(ch.fk, true), moving ? (rd.shade = true) : (shadowDirty = true), true), bytesOf([mesh])); for (let q = 0, seen = -1; q < v.lifts.length; q += 3) { const i = v.lifts[q]; if (i !== seen && liftV[i]) rdLiftChunk(ch, i, liftV[i]); seen = i; } if (moving) rd.shade = true; else shadowDirty = true; }   // (while the map moves: into the shadows at the next rest, rdStep, not by a redraw of its own)
         }
       } catch (e) { if (kind === 'chunk') rdFlat(e); else rdFail(e); made = true; }
-      if (made) { needs = true; kick(); }
+      if (made) { needs = true; kick(); if (EVa) EVa.roads = (EVa.roads || 0) + 1; } if (EVa && !end) EVa.pumpTimers = (EVa.pumpTimers || 0) + now() - stop + 2;
       if (rdWork() && !rd.timer && !byFrame()) rd.timer = pumpT(rdPump);
     }
     // each frame: the ribbons' scale; which chunks of structure the view asks for (from the scale at which a deck's height shows: the

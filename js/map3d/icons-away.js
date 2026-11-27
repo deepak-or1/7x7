@@ -2,7 +2,7 @@
 (() => {
   const X = window.M3D.extra = window.M3D.extra || [];
   // the true sizes (js/map3d.js lmTrue; the list and its rule are in icons-sf.js): js/map3d/models.js's own Strip models, and where a model here is not its real size times ex
-  const V = (window.M3D.land && window.M3D.land.HX) || 1.25, RD = Math.sqrt(V);   // (V: how many times its real height everything built is drawn, js/map3d/land.js HX; a round or steep one keeps its shape: drawn as a whole RD times its true size)
+  const V = window.M3D.hx(), RD = Math.sqrt(V);   // (V: how many times its real height everything built is drawn, js/map3d/land.js HX; a round or steep one keeps its shape: drawn as a whole RD times its true size)
   window.M3D.lmTrue = Object.assign(window.M3D.lmTrue || {}, {
     sphere: [RD / 2.6, RD / 2.6], // Sphere: 112 m tall, 157 m across, round
     // the Strip's three below stand among towers drawn V times as tall (js/map3d/icons-lv2.js): each is drawn tall enough to keep its real

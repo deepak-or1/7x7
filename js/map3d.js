@@ -1,4 +1,4 @@
-window.SBS_COMMIT = window.SBS_COMMIT || '3d 2026-11-27 tall';   // the build the speed tools print (js/map3d/bench.js): change it with every change to the 3D map
+window.SBS_COMMIT = window.SBS_COMMIT || '3d 2026-11-27 close';   // the build the speed tools print (js/map3d/bench.js): change it with every change to the 3D map
 // The 3D map (beta): a second map engine beside js/map.js, with the same members and the same options, so js/app.js drives either.
 // It is inert unless index.html also loaded three.js and js/map3d/{land,models,blocks}.js (it does when the 3D map is asked for):
 // window.MapView3D returns null without them, or without WebGL, and the app makes the flat map instead.
@@ -24,6 +24,9 @@ window.SBS_COMMIT = window.SBS_COMMIT || '3d 2026-11-27 tall';   // the build th
 // highways (flat ribbons from afar, their structure near the camera), which the buildings keep clear of. What moves by itself runs for 20 s
 // after the last touch, at 30 frames a second at most, never out of sight and never under reduced motion (AMBIENT below). When
 // frames run long the engine gives effects up one at a time, and takes them back when they run well again (the governor).
+// How many times its real height everything built is drawn (js/map3d/land.js HX, ?m3d-tall), read by every module through M3D.hx(): this file loads
+// first, and a land.js from an older build in the phone's cache, which has no HX, gives the default instead of a height that is not a number
+(window.M3D = window.M3D || {}).hx = () => { const l = window.M3D.land, v = l ? +l.HX : NaN; return v > 0 && v < 10 ? v : 1.25; };
 (function () {
   'use strict';
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v)), lerp = (a, b, t) => a + (b - a) * t;
@@ -227,14 +230,16 @@ window.SBS_COMMIT = window.SBS_COMMIT || '3d 2026-11-27 tall';   // the build th
     // Geom.inPolys (pieces: an outer ring, then its holes) with the same answer, faster: each set of pieces read once into flat arrays with
     // the box of each piece, kept while the set is the same array of the same length (the places' plans and tops are made once)
     const polysF = new WeakMap(), ringIn = (r, x, y) => { let c = false; for (let i = 0, j = r.length - 2; i < r.length; j = i, i += 2) { const xi = r[i], yi = r[i + 1], xj = r[j], yj = r[j + 1]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c; } return c; };
-    const inPolys = (polys, x, y) => { let F = polysF.get(polys);
-      if (!F || F.n !== polys.length) { F = { n: polys.length, p: polys.map(poly => { const b = [Infinity, Infinity, -Infinity, -Infinity], rs = poly.map((r, k) => { const a = new Float64Array(r.length * 2); r.forEach((q, m) => { a[m * 2] = q[0]; a[m * 2 + 1] = q[1]; if (!k) { if (q[0] < b[0]) b[0] = q[0]; if (q[0] > b[2]) b[2] = q[0]; if (q[1] < b[1]) b[1] = q[1]; if (q[1] > b[3]) b[3] = q[1]; } }); return a; }); return { b, rs }; }) }; polysF.set(polys, F); }
+    const flatOf = polys => { let F = polysF.get(polys);
+      if (!F || F.n !== polys.length) { F = { n: polys.length, p: polys.map(poly => { const b = [Infinity, Infinity, -Infinity, -Infinity], rs = poly.map((r, k) => { const a = new Float64Array(r.length * 2); r.forEach((q, m) => { a[m * 2] = q[0]; a[m * 2 + 1] = q[1]; if (!k) { if (q[0] < b[0]) b[0] = q[0]; if (q[0] > b[2]) b[2] = q[0]; if (q[1] < b[1]) b[1] = q[1]; if (q[1] > b[3]) b[3] = q[1]; } }); return a; }); return { b, rs }; }) }; polysF.set(polys, F); } return F; };
+    const inPolys = (polys, x, y) => { const F = flatOf(polys);
       for (const P of F.p) { const b = P.b; if (x < b[0] || x > b[2] || y < b[1] || y > b[3] || !ringIn(P.rs[0], x, y)) continue; let hole = false; for (let k = 1; k < P.rs.length && !hole; k++) hole = ringIn(P.rs[k], x, y); if (!hole) return true; } return false; };
     const placeAt = (L, x, y) => { for (let i = 0; i < HOODS.length; i++) { const bb = BB[i]; if (x < bb[0] || x > bb[2] || y < bb[1] || y > bb[3]) continue; if (inPolys(L[i], x, y)) return i; } return -1; };
     const hoodAt = (x, y) => placeAt(PPD, x, y);                          // the place whose block stands at a point
     const firstAt = (x, y) => placeAt(PP, x, y);                          // the place the flat map's hit test gives there: the first in the list
     const hoodOf = (x, y) => { const k = x + ',' + y; let i = hoodCache.get(k); if (i === undefined) { if (hoodCache.size > 4000) hoodCache.clear(); i = hoodAt(x, y); hoodCache.set(k, i); } return i; };
     const ringNear = (r, x, y, d2) => { for (let i = 0, j = r.length - 1; i < r.length; j = i++) { const ax = r[j][0], ay = r[j][1], dx = r[i][0] - ax, dy = r[i][1] - ay, l2 = dx * dx + dy * dy; let t = l2 ? ((x - ax) * dx + (y - ay) * dy) / l2 : 0; t = t < 0 ? 0 : t > 1 ? 1 : t; const qx = ax + dx * t - x, qy = ay + dy * t - y; if (qx * qx + qy * qy <= d2) return true; } return false; };
+    const nearPolys = (polys, x, y, d) => { const F = flatOf(polys); for (let k = 0; k < polys.length; k++) { const b = F.p[k].b; if (x < b[0] - d || x > b[2] + d || y < b[1] - d || y > b[3] + d) continue; if (polys[k].some(r => ringNear(r, x, y, d * d))) return true; } return false; };   // (is a point within d of a set's edges: by each piece's box first, as inPolys)
     // the height of what stands at a map point: the top of the place there (the tallest one within `near` of it: a point on a
     // boundary belongs to the block it edges), else the water
     function surfaceAt(x, y, near) {
@@ -366,7 +371,7 @@ window.SBS_COMMIT = window.SBS_COMMIT || '3d 2026-11-27 tall';   // the build th
     let roads = null;                                                     // the roads (js/map3d/roads.js), once their plan is made: { near, over, frames }, or none (the rest of their state: rd, below)
     // the questions the generators ask of the roads and the parks: a throw in one leaves that part out (rdFail, parksGiveUp), not the generator asking
     const rdNear = (x, z, r) => { if (!roads) return false; try { return roads.near(x, z, r); } catch (e) { rdFail(e); return false; } }, rdOver = (x, z, r) => { if (!roads || !roads.over) return Infinity; try { return roads.over(x, z, r); } catch (e) { rdFail(e); return Infinity; } };
-    const pkIn = (x, z, r) => { if (!pk || !pk.P) return false; try { return pk.P.inPark(x, z, r); } catch (e) { parksGiveUp(e); return false; } };
+    const pkIn = (x, z, r, own) => { if (!pk || !pk.P) return false; try { return pk.P.inPark(x, z, r, own); } catch (e) { parksGiveUp(e); return false; } };
     let pk = null;                                                        // the parks (js/map3d/parks.js, parksLoad): { P: make's answer, gl, chunks, queue, ... }, or none
     let fineS = null, fineMesh = null, finePos = null, fineCol = null, fineBaseY = null, fineOn = false, fineBusy = false, tileSplit = 0, rimSplit = 0, rimF = null, rimBase = null, rimFBase = null, scatterY = null; // the full meshes of the places the fine grid covers (the relief), drawn close in instead of their far ones
     let rim = null, rimPos = null, flags = null, books = null, waterTex = null, wcv = null, wbox = null, wsc = 1, beam = null, nightBuilt = false, scatter = null, shadowDirty = true, vex = 1, lmScale = 1, lmB = 1, lmT = 1, sh = {}, shT = 0, lightBasis = null;
@@ -430,9 +435,12 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
     const built = []; // { mesh, mat (material index per vertex), names, shade }
     const addBuilt = (b, shadow = true, parent = landG) => { const m = new THREE.Mesh(b.geometry, builtMat); m.castShadow = shadow; m.receiveShadow = true; parent.add(m); built.push({ mesh: m, mat: b.mat, names: b.names, shade: b.shade }); return m; };
     // night lights: soft additive points (bridge cables, beacons, the Strip) and a scatter of city lights over the places
+    const LIGHT_W = 0.4;    // the widest a light's glow is drawn close in, in map units (about 57 m: its bright middle about half that, a building's width)
     const lightMat = new THREE.ShaderMaterial({
-      uniforms: { uScale: { value: 1 }, uMin: { value: 1 }, uGain: { value: 1 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-      vertexShader: 'attribute float size; attribute vec3 tint; varying vec3 vTint; varying float vFade; uniform float uScale; uniform float uMin;\nvoid main(){ vTint = tint; vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mv; float px = size * uScale / max(0.001, -mv.z); vFade = clamp(px / uMin, 0.25, 1.0); gl_PointSize = clamp(px, uMin, uMin * (16.0 + 6.0 * size)); }',
+      // (a glow as big as its light from afar, up to a pixel size; close in never wider than about a building, LIGHT_W, whatever its size; and tested a little
+      // in front of where it hangs, so the cable or the beam it sits on does not hide it: the Bay Bridge's lights close in)
+      uniforms: { uScale: { value: 1 }, uMin: { value: 1 }, uGain: { value: 1 }, uWorld: { value: LIGHT_W } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      vertexShader: 'attribute float size; attribute vec3 tint; varying vec3 vTint; varying float vFade; uniform float uScale; uniform float uMin; uniform float uWorld;\nvoid main(){ vTint = tint; vec4 mv = modelViewMatrix * vec4(position, 1.0); float d = length(mv.xyz); mv.xyz *= 1.0 - min(0.35 * min(size, uWorld), 0.25 * d) / max(d, 0.001); gl_Position = projectionMatrix * mv; float z = max(0.001, -mv.z), px = size * uScale / z; vFade = clamp(px / uMin, 0.25, 1.0); gl_PointSize = clamp(px, uMin, max(uMin * (16.0 + 6.0 * size), uWorld * uScale / z)); }',
       fragmentShader: 'varying vec3 vTint; varying float vFade; uniform float uGain;\nvoid main(){ float r = length(gl_PointCoord - 0.5) * 2.0; float a = smoothstep(1.0, 0.0, r); a = a * a * (0.35 + 0.65 * smoothstep(0.55, 0.0, r)); gl_FragColor = vec4(vTint * a * vFade * uGain, 1.0); }',
     });
     const lightSets = [], beamMat = new THREE.MeshBasicMaterial({ color: 0xbcd0ff, transparent: true, opacity: 0.09, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }); // (the Luxor's beam: made once, so the warm-up can compile it before the first night in Las Vegas)
@@ -449,7 +457,7 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
     // and tv its heights to the real buildings' scale (RB_V times the real heights: js/map3d/land.js HX, ?m3d-tall), so close in everything stands to one
     // scale (M3D.lmTrue from icons-sf.js and icons-away.js: tk, or [tk, tv] where the model is not its real size times ex; else tk = 1 / ex,
     // tv = tk * RB_V). ?m3d-scale=big: as from afar at every distance (the rule before)
-    const LM_D = [50, 210], RB_V = land.HX, LM_MIN = 44, LM_NEAR = 5, LM_AMID = 2;   // LM_AMID: a landmark with a real building of RB.TALL_M or more (the tall ones that stand from the city-wide view) within this many map units is at its true size, in proportion with them, from LM_D[1] in (a place's own view), easing from as built at TALL_D[0] (where they have all risen): from the city-wide view between the two, so the skyline's landmarks still read (lmT)
+    const LM_D = [50, 210], RB_V = M3D.hx(), LM_MIN = 44, LM_NEAR = 5, LM_AMID = 2;   // LM_AMID: a landmark with a real building of RB.TALL_M or more (the tall ones that stand from the city-wide view) within this many map units is at its true size, in proportion with them, from LM_D[1] in (a place's own view), easing from as built at TALL_D[0] (where they have all risen): from the city-wide view between the two, so the skyline's landmarks still read (lmT)
       // LM_MIN: close in, the least size on screen of a landmark's largest side, in pixels (eased in as it comes to true size), for the landmarks within LM_NEAR map units (about 700 m) of the view's middle (eased out by twice that)   // (the city-wide view stands about 440 off on a phone, 220 on a desktop; the fabric is all up from about 160)
     const lmTrue = ic => { let t = (M3D.lmTrue || {})[ic.id]; if (!(t > 0) && !Array.isArray(t)) { const e = (M3D.extra || []).find(x => x && x.id === ic.id); t = e && e.ex > 0 ? 1 / e.ex : 1; } return Array.isArray(t) ? t : [t, t * RB_V]; };
     const lmClear = (ic, k) => SCALE === 'big' || (ic.hood >= 0 && REGS[HOODS[ic.hood].region] && REGS[HOODS[ic.hood].region].away) ? k : k * (ic.tk + (1 - ic.tk) * 0.15);   // how far round a model what else is built keeps clear (its plan grown by k): close in, its true plan and a little more; on the Strip its plan as built (a resort's model stands for the whole resort, whose wings and garages the real outlines would draw again)
@@ -506,7 +514,7 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
         () => { // after the first frame: the real buildings' outlines (js/map3d/real.js, from js/map3d/buildings.js), unpacked and sorted by chunk; their shapes are made as the camera comes near. Without them (the file missing or cut short, ?m3d-real=off) the town is the made-up one it was
           const t0 = now(); if (RB && !/[?&]m3d-real=off(?:&|$)/.test(location.search)) try {
             const boxes = icons.map(ic => { const b = ic.geometry.boundingBox, k = lmClear(ic, 1.12); return [ic.x + b.min.x * k, ic.z + b.min.z * k, ic.x + b.max.x * k, ic.z + b.max.z * k]; }); // a landmark's plan, a little grown: no real outline stands in it
-            rb.gen = RB.make(M3D.buildingData, { inTop: (x, z) => { const i = hoodAt(x, z); return i >= 0 && inPolys(tiles[i].tops, x, z) ? i : -1; }, inTopOf: (i, x, z) => inPolys(tiles[i].tops, x, z), nearTop: (i, x, z, d) => tiles[i].tops.some(t => t.some(r => ringNear(r, x, z, d * d))), hAt, boxes, get look() { return LOOK.v; }, road: rdNear }); rb.gl = RB.gl(THREE, fabU, LOOK.v); if (pk) { pk.chunks.clear(); pk.key = ''; }   // (trees made before: again, clear of them)
+            rb.gen = RB.make(M3D.buildingData, { inTop: (x, z) => { const i = hoodAt(x, z); return i >= 0 && inPolys(tiles[i].tops, x, z) ? i : -1; }, inTopOf: (i, x, z) => inPolys(tiles[i].tops, x, z), nearTop: (i, x, z, d) => nearPolys(tiles[i].tops, x, z, d), hAt, boxes, get look() { return LOOK.v; }, road: rdNear }); rb.gl = RB.gl(THREE, fabU, LOOK.v); if (pk) { pk.chunks.clear(); pk.key = ''; }   // (trees made before: again, clear of them)
             rb.tallU = Object.assign({}, fabU, { uGrow: { value: 0 }, uFocus: { value: new THREE.Vector4(0, 0, 1e6, 2e6) } }); rb.tallGl = RB.gl(THREE, rb.tallU, LOOK.v); // the tall ones: their own rise (from the city-wide view), everywhere in sight
             if (LOOK.v !== '0') { rb.plain = RB.gl(THREE, fabU, '0'); rb.plainTall = RB.gl(THREE, rb.tallU, '0'); }   // (the plain ones, should the look's shaders fail here: lookGiveUp; warmed by warmUp)
             // its two shaders are made now, one a frame, on a building nobody sees (as the fabric's below): not in the first flight in
@@ -1324,7 +1332,7 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
       occSpent += now() - t0; if (occ.size > 4000) occ.clear(); occ.set(id, { k: key, v }); return v;
     }
     function drawOverlay(t, dt) {
-      const c = C, k = kNow(), phone = isPhone(), fsz = phone ? 10.5 : 11.5, I = insets(), lmSkip = new Set(); let anim = false;
+      const c = C, k = kNow(), phone = isPhone(), fsz = phone ? 10.5 : 11.5, I = insets(), lmSkip = new Map(), lmPut = new Set(); let anim = false, sec = null;
       occCam = c.px + ',' + c.py + ',' + c.pz + ',' + c.vex; occSpent = 0;
       ctx.setTransform(pr, 0, 0, pr, 0, 0); ctx.clearRect(0, 0, W, H); ctx.textBaseline = 'middle'; ctx.textAlign = 'center'; ctx.globalAlpha = 1; if (supportsLS) ctx.letterSpacing = '0px';
       const placed = [], clash = (b, self) => placed.some(q => (q.own == null || q.own !== self) && b[0] < q[2] && b[2] > q[0] && b[1] < q[3] && b[3] > q[1]);
@@ -1394,18 +1402,20 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
       for (const b of spotBoxes) placed.push(b);
       // section names, on the tops: the selected section first, then starred ones, then the rest
       if (!quiz && ready) {
-        const hotL = [], secs = [], plain = [], lmSay = new Set(); for (const ic of icons) if (ic.label && ic.mesh.visible && (ic.px >= 40 || ic.pxN >= 40 || ic.held)) lmSay.add(ic.label.toLowerCase());   // (a section named as a landmark whose model is in sight and large enough to be named: the name goes on the model, below, not on the section's middle: the Sphere; lmSkip: it may then stand over or beside the model, as a held one's does, as may a model 120 px or more on screen, close in, whose foot is taken)
+        const hotL = [], secs = [], plain = [], lmSay = new Set(); for (const ic of icons) if (ic.label && ic.mesh.visible && (ic.px >= 40 || ic.pxN >= 40 || ic.held)) lmSay.add(ic.lc || (ic.lc = ic.label.toLowerCase()));   // (a section named as a landmark whose model is in sight and large enough to be named: the name goes on the model, below, not on the section's middle: the Sphere; lmSkip: it may then stand over or beside the model, as a held one's does, as may a model 120 px or more on screen, close in, whose foot is taken)
         for (let i = 0; i < HOODS.length; i++) if (subF[i] > 0.2 || (i === sel && subF[i] > 0.01)) { const cells = subsOf(i); if (cells) cells.forEach((cell, j) => (i === sel && j === selSub ? hotL : cell.star ? secs : plain).push([i, j, cell])); }
-        for (const [i, j, cell] of hotL.concat(secs, plain)) {
+        // (late: a section skipped for a landmark of its name whose own name then found no room, lmSkip: named here after all)
+        sec = (i, j, cell, late) => {
           const hot = i === sel && j === selSub, big = hot && phone, ss = big ? fsz * 1.25 : fsz, sw = cell.star ? ss * 1.05 + 3 : 0, wt = big ? 600 : 500;
-          const tw = measure(cell.name, wt, ss) + sw, th = ss * 1.2, gy = gAt(i, cell.c[0], cell.c[1]), p = at(cell.c[0], cell.c[1], gy); if (p[2] <= 0 || (!hot && p[2] > c.d * 1.9) || p[0] < -40 || p[0] > W + 40 || p[1] < -20 || p[1] > H + 20) continue;
-          if (!hot && lmSay.has(cell.name.toLowerCase())) { lmSkip.add(cell.name.toLowerCase()); continue; }
-          if (!hot && RL && behind('c' + i + ':' + j, cell.c[0], cell.c[1], gy)) continue;
+          const tw = measure(cell.name, wt, ss) + sw, th = ss * 1.2, gy = gAt(i, cell.c[0], cell.c[1]), p = at(cell.c[0], cell.c[1], gy); if (p[2] <= 0 || (!hot && p[2] > c.d * 1.9) || p[0] < -40 || p[0] > W + 40 || p[1] < -20 || p[1] > H + 20) return;
+          const lc = cell.lc || (cell.lc = cell.name.toLowerCase()); if (!hot && !late && lmSay.has(lc)) { let l = lmSkip.get(lc); if (!l) lmSkip.set(lc, l = []); l.push([i, j, cell]); return; }
+          if (!hot && RL && behind('c' + i + ':' + j, cell.c[0], cell.c[1], gy)) return;
           const kl = c.g / p[2], box = [p[0] - tw / 2 - 2, p[1] - th / 2, p[0] + tw / 2 + 2, p[1] + th / 2];
           const fits = (cell.bbox[2] - cell.bbox[0]) * kl >= tw * .8 && (cell.bbox[3] - cell.bbox[1]) * kl * cosT >= th * 1.1;
-          if (!(cell.star || fits || hot) || clash(box) || !(hot || inView(box))) continue;
-          placed.push(box); put('c' + i + ':' + j, { text: cell.name, x: (box[0] + box[2]) / 2 + sw / 2, y: p[1], size: ss, ls: 0, weight: wt, color: hot && !cell.star ? P.accent : P.label, a: hot ? 1 : smooth(subF[i], .2, .8), star: sw ? [box[0] + 2 + ss * .525, ss * 1.05] : null });
-        }
+          if (!(cell.star || fits || hot) || clash(box) || !(hot || inView(box))) return;
+          placed.push(box); put('c' + i + ':' + j, { text: cell.name, lc, x: (box[0] + box[2]) / 2 + sw / 2, y: p[1], size: ss, ls: 0, weight: wt, color: hot && !cell.star ? P.accent : P.label, a: hot ? 1 : smooth(subF[i], .2, .8), star: sw ? [box[0] + 2 + ss * .525, ss * 1.05] : null });
+        };
+        for (const [i, j, cell] of hotL.concat(secs, plain)) sec(i, j, cell);
       }
       // the landmarks' own names, close in, under each model, only where no place or section name stands, and once: not when a name
       // placed this frame is the same, or within ten map units (at least 160 px) shares a word of four letters or more with it ("Welcome Sign" and the Welcome
@@ -1413,13 +1423,14 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
       let said = null; const near = Math.max(160, 10 * kNow()), words = t => (String(t || '').toLowerCase().match(/[a-z]{4,}/g) || []).filter(w => !LM_STOP.has(w));
       if (!quiz && ready) for (const ic of icons) {
         if (!ic.label || !(ic.px >= 40 || ic.pxN >= 40 || ic.held) || !ic.mesh.visible) continue; const a = at(ic.x, ic.z, ic.mesh.position.y); if (a[2] <= 0 || a[2] > c.d * 2.3) continue;   // (close in, every landmark held at its least size is named)
-        if (!said) said = [...want.values()].filter(r => r.text).map(r => ({ x: r.x, y: r.y, t: r.text.toLowerCase(), w: new Set(words(r.text)) }));
-        const lt = ic.label.toLowerCase(), lw = ic.lw || (ic.lw = words(ic.label)), nw = Math.min(lmB < 1 ? 2 : 1, lw.length); if (said.some(r => r.t === lt) || (nw && said.some(r => Math.hypot(r.x - a[0], r.y - a[1]) <= near && lw.filter(w => r.w.has(w)).length >= nw))) continue;   // (close in, a name sharing one word with a place's is still a name of its own: the Castro Theatre in the Castro)
+        if (!said) said = [...want.values()].filter(r => r.text).map(r => ({ x: r.x, y: r.y, t: r.lc || r.text.toLowerCase(), w: new Set(words(r.text)) }));
+        const lt = ic.lc || (ic.lc = ic.label.toLowerCase()), lw = ic.lw || (ic.lw = words(ic.label)), nw = Math.min(lmB < 1 ? 2 : 1, lw.length); if (said.some(r => r.t === lt) || (nw && said.some(r => Math.hypot(r.x - a[0], r.y - a[1]) <= near && lw.filter(w => r.w.has(w)).length >= nw))) continue;   // (close in, a name sharing one word with a place's is still a name of its own: the Castro Theatre in the Castro)
         const size = fsz - 0.5, tw = measure(ic.label, 500, size), ok = b => !(b[2] < 0 || b[0] > W || b[3] < 0 || b[1] > H || !inView(b) || clash(b)); let bx = [a[0] - tw / 2 - 3, a[1] + 3, a[0] + tw / 2 + 3, a[1] + 4 + size * 1.25];
         if (!ok(bx)) { if (!ic.held && !lmSkip.has(lt) && !(ic.side >= 120)) continue; const t = at(ic.x, ic.z, ic.mesh.position.y + ic.h * ic.mesh.scale.y), lh = size * 1.25 + 1, my = (a[1] + t[1]) / 2; if (t[2] <= 0) continue;   // (close in, where its own place under it is taken: over its top, a line higher, or beside it)
           bx = [[t[0] - tw / 2 - 3, t[1] - 3 - lh, t[0] + tw / 2 + 3, t[1] - 3], [t[0] - tw / 2 - 3, t[1] - 5 - 2 * lh, t[0] + tw / 2 + 3, t[1] - 5 - lh], [a[0] + 10, my - lh / 2, a[0] + 16 + tw, my + lh / 2], [a[0] - 16 - tw, my - lh / 2, a[0] - 10, my + lh / 2]].find(ok); if (!bx) continue; }
-        placed.push(bx); put('L' + ic.id, { text: ic.label, x: (bx[0] + bx[2]) / 2, y: (bx[1] + bx[3]) / 2, size, ls: 0, weight: 500, color: P.ink2 });
+        placed.push(bx); put('L' + ic.id, { text: ic.label, lc: lt, x: (bx[0] + bx[2]) / 2, y: (bx[1] + bx[3]) / 2, size, ls: 0, weight: 500, color: P.ink2 }); lmPut.add(lt);
       }
+      if (sec) for (const [lc, l] of lmSkip) if (!lmPut.has(lc)) for (const q of l) sec(q[0], q[1], q[2], true);   // (a landmark that took its section's name and then found no room for its own: the section's name comes back)
       // fade names in and out, then draw: the ones leaving first
       for (const [id, rec] of want) { const a = lblA.get(id) || 0, n = RM.matches ? 1 : Math.min(1, a + dt / 160); lblA.set(id, n); rec.al = n * (rec.a != null ? rec.a : 1); if (n < 1) anim = true; }
       const text = rec => { ctx.globalAlpha = rec.al; if (rec.text) { ctx.font = `${rec.weight || 600} ${rec.size.toFixed(2)}px Figtree, system-ui, sans-serif`; if (supportsLS) ctx.letterSpacing = rec.ls ? rec.ls + 'em' : '0px'; ctx.textAlign = 'center'; haloText(rec.text, rec.x, rec.y, rec.size, rec.color); } if (rec.star) haloStar(rec.star[0], rec.y - rec.size * .05, rec.star[1]); };

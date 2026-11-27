@@ -10,7 +10,7 @@
 // A model that fails as it is built is left out alone (add below); no part is made after the first frame or per frame.
 (() => {
   const M3 = window.M3D, X = M3.extra = M3.extra || [];
-  const D = Math.PI / 180, CELL = 1 / 8, V = (M3.land && M3.land.HX) || 1.25, RD = Math.sqrt(V);   // (V: how many times its real height everything built is drawn, js/map3d/land.js HX)
+  const D = Math.PI / 180, CELL = 1 / 8, V = M3.hx(), RD = Math.sqrt(V);   // (V: how many times its real height everything built is drawn, js/map3d/land.js HX)
   // the outlines, from REF (lon, lat): [x0, z0, x1, z1, ...] metres east and south (tools: the test folder's gen.js, from buildings.js)
   const REF = [-115.17, 36.11], KX = 111320 * Math.cos(REF[1] * D), KY = 111320;
   // <lvdata>

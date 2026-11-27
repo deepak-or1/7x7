@@ -7,7 +7,7 @@
   // the first 13 are js/map3d/models.js's own models (their ex is in its list PLACED). A round one (a dome, a wheel, a sphere) would turn into
   // an egg if its heights alone were drawn HX times (js/map3d/land.js, 1.25; ?m3d-tall): it keeps its shape, drawn as a whole sqrt(HX) times its
   // true size (RD). A pair's heights were set for HX 2.5 (2.5 / ex): HS takes them to HX
-  const HX = (window.M3D.land && window.M3D.land.HX) || 1.25, RD = Math.sqrt(HX), HS = HX / 2.5;
+  const HX = window.M3D.hx(), RD = Math.sqrt(HX), HS = HX / 2.5;
   window.M3D.lmTrue = Object.assign(window.M3D.lmTrue || {}, {
     pyramid: 1 / 2.5,       // Transamerica Pyramid: 260 m to its spire, 53 m at the base
     salesforce: 1 / 2.5,    // Salesforce Tower: 326 m

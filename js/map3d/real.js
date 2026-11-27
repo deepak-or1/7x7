@@ -19,7 +19,7 @@
   const M3D = window.M3D, land = M3D && M3D.land; if (!land) return;
   const Geom = window.Geom, K = 1 / land.UNIT_M;
   const CS = 6;                                   // the side of a chunk, in map units
-  const V = land.HX;                              // heights are drawn V times the map's scale (js/map3d/land.js HX), as the landmark models' are close in (Salesforce Tower, the Pyramid), so they stand among their real neighbours as in life (and as the models grow from afar, uRise, these grow with them)
+  const V = M3D.hx();                            // heights are drawn V times the map's scale (js/map3d/land.js HX), as the landmark models' are close in (Salesforce Tower, the Pyramid), so they stand among their real neighbours as in life (and as the models grow from afar, uRise, these grow with them)
   const SV = V / 2.5;                             // V against the 2.5 the looks were drawn for: what stands on a roof is that much lower, and the walls' floors, bands and kinds are read in heights at 2.5 (vert), so a building keeps its real floors and its look
   const TALL = 60;                                // a building this tall (metres) or taller stands from the city-wide view inwards (tall below), the rest arrive by chunk as the camera comes near
   const CELL = 1.5;                               // the grid that answers "is this point built on"
@@ -273,7 +273,7 @@ float pg = ${LK.G > 0 ? '0.03 + 0.47 * tall' : '0.0'}, pr = 0.12 + 0.16 * tall, 
 vec3 fc = mix(fpl.rgb, uPale, top ? uRoofK + (0.82 - uRoofK) * 0.7 * tall : uWallK + (0.86 - uWallK) * 0.72 * tall) * (0.9 + 0.2 * fract(ft * 7.31));
 if (st > 2.5 && !top) fc = mix(fc, uGlass * (0.92 + 0.16 * fract(ft * 7.31)), ${fl(LK.G)});
 if (top && fract(ft * 3.17) > 0.8) fc = mix(fc, fpl.rgb * 0.8, 0.55 * (1.0 - tall));
-if (!top) fc *= 0.84 + 0.16 * smoothstep(0.0, ${fl(14.85 * K * V)}, aW.y);
+if (!top) fc *= 0.84 + 0.16 * smoothstep(0.0, ${fl(14.85 * K * V / SV)}, aW.y);
 vFab = vec4(fc, ft); vWin = vec4(aW.x, aW.y, aW.z + 4.0 * st, aW.w);   // (two varyings, not three: the face's kind and the walls' kind in z, the height in w, the tint with the colour; read back as m3dKd, m3dSt, m3dHh, m3dFt)`);
       s.fragmentShader = s.fragmentShader.replace('#include <common>', `#include <common>
 varying vec4 vFab; varying vec4 vWin; uniform vec3 uWin;

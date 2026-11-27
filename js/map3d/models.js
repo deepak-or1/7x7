@@ -7,12 +7,12 @@
   'use strict';
   const T = window.M3D.land, proj = T.proj, K = 1 / T.UNIT_M; // K: world units per metre
   const lerp = (a, b, t) => a + (b - a) * t, clamp = (v, a, b) => Math.min(b, Math.max(a, v));
-  const RD_OFF = /[?&]m3d-roads=off(?:&|$)/.test(location.search);
-  const HS = T.HX / 2.5;   // the heights' factor (js/map3d/land.js HX, ?m3d-tall) against the 2.5 the made-up skylines were drawn for
+  const RD_OFF = /[?&]m3d-roads=off(?:&|$)/.test(location.search);   // ?m3d-roads=off (js/map3d.js): no roads, and the seven bridges where they stood before the roads came (bridges below)
+  const HS = window.M3D.hx() / 2.5;   // the heights' factor (js/map3d/land.js HX, ?m3d-tall) against the 2.5 the made-up skylines were drawn for
   // the bridges' heights: 2.2 times life beside buildings at 2.5, and HS to the power BE of that beside lower ones. Their decks meet blocks that stand 0.5 above
   // the water at sea level, higher on a hill (js/map3d/land.js), which do not come down: the lower a deck, the more ends run into the land.
   // ?m3d-tall-bridge=<BE>: another power (0: 2.2 always; 1: in proportion with the buildings)
-  const BE = (m => m && +m[1] >= 0 && +m[1] <= 2 ? +m[1] : 0.5)(/[?&]m3d-tall-bridge=([0-9.]+)(?:&|$)/.exec(location.search)), BV = 2.2 * Math.pow(HS, BE);   // ?m3d-roads=off (js/map3d.js): no roads, and the seven bridges where they stood before the roads came (bridges below)
+  const BE = (m => m && +m[1] >= 0 && +m[1] <= 2 ? +m[1] : 0.5)(/[?&]m3d-tall-bridge=([0-9.]+)(?:&|$)/.exec(location.search)), BV = 2.2 * Math.pow(HS, BE);
   const sstep = t => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
   const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]], mul = (a, s) => [a[0] * s, a[1] * s, a[2] * s];
   const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2], cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
@@ -179,8 +179,8 @@
     return f;
   }
 
-  function bayWest(b, ground) {
-    const f = bridgeFrame([-122.38932, 37.78746], [-122.3668, 37.8085], 2.6, BV, ground), L = f.L;   // (its west end on the real I-80, js/map3d/roaddata.js: it stood 80 m south-east of it, and the road met no deck)
+  function bayWest(b, ground, off) {
+    const f = bridgeFrame(off ? [-122.3886, 37.7870] : [-122.38932, 37.78746], [-122.3668, 37.8085], 2.6, BV, ground), L = f.L;   // (its west end on the real I-80, js/map3d/roaddata.js: it stood 80 m south-east of it, and the road met no deck; ?m3d-roads=off: where it stood, RD_OFF)
     const a0 = Math.max(60, (L - 2824) * 0.55), W2 = a0 + 354, W3 = W2 + 704, W4 = W3 + 354, W5 = W4 + 354, W6 = W5 + 704, a1 = W6 + 354;
     const zr = x => x <= W2 ? lerp(50, 70, sstep(x / W2)) : 70;
     f.setDeck(zr, a0 + 120, 0);
@@ -264,7 +264,7 @@
   function bridges(ground, off) { // off: where they stood before the roads (?m3d-roads=off, or the roads not there: js/map3d.js)
     if (off == null) off = RD_OFF; const b = new Builder();
     const out = { frames: {} };
-    out.frames.gg = goldenGate(b, ground); out.frames.bayWest = bayWest(b, ground); out.frames.bayEast = bayEast(b, ground, off);
+    out.frames.gg = goldenGate(b, ground); out.frames.bayWest = bayWest(b, ground, off); out.frames.bayEast = bayEast(b, ground, off);
     out.list = [out.frames.gg, out.frames.bayWest, out.frames.bayEast]; // every deck, for the soft shadows painted on the water
     if (off) { // where they stood before the roads (the real network's ends, below, came with js/map3d/roads.js)
     out.list.push(plainBridge(b, ground, [-122.4800, 37.9405], [-122.3960, 37.9345], { humps: [[0.3, 0.09, 56], [0.62, 0.09, 56]] }));  // Richmond-San Rafael
@@ -523,10 +523,10 @@
         if (skip.some(k => s.name.indexOf(k) >= 0) || placed.some(g => Math.hypot(g[0] - p[0], g[1] - p[1]) < 1.5) || onLm(p[0], p[1], w * 0.68)) return;
         foot.push([p[0], p[1], 1.25]);
         const g = ground(p[0], p[1]), b = stand(place, g), dp = 0.26 + R() * 0.08, h = (1.3 + R() * 1.7) * HS, ry = [0, 90, 28, -28, 60][Math.floor(R() * 5)], m = 'resort' + Math.floor(R() * 5);
-        b.box('podium', p[0], g - 0.6, p[1], w * 1.1, w * 0.8, 0.6 + 0.16, { ry, ao: [0.7, 1] });
-        const cs = Math.cos(ry * Math.PI / 180), sn = Math.sin(ry * Math.PI / 180), rows = k => Math.round(k / 0.1), win = (ww, hh) => [Math.round(ww / 0.12), rows(hh)];
-        if (R() < 0.45) { for (const k of [-1, 1]) { const hh = h * (k > 0 ? 1 : 0.86); b.box(m, p[0] + cs * 0.22 * k, g + 0.16, p[1] - sn * 0.22 * k, w * 0.62, dp, hh, { ry: ry + k * 22, win: win(w * 0.62, hh), ao: [0.85, 1] }); b.box('roofTop', p[0] + cs * 0.22 * k, g + 0.16 + hh, p[1] - sn * 0.22 * k, w * 0.5, dp * 0.6, 0.05, { ry: ry + k * 22 }); } }
-        else { const h1 = h * 0.82; b.box(m, p[0], g + 0.16, p[1], w, dp, h1, { ry, win: win(w, h1), ao: [0.85, 1] }); b.box(m, p[0], g + 0.16 + h1, p[1], w * 0.62, dp * 0.8, h - h1, { ry, win: win(w * 0.62, h - h1), ao: [0.95, 1] }); }
+        const pd = 0.16 * HS, rf = 0.05 * HS; b.box('podium', p[0], g - 0.6, p[1], w * 1.1, w * 0.8, 0.6 + pd, { ry, ao: [0.7, 1] });   // (its podium, roof plates and storeys as tower()'s, HS)
+        const cs = Math.cos(ry * Math.PI / 180), sn = Math.sin(ry * Math.PI / 180), rows = k => Math.round(k / (0.1 * HS)), win = (ww, hh) => [Math.round(ww / 0.12), rows(hh)];
+        if (R() < 0.45) { for (const k of [-1, 1]) { const hh = h * (k > 0 ? 1 : 0.86); b.box(m, p[0] + cs * 0.22 * k, g + pd, p[1] - sn * 0.22 * k, w * 0.62, dp, hh, { ry: ry + k * 22, win: win(w * 0.62, hh), ao: [0.85, 1] }); b.box('roofTop', p[0] + cs * 0.22 * k, g + pd + hh, p[1] - sn * 0.22 * k, w * 0.5, dp * 0.6, 0.05, { ry: ry + k * 22 }); } }
+        else { const h1 = h * 0.82; b.box(m, p[0], g + pd, p[1], w, dp, h1, { ry, win: win(w, h1), ao: [0.85, 1] }); b.box(m, p[0], g + pd + h1, p[1], w * 0.62, dp * 0.8, h - h1, { ry, win: win(w * 0.62, h - h1), ao: [0.95, 1] }); }
       }));
     }
     const blvd = [[-115.15383, 36.1505], [-115.15497, 36.1475], [-115.15682, 36.1445], [-115.15878, 36.1415], [-115.16075, 36.1385], [-115.16271, 36.1355], [-115.16467, 36.1325], [-115.16664, 36.1295], [-115.16862, 36.1265], [-115.1705, 36.1235], [-115.17193, 36.1205], [-115.17265, 36.1175], [-115.17287, 36.1145], [-115.17294, 36.1115], [-115.17298, 36.1085], [-115.17297, 36.1055], [-115.17296, 36.1025], [-115.17293, 36.0995], [-115.17291, 36.0965], [-115.17289, 36.0935], [-115.17287, 36.0905], [-115.17285, 36.0875], [-115.17281, 36.0845], [-115.17275, 36.0815], [-115.17273, 36.0795]].map(proj); // js/map.js ROADS

@@ -756,7 +756,7 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
     function parksMake() {
       const MP = window.M3D.parks; if (dead || pk || pkOff || !MP || !tiles) return; const t0 = now();
       pk = { P: null, gl: null, U: null, chunks: new Map(), queue: [], want: [], r: PK_R, key: '', timer: 0, n: 0, made: 0, worst: 0, ready: false, tex: [], t0, bornLast: -1e9, dirty: false, slices: 0, slowest: 0, cj: null, job: null, lean: false };
-      let bs = null, q = 0, job = null, cv = null, hp = 0, has = null, farF = null;
+      let bs = null, q = 0, job = null, cv = null, hp = 0, has = null, farF = null, hold = 0;
       // in slices of at most 2.5 ms, each a turn of the shared pumps at rest (pkPump: the frame's turn or the idle timer's; never while a finger is down, a flight runs or the map moves): the generator made, the data
       // read, which places and which textures hold a park (pkHas, uPkF: the ground's work is skipped where none does), each texture painted, then sent (a turn of its own), then the trees' mesh
       const step = stop => {
@@ -767,7 +767,7 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
             const landAt = (x, z) => x > FARX || OTHER.some(o => x >= o.b[0] && x <= o.b[2] && z >= o.b[1] && z <= o.b[3] && Geom.pip(o.r, x, z));   // the quiet land between the places, or the far land beyond the counties (the Strip's desert)
             pk.P = MP.make(window.M3D.parkData, { HOODS, hoodAt, inTop: (i, x, z) => inPolys(tiles[i].tops, x, z), hAt, landAt, landY: x => x > FARX ? land.LAND_TOP - 0.03 : land.LAND_TOP, solid: (x, z, r) => !!rb.gen && rb.gen.solid(x, z, r), road: rdNear, over: rdOver, lean: coarse, avoid: icons.map(ic => [ic.x, ic.z, ic.flat ? ic.r * 0.95 : ic.r * lmClear(ic, 1.12) + 0.03]) });   // (lean: on a touch screen the largest texture smaller; avoid: a landmark's plan as the real buildings keep clear of it)
             return void again(); }
-          if (!bs) { if (pk.P.prep(ms0)) { bs = pk.P.boxes(); has = new Uint8Array(HOODS.length); stat.build.parks = Math.round(now() - t0); } return void again(); }
+          if (!bs) { if (pk.P.prep(ms0)) { bs = pk.P.boxes(); has = new Uint8Array(HOODS.length); stat.build.parks = Math.round(now() - t0); if (fab.gen && fab.chunks.size) { for (const [k, ch] of [...fab.chunks]) fabDrop(k, ch); fab.queue.length = 0; fab.key = ''; } } return void again(); }   // (houses made before the parks could be asked about are made again, clear of them: here, as soon as they can be asked, not when their textures are done, so that houses just made are not made twice)
           if (!farF) { // which places hold a park (its points, and points along its edges, on them; or their middle in it), and which textures hold one on the far land
             const L = pk.P.parks, end = t1 + ms0, onFar = (x, z) => !!farPolys && farPolys.some(r => Geom.pip(r, x, z));
             while (hp < L.length && now() < end) { const p = L[hp++], st = clamp(Math.min(p.x1 - p.x0, p.z1 - p.z0) / 4, 0.05, 0.3);
@@ -779,14 +779,13 @@ if (c > 0.002) { vec3 k = w / max(s, 1e-4), p = uPkLawn * k.r + uPkDeep * k.g + 
           if (q < bs.length) { const b = bs[q];
             if (!job) { cv = document.createElement('canvas'); job = pk.P.paint(b, cv); return void again(); }   // (the canvas made in a turn of its own)
             if (job !== true) { if (job(ms0)) job = true; return void again(); }
-            if (addQ.length) return void again();   // (sent in a turn of its own: not in a frame that sends new meshes too)
+            if (addQ.length && (hold = (hold || 0) + 1) < 12) return void again(); hold = 0;   // (sent in a turn of its own, not in a frame that sends new meshes too; but it does not wait for them for more than 12 turns: the trees wait for this)
             let tx = pk.tex[q]; if (tx) { tx.dispose(); tx.image = cv; tx.needsUpdate = true; }   /* (painted again: its GL texture made anew, as its size changed) */ else { tx = new THREE.CanvasTexture(cv); tx.flipY = false; tx.anisotropy = 4; pk.tex.push(tx); pkU['uPk' + q].value = tx; pkU['uPkB' + q].value.set(b.box[0], b.box[1], b.box[2], b.box[3]); }
             renderer.initTexture(tx); if (coarse) { cv.width = cv.height = 1; pk.lean = true; }   // (on a touch screen the canvas is let go once sent: after a lost context they are painted again, pk.repaint)
             q++; job = null; stat.build['parkTex' + q] = Math.round((now() - t1) * 10) / 10; stat.build.parkSent = (stat.build.parkSent || 0) + 1; needs = true; kick(); return void again(); }
           if (pk.ready) { pk.job = null; return; }   // (painted again after a lost context: the textures only)
           pk.U = { uPlace: fabU.uPlace, uTexW: fabU.uTexW, uGrow: fabU.uGrow, uFocus: { value: new THREE.Vector4(0, 0, 1, 2) }, uPkNow: { value: 0 }, uTreeA: { value: new THREE.Color() }, uTreeB: { value: new THREE.Color() }, uPkWood: { value: new THREE.Color() } };
           pk.job = null; pk.gl = MP.gl(THREE, pk.U, PK_CAP); const m = pk.gl.mesh; m.visible = false; m.castShadow = false; landG.add(m); pkDark = null; pk.ready = true; pk.warming = true;   // (hidden, and no shadow, until the warm-up below shows it: its two programs made one a frame)
-          if (fab.gen && fab.chunks.size) { for (const [k, ch] of [...fab.chunks]) fabDrop(k, ch); fab.queue.length = 0; fab.key = ''; }   // (made before the parks were known: made again, clear of them)
           // the trees' two shaders made now, one a frame, on a tree of no size nobody sees (as the fabric's): not in the middle of a flight
           const seq = [() => { pk.gl.fill([{ t: new Float32Array(MP.NT), n: 1, born: 0 }]); m.visible = true; m.castShadow = false; }, () => { m.castShadow = true; shadowDirty = true; }, () => { pk.warming = false; pk.key = ''; pk.n = pk.gl.fill([]); }];
           let w = 0; const go = () => { if (dead || !pk) return; if (!SW.warmOff && (ptrs.size || fly)) return void setTimeout(go, 120); try { seq[w++](); } catch (e) { return void parksGiveUp(e); } needs = true; if (raf) { cancelAnimationFrame(raf); raf = 0; } lastT = now(); frame(lastT, true); if (w < seq.length) setTimeout(go, 120); }; setTimeout(go, 120);

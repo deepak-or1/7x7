@@ -112,9 +112,26 @@
     const A = proj(a), B = proj(b), Lw = Math.hypot(B[0] - A[0], B[1] - A[1]), u = [(B[0] - A[0]) / Lw, (B[1] - A[1]) / Lw], n = [-u[1], u[0]];
     const f = { A, B, L: Lw / K, u, n, vex, wex };
     f.P = (x, lat, y) => [A[0] + u[0] * x * K + n[0] * lat * wex * K, y, A[1] + u[1] * x * K + n[1] * lat * wex * K];
+    // the deck's height along it. At an end that reaches land: where the land's top at the shore stands above the deck (a block stands 0.5 above
+    // the water even at sea level), the deck rises to it over its last stretch, eased, at about RG (so the road on the land meets it, as one
+    // surface); where the land is lower, the deck comes to the ground at its end as before (blendA, blendB). Beyond the point where it runs into
+    // the land it goes on just under the ground (so it never comes out again on the far side of a hill: deckRaw, js/map3d/roads.js, is the
+    // height it would have, for the portal where it goes in). shores: per end, the shore's distance from that end and the rise there (metres, map units)
     f.setDeck = (zr, blendA, blendB) => {
-      const yA = zr(0) * vex * K, yB = zr(f.L) * vex * K, gA = Math.min(ground(A[0], A[1]) - 0.03, yA + 0.3), gB = Math.min(ground(B[0], B[1]) - 0.03, yB + 0.3);
-      f.deck = x => zr(x) * vex * K + (blendA ? (gA - yA) * (1 - sstep(x / blendA)) : 0) + (blendB ? (gB - yB) * sstep((x - (f.L - blendB)) / blendB) : 0);
+      const g0 = x => { const p = f.P(x, 0, 0); return ground(p[0], p[2]); }, base = x => zr(x) * vex * K, RG = 0.06, LOW = T.LAND_TOP + 0.005;
+      const ends = [0, 1].map(e => { const at = d => e ? f.L - d : d; let xs = null; for (let d = 0; d < f.L / 2; d += 10) if (g0(at(d)) <= LOW) { xs = d; break; }
+        if (xs === 0) { for (let d = 10; d <= 300; d += 10) { const x = e ? f.L + d : -d; if (g0(x) > LOW) { let gL = -Infinity; for (let q = d; q <= d + 30; q += 10) gL = Math.max(gL, g0(e ? f.L + q : -q)); const rise = gL - 0.005 - base(at(0)); return rise > 0.005 ? { rise, xs: 0, R: clamp(rise / K / RG, 150, f.L * 0.4) } : { rise: 0 }; } } return { rise: 0 }; }   // (the end in the water short of the shore, as the Bay Bridge's at Oakland: the land just beyond it)
+        if (!xs) return { rise: 0 };   // (none)
+        let gS = -Infinity; for (let d = Math.max(0, xs - 30); d < xs; d += 10) gS = Math.max(gS, g0(at(d)));
+        const rise = gS - 0.005 - base(at(xs)); if (!(rise > 0.005)) return { rise: 0, xs };
+        return { rise, xs, R: clamp(rise / K / RG, 150, f.L * 0.4) }; });
+      const yA = base(0), yB = base(f.L), gA = Math.min(ground(A[0], A[1]) - 0.03, yA + 0.3), gB = Math.min(ground(B[0], B[1]) - 0.03, yB + 0.3), [eA, eB] = ends;
+      const raw = x => base(x) + (eA.rise ? eA.rise * (1 - sstep((x - eA.xs) / eA.R)) : blendA ? (gA - yA) * (1 - sstep(x / blendA)) : 0) + (eB.rise ? eB.rise * sstep((x - (f.L - eB.xs - eB.R)) / eB.R) : blendB ? (gB - yB) * sstep((x - (f.L - blendB)) / blendB) : 0);
+      // (where it is in the land: from each end inwards up to the first point clear of the ground, the ground every 10 m)
+      const cut = [0, 1].map(e => { const gs = []; for (let d = 0; d < f.L / 2; d += 10) { const x = e ? f.L - d : d, g = g0(x); if (g <= LOW || g <= raw(x) - 0.02) return { d, gs }; gs.push(g); } return { d: 0, gs: [] }; });
+      const under = (e, d) => { const c = cut[e]; if (!(d < c.d)) return Infinity; const i = d / 10, j = Math.min(c.gs.length - 1, Math.floor(i)), t = Math.min(1, i - j); return lerp(c.gs[j], c.gs[Math.min(c.gs.length - 1, j + 1)], t) - 0.03; };
+      f.deckRaw = raw; f.shores = ends.map(o => o.xs != null ? [o.xs, o.rise / K] : null);
+      f.deck = x => Math.min(raw(x), under(0, x), under(1, f.L - x));
     };
     f.H = (x, lat, hm) => f.P(x, lat, hm * vex * K);               // a height above the water
     f.D = (x, lat, dm) => f.P(x, lat, f.deck(x) + dm * vex * K);   // a height above the deck

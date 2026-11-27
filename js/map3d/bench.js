@@ -20,8 +20,8 @@
   // the engine's log of a frame (onDraw's fourth argument, js/map3d.js frameRec): the gap since the frame before at a screen refresh, what
   // moved the map, the time in each part of the draw that ran in it, the rest of the gap (outside the 3D draw: event handlers, timers, layout, paint, the GPU), what happened
   const PARTS = ['prep', 'scene', 'render', 'over', 'pump'], outside = r => r.gap - PARTS.reduce((s, k) => s + r.ms[k], 0);
-  const evText = ev => Object.keys(ev || {}).map(k => { const v = ev[k]; return k === 'bytes' ? `${Math.round(v / 1024)} kB` : k === 'pumpTimers' ? `pump timers ${r1(v)} ms` : k + (v === 1 && /^(paint|lift)$/.test(k) ? '' : ' ' + (Array.isArray(v) ? v.join('>') : v)); }).join(', ');
-  const LONG_KEY = '(gap: since the frame before; prep: before the scene (camera, places, lifts, governor, pixel ratio); scene: the scene updated; render: drawn; over: the names layer; pump: buildings made; outside: the gap less those five, everything outside the 3D draw (the app\'s and the engine\'s event handlers and timers, the browser\'s layout and paint, the GPU), "pump timers" among it: buildings made between frames at rest; bytes: of the buildings made; direct: draws done outside a screen refresh (a resize, the warm-up), their times added in)';
+  const evText = ev => Object.keys(ev || {}).map(k => { const v = ev[k]; return k === 'bytes' ? `${Math.round(v / 1024)} kB` : k === 'pumpTimers' ? `pump timers ${r1(v)} ms` : k === 'shadowBefore' ? `shadow ${v} ms before` : k + (v === 1 && /^(paint|lift|readout)$/.test(k) ? '' : ' ' + (Array.isArray(v) ? v.join('>') : v)); }).join(', ');
+  const LONG_KEY = '(gap: since the frame before; prep: before the scene (camera, places, lifts, governor, pixel ratio); scene: the scene updated; render: drawn; over: the names layer; pump: buildings made; outside: the gap less those five, everything outside the 3D draw (the app\'s and the engine\'s event handlers and timers, the browser\'s layout and paint, the GPU), "pump timers" among it: buildings made between frames at rest; bytes: of the buildings made; direct: draws done outside a screen refresh (a resize, the warm-up), their times added in; shadow N ms before: the shadows were last drawn that long before this frame\'s draw began (shadow 1: in it); readout: this readout\'s text was updated in the gap)';
   const LONG_HEAD = pad('time s', 8) + pad('mode', 8) + pad('gap', 7) + PARTS.map(k => pad(k, 7)).join('') + pad('outside', 8) + 'what happened';
   const longLine = (r, t0) => pad(((r.t - t0) / 1000).toFixed(2), 8) + pad(r.mode, 8) + pad(r1(r.gap), 7) + PARTS.map(k => pad(r1(r.ms[k]), 7)).join('') + pad(r1(outside(r)), 8) + evText(r.ev);
   // the hand-copy fallback where the clipboard refuses: the text in a box, selected
@@ -43,22 +43,26 @@
   // A gap counts when the frame before asked for this one at once (rec.asked): a frame started by a touch or a timer after a pause (a finger
   // at rest, the ambient motion's own pace) is not a long frame. Kept: the last 300 gaps over 25 ms, and running totals by what moved the map
   function readout(m) {
-    const box = mk('div', 'position:fixed;z-index:9000;left:12px;top:60px;pointer-events:none;background:rgba(10,14,20,.72);color:#fff;font:11px/1.35 ui-monospace,Menlo,Consolas,monospace;padding:4px 7px;border-radius:6px;white-space:pre;');
-    box.className = 'm3d-stats'; box.setAttribute('aria-hidden', 'true'); document.body.appendChild(box);
-    const copy = mk('button', 'position:fixed;z-index:9000;left:12px;top:120px;pointer-events:auto;background:rgba(244,239,230,.92);color:#111;font:600 11px/1 system-ui,-apple-system,sans-serif;padding:6px 10px;border:0;border-radius:6px;', 'Copy log');
-    copy.type = 'button'; copy.className = 'm3d-stats-copy'; document.body.appendChild(copy);
+    // (the readout and the button in one column, so the button follows the readout without its height being measured)
+    const col = mk('div', 'position:fixed;z-index:9000;left:12px;top:60px;pointer-events:none;display:flex;flex-direction:column;align-items:flex-start;gap:4px;');
+    const box = mk('div', 'pointer-events:none;background:rgba(10,14,20,.72);color:#fff;font:11px/1.35 ui-monospace,Menlo,Consolas,monospace;padding:4px 7px;border-radius:6px;white-space:pre;');
+    box.className = 'm3d-stats'; box.setAttribute('aria-hidden', 'true');
+    const copy = mk('button', 'pointer-events:auto;background:rgba(244,239,230,.92);color:#111;font:600 11px/1 system-ui,-apple-system,sans-serif;padding:6px 10px;border:0;border-radius:6px;', 'Copy log');
+    copy.type = 'button'; copy.className = 'm3d-stats-copy'; col.append(box, copy); document.body.appendChild(col);
     const menu = document.getElementById('areas-menu'), hideCopy = () => { copy.style.display = menu && !menu.hidden ? 'none' : ''; }; // (hidden while the areas menu is open: a tap there is the menu's)
     if (menu) new MutationObserver(hideCopy).observe(menu, { attributes: true, attributeFilter: ['hidden'] });
-    const place = () => { hideCopy(); const a = document.getElementById('areas'), r = a && a.getBoundingClientRect(); if (r && r.width) { box.style.left = Math.round(r.left) + 'px'; box.style.top = Math.round(r.bottom + 6) + 'px'; } copy.style.left = box.style.left; copy.style.top = Math.round(box.offsetTop + box.offsetHeight + 4) + 'px'; };
-    const gaps = [], LOG = [], TOT = {}, t0 = now(); let over = 0, rate = null, rateBusy = false; const prev = m.onDraw;
-    m.onDraw = (t, mv, only, rec) => { if (prev) prev(t, mv, only, rec);
+    const place = () => { hideCopy(); const a = document.getElementById('areas'), r = a && a.getBoundingClientRect(); if (r && r.width) { col.style.left = Math.round(r.left) + 'px'; col.style.top = Math.round(r.bottom + 6) + 'px'; } }; // (a layout read: only with the map at rest)
+    const gaps = [], LOG = [], TOT = {}, t0 = now(); let over = 0, rate = null, rateBusy = false, upd = false, shownAt = 0; const prev = m.onDraw;
+    m.onDraw = (t, mv, only, rec) => { if (prev) prev(t, mv, only, rec); if (rec && upd) { rec.ev.readout = 1; upd = false; } // (the gap in which the readout's text changed says so)
       if (rec && rec.mode !== 'still') { const T = TOT[rec.mode] || (TOT[rec.mode] = { n: 0, g: [], o25: 0, o50: 0, left: 0 });
         if (!rec.asked || rec.gap > 1000) T.left++; // (over 1 s: the page was hidden or paused)
         else { T.n++; T.g.push(rec.gap); if (T.g.length > 60000) T.g.splice(0, 10000); if (rec.gap > 50) T.o50++; if (rec.gap > 25) { T.o25++; over++; LOG.push(Object.assign({ t }, rec)); if (LOG.length > 300) LOG.shift(); }
           if (rec.gap < 250) gaps.push([t, rec.gap]); } }
       while (gaps.length && t - gaps[0][0] > 2000) gaps.shift(); };
+    // the text: every half second with the map at rest (and where the areas chip is read again), at most once a second while it moves or animates
     const show = () => {
-      place(); const t = now(), g = gaps.filter(e => t - e[0] <= 2000).map(e => e[1]), s = m.stats(true), sum = g.reduce((a, b) => a + b, 0);
+      const t = now(), s = m.stats(true), busy = s.moving || (m.restMs && m.restMs() < 500); if (busy && t - shownAt < 1000) return; if (busy) shownAt = t; else place(); // (shownAt: the last change while busy)
+      const g = gaps.filter(e => t - e[0] <= 2000).map(e => e[1]), sum = g.reduce((a, b) => a + b, 0); upd = true;
       box.textContent = (g.length ? `${r1(g.length / (sum / 1000))} fps  mid ${r1(pct(g, .5))}  worst ${r1(Math.max.apply(null, g))} ms` : 'at rest') + `\n>25 ms: ${over}  q ${s.quality}  pr ${s.pr}\ntris ${s.triangles}  calls ${s.calls}`;
     };
     // the log as plain text: the device facts, the totals by what moved the map, the long frames, newest last

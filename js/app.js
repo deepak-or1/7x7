@@ -964,11 +964,13 @@
   function markSeen() { const top = newsShown[0]; if (top && top.key > (seenId() || '')) setSeen(top.key); state.news = top ? state.news.filter(e => e.key > top.key) : []; render(); }
   function newsBlock() {
     const n = newsShown = state.news; if (!n.length) return '';
-    const shown = n.slice(0, 5), more = n.length - shown.length;
-    return `<section class="news" aria-label="New since you were last here"><h3>New since you were last here<button type="button" class="act" id="news-seen">Seen</button></h3>
-      <ul class="rows">${shown.map(e => `<li><button type="button" class="row" data-news="${esc(e.key)}"><span class="ic"></span><span class="nm">${esc(evLine(e))}<small>${esc([e.hood && e.hood !== e.name ? e.hood : '', ago(e.t)].filter(Boolean).join(' · '))}</small></span><span class="rt"><span class="chev"></span></span></button></li>`).join('')}</ul>
-      ${more ? `<p class="more">and ${more} more</p>` : ''}</section>`;
+    // a written log: the time in a margin column, who in bold, what they did. Every unseen event is here; past about four rows the list scrolls
+    return `<section class="news" aria-label="Since you were last here"><div class="news-hd">Since you were here<button type="button" id="news-seen">Seen</button></div>
+      <ol class="news-log">${n.map(e => `<li><button type="button" data-news="${esc(e.key)}" title="${esc(evLine(e) + (ago(e.t) ? ', ' + ago(e.t) : ''))}"><time datetime="${esc(e.t)}">${esc(agoShort(e.t))}</time><span><b>${esc(e.by || 'Someone')}</b> ${esc(evWhat(e))}</span></button></li>`).join('')}</ol></section>`;
   }
+  // the margin's short time: 12m, 2h, 3d, then the date
+  function agoShort(t) { const d = Date.parse(t), m = (Date.now() - d) / 60000; if (!isFinite(m) || m < -5) return ''; return m < 1 ? 'now' : m < 60 ? Math.round(m) + 'm' : m < 1440 ? Math.round(m / 60) + 'h' : m < 10080 ? Math.round(m / 1440) + 'd' : niceDate(new Date(d).toISOString().slice(0, 10)); }
+  function evWhat(e) { const nm = e.name || 'a spot'; return e.k === 'photo' ? `+${e.n === 1 ? '1 photo' : e.n + ' photos'}, ${nm}` : e.k === 'place' ? `walked ${nm}` : e.k === 'been' ? `went to ${nm}` : `logged ${nm}`; }
   // photos.js: who adds a photo, what was added (an event), and the capture date of a photo on a been spot (offered, never applied unasked)
   function photoAdded(owner, ids, label) {
     const n = Array.isArray(ids) ? ids.length : ids && typeof ids === 'object' ? Object.keys(ids).length : 0; if (!n) return;

@@ -315,11 +315,18 @@ a.btn { text-decoration: none; }
 .cols2 { columns: 2; column-gap: 18px; } .cols2 li { break-inside: avoid; }
 
 /* what's new since this device last looked: a soft card at the top of the root panel, gone once Seen */
-.news { margin: 0 0 14px; padding: 0 12px 2px; border-radius: var(--r); background: color-mix(in srgb, var(--accent) 7%, var(--sheet-bg, var(--paper))); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent); }
-.panel .news h3 { margin: 0; padding: 10px 0 2px; color: var(--ink-2); }
-.news .row .ic { background: var(--accent); width: 7px; height: 7px; margin: 0 1px; }
-.news .rows li { border-bottom-color: color-mix(in srgb, var(--accent) 12%, transparent); }
-.panel .news .more { margin: 0; padding: 0 0 10px 18px; font-size: 12.5px; color: var(--muted); }
+/* news by others: a margin note, an accent rule down the left, times in their own column like a written log; past about four rows it scrolls */
+.news { margin: 2px 0 16px; padding: 0 0 0 12px; border-left: 2px solid var(--accent); }
+.news-hd { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 2px; font: 600 13.5px/1.3 var(--display); color: var(--ink); }
+.news-hd button { border: 0; background: none; padding: 4px 0 4px 12px; margin: -4px 0; font: 600 13px var(--sans); color: var(--muted); cursor: pointer; }
+.news-hd button:hover { color: var(--ink); }
+.news-log { list-style: none; margin: 4px 0 0; padding: 2px 0 8px; max-height: 124px; mask-image: linear-gradient(transparent, #000 6px, #000 calc(100% - 10px), transparent); -webkit-mask-image: linear-gradient(transparent, #000 6px, #000 calc(100% - 10px), transparent); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; -webkit-overflow-scrolling: touch; }
+.news-log li { margin: 0; }
+.news-log button { display: grid; grid-template-columns: 52px 1fr; align-items: baseline; width: 100%; padding: 4px 0; border: 0; background: none; color: inherit; text-align: left; font: 400 13.5px/1.3 var(--sans); cursor: pointer; }
+.news-log button > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.news-log button:hover > span { color: var(--accent-deep, var(--accent)); }
+.news-log time { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.news-log b { font-weight: 600; }
 /* the name prompt (a dialog, asked once per device) */
 dialog.who { width: min(360px, calc(100% - 32px)); padding: 18px 18px 16px; border: 0; border-radius: 18px; background: var(--sheet-bg, var(--paper)); color: var(--ink); box-shadow: var(--panel-shadow); }
 dialog.who::backdrop { background: rgba(10, 12, 16, .4); }

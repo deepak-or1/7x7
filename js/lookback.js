@@ -92,6 +92,14 @@ window.Lookback = (() => {
     }
     write(next, v, prev); return said;
   }
+  // app.js folded several entries of one spot into sp (now been): every been entry's visits, with their stored future dates, kept as
+  // write() keeps them. One visit, on a spot that had no list, stays a plain `at`, as on a spot logged once
+  function join(sp, all) {
+    const been = all.filter(isBeen), v = [...new Set(been.flatMap(visitsOf))].sort(), fut = been.flatMap(ahead);
+    if (!isBeen(sp)) delete sp.visits; // a want-to-go entry's own stored list is not a visit
+    if (v.length < 2 && !fut.length && !Array.isArray(sp.visits)) { if (v.length) sp.at = v[0]; return; }
+    write(sp, v.concat(fut), {});
+  }
   // 'Mark as been' on a want-to-go spot (app.js has set the status): today is one more visit on a list kept through want to go
   function markBeen(sp, d) { if (!Array.isArray(sp.visits)) { sp.at = d; return; } const v = clean(sp.visits); if (!v.includes(d)) v.push(d); write(sp, v); }
   // older-code paths that set `at` in place: the latest visit moves with it
@@ -457,5 +465,5 @@ window.Lookback = (() => {
     if (v === 'recap' && period) { renderRecap(); return true; }
     return false;
   }
-  return { init, view, card, stamp, spotBlock, carry, markBeen, setLatest, photoOffer, photoDate, visitsOf, today, debug: { clean, okDay, okRead, entries, matches, stats, prepare, open: openRecap, get ready() { return isReady(); }, image: () => isReady() ? ready.r : null, queue: () => ({ busy, waiting: waiting.length, known: known.size }), fit, io: () => !!io } };
+  return { init, view, card, stamp, spotBlock, carry, join, markBeen, setLatest, photoOffer, photoDate, visitsOf, today, debug: { clean, okDay, okRead, entries, matches, stats, prepare, open: openRecap, get ready() { return isReady(); }, image: () => isReady() ? ready.r : null, queue: () => ({ busy, waiting: waiting.length, known: known.size }), fit, io: () => !!io } };
 })();

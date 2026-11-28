@@ -4397,6 +4397,14 @@ window.Lookback = (() => {
     }
     write(next, v, prev); return said;
   }
+  // app.js folded several entries of one spot into sp (now been): every been entry's visits, with their stored future dates, kept as
+  // write() keeps them. One visit, on a spot that had no list, stays a plain `at`, as on a spot logged once
+  function join(sp, all) {
+    const been = all.filter(isBeen), v = [...new Set(been.flatMap(visitsOf))].sort(), fut = been.flatMap(ahead);
+    if (!isBeen(sp)) delete sp.visits; // a want-to-go entry's own stored list is not a visit
+    if (v.length < 2 && !fut.length && !Array.isArray(sp.visits)) { if (v.length) sp.at = v[0]; return; }
+    write(sp, v.concat(fut), {});
+  }
   // 'Mark as been' on a want-to-go spot (app.js has set the status): today is one more visit on a list kept through want to go
   function markBeen(sp, d) { if (!Array.isArray(sp.visits)) { sp.at = d; return; } const v = clean(sp.visits); if (!v.includes(d)) v.push(d); write(sp, v); }
   // older-code paths that set `at` in place: the latest visit moves with it
@@ -4762,7 +4770,7 @@ window.Lookback = (() => {
     if (v === 'recap' && period) { renderRecap(); return true; }
     return false;
   }
-  return { init, view, card, stamp, spotBlock, carry, markBeen, setLatest, photoOffer, photoDate, visitsOf, today, debug: { clean, okDay, okRead, entries, matches, stats, prepare, open: openRecap, get ready() { return isReady(); }, image: () => isReady() ? ready.r : null, queue: () => ({ busy, waiting: waiting.length, known: known.size }), fit, io: () => !!io } };
+  return { init, view, card, stamp, spotBlock, carry, join, markBeen, setLatest, photoOffer, photoDate, visitsOf, today, debug: { clean, okDay, okRead, entries, matches, stats, prepare, open: openRecap, get ready() { return isReady(); }, image: () => isReady() ? ready.r : null, queue: () => ({ busy, waiting: waiting.length, known: known.size }), fit, io: () => !!io } };
 })();
 
 </script>
@@ -4897,6 +4905,7 @@ window.Lookback = (() => {
   const hoodOfSpot = id => state.spots[id] ? state.spots[id].hood : null;
   function normalize(l) {
     const out = { region: 'all', hood: null, sub: null, spot: null };
+    if (l.spot && !state.spots[l.spot]) { const k = keptIn(l.spot); if (k) l = { spot: k }; } // a link to an entry folded into another opens that one
     if (l.spot && state.spots[l.spot]) { const sp = state.spots[l.spot]; out.spot = l.spot; out.hood = IDX[sp.hood] != null ? sp.hood : null; out.sub = out.hood && sp.sub || null; } // a hood name the map does not know (the log is anyone's to write) is no hood
     else if (l.hood && IDX[l.hood] != null) { out.hood = l.hood; out.sub = l.sub != null && subByName(l.hood, l.sub) ? l.sub : null; }
     if (out.hood) out.region = HOODS[IDX[out.hood]].region; else out.region = REGIONS[l.region] ? l.region : 'all';
@@ -5242,6 +5251,8 @@ window.Lookback = (() => {
   // (a local log, the artifact) it is the same coloured cover with the emoji, purely decorative, so every mode looks alike.
   const hero = (owner, label, o) => !window.Photos ? '' : state.store === 'sync' ? Photos.block(owner, label, state.canWrite, o) : Photos.cover(o);
   const spotSrc = id => ({ owner: ownerKey.spot(id), label: state.spots[id].name });
+  const foldSrc = id => alsoOf(id).map(o => ({ owner: ownerKey.spot(o), label: state.spots[id].name })); // the photos of the entries folded into it
+  const spotSrcs = id => [spotSrc(id)].concat(foldSrc(id));
   const vibeLook = hood => { const v = INFO[hood].vibe; return { c: `var(--${toneOf(hood)})`, e: VIBE_E[v] || '📍' }; };
   let stamped = null; // the spot (and status) whose stamp last landed: it thunks once per spot, not on every re-render
 
@@ -5298,7 +5309,7 @@ window.Lookback = (() => {
     const roof = h.max === Math.max(...HOODS.filter(x => x.region === h.region).map(x => x.max)), dis = state.canWrite ? '' : 'disabled';
     const keepNote = panel.dataset.name === name && panel.querySelector('#note') ? panel.querySelector('#note').value : null; panel.dataset.name = name;
     setHead({ path: { crumbs: crumbsOf(state.loc) }, title: esc(name) }); // the vibe is the first of the facts
-    const extras = mine.map(spotSrc).concat(secs.slice().sort((a, b) => !!b.star - !!a.star).map(s => ({ owner: ownerKey.section(name, s.name), label: s.name }))); // spots first, newest first (photos mostly live there and the hero caps its sources), then sections in list order
+    const extras = mine.flatMap(spotSrcs).concat(secs.slice().sort((a, b) => !!b.star - !!a.star).map(s => ({ owner: ownerKey.section(name, s.name), label: s.name }))); // spots first, newest first (photos mostly live there and the hero caps its sources), then sections in list order
     panel.innerHTML = `
       <div class="pstats" role="group" aria-label="Spots in ${esc(name)}"><span><b>${beenN}</b><small>Been</small></span><span class="bm"><b>${bmN}</b><small>Bookmarked</small></span><button type="button" class="btn" id="add-spot" aria-label="Add a spot in ${esc(name)}" ${dis}>${ICON.plus}Add a spot</button></div>
       ${hero(ownerKey.place(name), name, Object.assign(vibeLook(name), { extras }))}
@@ -5325,7 +5336,7 @@ window.Lookback = (() => {
     const sv = { key: 'sub:' + hood + '/' + subName, name: subName, href: tapLink(mq, aq), q: mq, z: 16, seed: [s.lon, s.lat], zoom: 15 };
     if (!paint(`
       ${s.star ? `<p class="starnote"><b aria-hidden="true">★</b><span>${esc(s.star)}</span></p>` : ''}
-      ${hero(ownerKey.section(hood, subName), subName, Object.assign(vibeLook(hood), { extras: mine.map(spotSrc) }))}
+      ${hero(ownerKey.section(hood, subName), subName, Object.assign(vibeLook(hood), { extras: mine.flatMap(spotSrcs) }))}
       <p class="lead">${esc(s.line)}</p>
       ${s.tags && s.tags.length ? `<div class="tags">${s.tags.map(t => `<span>${esc(t)}</span>`).join('')}</div>` : ''}
       ${streetMap(sv)}${mapBtns(mq, aq)}
@@ -5342,7 +5353,7 @@ window.Lookback = (() => {
     const mq = spotQuery(sp), aq = spotApple(sp), want = sp.status === 'want', r = want ? 0 : Math.max(0, Math.min(5, sp.rating | 0)), by = cleanName(sp.by);
     const sv = { key: 'spot:' + id + '@' + ll(sp.lat, sp.lon), name: sp.name, href: tapLink(mq, aq), q: mq, z: 17, lat: sp.lat, lon: sp.lon, zoom: 16, pin: { c: k.c, e: k.e } };
     if (!paint(`
-      ${hero(ownerKey.spot(id), sp.name, { c: k.c, e: k.e, badge: { e: k.e, t: k.label } })}
+      ${hero(ownerKey.spot(id), sp.name, { c: k.c, e: k.e, badge: { e: k.e, t: k.label }, extras: foldSrc(id) })}
       ${sp.where ? `<p class="lead"><span class="kbody" hidden><i style="--c:${k.c}"></i>${esc(k.label)} · </span>${esc(sp.where)}</p>` : `<p class="lead kbody" hidden><i style="--c:${k.c}"></i>${esc(k.label)}</p>`}
       <div class="vrow">${r ? `<span class="vstars" role="img" aria-label="${r} of 5 stars"><span aria-hidden="true">${'★'.repeat(r)}<i>${'★'.repeat(5 - r)}</i></span></span><b class="vword">${VERDICT[r]}</b>` : ''}<span class="pstamp ${want ? 'want' : 'been'}">${want ? 'Not been yet' : window.Lookback ? esc(Lookback.stamp(sp)) : `Been${niceDate(sp.at) ? ' · ' + esc(niceDate(sp.at)) : ''}`}</span></div>
       ${by ? `<p class="vby">Logged by ${esc(by)}</p>` : ''}${window.Lookback ? Lookback.spotBlock(id) : ''}
@@ -5563,10 +5574,61 @@ window.Lookback = (() => {
     return Promise.resolve();
   }
   function setSaveState(t) { const el = $('savestate'); if (el) el.textContent = t; }
-  function adopt(body) {
+  // ---- one entry a spot: two people logging the same place make two entries, and they fold into one, the one logged first. The same
+  // spot: the same name (case, spaces, punctuation and accents aside) within 150 m, chained (A near B near C is one). Photos stay under
+  // each old id's owner key: the entry's `also` lists those ids, and its hero, links, events and delete follow them. Every device folds
+  // the same log the same way, so two devices saving it at once write the same thing.
+  const ALSO_ID = /^[A-Za-z0-9_-]{1,40}$/, ALSO_MAX = 20, NOTE_MAX = 1000, SAME_M = 150, SAME_LAT = SAME_M / 110000; // SAME_LAT: a little more than 150 m of latitude, in degrees
+  const nameKey = s => typeof s !== 'string' ? '' : s.slice(0, 200).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^\p{L}\p{M}\p{N}\s]/gu, '').replace(/\s+/g, ' ').trim();
+  const appMs = id => /^s[0-9a-z]{1,10}$/.test(id) ? parseInt(id.slice(1), 36) : NaN; // the app's own ids: 's' + Date.now() in base 36
+  const atKey = id => { const t = state.spots[id].at; return typeof t === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(t) ? t : '~'; }; // no date sorts last
+  // the log is anyone's to write: `also` keeps only id-shaped strings, never the entry's own id, a place's or section's owner key ('h-…') or a name every object has ('constructor')
+  const okAlso = (a, self) => Array.isArray(a) ? [...new Set(a.slice(0, 200).filter(x => typeof x === 'string' && ALSO_ID.test(x) && x !== self && !x.startsWith('h-') && !(x in Object.prototype)))].slice(0, ALSO_MAX) : [];
+  const alsoOf = id => { const sp = Object.hasOwn(state.spots, id) ? state.spots[id] : null; return sp && Array.isArray(sp.also) ? sp.also : []; };
+  // the entry an old id was folded into; null for a live id or an unknown one (every lookup by own key only)
+  const keptIn = id => { if (typeof id !== 'string' || Object.hasOwn(state.spots, id)) return null; for (const k in state.spots) if (alsoOf(k).includes(id)) return k; return null; };
+  function firstLogged(g) { // the group in the order it was logged: by the time in the app's ids when they all have it, else by date, then by id
+    const all = g.every(id => isFinite(appMs(id))), cmp = (a, b) => a < b ? -1 : a > b ? 1 : 0;
+    return g.slice().sort((a, b) => all ? appMs(a) - appMs(b) || cmp(a, b) : cmp(atKey(a), atKey(b)) || cmp(a, b));
+  }
+  function fold(g) { // g: the ids of one spot. The first logged stays and takes in the others
+    const [keep, ...rest] = firstLogged(g), sp = state.spots[keep], others = rest.map(id => state.spots[id]), all = [sp].concat(others), been = all.filter(s => s.status === 'been');
+    if (been.length) {
+      if (window.Lookback) Lookback.join(sp, all); // before the status changes: a want-to-go entry's stored list is not a visit
+      else { const ds = [...new Set(been.flatMap(s => (Array.isArray(s.visits) ? s.visits.slice(0, 200) : []).concat(s.at)).filter(t => typeof t === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(t)))].sort(); if (sp.status !== 'been') delete sp.visits; if (ds.length) { sp.at = ds[ds.length - 1]; if (ds.length > 1) sp.visits = ds.slice(-60); } }
+      sp.status = 'been';
+      if (!((sp.rating | 0) > 0)) sp.rating = Math.max(0, ...others.map(s => Math.min(5, s.rating | 0)));
+      if (been.some(s => s.bm === true)) sp.bm = true; else delete sp.bm; // a want-to-go entry's implied bookmark goes, as with Mark as been
+    } else if (all.every(s => s.bm === false)) sp.bm = false; else delete sp.bm;
+    let note = typeof sp.note === 'string' ? sp.note.trim() : ''; const said = new Set([note]); // a note is left out only when it repeats one word for word
+    for (const s of others) { const n = typeof s.note === 'string' ? s.note.trim() : '', who = cleanName(s.by); if (n && !said.has(n)) { said.add(n); note += (note ? ' · ' : '') + (who ? who + ': ' : '') + n; } }
+    sp.note = note.slice(0, NOTE_MAX);
+    const also = okAlso(alsoOf(keep).concat(...rest.map(id => [id].concat(alsoOf(id)))), keep); if (also.length) sp.also = also; else delete sp.also;
+    for (const id of rest) delete state.spots[id];
+    return { keep, gone: rest, name: sp.name, n: g.length };
+  }
+  function mergeSpots() { // every spot logged more than once, folded: [{ keep, gone, name, n }]
+    const byName = new Map();
+    for (const id in state.spots) { const sp = state.spots[id], k = nameKey(sp.name); if (!k || !okLL(sp.lat, sp.lon)) continue; if (!byName.has(k)) byName.set(k, []); byName.get(k).push(id); }
+    const out = [];
+    for (const ids of byName.values()) {
+      if (ids.length < 2) continue;
+      ids.sort((a, b) => state.spots[a].lat - state.spots[b].lat); // by latitude, so each one is only measured against its near neighbours
+      const up = ids.map((_, i) => i), root = i => { while (up[i] !== i) i = up[i] = up[up[i]]; return i; };
+      for (let i = 0; i < ids.length; i++) for (let j = i + 1; j < ids.length && state.spots[ids[j]].lat - state.spots[ids[i]].lat <= SAME_LAT; j++) if (metres(state.spots[ids[i]], state.spots[ids[j]]) <= SAME_M) up[root(i)] = root(j);
+      const groups = new Map(); ids.forEach((id, i) => { const r = root(i); if (!groups.has(r)) groups.set(r, []); groups.get(r).push(id); });
+      for (const g of groups.values()) if (g.length > 1) out.push(fold(g));
+    }
+    return out;
+  }
+  const foldLine = f => f.length === 1 ? `${f[0].name} was logged ${f[0].n > 2 ? 'more than once' : 'twice'}: now one entry` : `${f.length} double entries merged`;
+  function saveFolded(f) { if (!f.length || !state.canWrite) return; persist(); toast(foldLine(f), 3200); } // a log that arrived with doubles: folded here, saved once
+  function adopt(body) { // returns the folds made (see mergeSpots)
     state.done = bare(clone(body.hoods)); state.want = bare(clone(body.want)); state.spots = bare(clone(body.spots));
-    for (const id in state.spots) { const sp = state.spots[id]; if (!sp || typeof sp !== 'object' || Array.isArray(sp)) { delete state.spots[id]; continue; } if (!sp.status) sp.status = 'been'; if (!sp.sub && IDX[sp.hood] != null) { const [x, y] = Geom.proj([sp.lon, sp.lat]); const j = map.subIndexAt(IDX[sp.hood], x, y); if (j >= 0) sp.sub = subs(sp.hood)[j].name; } }
-    reflag();
+    for (const id in state.spots) { const sp = state.spots[id]; if (!sp || typeof sp !== 'object' || Array.isArray(sp)) { delete state.spots[id]; continue; } if (!sp.status) sp.status = 'been'; if (!sp.sub && IDX[sp.hood] != null) { const [x, y] = Geom.proj([sp.lon, sp.lat]); const j = map.subIndexAt(IDX[sp.hood], x, y); if (j >= 0) sp.sub = subs(sp.hood)[j].name; } if (Object.hasOwn(sp, 'also')) { const a = okAlso(sp.also, id); if (a.length) sp.also = a; else delete sp.also; } }
+    const folded = mergeSpots();
+    for (const id in state.spots) { const sp = state.spots[id]; if (sp.also) { const a = sp.also.filter(x => !Object.hasOwn(state.spots, x)); if (a.length) sp.also = a; else delete sp.also; } } // an id that is a live entry of its own is not a folded one
+    reflag(); return folded;
   }
   async function toggleDone(name) {
     if (!state.canWrite) return;
@@ -5597,17 +5659,17 @@ window.Lookback = (() => {
       docRef.onSnapshot(async snap => {
         const data = snap.exists ? (snap.data() || {}) : null;
         if (data && ((data.updatedAt && data.updatedAt === lastSent) || (snap.metadata && snap.metadata.hasPendingWrites))) return; // our own write coming back: nothing new, and a re-render would take the focus off the note
-        if (data) adopt(data);
+        if (data) { const f = adopt(data); if (!(snap.metadata && snap.metadata.fromCache)) saveFolded(f); } // doubles folded; saved only from the server's own copy, never from a cached one that may be behind it
         else if (!seeded && !(snap.metadata && snap.metadata.fromCache)) {
           seeded = true;
           let old = null; try { const m = await mine.get(); if (m.exists) old = m.data(); } catch (e) {}
-          if (old && old.hoods) { adopt(old); persist(); }
+          if (old && old.hoods) { const f = adopt(old); persist(); if (f.length && state.canWrite) toast(foldLine(f), 3200); }
           else if (local && local.hoods && Object.keys(local.hoods).length) persist();
         }
         if (state.lens === 'done') recolor(false); map.redraw();
         const boot = state.bootLoc; state.bootLoc = null;
-        if (boot && state.spots[boot.spot] && !state.loc.spot) go(boot, { replace: true }); // a spot link whose spot has only now arrived
-        else if (state.loc.spot && !state.spots[state.loc.spot]) go({ hood: state.loc.hood }, { replace: true }); else render();
+        if (boot && normalize(boot).spot && !state.loc.spot) go(boot, { replace: true }); // a spot link whose spot has only now arrived
+        else if (state.loc.spot && !state.spots[state.loc.spot]) go(normalize(state.loc).spot ? state.loc : { hood: state.loc.hood }, { replace: true }); else render();
       }, e => console.warn('subscription ended', e));
     } catch (e) { state.store = 'local'; console.warn('store unavailable', e); }
   }
@@ -5735,10 +5797,12 @@ window.Lookback = (() => {
   function ownerLoc(owner) {
     for (const id in state.spots) if (ownerKey.spot(id) === owner) return { spot: id };
     for (const h of NAMES) { if (ownerKey.place(h) === owner) return { hood: h }; for (const s of subs(h)) if (ownerKey.section(h, s.name) === owner) return { hood: h, sub: s.name }; }
+    const k = keptIn(owner); if (k) return { spot: k }; // an entry folded into another: its photos show there (an `also` id is its own owner key)
     return null;
   }
   function evLoc(e) { // every lookup by own key only: an event's id or hood of '__proto__' or 'constructor' finds nothing
     if ((e.k === 'spot' || e.k === 'been') && Object.hasOwn(state.spots, e.id)) return { spot: e.id };
+    if (e.k === 'spot' || e.k === 'been') { const k = keptIn(e.id); if (k) return { spot: k }; } // logged before it was folded into another entry
     if (e.k === 'photo') { const l = ownerLoc(e.id); if (l) return l; }
     if (e.k === 'place' && Object.hasOwn(BY_SLUG, e.id)) return { hood: BY_SLUG[e.id] };
     return Object.hasOwn(IDX, e.hood) ? { hood: e.hood } : null;
@@ -5833,12 +5897,12 @@ window.Lookback = (() => {
     docRef = Sync.connect(key, data => {
       if (!fed) { fed = true; readFeed(false); } // the first record, even our own write coming back: what is new since last time
       if (data && data.updatedAt && data.updatedAt === lastSent) return; // our own write coming back
-      if (data) adopt(data);
+      if (data) saveFolded(adopt(data)); // doubles in the log as it arrived: folded and saved once (our own save coming back returned above)
       else if (!seeded) { seeded = true; if (local && local.hoods && Object.keys(local.hoods).length) persist(); }
       if (state.lens === 'done') recolor(false); map.redraw();
       const boot = state.bootLoc; state.bootLoc = null;
-      if (boot && state.spots[boot.spot] && !state.loc.spot) go(boot, { replace: true });
-      else if (state.loc.spot && !state.spots[state.loc.spot]) go({ hood: state.loc.hood }, { replace: true }); else render();
+      if (boot && normalize(boot).spot && !state.loc.spot) go(boot, { replace: true });
+      else if (state.loc.spot && !state.spots[state.loc.spot]) go(normalize(state.loc).spot ? state.loc : { hood: state.loc.hood }, { replace: true }); else render();
     }, e => { console.warn('sync ended', e); if (e && e.code === 'invalid_argument') { state.canWrite = false; if (unwatch) unwatch(); render(); } }); // the log stream closed: the feed's goes too
     render();
   }
@@ -5855,7 +5919,7 @@ window.Lookback = (() => {
     try {
       const body = JSON.parse(await file.text()); if (!body || typeof body !== 'object' || !(body.hoods || body.spots)) throw new Error('not a log');
       let n = 0; for (const k in body.hoods || {}) if (!state.done[k]) { state.done[k] = body.hoods[k]; n++; } for (const k in body.want || {}) if (!state.want[k] && !state.done[k]) { state.want[k] = body.want[k]; n++; } for (const id in body.spots || {}) if (!state.spots[id]) { state.spots[id] = body.spots[id]; n++; }
-      adopt({ hoods: state.done, want: state.want, spots: state.spots }); await persist(); if (state.lens === 'done') recolor(true); map.redraw(); render(); toast(`Imported ${n} ${n === 1 ? 'thing' : 'things'}`);
+      const f = adopt({ hoods: state.done, want: state.want, spots: state.spots }); await persist(); if (state.lens === 'done') recolor(true); map.redraw(); render(); toast(`Imported ${n} ${n === 1 ? 'thing' : 'things'}${f.length && state.canWrite ? '. ' + foldLine(f) : ''}`, f.length ? 3600 : undefined); // the import's own save carries the folds: one save, one toast
     } catch (e) { toast('That file is not a Seven by Seven log', 3000); }
   }
 
@@ -5963,22 +6027,26 @@ window.Lookback = (() => {
     }
     const id = d.id || ('s' + Date.now().toString(36)), prev = d.id ? state.spots[d.id] : null;
     const by = prev ? cleanName(prev.by) : who(), was = prev ? prev.status : null; // by: who first logged it, kept through every edit
-    const hi = IDX[d.hood], before = stampState(), fresh = hi != null && !isDone(hi); // fresh: this spot may be the one that flags its place
+    const before = stampState();
     const bm = prev && typeof prev.bm === 'boolean' && was === (d.status === 'want' ? 'want' : 'been') ? { bm: prev.bm } : {}; // a bookmark set by hand survives an edit, not a change of status
-    state.spots[id] = { ...(by ? { by } : {}), ...bm, name: name.slice(0, 80), kind: KINDS[d.kind] ? d.kind : 'other', status: d.status === 'want' ? 'want' : 'been', rating: d.status === 'been' ? (d.rating | 0) : 0, note: (d.note || '').trim().slice(0, 400), lon: +d.lon.toFixed(5), lat: +d.lat.toFixed(5), hood: d.hood, sub: d.sub || null, at: d.at || today(), where: (d.where || '').slice(0, 120), src: d.src || null };
+    state.spots[id] = { ...(by ? { by } : {}), ...bm, ...(prev && Array.isArray(prev.also) ? { also: prev.also } : {}), name: name.slice(0, 80), kind: KINDS[d.kind] ? d.kind : 'other', status: d.status === 'want' ? 'want' : 'been', rating: d.status === 'been' ? (d.rating | 0) : 0, note: (d.note || '').trim().slice(0, NOTE_MAX), lon: +d.lon.toFixed(5), lat: +d.lat.toFixed(5), hood: d.hood, sub: d.sub || null, at: d.at || today(), where: (d.where || '').slice(0, 120), src: d.src || null };
     const said = window.Lookback ? Lookback.carry(prev, state.spots[id]) : ''; // the date edits the latest visit (js/lookback.js keeps spot.visits)
+    // the same spot logged already (or an edit that made it the same as another): one entry, the first logged; sid is the one that stays
+    const folded = mergeSpots(), fd = folded.find(f => f.gone.includes(id)), sid = fd ? fd.keep : id, s0 = state.spots[sid], into = sid !== id;
+    const hood = s0.hood, hi = IDX[hood], fresh = hi != null && !isDone(hi); // fresh: this spot may be the one that flags its place (the flags are still those from before the save)
     state.draft = null; state.pending = null; state.placing = false; stage.classList.remove('placing');
     reflag(); const flagged = fresh && isDone(hi), stamp = flagged ? STAMPS.find(s => !s.test(before) && s.test(stampState())) : null;
     if (flagged) { map.pop(hi); if (state.lens === 'done') recolor(true); }
-    toast(stamp ? `${d.hood} explored. Stamp earned: ${stamp.label}` : flagged ? `${d.hood} explored. +${ft(HOODS[hi].max).toLocaleString()} ft` : said || (d.id ? 'Saved' : `${name} logged`)); setSaveState('Saving…'); const ok = await persist(); go({ spot: id }, { replace: true }); if (ok !== false) setSaveState('Saved');
-    if (ok !== false && state.spots[id]) { const s = state.spots[id], k = !prev ? 'spot' : was === 'want' && s.status === 'been' ? 'been' : null; if (k) logEvent(k, { id, name: s.name, hood: s.hood }); }
+    const line = into ? (s0.status === 'been' && d.status !== 'want' ? `${s0.name} was already in the log: your visit was added` : `${s0.name} is already in the log`) : folded.length ? foldLine(folded) : said || (d.id ? 'Saved' : `${name} logged`);
+    toast(stamp ? `${hood} explored. Stamp earned: ${stamp.label}` : flagged ? `${hood} explored. +${ft(HOODS[hi].max).toLocaleString()} ft` : line, folded.length ? 3200 : undefined); setSaveState('Saving…'); const ok = await persist(); go({ spot: sid }, { replace: true }); if (ok !== false) setSaveState('Saved');
+    if (ok !== false && state.spots[sid]) { const s = state.spots[sid], k = !prev ? 'spot' : was === 'want' && s.status === 'been' ? 'been' : null; if (k) logEvent(k, { id: sid, name: s.name, hood: s.hood }); }
   }
   async function toggleBm(id) {
     if (!state.canWrite || !state.spots[id]) return; if (needsName()) { await beforeWrite(); if (!state.spots[id]) return; }
     const s = state.spots[id], on = !isBm(s); s.bm = on; map.redraw(); render(); if (state.bmOnly) map.invalidate();
     toast(on ? `${s.name} bookmarked` : 'Bookmark removed'); await persist();
   }
-  async function removeSpot(id) { const sp = state.spots[id]; if (!sp) return; delete state.spots[id]; go({ hood: sp.hood, sub: sp.sub }, { replace: true, fly: false }); map.redraw(); const ok = await persist(); if (ok !== false && state.store === 'sync' && window.Photos) { try { Photos.removeAll(ownerKey.spot(id)); } catch (e) {} } toast(`${sp.name} removed`); } // its photos go too, best effort, once the delete is saved
+  async function removeSpot(id) { const sp = state.spots[id]; if (!sp) return; const olds = [id].concat(alsoOf(id)); delete state.spots[id]; go({ hood: sp.hood, sub: sp.sub }, { replace: true, fly: false }); map.redraw(); const ok = await persist(); if (ok !== false && state.store === 'sync' && window.Photos) { for (const o of olds) if (!Object.hasOwn(state.spots, o) && !keptIn(o)) { try { Photos.removeAll(ownerKey.spot(o)); } catch (e) {} } } toast(`${sp.name} removed`); } // its photos go too (and those of the entries folded into it, unless one is a live entry again), best effort, once the delete is saved
 
   // ---------- where am I ----------
   // o.quiet: no message on failure, o.fail() instead (the log form's own lookup)

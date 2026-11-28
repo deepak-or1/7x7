@@ -27,7 +27,7 @@
   const NB = 2;            // segments in the rounded edge
   const SFC = proj([-122.44, 37.76]);
   // how many times its real height everything built is drawn, on its true plan: the real buildings, the landmarks close in, the raised
-  // roads, the made-up houses and skylines; the bridges part way (each module reads it through M3D.hx(), js/map3d.js). ?m3d-tall=<n> another (2.5: the
+  // roads, the made-up houses and skylines; not the bridges, which keep their height (each module reads it through M3D.hx(), js/map3d.js). ?m3d-tall=<n> another (2.5: the
   // buildings, raised roads and skylines as tall as before, though not all as it was: the Strip's Eiffel Tower, High Roller and Luxor keep their rules
   // against the towers round them, js/map3d/icons-away.js, and the bridges keep their new ends and their joins to the roads)
   const HX = (() => { const m = /[?&]m3d-tall=([0-9.]+)(?:&|$)/.exec(location.search), v = m ? +m[1] : NaN; return v >= 0.5 && v <= 5 ? v : 1.25; })();

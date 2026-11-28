@@ -9,10 +9,10 @@
   const lerp = (a, b, t) => a + (b - a) * t, clamp = (v, a, b) => Math.min(b, Math.max(a, v));
   const RD_OFF = /[?&]m3d-roads=off(?:&|$)/.test(location.search);   // ?m3d-roads=off (js/map3d.js): no roads, and the seven bridges where they stood before the roads came (bridges below)
   const HS = window.M3D.hx() / 2.5;   // the heights' factor (js/map3d/land.js HX, ?m3d-tall) against the 2.5 the made-up skylines were drawn for
-  // the bridges' heights: 2.2 times life beside buildings at 2.5, and HS to the power BE of that beside lower ones. Their decks meet blocks that stand 0.5 above
-  // the water at sea level, higher on a hill (js/map3d/land.js), which do not come down: the lower a deck, the more ends run into the land.
-  // ?m3d-tall-bridge=<BE>: another power (0: 2.2 always; 1: in proportion with the buildings)
-  const BE = (m => m && +m[1] >= 0 && +m[1] <= 2 ? +m[1] : 0.5)(/[?&]m3d-tall-bridge=([0-9.]+)(?:&|$)/.exec(location.search)), BV = 2.2 * Math.pow(HS, BE);
+  // the bridges' heights: 2.2 times life, as they were beside buildings at 2.5 (they stand alone over the water: kept, the owner's choice), or HS to the power BE
+  // of that. Their decks meet blocks that stand 0.5 above the water at sea level, higher on a hill (js/map3d/land.js), which do not come down: the lower a deck,
+  // the more ends run into the land. ?m3d-tall-bridge=<BE>: another power (0, the default: 2.2 always; 0.5: part way; 1: in proportion with the buildings)
+  const BE = (m => m && +m[1] >= 0 && +m[1] <= 2 ? +m[1] : 0)(/[?&]m3d-tall-bridge=([0-9.]+)(?:&|$)/.exec(location.search)), BV = 2.2 * Math.pow(HS, BE);
   const sstep = t => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
   const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]], mul = (a, s) => [a[0] * s, a[1] * s, a[2] * s];
   const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2], cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];

@@ -842,13 +842,18 @@ details.more summary::after { content: "+"; font-size: 14px; } details.more[open
 .acts + #moods { margin: -4px 0 16px; } .acts + #moods h3:first-child { margin-top: 0; }
 @media (max-width: 880px) { .textlinks.acts { justify-content: space-between; gap: 0 10px; margin: -12px 0 2px; } .news h3 { margin-top: 10px; } } /* the four fit one line of a 390px phone */
 /* the first screen's three counts: a row of their own under the title, large and centred, each a button that opens its list */
-.head.first { flex-wrap: wrap; row-gap: 14px; }
-.head.first .tally { order: 9; flex: 1 0 100%; margin: 0; display: flex; gap: 28px; }
-.head.first .tally button { display: grid; justify-items: start; gap: 5px; padding: 0; border: 0; background: none; color: inherit; cursor: pointer; text-align: left; } /* plain counts, as on a place: no box */
+.head.first { flex-wrap: wrap; row-gap: 8px; }
+/* the counts read as one line under the title: "16 neighborhoods · 21 spots · 0 bookmarked", each still a button that opens its list.
+   Numbers 20px, words 14px: the largest that keeps three-digit counts on one line of a 390px phone. Below that every width in the row
+   (sizes, gaps, the dot's margins) shrinks with the room left beside the header's 20px sides, so what fits at 390 fits narrower too */
+.head.first .tally { order: 9; flex: 1 0 100%; margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 0; }
+.head.first .tally button { position: relative; display: inline-flex; align-items: baseline; gap: min(5px, calc((100vw - 40px) * .0143)); padding: 0; border: 0; background: none; color: inherit; cursor: pointer; }
+.head.first .tally button::after { content: ""; position: absolute; inset: -10px 0; } /* one line of text is 25px tall: the touch target stays about 45 */
+.head.first .tally button + button::before { content: "·"; margin: 0 min(3px, calc((100vw - 40px) * .0086)) 0 min(8px, calc((100vw - 40px) * .0229)); color: var(--muted); }
 .head.first .tally button:active small { color: var(--ink); }
 @media (hover: hover) { .head.first .tally button:hover small { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; } }
-.head.first .tally b { font-size: 30px; }
-.head.first .tally small { margin-top: 0; font-size: 10.5px; }
+.head.first .tally b { font: 700 min(20px, calc((100vw - 40px) * .057))/1.25 var(--display); letter-spacing: -.01em; }
+.head.first .tally small { margin: 0; font: 400 min(14px, calc((100vw - 40px) * .04))/1.25 var(--sans); letter-spacing: 0; text-transform: lowercase; color: var(--ink-2, var(--muted)); }
 .head.first .tally button:nth-child(3) b { color: var(--want); }
 .progress.mini { margin: -2px 0 6px; } .progress.mini .bar { height: 4px; }
 /* while the layers menu is open the map controls rise above the area pill and the search pill, which the menu reaches over; closed,

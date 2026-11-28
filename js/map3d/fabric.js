@@ -18,7 +18,7 @@
   'use strict';
   const CS = 12;                                  // the side of a chunk, in map units
   const CLEAR = 0.2;                              // the least room between a building and the edge of its block's top or a line between sections
-  const NB = 11, NT = 7;                          // numbers per building [x, y, z, turn, w, h, d, roof, place, tint, slot]; per tree [x, y, z, r, place, tint, slot]
+  const NB = 12, NT = 7;                          // numbers per building [x, y, z, turn, w, h, d, roof, place, tint, slot, the factor its height came down by (aHx)]; per tree [x, y, z, r, place, tint, slot]
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v)), lerp = (a, b, t) => a + (b - a) * t;
   const hash = str => { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
   const mix32 = (a, b, c) => { let h = (a ^ Math.imul(b | 0, 0x9E3779B1) ^ Math.imul(c | 0, 0x85EBCA77)) >>> 0; h ^= h >>> 15; h = Math.imul(h, 0x2C1B3C6D); h ^= h >>> 12; h = Math.imul(h, 0x297A2D39); h ^= h >>> 15; return h >>> 0; };
@@ -45,6 +45,13 @@
   // the houses (look a): ?m3d-house=0 the plain houses as they were; 1 (the default) with the steps kept: a, each house its own tone; b, roofs a shade
   // apart from walls; c, windows and a door band by day; d, rows shoulder to shoulder in the city and detached houses with yards outside it; e, sizes nearer life
   const HOUSE = /[?&]m3d-house=0(?:&|$)/.test(location.search) ? 0 : 1, HSTEPS = (/[?&]m3d-hsteps=([a-e]*)(?:&|$)/.exec(location.search) || [0, 'abcde'])[1];
+  // heights against the real buildings' (js/map3d/land.js HX, ?m3d-tall; these were set beside buildings drawn 2.5 times life): the made-up towers of a
+  // downtown and the houses' walls come down with them (HXS to the power HE, 1), so a raised road stands over the houses beside it as it does in
+  // life; a pitched roof keeps its height (it goes with the house's width), so a wide house still reads as a house. The flat-roofed blocks of the
+  // busy places, as wide and with no roof to carry them, come down half as far (the power HE / 2), or they lie as slabs. ?m3d-tall-house=<HE>:
+  // another power (0: as tall as they were). The windows, floors and doors are worked out in heights at 2.5 (the shader divides a wall's height by the factor
+  // it came down by, aHx: the twelfth number of a building), so a house keeps its real storeys, one or two rows of windows and a door of a door's height
+  const HXS = window.M3D.hx() / 2.5, HE = (m => m && +m[1] >= 0 && +m[1] <= 2 ? +m[1] : 1)(/[?&]m3d-tall-house=([0-9.]+)(?:&|$)/.exec(location.search));
   const CORES = [[-122.3995, 37.7915, 9, 1], [-122.2712, 37.805, 6.5, 0.7], [-121.889, 37.3335, 6.5, 0.65], [-122.268, 37.8703, 3.2, 0.35], [-122.1617, 37.4447, 2.6, 0.3], [-122.0308, 37.9063, 2.6, 0.3]];
 
   // env: { HOODS, BB, HT, hAt(i, x, z): the ground of place i at a point (without it: HT[i], a flat top), INFO, SUBD, REGS, proj, inTop(i, x, z), avoid: [[x, z, r], ...], strip: [[x, z], ...],
@@ -78,6 +85,7 @@
       else if (city) Object.assign(P, { bw: 1.22, bh: 2.3, st: 0.3, dp: 0.36, lw0: 0.3, lw1: 0.52, h0: 0.11, h1: 0.18, roof: 0.4, keep: 0.93, gap: 0.03, green: leafy ? 0.5 : hilly ? 0.35 : 0.22, big: 0.04 });
       else if (dense) Object.assign(P, { bw: 1.9, bh: 3.0, st: 0.42, dp: 0.56, lw0: 0.5, lw1: 1.0, h0: 0.14, h1: 0.3, roof: 0, keep: 0.8, gap: 0.08, green: 0.3, big: 0.12 });
       else Object.assign(P, { bw: 2.0, bh: 3.2, st: 0.44, dp: 0.5, lw0: 0.46, lw1: 0.8, h0: 0.1, h1: 0.16, roof: 0.42, keep: leafy || hilly ? 0.6 : 0.74, gap: 0.12, green: leafy ? 0.8 : hilly ? 0.6 : 0.4, big: 0.04 });
+      { const hh = Math.pow(HXS, P.roof > 0 ? HE : HE / 2); P.h0 *= hh; P.h1 *= hh; P.hk = hh; }
       if (R() < 0.5 && TURN[h.name] == null) { const t = P.bw; P.bw = P.bh; P.bh = t; P.flip = true; }   // some grids run the other way
       // the parks inside it: the sections named after one
       for (const s of SUBD[h.name] || []) { const r = sf ? POCKET[s.name] : POCKET_RE.test(s.name) ? 2.4 : 0; if (r) { const p = proj([s.lon, s.lat]); P.parks.push([p[0], p[1], r]); } }
@@ -94,11 +102,11 @@
     function chunk(ix, iz) {
       const x0 = ix * CS, z0 = iz * CS, x1 = x0 + CS, z1 = z0 + CS, B = [], T = [], styled = env.look === 'b' || env.look === 'c', hs = HOUSE && env.look === 'a' ? HSTEPS : ''; let bays = 0;
       const own = (x, z) => x >= x0 && x < x1 && z >= z0 && z < z1;
-      const tree = (P, x, z, r, tint, yard) => { if (env.solid && ((yard && env.dense(x, z)) || env.solid(x, z, r * 0.7))) return; if (!env.inTop(P.i, x, z) || !env.inTop(P.i, x + r, z + r * 0.5) || !env.inTop(P.i, x - r, z - r * 0.5) || blocked(x, z, r * 0.6) || (env.road && env.road(x, z, r + 0.12)) || (env.park && env.park(x, z, 0))) return; T.push(x, hAt(P.i, x, z), z, r, P.i, tint, 0); };
+      const tree = (P, x, z, r, tint, yard) => { if (env.solid && ((yard && env.dense(x, z)) || env.solid(x, z, r * 0.7))) return; if (!env.inTop(P.i, x, z) || !env.inTop(P.i, x + r, z + r * 0.5) || !env.inTop(P.i, x - r, z - r * 0.5) || blocked(x, z, r * 0.6) || (env.road && env.road(x, z, r + 0.12)) || (env.park && env.park(x, z, 0, P.i))) return; T.push(x, hAt(P.i, x, z), z, r, P.i, tint, 0); };
       for (let i = 0; i < HOODS.length; i++) {
         const bb = BB[i]; if (bb[2] < x0 - 3 || bb[0] > x1 + 3 || bb[3] < z0 - 3 || bb[1] > z1 + 3) continue;
         const P = plan(i, hs), c = P.c, s = P.s;
-        const inPark = (x, z) => { if (env.park) return env.park(x, z, 0); for (const p of P.parks) if ((x - p[0]) * (x - p[0]) + (z - p[1]) * (z - p[1]) < p[2] * p[2]) return true; return false; };   // (env.park: the real parks, js/map3d/parks.js, once they are known; until then the clearings named after a park)
+        const inPark = (x, z) => { if (env.park) return env.park(x, z, 0, P.i); for (const p of P.parks) if ((x - p[0]) * (x - p[0]) + (z - p[1]) * (z - p[1]) < p[2] * p[2]) return true; return false; };   // (env.park: the real parks, js/map3d/parks.js, once they are known; until then the clearings named after a park)
         if (P.kind !== 'built') {
           // trees on a loose grid: groves where the noise is high, lawn or open hill between them
           const sp = P.kind === 'park' ? 0.56 : 1.05, f = P.kind === 'park' ? 0.21 : 0.1, cut = P.kind === 'park' ? 0.42 : 0.5;
@@ -118,7 +126,7 @@
           if (bx < bb[0] - 2 || bx > bb[2] + 2 || bz < bb[1] - 2 || bz > bb[3] + 2) continue;
           const R = rng(mix32(P.seed, gi, gj)), d = core(bx, bz), tall = d > 0.22;
           // a lot's building: (a, b) on the block, a across the rows, b along them; w along the row, dp deep
-          const put = (a, b, w, dp, hh, roof, big) => {
+          const put = (a, b, w, dp, hh, roof, big, hk = P.hk) => {   // (hk: the factor hh came down by from its height at 2.5, for the shader's windows)
             const lu = rows ? b : a, lv = rows ? a : b, x = P.ox + (uc + lu) * c + (vc + lv) * s, z = P.oz - (uc + lu) * s + (vc + lv) * c;
             const sx = rows ? w : dp, sz = rows ? dp : w, hx = sx / 2, hz = sz / 2;   // sx along the grid's u, sz along its v
             if (inPark(x, z) || blocked(x, z, Math.max(hx, hz)) || !env.inTop(P.i, x, z) || (env.road && env.road(x, z, Math.max(hx, hz)))) return;   // (a road runs here: js/map3d/roads.js)
@@ -133,8 +141,8 @@
             const tint = R(), t2 = (tint * 7919.3) % 1;
             // the looks: a house of the rows turns its front to the street (its local x points there: the gable's end, the bay on it); its tint, 2 and over, says so
             if (styled && P.bay && a !== 0 && !big && t2 < 0.86) { const sd = a > 0 ? 1 : -1, t3 = (tint * 104729.1) % 1; bays++;
-              B.push(x, y, z, rows ? P.a - sd * Math.PI / 2 : P.a + (sd > 0 ? 0 : Math.PI), dp, hh, w, P.bay === 1 && t3 > 0.22 ? 0.36 + 0.2 * t3 : 0, P.i, tint + 2, 0); return; }
-            if (P.row && !big && a !== 0 ? rows : sx >= sz) B.push(x, y, z, P.a, sx, hh, sz, roof, P.i, tint, 0); else B.push(x, y, z, P.a + Math.PI / 2, sz, hh, sx, roof, P.i, tint, 0);   // (a row house: its ridge along the street, as its neighbours')
+              B.push(x, y, z, rows ? P.a - sd * Math.PI / 2 : P.a + (sd > 0 ? 0 : Math.PI), dp, hh, w, P.bay === 1 && t3 > 0.22 ? 0.36 + 0.2 * t3 : 0, P.i, tint + 2, 0, hk); return; }
+            if (P.row && !big && a !== 0 ? rows : sx >= sz) B.push(x, y, z, P.a, sx, hh, sz, roof, P.i, tint, 0, hk); else B.push(x, y, z, P.a + Math.PI / 2, sz, hh, sx, roof, P.i, tint, 0, hk);   // (a row house: its ridge along the street, as its neighbours')
           };
           if (!tall && R() < P.big) { // one big building on the block: a school, a market, a depot
             put(0, 0, ih * (0.5 + R() * 0.3), iw * (0.6 + R() * 0.25), P.h0 * (1.1 + R() * 0.7), 0);
@@ -146,8 +154,8 @@
                 let lw = lerp(P.lw0, P.lw1, R()) * k; if (t + lw > ih / 2 - P.lw0 * k * 0.5) lw = ih / 2 - t;
                 const r1 = R(), r2 = R(), r3 = R();
                 if (r1 < keep) {
-                  const hh = tall ? lerp(P.h0, P.h1, r2) + Math.pow(d, 1.5) * (0.35 + 0.95 * r2 * r2) : lerp(P.h0, P.h1, r2);
-                  put(side * (iw / 2 - dp / 2), t + lw / 2, lw - P.gap, dp, hh, tall || r3 > 0.72 ? 0 : P.roof * (0.75 + r3 * 0.5), tall);
+                  const h0 = lerp(P.h0, P.h1, r2), up = tall ? Math.pow(d, 1.5) * (0.35 + 0.95 * r2 * r2) : 0, hh = h0 + up * HXS;   // (a made-up tower: its base as its place's, the rest as the real towers, HXS)
+                  put(side * (iw / 2 - dp / 2), t + lw / 2, lw - P.gap, dp, hh, tall || r3 > 0.72 ? 0 : P.roof * (0.75 + r3 * 0.5), tall, hh / (h0 / P.hk + up));
                 }
                 t += lw;
               }
@@ -207,7 +215,7 @@ vec3 transformed = position * aPos.w * vec3(1.0, 1.25, 1.0) * fg * step(0.02, fg
     // the place's own colour, deeper [how deep, how far]; c keeps the plain colours and takes the shapes and the roofs' edges only
     const LK = { a: { K: 0.75, V: 1, P: [1, 0] }, b: { K: 1.5, V: 1.5, P: [0.62, 0.65] }, c: { K: 0, V: 0, P: [1, 0] } }[look] || {}, fl = v => v.toFixed(3);
     const styled = s => {
-      s.vertexShader = s.vertexShader.replace('#include <common>', '#include <common>' + HEAD + '\nuniform vec3 uPale; uniform float uRoofK; uniform float uWallK;\nvarying vec3 vFab; varying vec3 vWin; varying vec4 vHse;')
+      s.vertexShader = s.vertexShader.replace('#include <common>', '#include <common>' + HEAD + '\nattribute float aHx; uniform vec3 uPale; uniform float uRoofK; uniform float uWallK;\nvarying vec3 vFab; varying vec3 vWin; varying vec4 vHse;')
         .replace('#include <beginnormal_vertex>', B_NOR).replace('#include <begin_vertex>', B_POS + `
 bool top = normal.y > 0.5 || uv.x != 0.0, pitched = uv.x != 0.0 && aSize.w > 0.01; float ft = fract(aInfo.y), h1 = fract(ft * 7.31), h2 = fract(ft * 13.7), h3 = fract(ft * 29.3);
 // a wall of its own, from its place's colour: paler or deeper than its neighbours, one in ten deep, a breath warmer or cooler
@@ -216,9 +224,9 @@ if (h3 > 0.9) wall = mix(wall, fpl.rgb * 0.76, ${fl(Math.min(1, 0.6 * LK.V))});
 wall *= vec3(1.0 + ${fl(0.06 * LK.V)} * (h3 - 0.5), 1.0, 1.0 - ${fl(0.06 * LK.V)} * (h3 - 0.5));
 vec3 roofc = mix(fpl.rgb, uPale, uRoofK) * (0.9 + 0.2 * h1); if (fract(ft * 3.17) > 0.8) roofc = mix(roofc, fpl.rgb * 0.8, 0.55);
 if (pitched) roofc = mix(roofc, fpl.rgb * ${fl(LK.P[0])}, ${fl(LK.P[1])});
-vFab = top ? roofc : wall; vWin = vec3((abs(normal.x) > 0.5 ? position.z * aSize.z : position.x * aSize.x) + ft * 9.0, position.y * aSize.y, top ? 0.0 : 1.0);
+vFab = top ? roofc : wall; vWin = vec3((abs(normal.x) > 0.5 ? position.z * aSize.z : position.x * aSize.x) + ft * 9.0, position.y * aSize.y / aHx, top ? 0.0 : 1.0);
 // for the roof's edge: how far a point of the top is from its eaves (the two ways), the height of the walls, and where on a pitched roof (0 the eaves, 1 the ridge; -1 a flat roof)
-vHse = vec4(bay > 0.5 ? 9.0 : (0.5 - abs(position.x)) * aSize.x, bay > 0.5 ? 9.0 : (0.5 - abs(position.z)) * aSize.z, aSize.y, pitched ? rdg : -1.0);`);
+vHse = vec4(bay > 0.5 ? 9.0 : (0.5 - abs(position.x)) * aSize.x, bay > 0.5 ? 9.0 : (0.5 - abs(position.z)) * aSize.z, aSize.y / aHx, pitched ? rdg : -1.0);`);
       s.fragmentShader = s.fragmentShader.replace('#include <common>', `#include <common>
 varying vec3 vFab; varying vec3 vWin; varying vec4 vHse; uniform vec3 uWin;
 float m3dBox(float f, float a, float b, float w) { float e = min(w, 0.3) + 0.0001; return mix(b - a, smoothstep(a - e, a + e, f) * (1.0 - smoothstep(b - e, b + e, f)), 1.0 - clamp(w * 1.7 - 0.2, 0.0, 1.0)); }`)
@@ -243,7 +251,7 @@ if (uWin.r + uWin.g + uWin.b > 0.0) { vec2 wc = vWin.xy / vec2(${LK.K > 0 ? '0.0
 ${ON('a') ? `vec3 wall = mix(fpl.rgb, uPale, clamp(uWallK + (h2 - 0.5) * 0.34, 0.0, 0.9)) * (0.93 + 0.14 * h1); wall *= vec3(1.0 + 0.07 * (h3 - 0.5), 1.0, 1.0 - 0.07 * (h3 - 0.5));` : 'vec3 wall = mix(fpl.rgb, uPale, uWallK) * (0.9 + 0.2 * h1);'}
 vec3 roofc = mix(fpl.rgb, uPale, uRoofK) * (0.9 + 0.2 * h1); if (fract(ft * 3.17) > 0.8) roofc = mix(roofc, fpl.rgb * 0.8, 0.55);
 ${ON('b') ? `if (pitched) roofc = mix(fpl.rgb, uPale, uRoofK * 0.35) * (0.8 + 0.12 * h2); else roofc = mix(wall, uPale, 0.3);` : ''}
-vFab = top ? roofc : wall; vH = aSize.y;`;
+vFab = top ? roofc : wall; vH = aSize.y / aHx;`;
     const HF = !HS || !ON('c') ? '' : `
 if (vWin.z > 0.5) { float y = vWin.y, fy = fwidth(y) + 0.00001, see = 1.0 - clamp(fy / 0.01 - 0.4, 0.0, 1.0);
   diffuseColor.rgb *= 1.0 - 0.12 * see * (1.0 - smoothstep(0.03 - fy, 0.03 + fy, y));
@@ -253,14 +261,14 @@ if (vWin.z > 0.5) { float y = vWin.y, fy = fwidth(y) + 0.00001, see = 1.0 - clam
   diffuseColor.rgb *= 1.0 - 0.13 * mix(0.25, pane, fa) * step(0.045, y) * step(y, vH - 0.012); }`;
     bld.onBeforeCompile = s => { uni(s);
       if (NEW) { styled(s); s.fragmentShader += '\n// m3d-look\n'; return; }   // (the look's mark: js/map3d.js onShaderError)
-      s.vertexShader = s.vertexShader.replace('#include <common>', '#include <common>' + HEAD + '\nuniform vec3 uPale; uniform float uRoofK; uniform float uWallK;\nvarying vec3 vFab; varying vec3 vWin;' + (HS ? '\nvarying float vH;' : ''))
+      s.vertexShader = s.vertexShader.replace('#include <common>', '#include <common>' + HEAD + '\nattribute float aHx; uniform vec3 uPale; uniform float uRoofK; uniform float uWallK;\nvarying vec3 vFab; varying vec3 vWin;' + (HS ? '\nvarying float vH;' : ''))
         .replace('#include <beginnormal_vertex>', B_NOR).replace('#include <begin_vertex>', B_POS + (HS ? `
 bool top = normal.y > 0.5 || uv.x != 0.0, pitched = uv.x != 0.0 && aSize.w > 0.01; float ft = aInfo.y, h1 = fract(ft * 7.31), h2 = fract(ft * 13.7), h3 = fract(ft * 29.3);` + HV + `
-vWin = vec3((abs(normal.x) > 0.5 ? position.z * aSize.z : position.x * aSize.x) + ft * 9.0, position.y * aSize.y, top ? 0.0 : 1.0);` : `
+vWin = vec3((abs(normal.x) > 0.5 ? position.z * aSize.z : position.x * aSize.x) + ft * 9.0, position.y * aSize.y / aHx, top ? 0.0 : 1.0);` : `
 bool top = normal.y > 0.5 || uv.x != 0.0; float ft = aInfo.y;
 vec3 fc = mix(fpl.rgb, uPale, top ? uRoofK : uWallK) * (0.9 + 0.2 * fract(ft * 7.31));
 if (top && fract(ft * 3.17) > 0.8) fc = mix(fc, fpl.rgb * 0.8, 0.55);
-vFab = fc; vWin = vec3((abs(normal.x) > 0.5 ? position.z * aSize.z : position.x * aSize.x) + ft * 9.0, position.y * aSize.y, top ? 0.0 : 1.0);`));
+vFab = fc; vWin = vec3((abs(normal.x) > 0.5 ? position.z * aSize.z : position.x * aSize.x) + ft * 9.0, position.y * aSize.y / aHx, top ? 0.0 : 1.0);`));
       s.fragmentShader = s.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vFab; varying vec3 vWin; uniform vec3 uWin;' + (HS ? '\nvarying float vH;' : ''))
         .replace('#include <color_fragment>', 'diffuseColor.rgb = vFab;' + HF + (HS ? '\n// m3d-look\n' : ''))
         .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
@@ -309,7 +317,7 @@ if (uWin.r + uWin.g + uWin.b > 0.0) { vec2 wc = vWin.xy / vec2(0.075, 0.06), wi 
       for (let i = 0; i < c.nb; i++) c.b[i * NB + 10] = slot; for (let i = 0; i < c.nt; i++) c.t[i * NT + 6] = slot;
       let y0 = Infinity, y1 = -Infinity; for (let i = 0; i < c.nb; i++) { const y = c.b[i * NB + 1]; if (y < y0) y0 = y; if (y > y1) y1 = y; } for (let i = 0; i < c.nt; i++) { const y = c.t[i * NT + 1]; if (y < y0) y0 = y; if (y > y1) y1 = y; }
       const cx = (c.ix + 0.5) * CS, cz = (c.iz + 0.5) * CS, y = y0 < Infinity ? (y0 + y1) / 2 : 0, up = y0 < Infinity ? (y1 - y0) / 2 : 0;   // (the ground under a chunk is not level)
-      return { b: c.nb ? inst(c.bays && bg.bay ? bg.bay : bg, c.b, c.nb, NB, cx, y, cz, up, [['aPos', 4], ['aSize', 4], ['aInfo', 3]], bld, bldDepth) : null, t: c.nt ? inst(tg, c.t, c.nt, NT, cx, y, cz, up, [['aPos', 4], ['aInfo', 3]], tree, treeDepth) : null };
+      return { b: c.nb ? inst(c.bays && bg.bay ? bg.bay : bg, c.b, c.nb, NB, cx, y, cz, up, [['aPos', 4], ['aSize', 4], ['aInfo', 3], ['aHx', 1]], bld, bldDepth) : null, t: c.nt ? inst(tg, c.t, c.nt, NT, cx, y, cz, up, [['aPos', 4], ['aInfo', 3]], tree, treeDepth) : null };
     }
     return { mesh, mats: { bld, tree, bldDepth, treeDepth }, tris: { b: 14, t: 20, bay: 22 } };
   }

@@ -5,8 +5,9 @@
   // real plan, its heights then drawn as the real buildings' are; [plan, heights] where a model is not its real size times ex. A model of
   // this file or icons-away.js left out of the list is built to its real size, checked against the real dimensions: 1 / ex. The real sizes:
   // the first 13 are js/map3d/models.js's own models (their ex is in its list PLACED). A round one (a dome, a wheel, a sphere) would turn into
-  // an egg if its heights alone were drawn 2.5 times: it keeps its shape, drawn as a whole sqrt(2.5) = 1.58 times its true size (RD)
-  const RD = Math.sqrt(2.5);
+  // an egg if its heights alone were drawn HX times (js/map3d/land.js, 1.25; ?m3d-tall): it keeps its shape, drawn as a whole sqrt(HX) times its
+  // true size (RD). A pair's heights were set for HX 2.5 (2.5 / ex): HS takes them to HX
+  const HX = window.M3D.hx(), RD = Math.sqrt(HX), HS = HX / 2.5;
   window.M3D.lmTrue = Object.assign(window.M3D.lmTrue || {}, {
     pyramid: 1 / 2.5,       // Transamerica Pyramid: 260 m to its spire, 53 m at the base
     salesforce: 1 / 2.5,    // Salesforce Tower: 326 m
@@ -16,9 +17,9 @@
     alcatraz: [1, 1],       // the island is a block of the map at its own real size: the cell house and lighthouse on it stay as drawn
     ladies: 1 / 6.5,        // Painted Ladies: seven houses 7.6 m wide, about 13 m to the ridge, 53 m in all
     palace: [RD / 5.5, RD / 5.5], // Palace of Fine Arts: the rotunda 49 m, round: its shape kept (the model's colonnades run shorter than the real 300 m arc)
-    pier39: [0.93, 0.76],   // Pier 39: the model is the head of the pier; the real one is 300 m long, its buildings two storeys
-    teagarden: [0.6, 0.54], // Japanese Tea Garden: the model gathers its gate and pagoda (15 m) on 50 m; the real garden is 140 m across
-    bison: [0.9, 0.62],     // Bison Paddock: about 300 m long in life, the model's 82 m paddock drawn four times
+    pier39: [0.93, 0.76 * HS],   // Pier 39: the model is the head of the pier; the real one is 300 m long, its buildings two storeys
+    teagarden: [0.6, 0.54 * HS], // Japanese Tea Garden: the model gathers its gate and pagoda (15 m) on 50 m; the real garden is 140 m across
+    bison: [0.9, 0.62 * HS],     // Bison Paddock: about 300 m long in life, the model's 82 m paddock drawn four times
     windmill: [RD / 5.5, RD / 5.5], // Dutch Windmill: the tower 23 m, its sails a circle 31 m across: its shape kept
   });
   // where a model stands when landmarks are at their true size (?m3d-scale=true, the default), where that is not where it stands as drawn

@@ -8,6 +8,11 @@
   const T = window.M3D.land, proj = T.proj, K = 1 / T.UNIT_M; // K: world units per metre
   const lerp = (a, b, t) => a + (b - a) * t, clamp = (v, a, b) => Math.min(b, Math.max(a, v));
   const RD_OFF = /[?&]m3d-roads=off(?:&|$)/.test(location.search);   // ?m3d-roads=off (js/map3d.js): no roads, and the seven bridges where they stood before the roads came (bridges below)
+  const HS = window.M3D.hx() / 2.5;   // the heights' factor (js/map3d/land.js HX, ?m3d-tall) against the 2.5 the made-up skylines were drawn for
+  // the bridges' heights: 2.2 times life, as they were beside buildings at 2.5 (they stand alone over the water: kept, the owner's choice), or HS to the power BE
+  // of that. Their decks meet blocks that stand 0.5 above the water at sea level, higher on a hill (js/map3d/land.js), which do not come down: the lower a deck,
+  // the more ends run into the land. ?m3d-tall-bridge=<BE>: another power (0, the default: 2.2 always; 0.5: part way; 1: in proportion with the buildings)
+  const BE = (m => m && +m[1] >= 0 && +m[1] <= 2 ? +m[1] : 0)(/[?&]m3d-tall-bridge=([0-9.]+)(?:&|$)/.exec(location.search)), BV = 2.2 * Math.pow(HS, BE);
   const sstep = t => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
   const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]], mul = (a, s) => [a[0] * s, a[1] * s, a[2] * s];
   const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2], cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
@@ -107,9 +112,26 @@
     const A = proj(a), B = proj(b), Lw = Math.hypot(B[0] - A[0], B[1] - A[1]), u = [(B[0] - A[0]) / Lw, (B[1] - A[1]) / Lw], n = [-u[1], u[0]];
     const f = { A, B, L: Lw / K, u, n, vex, wex };
     f.P = (x, lat, y) => [A[0] + u[0] * x * K + n[0] * lat * wex * K, y, A[1] + u[1] * x * K + n[1] * lat * wex * K];
+    // the deck's height along it. At an end that reaches land: where the land's top at the shore stands above the deck (a block stands 0.5 above
+    // the water even at sea level), the deck rises to it over its last stretch, eased, at about RG (so the road on the land meets it, as one
+    // surface); where the land is lower, the deck comes to the ground at its end as before (blendA, blendB). Beyond the point where it runs into
+    // the land it goes on just under the ground (so it never comes out again on the far side of a hill: deckRaw, js/map3d/roads.js, is the
+    // height it would have, for the portal where it goes in). shores: per end, the shore's distance from that end and the rise there (metres, map units)
     f.setDeck = (zr, blendA, blendB) => {
-      const yA = zr(0) * vex * K, yB = zr(f.L) * vex * K, gA = Math.min(ground(A[0], A[1]) - 0.03, yA + 0.3), gB = Math.min(ground(B[0], B[1]) - 0.03, yB + 0.3);
-      f.deck = x => zr(x) * vex * K + (blendA ? (gA - yA) * (1 - sstep(x / blendA)) : 0) + (blendB ? (gB - yB) * sstep((x - (f.L - blendB)) / blendB) : 0);
+      const g0 = x => { const p = f.P(x, 0, 0); return ground(p[0], p[2]); }, base = x => zr(x) * vex * K, RG = 0.06, LOW = T.LAND_TOP + 0.005;
+      const ends = [0, 1].map(e => { const at = d => e ? f.L - d : d; let xs = null; for (let d = 0; d < f.L / 2; d += 10) if (g0(at(d)) <= LOW) { xs = d; break; }
+        if (xs === 0) { for (let d = 10; d <= 300; d += 10) { const x = e ? f.L + d : -d; if (g0(x) > LOW) { let gL = -Infinity; for (let q = d; q <= d + 30; q += 10) gL = Math.max(gL, g0(e ? f.L + q : -q)); const rise = gL - 0.005 - base(at(0)); return rise > 0.005 ? { rise, xs: 0, R: clamp(rise / K / RG, 150, f.L * 0.4) } : { rise: 0 }; } } return { rise: 0 }; }   // (the end in the water short of the shore, as the Bay Bridge's at Oakland: the land just beyond it)
+        if (!xs) return { rise: 0 };   // (none)
+        let gS = -Infinity; for (let d = Math.max(0, xs - 30); d < xs; d += 10) gS = Math.max(gS, g0(at(d)));
+        const rise = gS - 0.005 - base(at(xs)); if (!(rise > 0.005)) return { rise: 0, xs };
+        return { rise, xs, R: clamp(rise / K / RG, 150, f.L * 0.4) }; });
+      const yA = base(0), yB = base(f.L), gA = Math.min(ground(A[0], A[1]) - 0.03, yA + 0.3), gB = Math.min(ground(B[0], B[1]) - 0.03, yB + 0.3), [eA, eB] = ends;
+      const raw = x => base(x) + (eA.rise ? eA.rise * (1 - sstep((x - eA.xs) / eA.R)) : blendA ? (gA - yA) * (1 - sstep(x / blendA)) : 0) + (eB.rise ? eB.rise * sstep((x - (f.L - eB.xs - eB.R)) / eB.R) : blendB ? (gB - yB) * sstep((x - (f.L - blendB)) / blendB) : 0);
+      // (where it is in the land: from each end inwards up to the first point clear of the ground, the ground every 10 m)
+      const cut = [0, 1].map(e => { const gs = []; for (let d = 0; d < f.L / 2; d += 10) { const x = e ? f.L - d : d, g = g0(x); if (g <= LOW || g <= raw(x) - 0.02) return { d, gs }; gs.push(g); } return { d: 0, gs: [] }; });
+      const under = (e, d) => { const c = cut[e]; if (!(d < c.d)) return Infinity; const i = d / 10, j = Math.min(c.gs.length - 1, Math.floor(i)), t = Math.min(1, i - j); return lerp(c.gs[j], c.gs[Math.min(c.gs.length - 1, j + 1)], t) - 0.03; };
+      f.deckRaw = raw; f.shores = ends.map(o => o.xs != null ? [o.xs, o.rise / K] : null);
+      f.deck = x => Math.min(raw(x), under(0, x), under(1, f.L - x));
     };
     f.H = (x, lat, hm) => f.P(x, lat, hm * vex * K);               // a height above the water
     f.D = (x, lat, dm) => f.P(x, lat, f.deck(x) + dm * vex * K);   // a height above the deck
@@ -118,7 +140,7 @@
   const range = (a, b, step) => { const n = Math.max(1, Math.round((b - a) / step)); return Array.from({ length: n + 1 }, (_, i) => a + (b - a) * i / n); };
   // a deck slab between stations: lat half-width hw, from `under` below the deck to its top, with a darker road on it
   function deckSlab(b, f, mat, x0, x1, hw, under, step, road) {
-    const xs = range(x0, x1, step);
+    const xs = range(x0, x1, step); f.hw = Math.max(f.hw || 0, hw);   // (hw: the deck's half width, for the roads that meet it, js/map3d/roads.js)
     b.loft(mat, xs.map(x => [f.D(x, -hw, -under), f.D(x, hw, -under), f.D(x, hw, 0), f.D(x, -hw, 0)]), { flat: true, cap0: true });
     if (road) b.loft(road, xs.map(x => [f.D(x, -hw * 0.72, 0.2), f.D(x, hw * 0.72, 0.2), f.D(x, hw * 0.72, 1.4), f.D(x, -hw * 0.72, 1.4)]), { flat: true, cap0: true });
   }
@@ -128,7 +150,7 @@
   const cableY = (p, q, sag, t) => lerp(p[1], q[1], t) - sag * 4 * t * (1 - t);
 
   function goldenGate(b, ground) {
-    const f = bridgeFrame([-122.4773, 37.8095], [-122.4790, 37.8335], 2.6, 2.2, ground), L = f.L;
+    const f = bridgeFrame([-122.4773, 37.8095], [-122.4790, 37.8335], 2.6, BV, ground), L = f.L;
     const xS = 0.19 * L, xN = xS + 1280, mid = (xS + xN) / 2, xa0 = xS - 343, xa1 = xN + 343;
     f.setDeck(x => Math.max(62, 75 - 5 * Math.pow((x - mid) / 640, 2)), xS - 120, L - xN - 120);
     deckSlab(b, f, 'gg', 0, L, 13.7, 9, 70, 'road');
@@ -157,8 +179,8 @@
     return f;
   }
 
-  function bayWest(b, ground) {
-    const f = bridgeFrame([-122.3886, 37.7870], [-122.3668, 37.8085], 2.6, 2.2, ground), L = f.L;
+  function bayWest(b, ground, off) {
+    const f = bridgeFrame(off ? [-122.3886, 37.7870] : [-122.38932, 37.78746], [-122.3668, 37.8085], 2.6, BV, ground), L = f.L;   // (its west end on the real I-80, js/map3d/roaddata.js: it stood 80 m south-east of it, and the road met no deck; ?m3d-roads=off: where it stood, RD_OFF)
     const a0 = Math.max(60, (L - 2824) * 0.55), W2 = a0 + 354, W3 = W2 + 704, W4 = W3 + 354, W5 = W4 + 354, W6 = W5 + 704, a1 = W6 + 354;
     const zr = x => x <= W2 ? lerp(50, 70, sstep(x / W2)) : 70;
     f.setDeck(zr, a0 + 120, 0);
@@ -192,7 +214,7 @@
   }
 
   function bayEast(b, ground, off) {
-    const f = off ? bridgeFrame([-122.3590, 37.8135], [-122.3200, 37.8230], 1.7, 2.2, ground) : bridgeFrame([-122.3641, 37.8110], [-122.3277, 37.8220], 1.7, 2.2, ground), L = f.L;   // (?m3d-roads=off: where it stood before the roads, RD_OFF)
+    const f = off ? bridgeFrame([-122.3590, 37.8135], [-122.3200, 37.8230], 1.7, BV, ground) : bridgeFrame([-122.3641, 37.8110], [-122.3277, 37.8220], 1.7, BV, ground), L = f.L;   // (?m3d-roads=off: where it stood before the roads, RD_OFF)
     const W2 = 300, Tx = 480, E2 = 865, sk1 = Math.min(L - 300, E2 + 160 * 13);
     const zr = x => x <= E2 ? 52 : x <= sk1 ? lerp(52, 12, sstep((x - E2) / (sk1 - E2))) : lerp(12, 6, (x - sk1) / (L - sk1));
     f.setDeck(zr, 0, 420);
@@ -216,7 +238,7 @@
 
   // the other crossings, kept simple: a deck on piers that climbs over its shipping channel, with a truss or towers there
   function plainBridge(b, ground, a, c, o) {
-    const f = bridgeFrame(a, c, o.wex || 2.4, 2.2, ground), L = f.L, humps = o.humps || [];
+    const f = bridgeFrame(a, c, o.wex || 2.4, BV, ground), L = f.L, humps = o.humps || [];
     const zr = x => { let z = o.low || 9; for (const [fr, w, h] of humps) z = Math.max(z, lerp(o.low || 9, h, sstep(1 - Math.abs(x / L - fr) / w))); return z; };
     f.setDeck(zr, Math.min(500, L * 0.2), Math.min(500, L * 0.2));
     deckSlab(b, f, o.mat || 'concreteLight', 0, L, 12, 4, Math.max(120, L / 40), 'roadLight');
@@ -242,7 +264,7 @@
   function bridges(ground, off) { // off: where they stood before the roads (?m3d-roads=off, or the roads not there: js/map3d.js)
     if (off == null) off = RD_OFF; const b = new Builder();
     const out = { frames: {} };
-    out.frames.gg = goldenGate(b, ground); out.frames.bayWest = bayWest(b, ground); out.frames.bayEast = bayEast(b, ground, off);
+    out.frames.gg = goldenGate(b, ground); out.frames.bayWest = bayWest(b, ground, off); out.frames.bayEast = bayEast(b, ground, off);
     out.list = [out.frames.gg, out.frames.bayWest, out.frames.bayEast]; // every deck, for the soft shadows painted on the water
     if (off) { // where they stood before the roads (the real network's ends, below, came with js/map3d/roads.js)
     out.list.push(plainBridge(b, ground, [-122.4800, 37.9405], [-122.3960, 37.9345], { humps: [[0.3, 0.09, 56], [0.62, 0.09, 56]] }));  // Richmond-San Rafael
@@ -394,11 +416,11 @@
       b.rod('red', [0, 300, 0], [0, 350, 0], 2, 0.8, 6);
       b.light([0, 352, 0], 'red', 2); b.light([0, 262, 0], 'gold', 5);
     },
-    // Luxor, 107 m: the black glass pyramid, the sphinx in front of it
+    // Luxor, 107 m: the black glass pyramid, the sphinx in front of it on the east, its head towards the Strip
     luxor(b) {
       b.frustum('luxor', 0, -20, 0, 196, 196, 183, 183, 20);
       b.frustum('luxor', 0, 0, 0, 183, 183, 1, 1, 107, { win: [22, 14], glow: 0.35 });
-      b.box('sand', 0, -20, 130, 30, 62, 34); b.box('sand', 0, 14, 110, 22, 22, 22); b.frustum('sand', 0, 36, 108, 24, 22, 16, 14, 8);
+      b.box('sand', 130, -20, 0, 62, 30, 34); b.box('sand', 150, 14, 0, 22, 22, 22); b.frustum('sand', 152, 36, 0, 22, 24, 14, 16, 8);
       b.light([0, 109, 0], 'beam', 6);
     },
   };
@@ -414,7 +436,7 @@
     ['alcatraz', ...at('alcatraz', -122.423, 37.8267), 1.7, 38, 'Alcatraz'],
     ['ladies', -122.4329, 37.7763, 6.5, 9, 'Painted Ladies'],
     ['palace', ...at('palace', -122.4487, 37.802), 5.5, 100, 'Palace of Fine Arts'],
-    ['sphere', ...at('sphere', -115.1617, 36.1208), 2.6, 0, 'Sphere'],
+    ['sphere', ...at('sphere', -115.1621, 36.1212), 2.6, 0, 'Sphere'],
     ['eiffel', ...at('eiffel', -115.1722, 36.1125), 4.2, 0, 'Eiffel Tower'],
     ['highroller', ...at('highroller', -115.1681, 36.1176), 3.8, 0, 'High Roller'],
     ['strat', ...at('strat', -115.1556, 36.1475), 2.6, 0, 'The STRAT'],
@@ -445,19 +467,19 @@
   // their district, lower towards the edge of the cluster, a few with stepped tops (setbacks) and a slim crown, a faint window
   // rhythm, and every filler well below the named towers (Salesforce 326 m, Transamerica 260 m), which stand clear of them.
   function tower(b, m, x, g, z, w, dp, h, ry, R, kind) {
-    const fl = 0.1, rows = k => Math.max(2, Math.round(k / fl)), cols = k => Math.max(2, Math.round(k / 0.12)), base = g - 0.5;
-    if (kind === 'stepped' && h > 1.3) { // two setbacks and a slim crown
+    const fl = 0.1 * HS, rows = k => Math.max(2, Math.round(k / fl)), cols = k => Math.max(2, Math.round(k / 0.12)), base = g - 0.5;
+    if (kind === 'stepped' && h > 1.3 * HS) { // two setbacks and a slim crown
       const h1 = h * 0.58, h2 = h * 0.26, h3 = h - h1 - h2;
       b.box(m, x, base, z, w, dp, 0.5 + h1, { ry, win: [cols(w), rows(h1)], ao: [0.62, 1] });
       b.box(m, x, g + h1, z, w * 0.78, dp * 0.78, h2, { ry, win: [cols(w * 0.78), rows(h2)], ao: [0.9, 1] });
       b.frustum(m, x, g + h1 + h2, z, w * 0.56, dp * 0.56, w * 0.4, dp * 0.4, h3, { ry, win: [cols(w * 0.56), rows(h3)], ao: [0.94, 1] });
-    } else if (kind === 'podium' && h > 1.0) { // a wide low base and a slimmer shaft
-      b.box('bldg1', x, base, z, w * 1.25, dp * 1.25, 0.5 + 0.34, { ry, win: [cols(w * 1.25), 3], ao: [0.62, 1] });
-      b.box(m, x, g + 0.34, z, w * 0.8, dp * 0.8, h - 0.34, { ry, win: [cols(w * 0.8), rows(h - 0.34)], ao: [0.86, 1] });
-      b.box('roofTop', x, g + h, z, w * 0.44, dp * 0.44, 0.06, { ry });
+    } else if (kind === 'podium' && h > 1.0 * HS) { // a wide low base and a slimmer shaft
+      const pd = 0.34 * HS; b.box('bldg1', x, base, z, w * 1.25, dp * 1.25, 0.5 + pd, { ry, win: [cols(w * 1.25), 3], ao: [0.62, 1] });
+      b.box(m, x, g + pd, z, w * 0.8, dp * 0.8, h - pd, { ry, win: [cols(w * 0.8), rows(h - pd)], ao: [0.86, 1] });
+      b.box('roofTop', x, g + h, z, w * 0.44, dp * 0.44, 0.06 * HS, { ry });
     } else { // a clean prism with a thin roof plate
       b.box(m, x, base, z, w, dp, 0.5 + h, { ry, win: [cols(w), rows(h)], ao: [0.62, 1] });
-      if (R() < 0.6) b.box('roofTop', x, g + h, z, w * 0.5, dp * 0.42, 0.05, { ry });
+      if (R() < 0.6) b.box('roofTop', x, g + h, z, w * 0.5, dp * 0.42, 0.05 * HS, { ry });
     }
   }
   // placeAt(x, z): the name of the place there, or null; vegas: the Strip's sections by place (data/subareas.js), or null; lms: the
@@ -466,7 +488,7 @@
   // real: the real buildings are drawn (js/map3d/real.js): no filler towers in San Francisco or Oakland, no made-up resorts on the Strip
   function city(placeAt, ground, vegas, lms, real) {
     adopt();
-    const parts = {}, of = place => parts[place] || (parts[place] = new Builder()), stand = (place, g) => { const b = of(place); b.gs = (b.gs || 0) + g; b.gn = (b.gn || 0) + 1; return b; }, placed = PLACED.map(p => proj([p[1], p[2]])), K25 = 2.5 * K, foot = []; // foot: [x, z, radius] of everything stood here, for the city fabric to keep clear of
+    const parts = {}, of = place => parts[place] || (parts[place] = new Builder()), stand = (place, g) => { const b = of(place); b.gs = (b.gs || 0) + g; b.gn = (b.gn || 0) + 1; return b; }, placed = PLACED.map(p => proj([p[1], p[2]])), K25 = 2.5 * K * HS, foot = [];   // (K25: the fillers drawn whole at the buildings' HX, plan and height, as they were at 2.5) // foot: [x, z, radius] of everything stood here, for the city fabric to keep clear of
     // a filler (a circle of radius r at x, z) stands clear of what each landmark has built: its plan box, at its own size, grown by 1.3
     const built = (lms || []).map(l => { const b = l.geometry.boundingBox; return [l.x + b.min.x * 1.3, l.z + b.min.z * 1.3, l.x + b.max.x * 1.3, l.z + b.max.z * 1.3]; });
     const onLm = (x, z, r) => built.some(b => Math.hypot(x - Math.min(b[2], Math.max(b[0], x)), z - Math.min(b[3], Math.max(b[1], z))) < r);
@@ -483,11 +505,11 @@
         const a = R() * Math.PI * 2, d = Math.pow(R(), 0.9) * cl.r, x = c[0] + Math.cos(a) * d, z = c[1] + Math.sin(a) * d * 0.85;
         const t = placeAt(x, z); if (!t || !cl.ok.includes(t)) continue;
         const fall = 1 - d / cl.r, h = (cl.lo + (cl.hi - cl.lo) * Math.pow(fall, 0.95) * (0.45 + 0.55 * R())) * K25;
-        const w = (19 + R() * 11 + Math.min(8, h * 2.5)) * K25, dp = w * (0.75 + R() * 0.35), r = Math.max(w, dp) * 0.62;
+        const w = (19 + R() * 11 + Math.min(8, h / HS * 2.5)) * K25, dp = w * (0.75 + R() * 0.35), r = Math.max(w, dp) * 0.62;
         if (got.some(g => Math.hypot(g[0] - x, g[1] - z) < g[2] + r + 0.06) || placed.some(g => Math.hypot(g[0] - x, g[1] - z) < 1.25 + r) || onLm(x, z, r)) continue;
         if ([[0.45, 0], [-0.45, 0], [0, 0.45], [0, -0.45]].some(([dx, dz]) => placeAt(x + dx, z + dz) !== t)) continue; // clear of the block's edge
         got.push([x, z, r]); foot.push([x, z, r + 0.12]);
-        const ry = (cl.soma && t === 'South of Market' ? cl.soma : cl.grid), kind = h > 2.2 && R() < 0.4 ? 'stepped' : h > 1.4 && R() < 0.35 ? 'podium' : 'prism';
+        const ry = (cl.soma && t === 'South of Market' ? cl.soma : cl.grid), kind = h > 2.2 * HS && R() < 0.4 ? 'stepped' : h > 1.4 * HS && R() < 0.35 ? 'podium' : 'prism';
         let g = ground(x, z); for (const [p, q] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) if (placeAt(x + p * w * 0.45, z + q * dp * 0.45) === t) g = Math.min(g, ground(x + p * w * 0.45, z + q * dp * 0.45)); // on a slope it stands on the lowest ground under it (its base is half a unit deeper still)
         tower(stand(t, g), mats[Math.floor(R() * mats.length)], x, g, z, w, dp, h, ry, R, kind);
       }
@@ -500,11 +522,11 @@
         const p = proj([s.lon, s.lat]), R = rng(hash(s.name)), w = 0.95 + R() * 0.6; // the podium is w * 1.1 by w * 0.8: a circle of 0.68 w round it
         if (skip.some(k => s.name.indexOf(k) >= 0) || placed.some(g => Math.hypot(g[0] - p[0], g[1] - p[1]) < 1.5) || onLm(p[0], p[1], w * 0.68)) return;
         foot.push([p[0], p[1], 1.25]);
-        const g = ground(p[0], p[1]), b = stand(place, g), dp = 0.26 + R() * 0.08, h = 1.3 + R() * 1.7, ry = [0, 90, 28, -28, 60][Math.floor(R() * 5)], m = 'resort' + Math.floor(R() * 5);
-        b.box('podium', p[0], g - 0.6, p[1], w * 1.1, w * 0.8, 0.6 + 0.16, { ry, ao: [0.7, 1] });
-        const cs = Math.cos(ry * Math.PI / 180), sn = Math.sin(ry * Math.PI / 180), rows = k => Math.round(k / 0.1), win = (ww, hh) => [Math.round(ww / 0.12), rows(hh)];
-        if (R() < 0.45) { for (const k of [-1, 1]) { const hh = h * (k > 0 ? 1 : 0.86); b.box(m, p[0] + cs * 0.22 * k, g + 0.16, p[1] - sn * 0.22 * k, w * 0.62, dp, hh, { ry: ry + k * 22, win: win(w * 0.62, hh), ao: [0.85, 1] }); b.box('roofTop', p[0] + cs * 0.22 * k, g + 0.16 + hh, p[1] - sn * 0.22 * k, w * 0.5, dp * 0.6, 0.05, { ry: ry + k * 22 }); } }
-        else { const h1 = h * 0.82; b.box(m, p[0], g + 0.16, p[1], w, dp, h1, { ry, win: win(w, h1), ao: [0.85, 1] }); b.box(m, p[0], g + 0.16 + h1, p[1], w * 0.62, dp * 0.8, h - h1, { ry, win: win(w * 0.62, h - h1), ao: [0.95, 1] }); }
+        const g = ground(p[0], p[1]), b = stand(place, g), dp = 0.26 + R() * 0.08, h = (1.3 + R() * 1.7) * HS, ry = [0, 90, 28, -28, 60][Math.floor(R() * 5)], m = 'resort' + Math.floor(R() * 5);
+        const pd = 0.16 * HS, rf = 0.05 * HS; b.box('podium', p[0], g - 0.6, p[1], w * 1.1, w * 0.8, 0.6 + pd, { ry, ao: [0.7, 1] });   // (its podium, roof plates and storeys as tower()'s, HS)
+        const cs = Math.cos(ry * Math.PI / 180), sn = Math.sin(ry * Math.PI / 180), rows = k => Math.round(k / (0.1 * HS)), win = (ww, hh) => [Math.round(ww / 0.12), rows(hh)];
+        if (R() < 0.45) { for (const k of [-1, 1]) { const hh = h * (k > 0 ? 1 : 0.86); b.box(m, p[0] + cs * 0.22 * k, g + pd, p[1] - sn * 0.22 * k, w * 0.62, dp, hh, { ry: ry + k * 22, win: win(w * 0.62, hh), ao: [0.85, 1] }); b.box('roofTop', p[0] + cs * 0.22 * k, g + pd + hh, p[1] - sn * 0.22 * k, w * 0.5, dp * 0.6, 0.05, { ry: ry + k * 22 }); } }
+        else { const h1 = h * 0.82; b.box(m, p[0], g + pd, p[1], w, dp, h1, { ry, win: win(w, h1), ao: [0.85, 1] }); b.box(m, p[0], g + pd + h1, p[1], w * 0.62, dp * 0.8, h - h1, { ry, win: win(w * 0.62, h - h1), ao: [0.95, 1] }); }
       }));
     }
     const blvd = [[-115.15383, 36.1505], [-115.15497, 36.1475], [-115.15682, 36.1445], [-115.15878, 36.1415], [-115.16075, 36.1385], [-115.16271, 36.1355], [-115.16467, 36.1325], [-115.16664, 36.1295], [-115.16862, 36.1265], [-115.1705, 36.1235], [-115.17193, 36.1205], [-115.17265, 36.1175], [-115.17287, 36.1145], [-115.17294, 36.1115], [-115.17298, 36.1085], [-115.17297, 36.1055], [-115.17296, 36.1025], [-115.17293, 36.0995], [-115.17291, 36.0965], [-115.17289, 36.0935], [-115.17287, 36.0905], [-115.17285, 36.0875], [-115.17281, 36.0845], [-115.17275, 36.0815], [-115.17273, 36.0795]].map(proj); // js/map.js ROADS

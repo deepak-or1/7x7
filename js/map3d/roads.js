@@ -23,7 +23,7 @@
 //   lamps(a), frames, near(x, z, r)   the night's lamps, the frames the night's traffic runs on, "is this circle on a road"
 //   runs, flattened   the runs drawn raised ({ refs, m: metres, x, z: the middle of the longest line, top: the highest layer, lines }) and how many raised stretches were laid on the ground
 // Widths are drawn WX times (each carriageway its own ribbon, as in the data), heights above the ground VEX times, as the real
-// buildings' are (js/map3d/real.js). World frame: x = map x, z = map y (south), y = up; a unit is about 143 m.
+// buildings' are (js/map3d/land.js HX, ?m3d-tall); a deck, its walls, piers, portals and clearances in proportion (SV). World frame: x = map x, z = map y (south), y = up; a unit is about 143 m.
 // Defines window.M3D.roads; and, until the data arrives, a stub of M3D.roadData that gives Presidio Tunnel Tops
 // (js/map3d/icons-sf.js) the two mouths of the real Main Post tunnels, so the park lies over the real line.
 (function () {
@@ -31,11 +31,11 @@
   const M3D = window.M3D, land = M3D && M3D.land; if (!land) return;
   const K = 1 / land.UNIT_M, proj = land.proj, LAND_TOP = land.LAND_TOP, now = () => performance.now();
   const lerp = (a, b, t) => a + (b - a) * t, clamp = (v, a, b) => Math.min(b, Math.max(a, v)), sstep = t => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); }, fall = t => 1 - sstep(t);
-  const WX = 1.45, VEX = 2.5, CS = 16, SEG = 0.5, SEGR = 1.2, FTOL = 0.12;          // widths and heights as drawn; a chunk's side; the most between two stations of a line (and of a raised one away from its ends, where it runs level); how far a ribbon may leave its line in plan
-  const LIFT = 0.022, DT = 0.05, PH = 0.03, PT = 0.014, CLW = 0.007, ELW = 0.011, SKIRT = 0.07; // the roadway above the ground; a deck's thickness, its wall's height and thickness; half the centre line, the edge line; how far a bed's side goes down
-  const SPAN = 0.5, TUN = 0.6, COVER = 0.11, WIDE = 0.062;  // between piers; the shortest tunnel that gets portals (shorter: drawn as road); headroom at a portal; the half width from which a deck stands on bents
+  const WX = 1.45, VEX = M3D.hx(), SV = VEX / 2.5, CS = 16, SEG = 0.5, SEGR = 1.2, FTOL = 0.12;          // widths and heights as drawn; a chunk's side; the most between two stations of a line (and of a raised one away from its ends, where it runs level); how far a ribbon may leave its line in plan
+  const LIFT = 0.022, DT = 0.05 * SV, PH = 0.03 * SV, PT = 0.014, CLW = 0.007, ELW = 0.011, SKIRT = 0.07; // the roadway above the ground; a deck's thickness, its wall's height and thickness (SV: drawn for VEX 2.5); half the centre line, the edge line; how far a bed's side goes down
+  const SPAN = 0.5, TUN = 0.6, COVER = 0.11 * SV, WIDE = 0.062, BANK = 0.4;  // between piers; the shortest tunnel that gets portals (shorter: drawn as road); headroom at a portal; the half width from which a deck stands on bents; the length of the bank behind a portal that has no hill right behind it
   const LEVEL = l => (8 + 6.5 * (Math.max(1, l) - 1)) * VEX * K;   // the roadway of a raised stretch above the ground, by its layer, at the buildings' scale: 8 m over a road below, 6.5 m more a level
-  const RUN = 150 * K, GRADE = 0.065 * VEX, PMIN = DT + 0.07, EN = 0.06;   // the shortest run of raised stretches that stands raised without crossing a road; the steepest a roadway climbs (6.5 %), as drawn; the least height for a pier (lower: a bank); how near its ends a crossing does not count (a ramp that merges)
+  const RUN = 150 * K, GRADE = 0.065 * VEX, PMIN = DT + 0.07 * SV, EN = 0.06;   // the shortest run of raised stretches that stands raised without crossing a road; the steepest a roadway climbs (6.5 %), as drawn; the least height for a pier (lower: a bank); how near its ends a crossing does not count (a ramp that merges)
   const LANES = [3, 1, 2, 2], PX = [0.62, 0.3, 0.5, 0.55]; // by class (motorway, ramp, trunk, primary): lanes when the data has none; half the least width on screen, in pixels
   const NAMES = ['rdTop', 'rdLine', 'rdBed', 'rdPier', 'rdUnder', 'rdEdge', 'dark'], TOP = 0, LINE = 1, BED = 2, PIER = 3, UNDER = 4, EDGE = 5, DARK = 6;
   const ck = (ix, iz) => (ix + 2048) * 16384 + (iz + 2048), cellOf = v => Math.floor(v / CS);
@@ -93,7 +93,7 @@
     const flat = !!env.flat, L = [], nodes = [], nodeOf = new Map(), grid = new Map(), cells = new Map(), extras = new Map(), F = env.bridges || [], lids = env.lids || [];
     const net = { ready: false, CS, lines: 0, metres: 0, frames: [], near: () => false, over: () => Infinity, piers: 0, portals: 0, slow: 0 }; let cuts = 0, lowAt = () => false;
     const nodeAt = key => { let i = nodeOf.get(key); if (i === undefined) { i = nodes.length; nodeOf.set(key, i); nodes.push({ key, ends: [], c: 0, pin: null, tun: false, fix: true, nr: 0, live: 0 }); } return i; };
-    const ONE = [1], gridded = new Set();
+    const ONE = [1], gridded = new Set(), LV = nd => typeof nd.key === 'string' && nd.key.startsWith('lv');   // (LV: a node made where a Las Vegas line is cut at a block's edge, levSplit: the line goes on from it, up or down the wall)
     // (the lines' arrays: views into a few big buffers, not thousands of small ones, so that making them leaves the collector little to do)
     const pools = {}, pool = (T, n) => { let p = pools[T.name]; if (!p || p.o + n > p.b.length) p = pools[T.name] = { b: new T(Math.max(1 << 16, n)), o: 0 }; const a = p.b.subarray(p.o, p.o + n); p.o += n; return a; }, f32 = n => pool(Float32Array, n), u8 = n => pool(Uint8Array, n), i16 = n => pool(Int16Array, n);
     const put = (map, key, v) => { let l = map.get(key); if (!l) map.set(key, l = []); l.push(v); };
@@ -103,8 +103,22 @@
     // big allocation, late in a turn: wait for the next, so that work does not run on past the turn's end)
     function* fresh() { if (now() - tT > 0.6) { yield 'turn'; tT = now(); } tY = now(); }   // ('turn': js/map3d.js rdPump ends the turn there, so the work goes on at the start of the next)
 
+    const hwOf = src => (clamp(src.lanes || LANES[src.cls], 1, 7) * 3.6 + 2.2) / 2 * K * (src.prim ? 1.15 : WX);   // half a roadway's width, as drawn
+    // a line's ends that meet a deck (pin) eased in plan onto the point of it they meet (pin.px, pz: the model is straight and the road's real line can run
+    // beside it), over a length that grows with the step and stays within the line (its other end stays where it joins the next): the points again
+    function ease(xs, zs, pin0, pin1) {
+      const dOf = (pin, e) => pin ? Math.hypot(pin.px - xs[e ? xs.length - 1 : 0], pin.pz - zs[e ? zs.length - 1 : 0]) : 0; if (!(dOf(pin0, 0) > 1e-4 || dOf(pin1, 1) > 1e-4)) return [xs, zs];
+      // (points every 0.25 only along the eased lengths at the pinned ends: the rest keeps its own, and the wide stations of a level raised middle, addLine)
+      let tot = 0; for (let i = 1; i < xs.length; i++) tot += Math.hypot(xs[i] - xs[i - 1], zs[i] - zs[i - 1]);
+      const lenOf = (pin, e) => { const d = dOf(pin, e); return d > 1e-4 ? Math.min(tot * (pin0 && pin1 ? 0.5 : 1), Math.max(1.2, 5 * d)) : 0; }, l0 = lenOf(pin0, 0), l1 = lenOf(pin1, 1);
+      const X = [xs[0]], Z = [zs[0]]; let s0 = 0; for (let i = 1; i < xs.length; i++) { const d = Math.hypot(xs[i] - xs[i - 1], zs[i] - zs[i - 1]), m = s0 < l0 || s0 + d > tot - l1 ? Math.ceil(d / 0.25) : 1; s0 += d; for (let q = 1; q <= m; q++) { X.push(lerp(xs[i - 1], xs[i], q / m)); Z.push(lerp(zs[i - 1], zs[i], q / m)); } }
+      for (const [pin, e] of [[pin0, 0], [pin1, 1]]) { const d = dOf(pin, e); if (!(d > 1e-4)) continue; const n = X.length, k = e ? n - 1 : 0, dx = pin.px - X[k], dz = pin.pz - Z[k], len = e ? l1 : l0; let s = 0, px = X[k], pz = Z[k];
+        for (let i = 0; i < n; i++) { const q = e ? n - 1 - i : i; s += Math.hypot(X[q] - px, Z[q] - pz); px = X[q]; pz = Z[q]; if (s >= len) break; const w = fall(s / len); X[q] += dx * w; Z[q] += dz * w; } }
+      return [X, Z];
+    }
     // a line from its points: stations at every point, at every crossing of a chunk's edge, and no further apart than SEG
     function addLine(src, xs, zs, k0, k1, pin0, pin1) {
+      if (pin0 || pin1) [xs, zs] = ease(xs, zs, pin0, pin1);
       const X = [xs[0]], Z = [zs[0]], FL = [1], level = src.st === 1 && !src.prim && !flat; let total = 0, at = 0; if (level) for (let i = 1; i < xs.length; i++) total += Math.hypot(xs[i] - xs[i - 1], zs[i] - zs[i - 1]);
       for (let i = 1; i < xs.length; i++) {
         const ax = xs[i - 1], az = zs[i - 1], bx = xs[i], bz = zs[i], d0 = Math.hypot(bx - ax, bz - az); let ts = ONE;
@@ -112,8 +126,8 @@
         let t0 = 0; for (const t of ts) { const d = d0 * (t - t0), sm = at + d / 2, m = Math.max(1, Math.ceil(d / (level && Math.min(sm, total - sm) > 1.5 ? SEGR : SEG))); at += d; if (d < 1e-5 && t < 1) continue; for (let q = 1; q <= m; q++) { const u = t0 + (t - t0) * q / m; X.push(ax + (bx - ax) * u); Z.push(az + (bz - az) * u); FL.push(q < m ? 0 : t < 1 ? 17 : 1); } t0 = t; }   // (1: a point of the line; 17: where it crosses a chunk's edge)
       }
       const n = X.length; if (n < 2) return;
-      const lanes = clamp(src.lanes || LANES[src.cls], 1, 7), tunnel = src.st === 2, ln = { cls: src.cls, st: src.prim || flat ? (tunnel ? 2 : 0) : src.st, lanes, layer: src.layer, ref: src.ref, area: src.area, prim: !!src.prim, hw: (lanes * 3.6 + 2.2) / 2 * K * (src.prim ? 1.15 : WX), n, src, k0, k1,
-        X: f32(n), Z: f32(n), S: f32(n), NX: f32(n), NZ: f32(n), TX: f32(n), TZ: f32(n), C: f32(n), FL: u8(n), G: null, HD: null, Y: null, len: 0, own: NaN, yo: 0, pin0, pin1, d0: null, d1: null, np: 0, i: L.length };
+      const lanes = clamp(src.lanes || LANES[src.cls], 1, 7), tunnel = src.st === 2, ln = { cls: src.cls, st: src.prim || flat ? (tunnel ? 2 : 0) : src.st, lanes, layer: src.layer, ref: src.ref, area: src.area, prim: !!src.prim, hw: hwOf(src), n, src, k0, k1,
+        X: f32(n), Z: f32(n), S: f32(n), NX: f32(n), NZ: f32(n), TX: f32(n), TZ: f32(n), C: f32(n), FL: u8(n), G: null, HD: null, Y: null, len: 0, own: NaN, yo: 0, pin0, pin1, d0: null, d1: null, np: 0, i: L.length, lev: src.lev ? 1 : 0, bur: false };
       ln.X.set(X); ln.Z.set(Z); ln.FL.set(FL);
       for (let k = 1; k < n; k++) ln.S[k] = ln.S[k - 1] + Math.hypot(X[k] - X[k - 1], Z[k] - Z[k - 1]); ln.len = ln.S[n - 1]; if (!(ln.len > 1e-4)) return;
       for (let k = 0; k < n; k++) { // the heading at each station, and the way to its left (longer at a bend, so the ribbon keeps its width)
@@ -131,17 +145,50 @@
     // blocks or along a block's edge (less than half a unit in from it, as I-15 and its ramps are along the Strip's) lies on the low land it
     // runs over: a block's ground only well inside it, or in a hairline with a block on both sides
     const OFF = [[0.12, 0], [-0.12, 0], [0, 0.12], [0, -0.12]], RING = [0, 1, 2, 3, 4, 5, 6, 7].map(q => [0.45 * Math.cos(q * Math.PI / 4), 0.45 * Math.sin(q * Math.PI / 4)]);
+    // (Las Vegas, as the line was cut at the blocks' edges, levSplit: a line on a block's top (lev) on the block there, else on the low land)
     function ground(ln, k) {
       const x = ln.X[k], z = ln.Z[k]; let i = env.hood(x, z);
-      if (ln.area !== 0) { const nx = ln.NX[k], nz = ln.NZ[k]; if (i >= 0) { if (env.hood(x + nx * 0.45, z + nz * 0.45) < 0 || env.hood(x - nx * 0.45, z - nz * 0.45) < 0) i = -1; } else { const a = env.hood(x + nx * 0.12, z + nz * 0.12); if (a >= 0 && env.hood(x - nx * 0.12, z - nz * 0.12) >= 0) i = a; } }
-      else if (i < 0) { for (const o of OFF) { i = env.hood(x + o[0], z + o[1]); if (i >= 0) break; } if (i < 0) for (const o of RING) { i = env.hood(x + o[0], z + o[1]); if (i >= 0) { ln.FL[k] |= 8; break; } } }
+      if (ln.area !== 0) { if (!ln.lev) i = -1; else if (i < 0) { for (const o of OFF) { i = env.hood(x + o[0], z + o[1]); if (i >= 0) break; } if (i < 0) for (const o of RING) { i = env.hood(x + o[0], z + o[1]); if (i >= 0) break; } } }
+      else if (i < 0 && !ln.plain) { for (const o of OFF) { i = env.hood(x + o[0], z + o[1]); if (i >= 0) break; } if (i < 0) for (const o of RING) { i = env.hood(x + o[0], z + o[1]); if (i >= 0) { ln.FL[k] |= 8; break; } } }
       ln.HD[k] = i; if (i < 0) return LAND_TOP; const e = 0.8 * ln.hw, nx = ln.NX[k] * e, nz = ln.NZ[k] * e; return Math.max(env.hAt(i, x, z), env.hAt(i, x + nx, z + nz), env.hAt(i, x - nx, z - nz));
+    }
+    // Away from the Bay (Las Vegas, where the blocks stand far above the desert): a ramp or a trunk that runs well inside a block (0.45 in from its
+    // edge all round) lies on the block's top, the rest on the low land, as the motorway beside the Strip does. A line that goes from one to the
+    // other is cut where it crosses the block's edge, its two parts not joined (the block's wall stands between them): on the low land it runs to
+    // the wall's foot, on the top on from the wall's head, one line in plan (lev: on the top). Stretches shorter than a quarter unit go with their
+    // neighbours. l: a line of the data (its points), out: the list its parts go on
+    const inB = (x, z) => env.hood(x, z) >= 0 || (env.hood(x + 0.12, z) >= 0 && env.hood(x - 0.12, z) >= 0) || (env.hood(x, z + 0.12) >= 0 && env.hood(x, z - 0.12) >= 0);
+    // (a generator, a slice at a time. Its middle every 0.2, the ring round it only every third step where the middle is on a block, and at the steps
+    // between only where two of those differ: a run between two that agree is 0.4 or shorter, and one that short goes with its neighbours, below: the same answer for a third of the work)
+    function* levSplit(l, out) {
+      const xs = [l.x[0]], zs = [l.z[0]]; for (let i = 1; i < l.x.length; i++) { const m = Math.ceil(Math.hypot(l.x[i] - l.x[i - 1], l.z[i] - l.z[i - 1]) / 0.2); for (let q = 1; q <= m; q++) { xs.push(lerp(l.x[i - 1], l.x[i], q / m)); zs.push(lerp(l.z[i - 1], l.z[i], q / m)); } }
+      const n = xs.length, f = new Uint8Array(n), c = new Uint8Array(n), S = new Float32Array(n), ringIn = i => RING.every(o => inB(xs[i] + o[0], zs[i] + o[1])); let any = 0;
+      for (let i = 0; i < n; i++) { if (i) S[i] = S[i - 1] + Math.hypot(xs[i] - xs[i - 1], zs[i] - zs[i - 1]); c[i] = inB(xs[i], zs[i]) ? 1 : 0; if (late()) yield* pause(); }
+      for (let a = 0; a < n - 1;) { const b = Math.min(n - 1, a + 3); if (!a) f[0] = c[0] && ringIn(0) ? 1 : 0; f[b] = c[b] && ringIn(b) ? 1 : 0;
+        for (let j = a + 1; j < b; j++) f[j] = f[a] === f[b] ? f[a] & c[j] : c[j] && ringIn(j) ? 1 : 0; a = b; if (late()) yield* pause(); }
+      if (n === 1) f[0] = c[0] && ringIn(0) ? 1 : 0; for (let i = 0; i < n; i++) any |= f[i];
+      if (!any) { out.push(l); return; }
+      const runs = () => { const r = []; let a = 0; for (let i = 1; i <= n; i++) if (i === n || f[i] !== f[a]) { r.push([a, i - 1]); a = i; } return r; };
+      for (const [a, b] of runs()) if (f[a] && S[b] - S[a] < 0.25) f.fill(0, a, b + 1);
+      for (const [a, b] of runs()) if (!f[a] && a > 0 && b < n - 1 && S[b] - S[a] < 0.25) f.fill(1, a, b + 1);
+      const top = Uint8Array.from(f); for (const [a, b] of runs()) if (f[a]) { for (let i = a - 1; i >= 0 && inB(xs[i], zs[i]); i--) top[i] = 1; for (let i = b + 1; i < n && inB(xs[i], zs[i]); i++) top[i] = 1; }
+      if (!top.some(v => v)) { out.push(l); return; }
+      let px = [xs[0]], pz = [zs[0]], k0 = l.k0;
+      for (let i = 1; i < n; i++) {
+        if (top[i] !== top[i - 1]) { let a = 0, b = 1; for (let it = 0; it < 12; it++) { const t = (a + b) / 2; if (inB(lerp(xs[i - 1], xs[i], t), lerp(zs[i - 1], zs[i], t)) === !!top[i - 1]) a = t; else b = t; }
+          const t = (a + b) / 2, cx = lerp(xs[i - 1], xs[i], t), cz = lerp(zs[i - 1], zs[i], t), c = 'lv' + (cuts++); px.push(cx); pz.push(cz);
+          out.push(Object.assign({}, l, { x: px, z: pz, k0, k1: c + (top[i - 1] ? 'T' : 'L'), lev: top[i - 1] })); px = [cx]; pz = [cz]; k0 = c + (top[i] ? 'T' : 'L'); }
+        px.push(xs[i]); pz.push(zs[i]);
+      }
+      out.push(Object.assign({}, l, { x: px, z: pz, k0, k1: l.k1, lev: top[n - 1] }));
     }
     // the height of the roadway at a station, worked out when first asked for: the ground there plus the line's height above it (a
     // raised stretch runs straight between the ground at its two ends, and clears what rises between); a line that ends on one of
     // the map's bridges comes to that deck over its last 1.2 units
+    function arr(ln) { ln.Y = f32(ln.n).fill(NaN); ln.G = f32(ln.n).fill(NaN); ln.HD = i16(ln.n).fill(-1); }
+    const gOf = (ln, k) => { if (!ln.Y) arr(ln); let g = ln.G[k]; if (g !== g) g = ln.G[k] = ground(ln, k); return g; };   // (the ground under a station, as yAt reads it)
     function yAt(ln, k) {
-      if (!ln.Y) { ln.Y = f32(ln.n).fill(NaN); ln.G = f32(ln.n).fill(NaN); ln.HD = i16(ln.n).fill(-1); }
+      if (!ln.Y) arr(ln);
       let y = ln.Y[k]; if (y === y) return y;
       // (off the places, on the low land round them: the ground comes up to a block's edge over the two units before it, so a road climbs onto a block by a bank, not up its wall)
       const n = ln.n, g0 = q => { let g = ln.G[q]; if (g !== g) g = ln.G[q] = ground(ln, q); return g; }, gr = q => { let g = g0(q); if (ln.HD[q] >= 0) return g; for (let j = Math.max(0, q - 6); j <= Math.min(n - 1, q + 6); j += 2) if (j !== q) { const v = g0(j) - 0.3 * Math.abs(ln.S[j] - ln.S[q]); if (v > g) g = v; } return g; }, raw = q => { const c = ln.C[q]; let g = gr(q); if (ln.st === 1) g = Math.max(lerp(gr(0), gr(n - 1), ln.S[q] / ln.len), g - 0.5 * c); return g + c + LIFT + ln.yo; };
@@ -159,28 +206,38 @@
     // ---- the plan: everything that needs no ground, a slice at a time (the caller runs the generator until its time is up) ----
     function* plan() {
       // 1. the lines, cut where a bridge model carries the road: the stretches marked as on it, and the same route's unmarked ends inside its deck
-      const raw = []; for (let i = 0; i < data.areas.length; i++) { for (const l of yield* unpackG(data.areas[i], data.names, i, SL)) { l.area = i; raw.push(l); } yield* pause(); }
+      const raw = []; for (let i = 0; i < data.areas.length; i++) { for (const l of yield* unpackG(data.areas[i], data.names, i, SL)) { l.area = i; if (i && !l.prim && l.cls !== 0) yield* levSplit(l, raw); else raw.push(l); if (late()) yield* pause(); } yield* pause(); }
       if (env.streets && data.primary) { for (const l of yield* unpackG(data.primary, data.names, 'p', SL)) { l.area = 0; l.prim = true; raw.push(l); } yield; }
       const refs = F.map(() => new Set()); for (const l of raw) if (l.bridge && F[l.bridge - 1]) refs[l.bridge - 1].add(l.ref);
-      const onDeck = (l, x, z) => { for (let q = 0; q < F.length; q++) { const f = F[q], own = l.bridge === q + 1; if (!own && (l.prim || l.area !== 0 || l.st === 2 || !refs[q].has(l.ref))) continue; const dx = x - f.A[0], dz = z - f.A[1], xa = dx * f.u[0] + dz * f.u[1], la = Math.abs(dx * f.n[0] + dz * f.n[1]); if (xa > 0 && xa < f.L * K && la < (own ? 14 : q === 2 ? 0.45 : 0.26)) return q + 1; } return 0; };
+      // (where each deck is seen: from each end inwards, the first point clear of the ground (by a few metres: a deck that comes down to meet the land is under it at its very end). A model's end can lie in a hill, its deck run on into it
+      // (js/map3d/models.js): a road meets the deck where it comes out, as the real road does, and lies on the ground up to there, not down in the hill)
+      const VIS = F.map(f => { const v = [0, f.L]; for (const e of [0, 1]) for (let d = 0; d < f.L / 2; d += 10) { const x = e ? f.L - d : d, p = f.P(x, 0, 0), h = env.hood(p[0], p[2]); if (h < 0 || env.hAt(h, p[0], p[2]) <= f.deck(x) - 0.02) { v[e] = x; break; } } return v; }), PINNED = F.map(() => [0, 0]);
+      const onDeck = (l, x, z) => { for (let q = 0; q < F.length; q++) { const f = F[q], own = l.bridge === q + 1; if (!own && (l.prim || l.area !== 0 || l.st === 2 || !refs[q].has(l.ref))) continue; const dx = x - f.A[0], dz = z - f.A[1], xa = dx * f.u[0] + dz * f.u[1], la = Math.abs(dx * f.n[0] + dz * f.n[1]); if (xa > VIS[q][0] * K && xa < VIS[q][1] * K && la < (own ? 14 : q === 2 ? 0.45 : 0.26)) return q + 1; } return 0; };
       const clips = env.clips || [], out = (c, x, z) => x < c[0] || z < c[1] || x > c[2] || z > c[3];   // (an area's lines stop at its box: beyond it the map has nothing but the bare land)
-      const pinOf = (q, x, z) => { const f = F[q - 1], xa = ((x - f.A[0]) * f.u[0] + (z - f.A[1]) * f.u[1]) / K, e = xa < f.L / 2 ? 0 : f.L; return { y: f.deck(e) + 1.4 * f.vex * K + 0.003, f, e }; };
+      // (a line's end on a deck: the deck's height at the point of it the end is at, and that point across the deck as near the end as the deck's width
+      // lets the roadway lie (px, pz: the line is eased there, ease); PINNED: the deck's ends that hold a road, which get no portal unless the land is a wall above the deck there, below)
+      const pinOf = (q, x, z, l) => { const f = F[q - 1], v = VIS[q - 1], xa = ((x - f.A[0]) * f.u[0] + (z - f.A[1]) * f.u[1]) / K, e = clamp(xa, v[0], v[1]), la = (x - f.A[0]) * f.n[0] + (z - f.A[1]) * f.n[1], room = Math.max(0, (f.hw || 0) * f.wex * K - hwOf(l)), lt = clamp(la, -room, room);
+        PINNED[q - 1][e - v[0] < v[1] - e ? 0 : 1] = 1; return { y: f.deck(e) + 1.4 * f.vex * K + 0.003, f, e, px: f.A[0] + f.u[0] * e * K + f.n[0] * lt, pz: f.A[1] + f.u[1] * e * K + f.n[1] * lt }; };
+      // (a line that meets, at one of its ends, a stretch that is on a deck all along, as US 101 meets the Golden Gate's at its north end, beside the model:
+      // that end meets the deck too. touch: those ends, by their key, and the deck)
+      const touch = new Map(); for (const l of raw) { if (late()) yield* pause(); if (clips[l.area] || !F.length || l.area !== 0 || l.prim) continue; const m = l.x.length, a = onDeck(l, l.x[0], l.z[0]), b = onDeck(l, l.x[m - 1], l.z[m - 1]); if (a) touch.set(l.k0, a); if (b) touch.set(l.k1, b); }
+      const tp = (k, x, z, l) => touch.has(k) ? pinOf(touch.get(k), x, z, l) : null;
       for (const l of raw) {
         if (late()) yield* pause();
         if (!clips[l.area] && F.length && l.area === 0 && !l.prim && (l.bridge || refs.some(r => r.has(l.ref)))) { const xs = [l.x[0]], zs = [l.z[0]]; for (let i = 1; i < l.x.length; i++) { const d = Math.hypot(l.x[i] - l.x[i - 1], l.z[i] - l.z[i - 1]), m = Math.ceil(d); for (let q = 1; q < m; q++) { xs.push(lerp(l.x[i - 1], l.x[i], q / m)); zs.push(lerp(l.z[i - 1], l.z[i], q / m)); } xs.push(l.x[i]); zs.push(l.z[i]); } l.x = xs; l.z = zs; }   // (a point at least every unit, so a line that spans a whole deck in one step, as I-80 across the Bay Bridge's west span does, is cut too)
         const m = l.x.length, on = new Uint8Array(m), cl = clips[l.area]; let any = 0; if (cl) for (let i = 0; i < m; i++) any |= on[i] = out(cl, l.x[i], l.z[i]) ? 255 : 0; else if (F.length && l.area === 0 && !l.prim) for (let i = 0; i < m; i++) any |= on[i] = onDeck(l, l.x[i], l.z[i]);
-        if (!any) { addLine(l, l.x, l.z, l.k0, l.k1, null, null); continue; }
-        let xs = [], zs = [], k0 = l.k0, p0 = null;
+        if (!any) { addLine(l, l.x, l.z, l.k0, l.k1, cl ? null : tp(l.k0, l.x[0], l.z[0], l), cl ? null : tp(l.k1, l.x[m - 1], l.z[m - 1], l)); continue; }
+        let xs = [], zs = [], k0 = l.k0, p0 = cl || on[0] ? null : tp(l.k0, l.x[0], l.z[0], l);
         const flush = (k1, p1) => { if (xs.length >= 2) { let d = 0; for (let i = 1; i < xs.length; i++) d += Math.hypot(xs[i] - xs[i - 1], zs[i] - zs[i - 1]); if (d > 0.15 || !(p0 || p1 || cl)) addLine(l, xs, zs, k0, k1, p0, p1); } xs = []; zs = []; p0 = null; };
         for (let i = 0; i < m; i++) {
           if (i && !on[i] !== !on[i - 1]) { // the crossing of the deck's end, by halving
             let a = 0, b = 1; const q = on[i] || on[i - 1], x0 = l.x[i - 1], z0 = l.z[i - 1], x1 = l.x[i], z1 = l.z[i]; for (let it = 0; it < 14; it++) { const t = (a + b) / 2; if (!(cl ? out(cl, lerp(x0, x1, t), lerp(z0, z1, t)) : onDeck(l, lerp(x0, x1, t), lerp(z0, z1, t))) === !on[i - 1]) a = t; else b = t; }
             const t = (a + b) / 2, cx = lerp(x0, x1, t), cz = lerp(z0, z1, t), key = 'cut' + (cuts++);
-            if (on[i]) { xs.push(cx); zs.push(cz); flush(key, cl ? null : pinOf(q, cx, cz)); } else { xs = [cx]; zs = [cz]; k0 = key; p0 = cl ? null : pinOf(q, cx, cz); }
+            if (on[i]) { xs.push(cx); zs.push(cz); flush(key, cl ? null : pinOf(q, cx, cz, l)); } else { xs = [cx]; zs = [cz]; k0 = key; p0 = cl ? null : pinOf(q, cx, cz, l); }
           }
           if (!on[i]) { xs.push(l.x[i]); zs.push(l.z[i]); }
         }
-        flush(l.k1, null);
+        flush(l.k1, cl || on[m - 1] ? null : tp(l.k1, l.x[m - 1], l.z[m - 1], l));
       }
       yield;
       // (a line whose end lies part-way along another line, as a ramp's does at its junction with a freeway: the other line cut there, at a node the two
@@ -190,7 +247,7 @@
         for (const ln of L) { if (!ln.prim) addG(ln); if (late()) yield* pause(); }
         net.lone1 = [lone1(), 0]; net.splits = 0;
         const drop1 = (nd, i) => { for (let q = nd.ends.length - 2; q >= 0; q -= 2) if (nd.ends[q] === i) nd.ends.splice(q, 2); };
-        for (let ni = 0; ni < nodes.length; ni++) { if (late()) yield* pause(); const nd = nodes[ni]; if (nd.ends.length !== 2 || nd.pin || String(nd.key).startsWith('cut')) continue;
+        for (let ni = 0; ni < nodes.length; ni++) { if (late()) yield* pause(); const nd = nodes[ni]; if (nd.ends.length !== 2 || nd.pin || /^(cut|lv)/.test(String(nd.key))) continue;
           const ln = L[nd.ends[0]], e = nd.ends[1], k = e ? ln.n - 1 : 0, x = ln.X[k], z = ln.Z[k], r = ln.hw + 0.01; if (ln.dead || ln.prim) continue; let best = null, bd = r;
           for (let i = Math.floor(x - r); i <= Math.floor(x + r); i++) for (let j = Math.floor(z - r); j <= Math.floor(z + r); j++) for (const v of G.get(ck(i, j)) || []) { const o = L[v >> 16], q = v & 65535; if (o === ln || o.dead || o.prim || o.st === 2 || o.area !== ln.area) continue;
             const ax = o.X[q], az = o.Z[q], dx = o.X[q + 1] - ax, dz = o.Z[q + 1] - az, l2 = dx * dx + dz * dz || 1e-12, t = clamp(((x - ax) * dx + (z - az) * dz) / l2, 0, 1), d = Math.hypot(ax + dx * t - x, az + dz * t - z), sAt = lerp(o.S[q], o.S[q + 1], t); if (d < bd && sAt > EN && sAt < o.len - EN) { bd = d; best = [o, q, t]; } }
@@ -200,11 +257,76 @@
           if (xa.length < 2 || xb.length < 2) continue; const n0 = L.length; addLine(o.src, xa, za, o.k0, nd.key, o.pin0, null); addLine(o.src, xb, zb, nd.key, o.k1, null, o.pin1);
           if (L.length !== n0 + 2) { for (let w = L.length - 1; w >= n0; w--) { const a = L[w]; drop1(nodes[a.n0], a.i); drop1(nodes[a.n1], a.i); net.metres -= a.len / K; } L.length = n0; continue; }   // (a piece too short to stand: the line left as it was)
           o.dead = true; drop1(nodes[o.n0], o.i); drop1(nodes[o.n1], o.i); net.metres -= o.len / K; net.splits++; addG(L[n0]); addG(L[n0 + 1]); }
-        net.lone1[1] = lone1(); for (const ln of L) ln.src = null; }
+        net.lone1[1] = lone1();
+        // (a line cut at points along it, cs: [[k, t], ...] in order, between its stations k and k + 1, t of the way: its pieces in order, joined end to end at new
+        // nodes, the line itself left out; null, and the line as it was, where a piece would be too short to stand)
+        const cutLine = (o, cs) => { const P = []; let xa = [o.X[0]], za = [o.Z[0]], ci = 0; const n0 = L.length, keys = cs.map(() => 'cc' + (cuts++)), far1 = (x, z) => Math.hypot(x - xa[xa.length - 1], z - za[za.length - 1]) > 1e-6;
+          for (let k = 0; k < o.n - 1; k++) { while (ci < cs.length && cs[ci][0] === k) { const t = cs[ci][1], x = lerp(o.X[k], o.X[k + 1], t), z = lerp(o.Z[k], o.Z[k + 1], t); if (far1(x, z)) { xa.push(x); za.push(z); } P.push([xa, za]); xa = [x]; za = [z]; ci++; }
+            const q = k + 1; if ((o.FL[q] & 1 || q === o.n - 1) && far1(o.X[q], o.Z[q])) { xa.push(o.X[q]); za.push(o.Z[q]); } }
+          P.push([xa, za]); if (P.length !== cs.length + 1 || P.some(p => p[0].length < 2)) return null;
+          P.forEach((p, i) => addLine(o.src, p[0], p[1], i ? keys[i - 1] : o.k0, i < cs.length ? keys[i] : o.k1, i ? null : o.pin0, i === cs.length ? o.pin1 : null));
+          if (L.length !== n0 + P.length) { for (let w = L.length - 1; w >= n0; w--) { const a = L[w]; drop1(nodes[a.n0], a.i); drop1(nodes[a.n1], a.i); net.metres -= a.len / K; } L.length = n0; return null; }
+          o.dead = true; drop1(nodes[o.n0], o.i); drop1(nodes[o.n1], o.i); net.metres -= o.len / K; return L.slice(n0); };
+        // (where a margin m(k) along a line, between stations k and k + 1, crosses nought: by halving, with the ground read at the point itself)
+        const gp = (x, z) => { const i = env.hood(x, z); return i >= 0 ? env.hAt(i, x, z) : LAND_TOP; };
+        const cross0 = (o, k, m) => { let a = 0, b = 1; const s = m(o.X[k], o.Z[k], 0) >= 0; for (let it = 0; it < 12; it++) { const t = (a + b) / 2; if ((m(lerp(o.X[k], o.X[k + 1], t), lerp(o.Z[k], o.Z[k + 1], t), t) >= 0) === s) a = t; else b = t; } return (a + b) / 2; };
+        // (a tunnel's portals only where the ground stands over it: from each mouth in, the first point where the ground stands a portal's height above the
+        // mouth's roadway is where it goes in, as into a hillside or at the foot of a block's wall; the stretch before lies on its own ground, a road (plain:
+        // not lifted onto a block's ledge beside it, so it stays at the wall's foot). Under no hill at all, as on flat ground in town or across a lawn: a road
+        // all through, no portal. Not where a model covers its mouths)
+        if (!flat) { const CV = COVER + 0.07 * SV; net.tunnels = [0, 0, 0];
+          for (const o of L.slice()) { if (o.dead || o.st !== 2 || !o.src) continue; if (late()) yield* pause(); net.tunnels[0]++;
+            if (lids.some(q => Math.hypot(o.X[0] - q[0], o.Z[0] - q[1]) < q[2] + 0.3 || Math.hypot(o.X[o.n - 1] - q[0], o.Z[o.n - 1] - q[1]) < q[2] + 0.3)) continue;
+            // (its ground every 0.05 along it; from each mouth in, the first point with ground a portal's height higher within 0.15 beyond it (a wall, a
+            // cutting's face), or else within 0.35 (a steep hillside), to open into. A hill right at a mouth: the portal stays there)
+            const SS = [], GG = []; for (let k = 0; k < o.n - 1; k++) { const m = Math.max(1, Math.ceil((o.S[k + 1] - o.S[k]) / 0.05)); for (let q = 0; q < m; q++) { const t = q / m; SS.push(lerp(o.S[k], o.S[k + 1], t)); GG.push(gp(lerp(o.X[k], o.X[k + 1], t), lerp(o.Z[k], o.Z[k + 1], t))); } } SS.push(o.len); GG.push(gp(o.X[o.n - 1], o.Z[o.n - 1]));
+            const N = SS.length, rise = (i, dir, w) => { for (let j = i + dir; j >= 0 && j < N && Math.abs(SS[j] - SS[i]) <= w; j += dir) if (GG[j] >= GG[i] + CV) return true; return false; };
+            let ia = -1, ib = -1; for (const w of [0.15, 0.35]) { for (let i = 0; i < N - 1 && ia < 0; i++) if (rise(i, 1, w)) ia = i; for (let i = N - 1; i > 0 && ib < 0; i--) if (rise(i, -1, w)) ib = i; }   // (first as steep as a wall or a cutting's face; on a gentler hill, a slope)
+            if (ia < 0 || ib < 0 || SS[ia] >= SS[ib] - 0.1) { o.st = 0; o.plain = true; net.tunnels[1]++; continue; }   // (no hill over it)
+            const kt = s0 => { let k = 0; while (k < o.n - 2 && o.S[k + 1] < s0) k++; return [k, clamp((s0 - o.S[k]) / Math.max(1e-6, o.S[k + 1] - o.S[k]), 0, 1)]; };
+            const open0 = SS[ia] > 0.05, open1 = o.len - SS[ib] > 0.05, cs = []; if (open0) cs.push(kt(SS[ia])); if (open1) cs.push(kt(SS[ib]));
+            if (!cs.length) continue;
+            const ps = cutLine(o, cs); if (!ps) continue; net.tunnels[2]++;
+            ps.forEach((p, i) => { const cov = open0 ? i === 1 : i === 0; p.st = cov ? 2 : 0; if (!cov) p.plain = true; }); yield* pause(); } }
+        // (at the deck ends where the real road goes on into a hill, INTO: the Golden Gate's north end (US 101 climbs the Waldo grade in a cut) and the Bay
+        // Bridge's two ends on Yerba Buena Island (I-80 through the island's tunnel), a road that meets the deck keeps within CGR of the deck's height for as
+        // far as it goes on: where the land rises faster, a portal's height and more above that, it goes into the hill at the deck's height and runs in a
+        // tunnel until the ground comes down to it again (or for CMAX at most), a portal where it goes in and where it comes out; a ramp that meets it in
+        // the hill is left out with the ramps it leads to (bur: such a tunnel). Elsewhere a road climbs from a deck as the ground does)
+        const CGR = 3 * GRADE, CMAX = 14, INTO = [[0, 1], [1, 1], [2, 0]]; net.buried = [0, 0, 0];
+        if (!flat && F.length) { const hi = new Map();
+          for (const l0 of L.slice()) { if (l0.dead || l0.prim || l0.area !== 0) continue;
+            for (const [pin, e0] of [[l0.pin0, 0], [l0.pin1, 1]]) { if (!pin || !INTO.some(c => F[c[0]] === pin.f && c[1] === (pin.e < pin.f.L / 2 ? 0 : 1))) continue; if (late()) yield* pause(); const seen = new Set(), q = [[l0, e0, 0]];
+              while (q.length) { const [ln, e1, d0] = q.pop(); if (seen.has(ln)) continue; seen.add(ln); let H = hi.get(ln), bind = false; if (!H) hi.set(ln, H = new Float32Array(ln.n).fill(Infinity));
+                for (let k = 0; k < ln.n; k++) { const h = pin.y + CGR * (d0 + (e1 ? ln.len - ln.S[k] : ln.S[k])); if (h < H[k]) H[k] = h; if (h < gOf(ln, k) + LIFT) bind = true; }
+                const d1 = d0 + ln.len, nd = nodes[e1 ? ln.n0 : ln.n1]; if (!bind || d1 > CMAX || nd.pin) continue;
+                for (let j = 0; j < nd.ends.length; j += 2) { const o = L[nd.ends[j]]; if (o !== ln && !o.dead && !o.prim && o.cls !== 1 && o.st !== 2 && o.ref === l0.ref) q.push([o, nd.ends[j + 1], d1]); } } } }
+          for (const [o, H] of hi) { if (o.dead || o.st === 2) continue; if (late()) yield* pause();
+            const m = k => H[k] - gOf(o, k) - LIFT + COVER, f = new Uint8Array(o.n); let any = 0; for (let k = 0; k < o.n; k++) if (m(k) < 0) f[k] = any = 1; if (!any) continue;
+            for (let a = 0, k = 1; k <= o.n; k++) if (k === o.n || f[k] !== f[a]) { if (f[a] && o.S[k - 1] - o.S[a] < 0.25 && ((a > 0 && k < o.n) || (!a && o.pin0) || (k === o.n && o.pin1))) f.fill(0, a, k); a = k; }   // (a crest it would pass just under, or a hair of the land at the deck's end: over it, on the ground)
+            const cs = []; for (let k = 0; k < o.n - 1; k++) if (f[k] !== f[k + 1]) { const s0 = m(k); cs.push([k, clamp(s0 / (s0 - m(k + 1)), 0.02, 0.98)]); }
+            if (!cs.length) { if (f[0]) { o.st = 2; o.bur = true; net.buried[0]++; } continue; }
+            const ps = cutLine(o, cs); if (!ps) continue; let b = f[0]; for (const p of ps) { if (b) { p.st = 2; p.bur = true; net.buried[0]++; } b = !b; } }
+          // (the ramps that meet such a tunnel, and every ramp joined only to them)
+          const gone = new Set(), stack = []; for (const nd of nodes) { let bur = false; for (let j = 0; j < nd.ends.length; j += 2) if (L[nd.ends[j]].bur && !L[nd.ends[j]].dead) bur = true; if (bur) for (let j = 0; j < nd.ends.length; j += 2) { const o = L[nd.ends[j]]; if (o.cls === 1 && !o.dead && !o.prim) stack.push(o); } }
+          while (stack.length) { const o = stack.pop(); if (gone.has(o)) continue; gone.add(o); for (const nd of [nodes[o.n0], nodes[o.n1]]) for (let j = 0; j < nd.ends.length; j += 2) { const r = L[nd.ends[j]]; if (r.cls === 1 && !r.dead && !r.prim && !gone.has(r)) stack.push(r); } }
+          for (const o of gone) { o.dead = true; net.buried[1]++; } }
+        for (const ln of L) ln.src = null; }
       yield* pause();
       // (a short piece that leads nowhere at either end but onto a deck, into a tunnel or to nothing, as on Yerba Buena Island between the two spans: left out)
-      { const lone = (nd, ln) => { for (let q = 0; q < nd.ends.length; q += 2) { const o = L[nd.ends[q]]; if (o !== ln && o.st !== 2 && !o.dead) return false; } return true; };
+      { const lone = (nd, ln) => { if (LV(nd)) return false; for (let q = 0; q < nd.ends.length; q += 2) { const o = L[nd.ends[q]]; if (o !== ln && (o.st !== 2 || o.bur) && !o.dead) return false; } return true; };   // (a road that goes on in a tunnel of its own, bur, leads somewhere; so does one cut at a block's edge in Las Vegas, LV)
         for (let it = 0; it < 2; it++) for (const ln of L) if (!ln.dead && !ln.prim && ln.st !== 2 && ln.len <= 0.9 && (ln.pin0 || lone(nodes[ln.n0], ln)) && (ln.pin1 || lone(nodes[ln.n1], ln))) ln.dead = true; }
+      yield* pause();
+      // (ramps. The data keeps only the motorways, the trunks and their ramps (and the big streets of San Francisco), so a ramp's end at a street the map does not
+      // have is all there is of it: a set of ramps that meets no other road at all (both ends in the grass, a hook), or a short branch of one, 0.45 or less, that
+      // ends in nothing (the forks off US 101 by Sausalito): left out. Not where the big streets are drawn, which such ramps meet)
+      { let bx0 = Infinity, bz0 = Infinity, bx1 = -Infinity, bz1 = -Infinity; for (const ln of L) if (ln.prim && !ln.dead) { bx0 = Math.min(bx0, ln.X[0], ln.X[ln.n - 1]); bx1 = Math.max(bx1, ln.X[0], ln.X[ln.n - 1]); bz0 = Math.min(bz0, ln.Z[0], ln.Z[ln.n - 1]); bz1 = Math.max(bz1, ln.Z[0], ln.Z[ln.n - 1]); }
+        const town = ln => [0, ln.n - 1].some(k => ln.X[k] > bx0 - 0.5 && ln.X[k] < bx1 + 0.5 && ln.Z[k] > bz0 - 0.5 && ln.Z[k] < bz1 + 0.5), live = (nd, ln) => { let c = LV(nd) ? 1 : 0; for (let q = 0; q < nd.ends.length; q += 2) { const o = L[nd.ends[q]]; if (o !== ln && !o.dead) c++; } return c; };   // (a cut at a block's edge goes on, up or down the wall: LV)
+        const ramp = ln => !ln.dead && !ln.prim && ln.cls === 1 && ln.st !== 2, seen = new Set(); net.ramps = [0, 0];
+        for (const r0 of L) { if (!ramp(r0) || seen.has(r0)) continue; if (late()) yield* pause(); const set = [r0], st = [r0]; let other = false, inTown = false; seen.add(r0);
+          while (st.length) { const o = st.pop(); if (town(o)) inTown = true; for (const nd of [nodes[o.n0], nodes[o.n1]]) { if (nd.pin || LV(nd)) other = true; for (let q = 0; q < nd.ends.length; q += 2) { const r = L[nd.ends[q]]; if (r === o || r.dead) continue; if (!ramp(r)) other = true; else if (!seen.has(r)) { seen.add(r); set.push(r); st.push(r); } } } }
+          if (!other && !inTown) for (const o of set) { o.dead = true; net.ramps[0]++; } }
+        for (let it = 0; it < 2; it++) for (const ln of L) if (ramp(ln) && ln.len <= 0.45 && !town(ln) && !ln.pin0 && !ln.pin1) { const a = live(nodes[ln.n0], ln), b = live(nodes[ln.n1], ln); if ((!a && b >= 2) || (!b && a >= 2)) { ln.dead = true; net.ramps[1]++; } } }
       yield* pause();
       // 2. which raised stretches stand raised: a run of them (joined where one carries straight on into the next, or where the same road's
       // or two ramps' meet) of RUN or more, a viaduct or a flyover; or one that crosses over another road of the list, at an interchange. The
@@ -265,7 +387,7 @@
       yield* pause();
       // (where a raised line crosses over another, away from both ends: the upper one there at least the lower's roadway plus the deck, a pier's head and a
       // margin above it (equal layers: the later line is the upper), rising to it and back at a road's grade. Measured with the roadways' own heights, yAt)
-      { const XS = [], NEED = DT + 0.034 + 0.03, at = (ln, k, t) => lerp(yAt(ln, k), yAt(ln, k + 1), t);
+      { const XS = [], NEED = DT + 0.034 * SV + 0.03 * SV, at = (ln, k, t) => lerp(yAt(ln, k), yAt(ln, k + 1), t);
         for (const [key, rs] of cells) { if (late()) yield* pause();
           for (const ra of rs) { const U = ra.ln; if (U.st !== 1) continue; if (late()) yield* pause();
             for (const rb of rs) { if (late()) yield* pause(); const D = rb.ln, b = rb.b, a = ra.b; if (D === U || (D.st === 1 && (D.layer > U.layer || (D.layer === U.layer && D.i > U.i))) || b[0] > a[2] || b[2] < a[0] || b[1] > a[3] || b[3] < a[1]) continue;
@@ -273,11 +395,18 @@
                 const t = (cx * dz - cz * dx) / den, u = (cx * bz - cz * bx) / den; if (t < 0 || t > 1 || u < 0 || u > 1) continue; const s1 = lerp(U.S[k], U.S[k + 1], t), s2 = lerp(D.S[j], D.S[j + 1], u); if (s1 > EN && s1 < U.len - EN && s2 > EN && s2 < D.len - EN) XS.push(U, k, t, s1, D, j, u); } } } }
         let lo0 = Infinity, lo1 = Infinity, bumped = 0, deep = 0, s0n = 0, s1n = 0;
         for (let q = 0; q < XS.length; q += 7) { if (late()) yield* pause(); const U = XS[q], k = XS[q + 1], t = XS[q + 2], s0 = XS[q + 3], D = XS[q + 4], j = XS[q + 5], u = XS[q + 6]; let gap = at(U, k, t) - at(D, j, u); if (gap < NEED) s0n++;
-          if (gap < NEED - 0.15) { deep++; continue; } lo0 = Math.min(lo0, gap);   // (the lower one far above the upper: the ground under them read differently, a hillside; left as it is, not lifted a storey or more)
+          if (gap < NEED - 0.15 * SV) { deep++; continue; } lo0 = Math.min(lo0, gap);   // (the lower one far above the upper: the ground under them read differently, a hillside; left as it is, not lifted a storey or more)
           for (let it = 0; it < 6 && gap < NEED; it++) { const dl = NEED - gap + 0.002; for (let w = 1; w < U.n - 1; w++) { const b2 = dl - GRADE * Math.max(0, U.S[k] - U.S[w], U.S[w] - U.S[k + 1]); if (b2 > 0) U.C[w] += b2; } U.Y = null; gap = at(U, k, t) - at(D, j, u); if (!it) bumped++; }   // (its heights worked out again with the bump: yAt)   // (the step it crosses lifted whole, then down at a road's grade)
           lo1 = Math.min(lo1, gap); if (gap < NEED - 1e-3) s1n++; }
         net.crossings = { n: XS.length / 7, short: [s0n, s1n + deep], bumped, deep, least: [lo0, lo1].map(v => v === Infinity ? null : +(v / (VEX * K)).toFixed(2)) }; }   // (short: crossings with less than the clearance before and after; least: the smallest clearance of those lifted, before and after, in metres as built; deep: left)
       yield* pause();
+      // (where a bridge model's deck runs into a hillside, the Bay Bridge's two spans at Yerba Buena Island: a portal round the deck where it goes in, at the
+      // height the deck would have there, deckRaw (js/map3d/models.js: inside the land it goes on just under the ground). A road's own portal is not
+      // made inside one of these: FP)
+      const FP = [], DK = f => f.deckRaw || f.deck;
+      if (!flat) F.forEach((f, q) => { for (const e of [0, 1]) { const at = x => { const p = f.P(x, 0, 0), h = env.hood(p[0], p[2]); return h < 0 ? null : { h, g: env.hAt(h, p[0], p[2]) }; }, end = at(e ? f.L : 0); if (!end || end.g < DK(f)(e ? f.L : 0) + 0.12 * f.vex / 2.2) continue; { const v = VIS[q][e], w = at(e ? Math.min(f.L, v + 30) : Math.max(0, v - 30)); if (PINNED[q][e] && !(w && w.g > DK(f)(v) + 0.12 * f.vex / 2.2)) continue; }   // (a road meets the deck where it comes out and the ground there is not a wall above it: no portal)
+        for (let d = 10; d < 500; d += 10) { const x = e ? f.L - d : d, s = at(x); if (s && s.g >= DK(f)(x) + 0.03) continue; const p = f.P(x + (e ? 14 : -14), 0, 0); FP.push({ f, x: x + (e ? 14 : -14), dir: e ? 1 : -1, hw: (q < 3 ? [13.7, 10.2, 36][q] : 12) * f.wex * K, hood: end.h, p }); break; } } });
+      const inFP = (x, z) => FP.some(p => Math.hypot(x - p.p[0], z - p.p[2]) < p.hw + 0.12);
       // 4. where nothing else stands: the roadway on the ground (and a bank, and a deck that is nearly down), the spot of each pier, each
       // portal; and each line's runs by chunk, with the portals: where a tunnel long enough meets a road, outside the models that have their own.
       // (what stands where is kept by unit square, in typed arrays of 16 by 16 squares a chunk, made in two passes, a count and a fill: no big table to grow, little to sweep up)
@@ -296,8 +425,10 @@
           else if (ln.st === 1) { const r = ln.hw + 0.4; for (let i = Math.floor(Math.min(ln.X[k], ln.X[k + 1]) - r); i <= Math.floor(Math.max(ln.X[k], ln.X[k + 1]) + r); i++) for (let j = Math.floor(Math.min(ln.Z[k], ln.Z[k + 1]) - r); j <= Math.floor(Math.max(ln.Z[k], ln.Z[k + 1]) + r); j++) put(OV, ck(i, j), ln.i * 65536 + k); } }   // (OV: the raised stretches, for over)
         if (ln.prim) continue;                                                       // (a big street is a ribbon and nothing more)
         for (let q = 0; q < ln.np; q++) for (const sh of [0, 0.33, -0.33]) { const p = pierAt(ln, q, sh); if (p.c >= PMIN) disc(p.x, p.z, ln.hw >= WIDE ? ln.hw * 0.78 : 0.035); }   // (each of the three spots a pier may take: chunk)
-        if (!flat) for (const [nd, k] of [[nodes[ln.n0], 0], [nodes[ln.n1], ln.n - 1]]) if (nd.tun && portalOf(nd) === ln.i && !lids.some(q => Math.hypot(ln.X[k] - q[0], ln.Z[k] - q[1]) < q[2])) { put(extras, ck(cellOf(ln.X[k]), cellOf(ln.Z[k])), { ln, k }); disc(ln.X[k], ln.Z[k], ln.hw + 0.08); net.portals++; }
+        if (!flat) for (const [nd, k] of [[nodes[ln.n0], 0], [nodes[ln.n1], ln.n - 1]]) if (nd.tun && portalOf(nd) === ln.i && !lids.some(q => Math.hypot(ln.X[k] - q[0], ln.Z[k] - q[1]) < q[2]) && !inFP(ln.X[k], ln.Z[k])) { put(extras, ck(cellOf(ln.X[k]), cellOf(ln.Z[k])), { ln, k }); disc(ln.X[k], ln.Z[k], ln.hw + 0.08); net.portals++; }
       }
+      // (where a bridge model's deck runs low over the land, as at a shore it meets at the land's own height: nothing else stands under it either)
+      if (!flat) for (const f of F) { const hw = (f.hw || 0) * f.wex * K; if (!(hw > 0)) continue; for (let x = 0; x <= f.L; x += 25) { const p = f.P(x, 0, 0), h = env.hood(p[0], p[2]); if (h >= 0) { const dd = f.deck(x) - env.hAt(h, p[0], p[2]); if (dd < 0.5 && dd > -0.02) disc(p[0], p[2], hw + 0.02); } } yield* pause(); }
       for (let d = 0; d < D.length; d += 3) { box(D[d], D[d + 1], D[d], D[d + 1], D[d + 2], inc); if (late()) yield* pause(); }
       { let tot = 0; for (const c of SQ.values()) { c.s = new Int32Array(257); for (let q = 0; q < 256; q++) { c.s[q] = tot; tot += c.cnt[q]; c.cnt[q] = c.s[q]; } c.s[256] = tot; if (late()) yield* pause(); } yield* fresh(); buf = new Int32Array(tot); }
       yield* pause();
@@ -319,9 +450,7 @@
       net.over = (x, z, r) => { const l = OV.get(ck(Math.floor(x), Math.floor(z))); if (!l) return Infinity; let u = Infinity;
         for (const v of l) { const o = L[v >> 16], k = v & 65535, ax = o.X[k], az = o.Z[k], dx = o.X[k + 1] - ax, dz = o.Z[k + 1] - az, l2 = dx * dx + dz * dz || 1e-12, t = clamp(((x - ax) * dx + (z - az) * dz) / l2, 0, 1); if (Math.hypot(ax + dx * t - x, az + dz * t - z) < o.hw + PT + r) u = Math.min(u, lerp(yAt(o, k), yAt(o, k + 1), t) - DT); } return u; };
       net.lines = L.filter(l => !l.dead).length; net.ready = true; yield;
-      // (where a bridge model's deck runs into a hillside, the Bay Bridge's two spans at Yerba Buena Island: a portal round the deck where it goes in)
-      if (!flat) F.forEach((f, q) => { for (const e of [0, 1]) { const at = x => { const p = f.P(x, 0, 0), h = env.hood(p[0], p[2]); return h < 0 ? null : { h, g: env.hAt(h, p[0], p[2]) }; }, end = at(e ? f.L : 0); if (!end || end.g < f.deck(e ? f.L : 0) + 0.12) continue;
-        for (let d = 10; d < 500; d += 10) { const x = e ? f.L - d : d, s = at(x); if (s && s.g >= f.deck(x) + 0.03) continue; const p = f.P(x, 0, 0); put(extras, ck(cellOf(p[0]), cellOf(p[2])), { f, x: x + (e ? 14 : -14), dir: e ? 1 : -1, hw: (q < 3 ? [13.7, 10.2, 36][q] : 12) * f.wex * K, hood: end.h }); net.portals++; break; } } });
+      for (const p of FP) { put(extras, ck(cellOf(p.p[0]), cellOf(p.p[2])), p); net.portals++; }   // (the bridges' portals, FP)
       yield;
       // 5. the frames the night's traffic runs on (as a bridge's: x metres along; lat > 0 this carriageway, lat < 0 the one beside it, the other way; dm metres above the roadway)
       for (const at of BUSY) {
@@ -389,7 +518,7 @@
     function* lamps(area) {
       const by = new Map(); tY = now();   // (by place, as they are made: a place's lamps one run of the list)
       for (const ln of L) { if (ln.dead || ln.st === 2 || ln.area !== area || ln.cls !== 0) continue; if (late()) yield* pause();
-        for (let d = 1 + (ln.i % 3) * 0.5, k = 0, q = 0; d < ln.len; d += 2, q++) { if ((q & 31) === 31 && late()) yield* pause(); while (k < ln.n - 1 && ln.S[k] < d) k++; const sg = (q + ln.i) & 1 ? 1 : -1, y = yAt(ln, k); if (ln.HD[k] >= 0) put(by, ln.HD[k], { x: ln.X[k] + ln.NX[k] * sg * (ln.hw + 0.012), y: y + 0.075, z: ln.Z[k] + ln.NZ[k] * sg * (ln.hw + 0.012), kind: 'warm', size: 0.42, hood: ln.HD[k] }); } }
+        for (let d = 1 + (ln.i % 3) * 0.5, k = 0, q = 0; d < ln.len; d += 2, q++) { if ((q & 31) === 31 && late()) yield* pause(); while (k < ln.n - 1 && ln.S[k] < d) k++; const sg = (q + ln.i) & 1 ? 1 : -1, y = yAt(ln, k); if (ln.HD[k] >= 0) put(by, ln.HD[k], { x: ln.X[k] + ln.NX[k] * sg * (ln.hw + 0.012), y: y + 0.075 * SV, z: ln.Z[k] + ln.NZ[k] * sg * (ln.hw + 0.012), kind: 'warm', size: 0.42, hood: ln.HD[k] }); } }
       const list = []; for (const l of by.values()) { for (const v of l) list.push(v); if (late()) yield* pause(); } yield* fresh(); return list;
     }
 
@@ -402,7 +531,7 @@
       for (const run of runs) {
         const { ln, k0, k1 } = run; for (let k = k0; k <= k1; k++) yAt(ln, k); tick(); yield; back();
         // beside: a side wall (and the edge line) is left out where another roadway lies against that side at the same height
-        if (!run.adj) { run.adj = true; for (let k = k0; k <= k1; k++) { const c = ln.C[k], hw = ln.hw; let fl = 0; around(ln.X[k], ln.Z[k], ln.TX[k], ln.TZ[k], ln, (o, j, d, side, t) => { if (d < (hw + o.hw) * 1.04 + 0.012 && Math.abs(side) > 0.6 * d && Math.abs(lerp(o.C[j], o.C[j + 1], t) - c) < 0.07) fl |= side > 0 ? 2 : 4; }); ln.FL[k] |= fl; } tick(); yield; back(); }
+        if (!run.adj) { run.adj = true; for (let k = k0; k <= k1; k++) { const c = ln.C[k], hw = ln.hw; let fl = 0; around(ln.X[k], ln.Z[k], ln.TX[k], ln.TZ[k], ln, (o, j, d, side, t) => { if (d < (hw + o.hw) * 1.04 + 0.012 && Math.abs(side) > 0.6 * d && Math.abs(lerp(o.C[j], o.C[j + 1], t) - c) < 0.07 * SV) fl |= side > 0 ? 2 : 4; }); ln.FL[k] |= fl; } tick(); yield; back(); }
         const raised = ln.st === 1, hw = ln.hw, line = ln.lanes >= 2 && hw > 0.03, n = ln.n;
         // the cross-section at a station, round the roadway from the foot of its left side: [to the left, above the roadway, material], a face between each two
         const prof = k => { const c = ln.C[k], aL = ln.FL[k] & 2, aR = ln.FL[k] & 4, out = [];
@@ -420,25 +549,32 @@
         }
         // an abutment under each end of a raised stretch that meets a bank
         if (raised) {
-          for (const [nd, k, sg] of [[nodes[ln.n0], 0, 1], [nodes[ln.n1], n - 1, -1]]) { if (k < k0 || k > k1 || nd.pin || ln.C[k] < DT + 0.05) continue; let more = 0; for (let q = 0; q < nd.ends.length; q += 2) if (L[nd.ends[q]] !== ln && L[nd.ends[q]].st === 1 && !L[nd.ends[q]].dead) more++; if (more) continue;
+          for (const [nd, k, sg] of [[nodes[ln.n0], 0, 1], [nodes[ln.n1], n - 1, -1]]) { if (k < k0 || k > k1 || nd.pin || ln.C[k] < DT + 0.05 * SV) continue; let more = 0; for (let q = 0; q < nd.ends.length; q += 2) if (L[nd.ends[q]] !== ln && L[nd.ends[q]].st === 1 && !L[nd.ends[q]].dead) more++; if (more) continue;
             M.place(ln.HD[k]); M.box(PIER, ln.X[k] + ln.TX[k] * sg * 0.04, ln.Z[k] + ln.TZ[k] * sg * 0.04, ln.G[k] - 0.05, ln.Y[k] - 0.006, 0.045, hw + PT + 0.014, ln.TX[k], ln.TZ[k], false, false); }
           // the piers: SPAN apart, never on a roadway that passes below (moved a third of a span, else left out)
           for (let q = 0; q < ln.np; q++) { let pr = pierAt(ln, q, 0); if (pr.k < k0 || pr.k >= k1 || pr.c < PMIN) continue;
-            for (const sh of [0, 0.33, -0.33]) { if (sh) pr = pierAt(ln, q, sh); let free = pr.c >= PMIN && pr.k >= k0 && pr.k < k1; if (free) around(pr.x, pr.z, ln.TX[pr.k], ln.TZ[pr.k], ln, (o, j, d, side, u) => { if (d < o.hw + (hw >= WIDE ? hw * 0.75 : 0.02) && lerp(o.C[j], o.C[j + 1], u) < pr.c - 0.09) free = false; }); if (free) break; pr = null; }
+            for (const sh of [0, 0.33, -0.33]) { if (sh) pr = pierAt(ln, q, sh); let free = pr.c >= PMIN && pr.k >= k0 && pr.k < k1; if (free) around(pr.x, pr.z, ln.TX[pr.k], ln.TZ[pr.k], ln, (o, j, d, side, u) => { if (d < o.hw + (hw >= WIDE ? hw * 0.75 : 0.02) && lerp(o.C[j], o.C[j + 1], u) < pr.c - 0.09 * SV) free = false; }); if (free) break; pr = null; }
             if (!pr) continue; net.piers++; const k = pr.k, t = pr.t, x = pr.x, z = pr.z, y = lerp(ln.Y[k], ln.Y[k + 1], t) - DT, tx = ln.TX[k], tz = ln.TZ[k]; const h = env.hood(x, z), g = (h >= 0 ? env.hAt(h, x, z) : ln.FL[k] & 8 || ln.HD[k] < 0 ? LAND_TOP : ln.G[k]) - 0.06;
             M.place(h);   // (a pier rises with the place of its own foot)
-            if (hw >= WIDE) { const cs = clamp(hw * 0.2, 0.017, 0.026), o = hw * 0.58; M.box(PIER, x, z, y - 0.034, y + 0.004, cs * 1.25, hw + PT * 0.5, tx, tz, false, true); for (const sd of [-1, 1]) M.box(PIER, x + tz * o * sd, z - tx * o * sd, g, y - 0.034, cs, cs, tx, tz, false, false); }
-            else { const cs = clamp(hw * 0.45, 0.016, 0.023); M.box(PIER, x, z, y - 0.03, y + 0.004, cs * 1.2, hw * 0.92, tx, tz, false, true); M.box(PIER, x, z, g, y - 0.03, cs, cs, tx, tz, false, false); } }
+            if (hw >= WIDE) { const cs = clamp(hw * 0.2, 0.017, 0.026), o = hw * 0.58; M.box(PIER, x, z, y - 0.034 * SV, y + 0.004, cs * 1.25, hw + PT * 0.5, tx, tz, false, true); for (const sd of [-1, 1]) M.box(PIER, x + tz * o * sd, z - tx * o * sd, g, y - 0.034 * SV, cs, cs, tx, tz, false, false); }
+            else { const cs = clamp(hw * 0.45, 0.016, 0.023); M.box(PIER, x, z, y - 0.03 * SV, y + 0.004, cs * 1.2, hw * 0.92, tx, tz, false, true); M.box(PIER, x, z, g, y - 0.03 * SV, cs, cs, tx, tz, false, false); } }
         }
         tick(); yield; back();
       }
       // the portals: a headwall across the roadway where it goes into the ground, with a dark mouth
       for (const ex of extras.get(ck(ix, iz)) || []) {
-        if (ex.f) { const f = ex.f, p = f.P(ex.x, 0, 0), y = f.deck(ex.x), tx = f.u[0] * ex.dir, tz = f.u[1] * ex.dir, hw = ex.hw, bx = tz * (hw + 0.004), bz = -tx * (hw + 0.004), fx = p[0] + tx * 0.003, fz = p[2] + tz * 0.003; M.place(ex.hood);
-          M.box(BED, p[0] + tx * 0.095, p[2] + tz * 0.095, y - 0.3, y + 0.3, 0.09, hw + 0.07, tx, tz, true, false); M.quad(DARK, [fx - bx, y - 0.17, fz - bz, fx + bx, y - 0.17, fz + bz, fx + bx, y + 0.2, fz + bz, fx - bx, y + 0.2, fz - bz], -tx, 0, -tz); continue; }
+        if (ex.f) { const f = ex.f, p = f.P(ex.x, 0, 0), y = (f.deckRaw || f.deck)(ex.x), tx = f.u[0] * ex.dir, tz = f.u[1] * ex.dir, hw = ex.hw, bx = tz * (hw + 0.004), bz = -tx * (hw + 0.004), fx = p[0] + tx * 0.003, fz = p[2] + tz * 0.003; M.place(ex.hood);
+          const fv = f.vex / 2.2; M.box(BED, p[0] + tx * 0.095, p[2] + tz * 0.095, y - 0.3 * fv, y + 0.3 * fv, 0.09, hw + 0.07, tx, tz, true, false); M.quad(DARK, [fx - bx, y - 0.17 * fv, fz - bz, fx + bx, y - 0.17 * fv, fz + bz, fx + bx, y + 0.2 * fv, fz + bz, fx - bx, y + 0.2 * fv, fz - bz], -tx, 0, -tz); continue; }
         const ln = ex.ln, k = ex.k, y = yAt(ln, k), sg = k ? 1 : -1, tx = ln.TX[k] * sg, tz = ln.TZ[k] * sg, x = ln.X[k], z = ln.Z[k], hw = ln.hw; M.place(ln.HD[k]);
-        M.box(BED, x + tx * 0.085, z + tz * 0.085, y - 0.12, y + COVER + 0.07, 0.08, hw + 0.055, tx, tz, true, false);
+        M.box(BED, x + tx * 0.085, z + tz * 0.085, y - 0.12, y + COVER + 0.07 * SV, 0.08, hw + 0.055, tx, tz, true, false);
         const bx = tz * (hw - 0.004), bz = -tx * (hw - 0.004), fx = x + tx * 0.003, fz = z + tz * 0.003; M.quad(DARK, [fx - bx, y - 0.01, fz - bz, fx + bx, y - 0.01, fz + bz, fx + bx, y + COVER, fz + bz, fx - bx, y + COVER, fz - bz], -tx, 0, -tz);
+        // (where no hill stands right behind it, as on a gentle slope: Caldecott's mouths on the hills' top: a low bank of earth behind the headwall, from its top
+        // down to the ground BANK further in, its sides spreading as it goes, in the tone of the roads' own banks, so the portal opens into something)
+        { const top = y + COVER + 0.07 * SV, at = (d, l) => [x + tx * d + tz * l, z + tz * d - tx * l], gd = d => { const p = at(d, 0), h = env.hood(p[0], p[1]); return h >= 0 ? env.hAt(h, p[0], p[1]) : LAND_TOP; };
+          if (gd(0.165 + BANK * 0.5) < top - 0.01) { const d0 = 0.165, d1 = d0 + BANK, b0 = y - 0.12, yf = clamp(gd(d1), y, top), w0 = hw + 0.055, w1 = w0 + (top - b0) * 1.6, P3 = (d, l, h) => { const p = at(d, l); return [p[0], h, p[1]]; }, sl = (top - yf) / BANK, nl = Math.hypot(sl, 1);
+            M.quad(BED, [...P3(d0, -w0, top), ...P3(d0, w0, top), ...P3(d1, w0, yf), ...P3(d1, -w0, yf)], tx * sl / nl, 1 / nl, tz * sl / nl);
+            for (const sd of [-1, 1]) M.quad(BED, [...P3(d0, sd * w0, top), ...P3(d1, sd * w0, yf), ...P3(d1, sd * w1, b0), ...P3(d0, sd * w0, b0)], sd * tz * 0.45, 0.89, -sd * tx * 0.45);
+            M.quad(BED, [...P3(d1, -w1, b0), ...P3(d1, w1, b0), ...P3(d1, w0, yf), ...P3(d1, -w0, yf)], tx, 0, tz); } }
         tick(); yield; back();
       }
       tick(); yield; back(); return M.finish();   // (the last step, its buffers, a slice of its own)

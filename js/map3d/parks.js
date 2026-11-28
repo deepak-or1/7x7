@@ -19,7 +19,12 @@
   const CELL = 2;                                 // the grid that answers "is this point in a park"
   const NT = 8;                                   // numbers per tree: x, y, z, radius, height over radius, place, tint, kind
   const LAKES = { 'Lakeside Park': 85 };          // a park whose outline holds its lake (and neither the map nor the data has the water): the lake drawn inside it, the park this many metres wide round it (Lake Merritt: approximate)
-  const HUGE = 2000;                              // a reserve this large (hectares) is drawn as ground only: its outline is coarse (simplified to about 300 m), so it does not clear houses, and its trees stand only on the quiet land between places
+  const HUGE = 2000;                              // a reserve this large (hectares): its outline is coarse (simplified to about 300 m). It is drawn green all over, and clears houses and has its trees only on the land it holds
+                                                  // that is no town of its own: on the quiet land between places, and on a place whose middle lies outside it (the edge of Sausalito by US 101 that the Golden Gate
+                                                  // reserve's outline takes in); a place whose middle lies inside it (Bolinas and Inverness in Point Reyes, the Marin Headlands) keeps its own (town). Not a refuge or
+                                                  // a marsh on the Bay's shore (WET: Don Edwards, San Pablo Bay, the Napa-Sonoma marshes): its coarse outline takes in whole neighbourhoods of the
+                                                  // flat towns round it (Alviso, Fremont by the Dumbarton Bridge, north Sunnyvale), so every place keeps its houses there, and no woods grow on them
+  const WET = /Refuge|Wildlife Area|Marsh/;
   // the textures: [name, west, south, east, north (degrees), width, height in pixels]; the first that holds a point is read there
   const BOXES = [['sf', -122.530, 37.700, -122.350, 37.836, 1536, 1536], ['vegas', -115.215, 36.040, -115.090, 36.190, 512, 768], ['near', -122.580, 37.660, -122.080, 38.000, 1024, 1024], ['bay', null, null, null, null, 768, 1024]];
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v)), lerp = (a, b, t) => a + (b - a) * t;
@@ -75,7 +80,7 @@
     if (!parks.length) throw new Error('no park could be read');
     // each park's box, its seed, its kind of trees; the largest first (a smaller one painted over a larger is the one that holds there); one whose box is wider than
     // about 400 units (57 km: no park is) left out, a corrupt shape
-    parks.forEach((p, k) => { let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity; for (let q = 0; q < p.n; q++) { const x = p.p[q * 2], z = p.p[q * 2 + 1]; if (x < x0) x0 = x; if (x > x1) x1 = x; if (z < z0) z0 = z; if (z > z1) z1 = z; } Object.assign(p, { x0, z0, x1, z1, seed: mix32(k, p.n, Math.round(p.ha * 10)), huge: p.kind === 1 && p.ha >= HUGE, lake: p.area === 'bay' && LAKES[p.name] ? LAKES[p.name] * K : 0 }); });
+    parks.forEach((p, k) => { let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity; for (let q = 0; q < p.n; q++) { const x = p.p[q * 2], z = p.p[q * 2 + 1]; if (x < x0) x0 = x; if (x > x1) x1 = x; if (z < z0) z0 = z; if (z > z1) z1 = z; } Object.assign(p, { x0, z0, x1, z1, seed: mix32(k, p.n, Math.round(p.ha * 10)), huge: p.kind === 1 && p.ha >= HUGE, wet: p.kind === 1 && p.ha >= HUGE && WET.test(p.name), lake: p.area === 'bay' && LAKES[p.name] ? LAKES[p.name] * K : 0 }); });
     for (let k = parks.length - 1; k >= 0; k--) { const p = parks[k]; if (!(p.x1 - p.x0 < 400 && p.z1 - p.z0 < 400)) { console.warn('3D map, a park shape left out: ' + p.name); parks.splice(k, 1); } }
     parks.sort((a, b) => b.ha - a.ha); parks.forEach((p, k) => { p.id = k; });
     // two grids: the parks up to 16 units across on cells of CELL, the larger ones (the reserves of the bay) on cells of 16
@@ -84,10 +89,15 @@
     for (const G of [grid, wide]) for (const l of G.values()) l.reverse();   // the smallest first
     const near = (x, z) => [grid.get(gk(Math.floor(x / CELL), Math.floor(z / CELL))), wide.get(gk(Math.floor(x / 16), Math.floor(z / 16)))];   // the parks that may hold a point (the smaller ones first)
     // the park at a point (the smallest that holds it), or null. all: also the huge reserves
+    // (a huge reserve p at a point of place i: is the place a town of its own inside it, its middle inside the outline; kept per reserve and place)
+    const towns = new Map(), H = env.HOODS || [], town = (p, i) => { if (!(i >= 0) || !H[i] || p.wet) return true; const k = p.id * 8192 + i; let v = towns.get(k); if (v === undefined) towns.set(k, v = inP(p, H[i].cx, H[i].cy)); return v; };
+    const reserve = (p, x, z, own) => { if (p.wet) return false; const i = own >= 0 ? own : env.hoodAt ? env.hoodAt(x, z) : -1; return i >= 0 && !town(p, i); };   // (own: the place the caller's lot stands on, known: no scan of every place)
     function at(x, z, all) { for (const l of near(x, z)) if (l) for (const p of l) { if ((p.huge && !all) || x < p.x0 || x > p.x1 || z < p.z0 || z > p.z1) continue; if (inP(p, x, z)) return p; } return null; }
-    // the generators' question: is the circle r round (x, z) in a park (its middle inside, or within r of the inside)
-    function inPark(x, z, r) {
-      if (at(x, z)) return true; if (!(r > 0)) return false;
+    // the generators' question: is the circle r round (x, z) in a park (its middle inside, or within r of the inside); own: the place the caller stands it on, if it knows
+    function inPark(x, z, r, own) {
+      if (at(x, z)) return true;
+      for (const l of near(x, z)) if (l) for (const p of l) { if (!p.huge || x + r < p.x0 || x - r > p.x1 || z + r < p.z0 || z - r > p.z1) continue; if ((inP(p, x, z) || (r > 0 && nearD2(p, x, z, r) < r * r)) && reserve(p, x, z, own)) return true; }   // (a huge reserve: on its land that is no town, town)
+      if (!(r > 0)) return false;
       for (const l of near(x, z)) if (l) for (const p of l) { if (p.huge || x + r < p.x0 || x - r > p.x1 || z + r < p.z0 || z - r > p.z1) continue; if (nearD2(p, x, z, r) < r * r) return true; } return false;
     }
     const chunks = new Set(); for (const p of parks) { if (p.huge && !env.landAt) continue; for (let i = Math.floor(p.x0 / CS); i <= Math.floor(p.x1 / CS); i++) for (let j = Math.floor(p.z0 / CS); j <= Math.floor(p.z1 / CS); j++) chunks.add(i * 65536 + j); }
@@ -135,7 +145,7 @@
 
     // ---- the trees of a chunk: [x, y, z, r, h/r, place, tint, kind] each ----
     // sizes in metres, as the real trees: a city tree's crown 8 to 14 m across; a grove of them, one shape, 30 to 60 m; heights about
-    // twice the crown's radius (the buildings' heights are drawn 2.5 times: a tree is not, so it does not read as a pole)
+    // twice the crown's radius (the buildings' heights are drawn HX times, js/map3d/land.js: a tree is not, so it does not read as a pole)
     const M = K;   // metres to map units
     const av = env.avoid || [];
     function stand(x, z) { // the ground under a tree and the place it stands on (-1: the quiet land), or null where nothing may stand
@@ -151,7 +161,7 @@
       const own = (x, z) => x >= x0 && x < x1 && z >= z0 && z < z1; avc = av.filter(a => a[0] + a[2] + 1 > x0 && a[0] - a[2] - 1 < x1 && a[1] + a[2] + 1 > z0 && a[1] - a[2] - 1 < z1);   // (the landmarks that can reach into this chunk)
       const put = (p, x, z, rm, hk, tint) => { // a tree of crown radius rm metres in park p, if it may stand there: in p, on land, clear of what is built
         const r = rm * M; tested++; if (!own(x, z) || !inP(p, x, z) || (p.lake && nearD2(p, x, z, p.lake - r) > (p.lake - r) * (p.lake - r))) return false; const inner = at(x, z, true); if (inner && inner !== p && inner.ha < p.ha) return false;   // (a smaller park inside this one plants its own)
-        if (!clear(x, z, r)) return false; const g = stand(x, z); if (!g || (p.huge && g[1] >= 0)) return false;
+        if (!clear(x, z, r)) return false; const g = stand(x, z); if (!g || (p.huge && g[1] >= 0 && town(p, g[1]))) return false;
         if (env.over && g[0] + r * hk > env.over(x, z, r)) return false;   // (under a raised deck: none taller than its underside)
         T.push(x, g[0], z, r, hk, g[1], tint, p.kind); return true;
       };

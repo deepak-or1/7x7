@@ -19,9 +19,12 @@
   const M3D = window.M3D, land = M3D && M3D.land; if (!land) return;
   const Geom = window.Geom, K = 1 / land.UNIT_M;
   const CS = 6;                                   // the side of a chunk, in map units
-  const V = 2.5;                                  // heights are drawn at two and a half times the map's scale: the downtown landmark models' own enlargement (Salesforce Tower, the Pyramid), so they stand among their real neighbours as in life (and as the models grow from afar, uRise, these grow with them)
+  const V = M3D.hx();                            // heights are drawn V times the map's scale (js/map3d/land.js HX), as the landmark models' are close in (Salesforce Tower, the Pyramid), so they stand among their real neighbours as in life (and as the models grow from afar, uRise, these grow with them)
+  const SV = V / 2.5;                             // V against the 2.5 the looks were drawn for: what stands on a roof is that much lower, and the walls' floors, bands and kinds are read in heights at 2.5 (vert), so a building keeps its real floors and its look
   const TALL = 60;                                // a building this tall (metres) or taller stands from the city-wide view inwards (tall below), the rest arrive by chunk as the camera comes near
   const CELL = 1.5;                               // the grid that answers "is this point built on"
+  const RM = 0.034;                               // a little under the margin js/map3d/roads.js keeps round a roadway (near: its half width and 0.035, about 5 m): a corner that far inside the roads' band is on the roadway (settle)
+  const EDGE = land.BEV || 0;                     // a corner on the rounded edge of its place's top (within this of the flat top) counts as on it (settle below)
   const FAR = 300;                                // an outline further than this from its area's origin, in map units (about 43 km), is not a building of that area
   let RX = new Float64Array(66), RZ = new Float64Array(66);   // a ring's points, for the roofs of the looks (shape below)
   const NV = 3, NB = 4, NW = 4;                   // numbers per vertex as made: position; aB [the ground it grows from, place, tint, the chunk's slot]; aW [along the wall, above the ground, 1 wall / 0 roof, the building's height]
@@ -68,7 +71,8 @@
 
   // env: { inTop(x, z): the place whose block's top holds the point, or -1; inTopOf(i, x, z); hAt(i, x, z): the ground of place i
   // there; boxes: [[x0, z0, x1, z1], ...] the plans of the landmark models (a model wins over the outline at its spot);
-  // look: the look of the buildings, read as each shape is made ('0' or none: plain); road(x, z, r): is the circle on a road (optional) }
+  // look: the look of the buildings, read as each shape is made ('0' or none: plain); road(x, z, r): is the circle on a road (optional);
+  // nearTop(i, x, z, d): is the point within d of place i's top (optional) }
   function make(data, env) {
     if (!data || !Array.isArray(data.areas) || !data.areas.length) throw new Error('the building data is not there');
     const chunks = new Map(), grid = new Map(), dens = new Map(), groups = [], ck = (x, z) => Math.floor(x / CELL) * 8192 + Math.floor(z / CELL); let total = 0;
@@ -90,7 +94,7 @@
         for (let k = 0, j = n - 1; k < n; j = k++) ar += p[j * 2] * p[k * 2 + 1] - p[k * 2] * p[j * 2 + 1];
         if (ar < 0) { for (let k = 0; k < n >> 1; k++) { const j = n - 1 - k, tx = p[k * 2], tz = p[k * 2 + 1]; p[k * 2] = p[j * 2]; p[k * 2 + 1] = p[j * 2 + 1]; p[j * 2] = tx; p[j * 2 + 1] = tz; } ar = -ar; }   // the solid on the left, as land.js winds its rings
         if (!(ar > 1e-5) || !(b.h > 0)) continue;
-        const rec = { p, n, h: b.h, base: b.base, roof: b.roof, cx: cx / n, cz: cz / n, x0, z0, x1, z1, area: ar / 2, tint: ((total * 2654435761) >>> 0) / 4294967296, place: undefined }; total++;
+        const rec = { p, n, h: b.h, base: b.base, roof: b.roof, cx: cx / n, cz: cz / n, x0, z0, x1, z1, area: ar / 2, tint: ((total * 2654435761) >>> 0) / 4294967296, place: undefined, edge: 0 }; total++;
         const key = Math.floor(rec.cx / CS) * 65536 + Math.floor(rec.cz / CS); if (b.h >= TALL) { rec.key = key; tallOf.push(rec); } else { let l = chunks.get(key); if (!l) chunks.set(key, l = []); l.push(rec); }
         for (let i = Math.floor(x0 / CELL); i <= Math.floor(x1 / CELL); i++) for (let j = Math.floor(z0 / CELL); j <= Math.floor(z1 / CELL); j++) { const g = i * 8192 + j; let q = grid.get(g); if (!q) grid.set(g, q = []); q.push(rec); }
         if (core) { const g = ck(rec.cx, rec.cz); dens.set(g, (dens.get(g) || 0) + 1); }
@@ -99,6 +103,7 @@
       tallOf.sort((u, v) => u.key - v.key); for (let k = 0; k < tallOf.length; k += 50) groups.push(tallOf.slice(k, k + 50));
     }
     if (!areas) throw new Error('no area of the building data could be read');
+    if (M3D.heroes) try { M3D.heroes.match(grid, ck); } catch (e) { console.warn('3D map, the named buildings left out: ' + (e && e.message || e)); }   // the named buildings (js/map3d/heroes.js): each outline of its table is given its shape (b.hero)
     // is the circle r round a point built on (by any outline, kept or not: nothing made up stands there either)
     function solid(x, z, r) {
       for (let i = Math.floor((x - r) / CELL); i <= Math.floor((x + r) / CELL); i++) for (let j = Math.floor((z - r) / CELL); j <= Math.floor((z + r) / CELL); j++) {
@@ -110,14 +115,23 @@
     }
     // the part of town where every building is real (the core of San Francisco): nothing is made up there, built or not
     const dense = (x, z) => (dens.get(ck(x, z)) || 0) >= 2;
-    // where a building stands: not under a landmark's plan, and on the top of one place
+    // where a building stands: not under a landmark's plan, not on a road, and on the top of one place
+    // (a road: its middle is in the roads' band, a corner or the middle of a wall is on the roadway itself (the band less its margin, RM), or a fifth of
+    // its plan is in the band: a corner or a wall in the band's margin beside a raised road or a freeway is a building beside it, as in life (One Rincon
+    // Hill, 100 Van Ness); the band, js/map3d/roads.js near: the roadway and a margin round it.
+    // On the top: seven in ten of its corners on its place's block, the rounded edge of the top (land.js BEV) counted: a building at the
+    // block's edge stands there, its walls taken down past the rounded edge (b.edge; the Avery, LUMINA, the Infinity, Hills Plaza))
     function settle(b) {
-      b.place = -1;
+      b.place = -1; b.edge = 0;
       for (const q of env.boxes || []) { if (b.cx > q[0] && b.cx < q[2] && b.cz > q[1] && b.cz < q[3]) return; const mx = (q[0] + q[2]) / 2, mz = (q[1] + q[3]) / 2; if (mx > b.x0 && mx < b.x1 && mz > b.z0 && mz < b.z1 && inRing(b.p, b.n, mx, mz)) return; }
-      if (env.road) { if (env.road(b.cx, b.cz, 0.04)) return; for (let k = 0, j = b.n - 1; k < b.n; j = k++) if (env.road(b.p[k * 2], b.p[k * 2 + 1], 0) || env.road((b.p[k * 2] + b.p[j * 2]) / 2, (b.p[k * 2 + 1] + b.p[j * 2 + 1]) / 2, 0)) return; }   // a road runs here (js/map3d/roads.js): its middle, a corner or the middle of a wall is on it
-      const i = env.inTop(b.cx, b.cz); if (i < 0) return; let on = 0; for (let k = 0; k < b.n; k++) if (env.inTopOf(i, b.p[k * 2], b.p[k * 2 + 1])) on++;
-      if (on >= b.n * 0.7) b.place = i;
+      if (env.road) { if (env.road(b.cx, b.cz, 0.04)) return; let hit = false;
+        for (let k = 0, j = b.n - 1; k < b.n; j = k++) { const x = b.p[k * 2], z = b.p[k * 2 + 1], mx = (x + b.p[j * 2]) / 2, mz = (z + b.p[j * 2 + 1]) / 2; if (env.road(x, z, -RM) || env.road(mx, mz, -RM)) return; if (!hit) hit = env.road(x, z, 0) || env.road(mx, mz, 0); }
+        if (hit && onRoad(b) >= 0.2) return; }
+      const i = env.inTop(b.cx, b.cz); if (i < 0) return; let on = 0, edge = 0; for (let k = 0; k < b.n; k++) { const x = b.p[k * 2], z = b.p[k * 2 + 1]; if (env.inTopOf(i, x, z)) on++; else if (EDGE > 0 && env.nearTop && env.nearTop(i, x, z, EDGE)) { on++; edge = 1; } }
+      if (on >= b.n * 0.7) { b.place = i; b.edge = edge; }
     }
+    // the share of an outline's plan in the roads' band (points about a tenth of its width apart; asked only of an outline a road touches)
+    function onRoad(b) { const st = Math.max(b.x1 - b.x0, b.z1 - b.z0) / 10; let n = 0, on = 0; for (let x = b.x0 + st / 2; x < b.x1; x += st) for (let z = b.z0 + st / 2; z < b.z1; z += st) if (inRing(b.p, b.n, x, z)) { n++; if (env.road(x, z, 0)) on++; } return n ? on / n : 1; }
     const has = (ix, iz) => chunks.has(ix * 65536 + iz);
     // one chunk's buildings (the ones under TALL) as one shape, the tallest first (a lighter picture draws the first part of it):
     // null when it has none. tall(g): the same for a group of the tall buildings (tallCount of them)
@@ -128,9 +142,9 @@
       const keep = []; for (const b of list) { if (b.place === undefined) settle(b); if (b.place >= 0) keep.push(b); } if (!keep.length) return null;
       keep.sort((a, b) => b.h - a.h);
       const pos = [], nor = [], aB = [], aW = [], idx = [], tri = [], cuts = []; let nv = 0, y0 = Infinity, y1 = -Infinity;
-      const vert = (x, y, z, nx, ny, nz, g, b, u, v, wall, bh) => { pos.push(x, y, z); nor.push(nx, ny, nz); aB.push(g, b.place, b.tint, 0); aW.push(u, v, wall, bh); if (y < y0) y0 = y; if (y > y1) y1 = y; return nv++; };
+      const vert = (x, y, z, nx, ny, nz, g, b, u, v, wall, bh) => { pos.push(x, y, z); nor.push(nx, ny, nz); aB.push(g, b.place, b.tint, 0); aW.push(u, v / SV, wall, bh / SV); if (y < y0) y0 = y; if (y > y1) y1 = y; return nv++; };
       keep.forEach((b, bi) => {
-        const p = b.p, n = b.n, i = b.place, gc = env.hAt(i, b.cx, b.cz); let g = gc; for (let k = 0; k < n; k++) { const q = env.hAt(i, p[k * 2], p[k * 2 + 1]); if (q < g) g = q; }
+        const p = b.p, n = b.n, i = b.place, gc = env.hAt(i, b.cx, b.cz); let g = gc; for (let k = 0; k < n; k++) { const q = env.hAt(i, p[k * 2], p[k * 2 + 1]); if (q < g) g = q; } if (b.edge) g -= EDGE;
         // on a slope it stands on the lowest ground under its outline and is as tall above the ground at its middle as on the flat; a part that starts above the ground (base) hangs from there
         const hh = b.h * K * V, top = gc + hh, bot = b.base > 0 && b.base < b.h ? gc + b.base * K * V : g - 0.02, u0 = b.tint * 9;
         const ring = (q, s, y, lift) => { // walls up from a ring (q scaled by s about the middle) from y to y + lift, and a flat lid on them
@@ -156,7 +170,7 @@
         } else {
           lid(base);
           // a tower with a plain flat top gets what stands on such roofs: a set-back storey, and on the tallest a plant room on that
-          if (convex && b.h >= 40 && span > 0.12) { const c1 = ring(p, 0.72, top, Math.min(0.09, hh * 0.05) + 0.02 * b.tint); lid(c1); if (b.h >= 110) lid(ring(p, 0.4, top + Math.min(0.09, hh * 0.05) + 0.02 * b.tint, 0.07 + 0.05 * b.tint)); }
+          if (convex && b.h >= 40 && span > 0.12) { const c1 = ring(p, 0.72, top, Math.min(0.09 * SV, hh * 0.05) + 0.02 * SV * b.tint); lid(c1); if (b.h >= 110) lid(ring(p, 0.4, top + Math.min(0.09 * SV, hh * 0.05) + 0.02 * SV * b.tint, (0.07 + 0.05 * b.tint) * SV)); }
         }
         };
         // the looks: walls, then a roof that reads as one. (C: the middle of the outline's area; star: every edge is seen from it, so
@@ -196,11 +210,11 @@
               ps = s; py = f; }
           } else if (tower && b.h >= 150 && r1 < 0.6 && !(b.base > 0)) {
             // one of the tallest: the shaft steps in twice below its top, and some carry a mast
-            const hc = Math.min(0.2 * hh, 0.55), y1 = top - hc, y2 = top - hc * 0.42;
+            const hc = Math.min(0.2 * hh, 0.55 * SV), y1 = top - hc, y2 = top - hc * 0.42;
             walls(1, bot, y1 - bot, 1); flat(1, y1); walls(0.8, y1, y2 - y1, 1); flat(0.8, y2); walls(0.58, y2, top - y2, 1); flat(0.58, top);
-            if (b.h >= 180 && r2 < 0.5) box(Cx, Cz, 0.012, 0.012, top, 0.22 + 0.2 * r3);
+            if (b.h >= 180 && r2 < 0.5) box(Cx, Cz, 0.012, 0.012, top, (0.22 + 0.2 * r3) * SV);
           } else if (tower) {
-            walls(1, bot, top - bot, 1); flat(1, top); const st = Math.min(0.09, hh * 0.05) + 0.02 * b.tint;
+            walls(1, bot, top - bot, 1); flat(1, top); const st = Math.min(0.09 * SV, hh * 0.05) + 0.02 * SV * b.tint;
             if (b.h >= 90 && r1 > 0.62) { // a chamfered crown: the walls lean in to a smaller top
               const s1 = 0.8, y1 = top + st * 1.5; ring(1);
               for (let k = 0; k < n; k++) { const ax = RX[k], az = RZ[k], cx = RX[k + 1], cz = RZ[k + 1], dx = cx - ax, dz = cz - az, l = Math.hypot(dx, dz); if (l < 1e-6) continue;
@@ -208,17 +222,17 @@
                 const v0 = vert(ax, top, az, nx, ny, nz, g, b, 0, top - gc, 2, hh), v1 = vert(cx, top, cz, nx, ny, nz, g, b, l, top - gc, 2, hh), v2 = vert(fx, y1, fz, nx, ny, nz, g, b, l, y1 - gc, 2, hh), v3 = vert(ex, y1, ez, nx, ny, nz, g, b, 0, y1 - gc, 2, hh); idx.push(v0, v2, v1, v0, v3, v2); }
               flat(s1, y1);
             } else { // a set-back storey, and on the tallest a plant room on that (as the plain towers have)
-              walls(0.72, top, st, 1); flat(0.72, top + st); if (b.h >= 110) { walls(0.4, top + st, 0.07 + 0.05 * b.tint, 2); flat(0.4, top + st + 0.07 + 0.05 * b.tint); } }
+              walls(0.72, top, st, 1); flat(0.72, top + st); if (b.h >= 110) { const pr = (0.07 + 0.05 * b.tint) * SV; walls(0.4, top + st, pr, 2); flat(0.4, top + st + pr); } }
           } else {
             walls(1, bot, top - bot, 1); flat(1, top);
             // what stands on a large flat roof: one to three plant rooms about its middle
             if (star && b.h >= 9 && r0 >= 0.06 && r1 > 0.2) { const nb = r0 > 0.17 ? 3 : r0 > 0.1 ? 2 : 1;
               for (let q = 0; q < nb; q++) { const a = (r2 + q / nb) * 6.2832, d = (nb > 1 ? 0.42 : 0.25 * r3) * r0, hs = Math.min(0.085, (0.2 + 0.1 * ((r3 * (q + 2) * 3.7) % 1)) * r0 * (nb > 1 ? 0.8 : 1.15));
-                box(Cx + Math.cos(a) * d, Cz + Math.sin(a) * d, hs, hs * (0.55 + 0.4 * ((r1 * (q + 3) * 5.3) % 1)), top, (q === 0 ? 0.034 : 0.02) + 0.02 * ((r2 * (q + 1) * 7.9) % 1)); } }
+                box(Cx + Math.cos(a) * d, Cz + Math.sin(a) * d, hs, hs * (0.55 + 0.4 * ((r1 * (q + 3) * 5.3) % 1)), top, ((q === 0 ? 0.034 : 0.02) + 0.02 * ((r2 * (q + 1) * 7.9) % 1)) * SV); } }
           }
         };
-        if (env.look && env.look !== '0') { const m = [pos.length, nor.length, aB.length, aW.length, idx.length, nv, y0, y1];
-          try { styled(); } catch (e) { pos.length = m[0]; nor.length = m[1]; aB.length = m[2]; aW.length = m[3]; idx.length = m[4]; nv = m[5]; y0 = m[6]; y1 = m[7]; plain(); } } // (a building the new roof fails on stands as the plain one)
+        if (env.look && env.look !== '0') { const m = [pos.length, nor.length, aB.length, aW.length, idx.length, nv, y0, y1], back = () => { pos.length = m[0]; nor.length = m[1]; aB.length = m[2]; aW.length = m[3]; idx.length = m[4]; nv = m[5]; y0 = m[6]; y1 = m[7]; };
+          try { if (!(b.hero != null && M3D.heroes.put(b, vert, idx, ears, g, gc, K * V))) styled(); } catch (e) { back(); if (b.hero === null) try { styled(); } catch (e2) { back(); plain(); } else plain(); } } // (a building the new roof fails on stands as the plain one; a named one whose shape fails, as the look makes any outline: heroes.js put)
         else plain();
         if (bi + 1 === Math.ceil(keep.length * 0.25)) cuts[0] = idx.length; if (bi + 1 === Math.ceil(keep.length * 0.5)) cuts[1] = idx.length;
       });
@@ -226,7 +240,9 @@
     }
     // every outline placed again when next made (the roads' list came late: the outlines placed before did not keep clear of them)
     const resettle = () => { for (const l of chunks.values()) for (const b of l) b.place = undefined; for (const l of groups) for (const b of l) b.place = undefined; };
-    return { chunk, has, solid, dense, total, CS, tall, tallCount: groups.length, TALL, resettle };
+    // the height in metres of the tallest outline with its middle within r of a point, not counting one the point is inside (js/map3d.js: is a landmark among towers)
+    function top(x, z, r) { let m = 0; for (let i = Math.floor((x - r) / CELL); i <= Math.floor((x + r) / CELL); i++) for (let j = Math.floor((z - r) / CELL); j <= Math.floor((z + r) / CELL); j++) { const l = grid.get(i * 8192 + j); if (l) for (const b of l) if (b.h > m && Math.hypot(b.cx - x, b.cz - z) < r && !inRing(b.p, b.n, x, z)) m = b.h; } return m; }
+    return { chunk, has, solid, dense, total, CS, tall, tallCount: groups.length, TALL, resettle, top };
   }
 
   // ---- drawing ----
@@ -257,7 +273,7 @@ float pg = ${LK.G > 0 ? '0.03 + 0.47 * tall' : '0.0'}, pr = 0.12 + 0.16 * tall, 
 vec3 fc = mix(fpl.rgb, uPale, top ? uRoofK + (0.82 - uRoofK) * 0.7 * tall : uWallK + (0.86 - uWallK) * 0.72 * tall) * (0.9 + 0.2 * fract(ft * 7.31));
 if (st > 2.5 && !top) fc = mix(fc, uGlass * (0.92 + 0.16 * fract(ft * 7.31)), ${fl(LK.G)});
 if (top && fract(ft * 3.17) > 0.8) fc = mix(fc, fpl.rgb * 0.8, 0.55 * (1.0 - tall));
-if (!top) fc *= 0.84 + 0.16 * smoothstep(0.0, 0.26, aW.y);
+if (!top) fc *= 0.84 + 0.16 * smoothstep(0.0, ${fl(14.85 * K * V / SV)}, aW.y);
 vFab = vec4(fc, ft); vWin = vec4(aW.x, aW.y, aW.z + 4.0 * st, aW.w);   // (two varyings, not three: the face's kind and the walls' kind in z, the height in w, the tint with the colour; read back as m3dKd, m3dSt, m3dHh, m3dFt)`);
       s.fragmentShader = s.fragmentShader.replace('#include <common>', `#include <common>
 varying vec4 vFab; varying vec4 vWin; uniform vec3 uWin;
@@ -297,8 +313,9 @@ if (uWin.r + uWin.g + uWin.b > 0.0 && m3dKd > 0.5 && m3dKd < 1.5) { float st = $
   // the street's band glows a little, in runs of shopfronts
   float sb = vWin.x / 0.22, sf = fract(sb); totalEmissiveRadiance += uWin * 0.5 * step(0.2, hh) * step(0.012, y) * step(y, 0.05) * step(0.12, sf) * step(sf, 0.88) * step(0.45, fract(sin(floor(sb) * 91.7 + m3dFt * 40.0) * 4375.85)) * (1.0 - clamp(fwidth(sb) * 3.0 - 0.3, 0.0, 1.0)); }`);
     };
+    if (NEW && M3D.heroes) try { const t = { vertexShader: THREE.ShaderLib.standard.vertexShader, fragmentShader: THREE.ShaderLib.standard.fragmentShader, uniforms: {} }; styled(t); M3D.heroes.shade(t); } catch (e) { M3D.heroes.shade(null); }   // (the named buildings told now, on a copy, whether the look's text can read their table: before any is made)
     mat.onBeforeCompile = s => { uni(s);
-      if (NEW) { styled(s); s.fragmentShader += '\n// m3d-look\n'; return; }   // (the look's mark: js/map3d.js onShaderError)
+      if (NEW) { styled(s); if (M3D.heroes) try { M3D.heroes.shade(s); } catch (e) { console.warn('3D map, the named buildings: ' + (e && e.message || e)); } s.fragmentShader += '\n// m3d-look\n'; return; }   // (the look's mark: js/map3d.js onShaderError)
       s.vertexShader = s.vertexShader.replace('#include <common>', '#include <common>' + HEAD + '\nuniform vec3 uPale; uniform float uRoofK; uniform float uWallK;\nvarying vec3 vFab; varying vec4 vWin;')
         .replace('#include <begin_vertex>', POS + `
 bool top = aW.z < 0.5; float ft = aB.z, tall = smoothstep(0.3, 1.7, aW.w);
@@ -328,5 +345,5 @@ if (uWin.r + uWin.g + uWin.b > 0.0) { vec2 wc = vWin.xy / vec2(0.075, 0.058), wi
     return { mesh, mats: { mat, depth } };
   }
 
-  M3D.real = { make, gl, pack, CS, V };
+  M3D.real = { make, gl, pack, CS, V, SV, TALL_M: TALL };
 })();
